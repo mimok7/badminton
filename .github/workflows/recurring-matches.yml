@@ -1,0 +1,24 @@
+name: Auto-Generate Recurring Matches
+
+on:
+  # 매일 오전 6시(한국 시간 기준)에 실행
+  schedule:
+    - cron: '0 21 * * *'  # UTC 기준 21:00 = 한국시간 06:00
+  
+  # 수동 실행도 가능하도록 설정
+  workflow_dispatch:
+
+jobs:
+  generate-recurring-matches:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Generate Recurring Matches
+        run: |
+          curl -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/cron/recurring-matches"
+        
+      - name: Log completion
+        run: echo "정기모임 자동 생성 완료 - $(date)"

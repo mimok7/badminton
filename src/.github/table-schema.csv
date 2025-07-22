@@ -1,0 +1,48 @@
+table_schema,table_name,column_name,data_type
+auth,audit_log_entries,instance_id,uuid
+auth,audit_log_entries,id,uuid
+auth,audit_log_entries,payload,json
+auth,audit_log_entries,created_at,timestamp with time zone
+auth,audit_log_entries,ip_address,character varying
+auth,flow_state,id,uuid
+auth,flow_state,user_id,uuid
+auth,flow_state,auth_code,text
+auth,flow_state,code_challenge_method,USER-DEFINED
+auth,flow_state,code_challenge,text
+auth,flow_state,provider_type,text
+auth,flow_state,provider_access_token,text
+auth,flow_state,provider_refresh_token,text
+auth,flow_state,created_at,timestamp with time zone
+auth,flow_state,updated_at,timestamp with time zone
+auth,flow_state,authentication_method,text
+auth,flow_state,auth_code_issued_at,timestamp with time zone
+auth,identities,provider_id,text
+auth,identities,user_id,uuid
+auth,identities,identity_data,jsonb
+auth,identities,provider,text
+auth,identities,last_sign_in_at,timestamp with time zone
+auth,identities,created_at,timestamp with time zone
+auth,identities,updated_at,timestamp with time zone
+auth,identities,email,text
+auth,identities,id,uuid
+auth,instances,id,uuid
+auth,instances,uuid,uuid
+auth,instances,raw_base_config,text
+auth,instances,created_at,timestamp with time zone
+auth,instances,updated_at,timestamp with time zone
+auth,mfa_amr_claims,session_id,uuid
+auth,mfa_amr_claims,created_at,timestamp with time zone
+auth,mfa_amr_claims,updated_at,timestamp with time zone
+auth,mfa_amr_claims,authentication_method,text
+auth,mfa_amr_claims,id,uuid
+auth,mfa_challenges,id,uuid
+auth,mfa_challenges,factor_id,uuid
+auth,mfa_challenges,created_at,timestamp with time zone
+auth,mfa_challenges,verified_at,timestamp with time zone
+auth,mfa_challenges,ip_address,inet
+auth,mfa_challenges,otp_code,text
+auth,mfa_challenges,web_authn_session_data,jsonb
+auth,mfa_factors,id,uuid
+auth,mfa_factors,user_id,uuid
+auth,mfa_factors,friendly_name,text
+auth,mfa_factors,factor_type,USER-DEFINED

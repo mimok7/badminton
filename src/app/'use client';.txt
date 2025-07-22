@@ -1,0 +1,46 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { PlayerTable } from './components/PlayerTable';
+import { AddPlayerDialog } from './components/AddPlayerDialog';
+
+// DB `profiles` table에 맞춘 타입 정의
+export interface Profile {
+  id: string;
+  username: string | null;
+  full_name: string | null;
+  skill_level: string | null;
+  gender: string | null;
+}
+
+export default function PlayersPage() {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProfiles = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from('profiles').select('*').order('username');
+    if (error) {
+      console.error('Error fetching profiles:', error);
+      alert('선수 목록을 불러오는 데 실패했습니다.');
+    } else {
+      setProfiles(data || []);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
+
+  return (
+    <div className="container mx-auto py-10">
+      <h1 className="text-2xl font-bold mb-4">🏸 선수 관리</h1>
+      <div className="flex justify-end mb-4">
+        <AddPlayerDialog onPlayerAdded={fetchProfiles} />
+      </div>
+      {loading ? <p>선수 목록을 불러오는 중...</p> : <PlayerTable profiles={profiles} />}
+    </div>
+  );
+}

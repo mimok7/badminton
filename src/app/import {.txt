@@ -1,0 +1,48 @@
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Profile } from '../page';
+
+interface PlayerTableProps {
+  profiles: Profile[];
+}
+
+export function PlayerTable({ profiles }: PlayerTableProps) {
+  return (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>닉네임</TableHead>
+            <TableHead>이름</TableHead>
+            <TableHead>급수</TableHead>
+            <TableHead>성별</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {profiles.length > 0 ? (
+            profiles.map((profile) => (
+              <TableRow key={profile.id}>
+                <TableCell className="font-medium">{profile.username}</TableCell>
+                <TableCell>{profile.full_name}</TableCell>
+                <TableCell>{profile.skill_level}</TableCell>
+                <TableCell>{profile.gender === 'male' ? '남성' : '여성'}</TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={4} className="h-24 text-center">
+                등록된 선수가 없습니다.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}

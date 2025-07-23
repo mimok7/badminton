@@ -400,7 +400,12 @@ export default function MySchedulePage() {
             const sessionDate = match.match_sessions?.[0]?.session_date || new Date().toISOString().split('T')[0];
             
             // 내가 어느 팀에 속하는지 확인
-            const isTeam1 = match.team1_player1?.id === myProfile.id || match.team1_player2?.id === myProfile.id;
+            const team1_player1 = Array.isArray(match.team1_player1) ? match.team1_player1[0] : match.team1_player1;
+            const team1_player2 = Array.isArray(match.team1_player2) ? match.team1_player2[0] : match.team1_player2;
+            const team2_player1 = Array.isArray(match.team2_player1) ? match.team2_player1[0] : match.team2_player1;
+            const team2_player2 = Array.isArray(match.team2_player2) ? match.team2_player2[0] : match.team2_player2;
+
+            const isTeam1 = team1_player1?.id === myProfile.id || team1_player2?.id === myProfile.id;
             const myTeamWon = (isTeam1 && result.winner === 'team1') || (!isTeam1 && result.winner === 'team2');
             
             if (myTeamWon) wins++;

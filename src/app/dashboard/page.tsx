@@ -40,6 +40,15 @@ interface OpponentStats extends WinLossStats {
   skill_level: string;
 }
 
+// 프로필 타입 정의 추가
+interface ProfileData {
+  id: string;
+  user_id: string;
+  username: string | null;
+  full_name: string | null;
+  skill_level: string | null;
+}
+
 export default function DashboardPage() {
   const { user, profile, loading: userLoading } = useUser();
   const supabase = createClientComponentClient();
@@ -102,11 +111,25 @@ export default function DashboardPage() {
         const result = match.match_result as any;
         const session = match.match_sessions?.[0];
         
-        // 🔧 타입 에러 수정: 배열로 반환될 수 있으니 단일 객체로 보정
-        const team1_player1 = Array.isArray(match.team1_player1) ? match.team1_player1[0] : match.team1_player1;
-        const team1_player2 = Array.isArray(match.team1_player2) ? match.team1_player2[0] : match.team1_player2;
-        const team2_player1 = Array.isArray(match.team2_player1) ? match.team2_player1[0] : match.team2_player1;
-        const team2_player2 = Array.isArray(match.team2_player2) ? match.team2_player2[0] : match.team2_player2;
+        // 🔧 안전한 타입 처리
+        const team1_player1 = Array.isArray(match.team1_player1) 
+          ? match.team1_player1[0] as ProfileData
+          : match.team1_player1 as ProfileData;
+        const team1_player2 = Array.isArray(match.team1_player2) 
+          ? match.team1_player2[0] as ProfileData
+          : match.team1_player2 as ProfileData;
+        const team2_player1 = Array.isArray(match.team2_player1) 
+          ? match.team2_player1[0] as ProfileData
+          : match.team2_player1 as ProfileData;
+        const team2_player2 = Array.isArray(match.team2_player2) 
+          ? match.team2_player2[0] as ProfileData
+          : match.team2_player2 as ProfileData;
+
+        // null 체크 추가
+        if (!team1_player1 || !team1_player2 || !team2_player1 || !team2_player2) {
+          console.warn('일부 플레이어 정보가 누락된 경기 건너뜀:', match.id);
+          return;
+        }
 
         // 내가 어느 팀인지 확인
         const isTeam1 = team1_player1?.user_id === user.id || team1_player2?.user_id === user.id;
@@ -193,7 +216,7 @@ export default function DashboardPage() {
 
       // 각 검색된 프로필에 대해 승부 기록 계산
       for (const opponent of searchProfiles || []) {
-        // 해당 상대방과 함께한 경기들 조회
+        // 해당 상대방과 함께한 경기들 조회 - 쿼리 단순화
         const { data: vsMatches, error: vsError } = await supabase
           .from('generated_matches')
           .select(`
@@ -205,8 +228,7 @@ export default function DashboardPage() {
             team2_player2_id
           `)
           .eq('status', 'completed')
-          .not('match_result', 'is', null)
-          .or(`and(or(team1_player1_id.eq.${profile.id},team1_player2_id.eq.${profile.id}),or(team2_player1_id.eq.${opponent.id},team2_player2_id.eq.${opponent.id})),and(or(team2_player1_id.eq.${profile.id},team2_player2_id.eq.${profile.id}),or(team1_player1_id.eq.${opponent.id},team1_player2_id.eq.${opponent.id}))`);
+          .not('match_result', 'is', null);
 
         if (vsError) {
           console.error(`${opponent.username}과의 경기 조회 실패:`, vsError);
@@ -218,6 +240,20 @@ export default function DashboardPage() {
 
         // 각 경기에서 승패 계산
         vsMatches?.forEach((match) => {
+          // 내가 참여한 경기인지 확인
+          const isMyMatch = match.team1_player1_id === profile.id || 
+                           match.team1_player2_id === profile.id ||
+                           match.team2_player1_id === profile.id || 
+                           match.team2_player2_id === profile.id;
+          
+          // 상대방이 참여한 경기인지 확인
+          const isOpponentMatch = match.team1_player1_id === opponent.id || 
+                                 match.team1_player2_id === opponent.id ||
+                                 match.team2_player1_id === opponent.id || 
+                                 match.team2_player2_id === opponent.id;
+          
+          if (!isMyMatch || !isOpponentMatch) return;
+          
           const result = match.match_result as any;
           if (!result?.winner) return;
 

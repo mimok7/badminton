@@ -309,7 +309,7 @@ export default function MySchedulePage() {
         });
 
         if (!assignedError && assignedMatches && assignedMatches.length > 0) {
-          // 배정된 경기를 가상의 일정으로 변환
+          // 배정된 경기를 가상의 일정로 변환
           assignedMatches.forEach((match, index) => {
             const session = match.match_sessions?.[0]; // 첫 번째 세션 정보 사용
             
@@ -399,7 +399,7 @@ export default function MySchedulePage() {
             const result = match.match_result as any;
             const sessionDate = match.match_sessions?.[0]?.session_date || new Date().toISOString().split('T')[0];
             
-            // 내가 어느 팀에 속하는지 확인
+            // 🔽 배열로 반환될 수 있으니 항상 첫 번째 값만 사용
             const team1_player1 = Array.isArray(match.team1_player1) ? match.team1_player1[0] : match.team1_player1;
             const team1_player2 = Array.isArray(match.team1_player2) ? match.team1_player2[0] : match.team1_player2;
             const team2_player1 = Array.isArray(match.team2_player1) ? match.team2_player1[0] : match.team2_player1;
@@ -413,12 +413,12 @@ export default function MySchedulePage() {
 
             // 팀원과 상대방 이름 정리
             const teammates = isTeam1 
-              ? [match.team1_player1, match.team1_player2]
-              : [match.team2_player1, match.team2_player2];
-            
+              ? [team1_player1, team1_player2]
+              : [team2_player1, team2_player2];
+
             const opponents = isTeam1 
-              ? [match.team2_player1, match.team2_player2]
-              : [match.team1_player1, match.team1_player2];
+              ? [team2_player1, team2_player2]
+              : [team1_player1, team1_player2];
 
             const getPlayerNames = (players: any[]) => 
               players

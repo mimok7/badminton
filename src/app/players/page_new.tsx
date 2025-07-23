@@ -18,8 +18,14 @@ interface ExtendedPlayer {
 
 interface Match {
   id: string;
-  team1: { player1: string; player2: string };
-  team2: { player1: string; player2: string };
+  team1: { 
+    player1: { id: string; name: string; skill_level?: string; }; 
+    player2: { id: string; name: string; skill_level?: string; }; 
+  };
+  team2: { 
+    player1: { id: string; name: string; skill_level?: string; }; 
+    player2: { id: string; name: string; skill_level?: string; }; 
+  };
   court: number;
 }
 
@@ -283,12 +289,12 @@ export default function PlayersPage() {
         const match: Match = {
           id: `match-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           team1: { 
-            player1: shuffled[i].name, 
-            player2: shuffled[i + 1].name 
+            player1: { id: shuffled[i].id, name: shuffled[i].name, skill_level: shuffled[i].skill_level }, 
+            player2: { id: shuffled[i + 1].id, name: shuffled[i + 1].name, skill_level: shuffled[i + 1].skill_level }
           },
           team2: { 
-            player1: shuffled[i + 2].name, 
-            player2: shuffled[i + 3].name 
+            player1: { id: shuffled[i + 2].id, name: shuffled[i + 2].name, skill_level: shuffled[i + 2].skill_level }, 
+            player2: { id: shuffled[i + 3].id, name: shuffled[i + 3].name, skill_level: shuffled[i + 3].skill_level }
           },
           court: Math.floor(i / 4) + 1
         };
@@ -449,10 +455,10 @@ export default function PlayersPage() {
                 <div className="font-semibold mb-1">경기 {index + 1} (코트 {match.court})</div>
                 <div className="text-sm">
                   <div className="text-blue-600">
-                    팀1: {match.team1.player1} & {match.team1.player2}
+                    팀1: {match.team1.player1.name} & {match.team1.player2.name}
                   </div>
                   <div className="text-red-600">
-                    팀2: {match.team2.player1} & {match.team2.player2}
+                    팀2: {match.team2.player1.name} & {match.team2.player2.name}
                   </div>
                 </div>
               </div>

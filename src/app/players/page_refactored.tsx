@@ -156,7 +156,9 @@ function PlayersPage() {
 
       const formattedMatches = matches?.map(match => ({
         id: match.id,
+        session_id: sessionId,
         match_number: match.match_number,
+        status: 'scheduled' as const,
         team1_player1: {
           name: match.team1_player1?.username || match.team1_player1?.full_name || '선수1',
           skill_level: match.team1_player1?.skill_level || 'E2'

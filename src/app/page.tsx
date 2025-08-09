@@ -134,7 +134,7 @@ export default function HomePage() {
                   {isAdmin ? '관리자' : '회원'}
                 </span>
                 <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full">
-                  현재급수: {profile?.skill_level_name || profile?.skill_level || 'E2급'}
+                  현재급수: {profile?.skill_level ? `${profile.skill_level}급` : 'E2급'}
                 </span>
               </div>
               <p className="text-gray-600">

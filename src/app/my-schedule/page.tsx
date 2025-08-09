@@ -828,6 +828,13 @@ export default function MySchedulePage() {
       return;
     }
 
+    // 현재 사용자 확인 (타입 가드)
+    const currentUserId = user?.id;
+    if (!currentUserId) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
     try {
       const generatedMatchId = selectedMatch.id.replace('generated_', '');
       
@@ -858,7 +865,7 @@ export default function MySchedulePage() {
         currentMatch.team2_player2?.user_id
       ].filter(Boolean);
 
-      if (!participantUserIds.includes(user.id)) {
+  if (!participantUserIds.includes(currentUserId)) {
         alert('이 경기의 참가자만 결과를 입력할 수 있습니다.');
         return;
       }
@@ -884,7 +891,7 @@ export default function MySchedulePage() {
         winner: matchResult.winner,
         score: matchResult.score,
         completed_at: new Date().toISOString(),
-        recorded_by: user.id, // 누가 기록했는지 추적
+  recorded_by: currentUserId, // 누가 기록했는지 추적
         participants: participantUserIds // 참가자 목록 기록
       };
 
@@ -973,7 +980,7 @@ export default function MySchedulePage() {
             {profile?.username || profile?.full_name || '회원'}님
           </span>
           <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
-            레벨: {profile?.skill_level_name || 'E2급'}
+            레벨: {profile?.skill_level ? `${profile.skill_level}급` : 'E2급'}
           </span>
         </div>
         <p className="text-blue-100">

@@ -62,5 +62,8 @@ export function useUser() {
     return () => subscription.unsubscribe();
   }, []);
 
-  return { user, profile, loading };
+  // 파생 상태: 관리자 여부
+  const isAdmin = profile?.role === 'admin';
+
+  return { user, profile, loading, isAdmin };
 }

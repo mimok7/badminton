@@ -335,7 +335,7 @@ export default function MatchRegistrationPage() {
               {profile?.username || profile?.full_name || '회원'}님
             </span>
             <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
-              레벨: {profile?.skill_level_name || 'E2급'}
+              레벨: {(profile?.skill_level ? `${profile.skill_level}급` : 'E2급')}
             </span>
           </div>
           <p className="text-blue-100">

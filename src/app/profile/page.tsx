@@ -52,9 +52,12 @@ export default function ProfilePage() {
     }
     
     if (profile) {
+      const level = (profile.skill_level as
+        | 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'D1' | 'D2' | 'E1' | 'E2'
+        | undefined) ?? 'D1';
       form.reset({
         username: profile.username || '',
-        skill_level: profile.skill_level || 'D1',
+        skill_level: level,
       });
     }
   }, [user, profile, userLoading, router, form]);
@@ -147,7 +150,7 @@ export default function ProfilePage() {
               <div className="flex items-center">
                 <span className="font-medium text-gray-600 w-16">현재급수:</span>
                 <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-medium">
-                  {profile?.skill_level_name || profile?.skill_level || 'D1급'}
+                  {profile?.skill_level ? `${profile.skill_level}급` : 'D1급'}
                 </span>
               </div>
             </div>

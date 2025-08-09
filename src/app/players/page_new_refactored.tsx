@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useUser } from '../../hooks/useUser';
 import { createBalancedDoublesMatches, createMixedDoublesMatches } from '../../utils/match-utils';
-import RequireAuth from '../../../components/RequireAuth';
+import type { Player } from '@/types';
+import { RequireAuth } from '@/components/AuthGuard';
 
 // 타입 정의
 interface ExtendedPlayer {
@@ -185,6 +186,22 @@ function PlayersPage() {
     return level.toLowerCase().replace(/[^a-z0-9]/g, '');
   };
 
+  const toPlayer = (p: ExtendedPlayer): Player => {
+    const norm = normalizeLevel(p.skill_level).toUpperCase(); // e2 -> E2
+    const label = p.skill_label || LEVEL_LABELS[norm.toLowerCase()] || `${norm} (초급)`;
+    // gender 표준화 (가능한 경우)
+    const g = (p.gender || '').toLowerCase();
+    const gender = g === 'male' || g === 'm' ? 'M' : g === 'female' || g === 'f' ? 'F' : p.gender;
+    return {
+      id: p.id,
+      name: p.name,
+      skill_level: norm,
+      skill_label: label,
+      gender,
+      skill_code: norm
+    };
+  };
+
   // 초기 데이터 로딩
   useEffect(() => {
     if (!authLoading && user && isAdmin) {
@@ -206,12 +223,10 @@ function PlayersPage() {
         return;
       }
 
-      const playersForMatch = presentPlayers.map(player => ({
-        ...player,
-        skill_level: normalizeLevel(player.skill_level)
-      }));
+  const playersForMatch: Player[] = presentPlayers.map(toPlayer);
 
-      const generatedMatches = createBalancedDoublesMatches(playersForMatch);
+  const numberOfCourts = Math.max(1, Math.floor(presentPlayers.length / 4));
+  const generatedMatches = createBalancedDoublesMatches(playersForMatch, numberOfCourts);
       
       if (generatedMatches.length === 0) {
         alert('균형잡힌 경기를 생성할 수 없습니다.');
@@ -286,12 +301,10 @@ function PlayersPage() {
         return;
       }
 
-      const playersForMatch = presentPlayers.map(player => ({
-        ...player,
-        skill_level: normalizeLevel(player.skill_level)
-      }));
+  const playersForMatch: Player[] = presentPlayers.map(toPlayer);
 
-      const generatedMatches = createMixedDoublesMatches(playersForMatch);
+  const numberOfCourts = Math.max(1, Math.floor(presentPlayers.length / 4));
+  const generatedMatches = createMixedDoublesMatches(playersForMatch, numberOfCourts);
       
       if (generatedMatches.length === 0) {
         alert('혼합복식 경기를 생성할 수 없습니다. 남녀 선수 구성을 확인해주세요.');

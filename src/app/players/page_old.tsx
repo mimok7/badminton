@@ -103,266 +103,69 @@ export default function PlayersPage() {
     async function fetchPlayers() {
       try {
         const today = new Date().toISOString().slice(0, 10);
-        console.log("🔍 Fetching attendance data for date:", today);
-        
-        // 출석 데이터 조회 - 더 상세한 로깅 추가
         const { data: attendanceData, error } = await supabase
           .from('attendances')
           .select('id, user_id, status, attended_at')
           .eq('attended_at', today);
-          
-        console.log("📊 Raw attendance query result:", { 
-          data: attendanceData, 
-          error: error,
-          dataLength: attendanceData?.length,
-          today: today 
-        });
-        
+
         if (error) {
-          console.error('❌ 출석자 조회 오류:', error);
-          alert('출석자 조회 중 오류가 발생했습니다: ' + error.message);
+          console.error('출석자 조회 오류:', error);
           setTodayPlayers([]);
           return;
         }
-        
-        // 전체 출석 데이터도 한 번 확인해보기 (디버깅용)
-        const { data: allAttendanceData, error: allError } = await supabase
-          .from('attendances')
-          .select('id, user_id, status, attended_at')
-          .order('attended_at', { ascending: false })
-          .limit(10);
-          
-        console.log("📋 Recent attendance records (last 10):", allAttendanceData);
-        
         if (!attendanceData || attendanceData.length === 0) {
-          console.log("⚠️ 오늘(" + today + ") 출석 데이터가 없습니다");
-          console.log("💡 대시보드에서 출석 체크를 먼저 진행해주세요");
           setTodayPlayers([]);
           return;
         }
-      
-      console.log("Attendance data:", attendanceData);
-      
-      // 사용자 ID 추출 후 프로필 데이터 직접 조회
-      const userIds = attendanceData.map(a => a.user_id).filter(Boolean);
-      console.log("User IDs from attendance:", userIds);
-      
-      if (userIds.length === 0) {
-        console.log("❌ 유효한 사용자 ID가 없습니다");
-        setTodayPlayers([]);
-        return;
-      }
-      
-      // 새로운 프로필 조회 함수 사용
-      const profilesData = await fetchProfilesByUserIds(userIds);
-      
-      if (!profilesData || profilesData.length === 0) {
-        console.log("❌ 프로필 조회 실패 - 폴백 모드로 전환");
-        const fallbackPlayers = attendanceData.map((attendance: any) => {
-          const attendance_status: AttendanceStatus = attendance.status || 'present';
-          return {
-            id: attendance.user_id,
-            name: `선수-${attendance.user_id.substring(0, 8)}`,
-            skill_level: 'n',
-            skill_label: 'N (미지정)',
-            gender: '',
-            skill_code: '',
-            status: attendance_status,
-          };
-        });
-        
-        console.log("🔧 폴백 선수 데이터 생성:", fallbackPlayers.length, "명");
-        setTodayPlayers(fallbackPlayers);
-        return;
-      }
-      
-      // 먼저 전체 프로필을 조회해서 필터링하는 방식으로 변경
-      const { data: allProfiles, error: allProfilesError } = await supabase
-        .from('profiles')
-        .select(`
-          id, 
-          username, 
-          full_name,
-          skill_level, 
-          gender
-        `);
-        
-      console.log("🔍 전체 프로필 조회:", { 
-        allProfiles: allProfiles?.length || 0, 
-        error: allProfilesError 
-      });
-      
-      let profilesData = [];
-      if (allProfiles && !allProfilesError) {
-        // 출석한 사용자의 프로필만 필터링
-        profilesData = allProfiles.filter(profile => userIds.includes(profile.id));
-        console.log("✅ 필터링된 프로필:", profilesData.length, "명");
-      }
-      
-      // 기존 방식도 시도해보기 (비교용)
-      const { data: directProfiles, error: directError } = await supabase
-        .from('profiles')
-        .select(`
-          id, 
-          username, 
-          full_name,
-          skill_level, 
-          gender
-        `)
-        .in('id', userIds.slice(0, 10)); // 처음 10명만 테스트
-        
-      console.log("� 직접 조회 테스트 (처음 10명):", { 
-        directProfiles: directProfiles?.length || 0, 
-        error: directError,
-        requestedIds: userIds.slice(0, 10)
-      });
-      
-      console.log("📊 프로필 조회 결과:", { 
-        allProfilesMethod: profilesData?.length || 0,
-        directMethod: directProfiles?.length || 0,
-        totalUserIds: userIds.length
-      });
-      
-      // 더 많은 프로필을 찾은 방법 사용
-      const finalProfiles = (profilesData?.length > 0) ? profilesData : directProfiles;
-      const profilesError = (profilesData?.length > 0) ? null : directError;
-      
-      if (profilesError) {
-        console.error("❌ 프로필 조회 오류:", profilesError);
-        // 프로필 조회가 실패해도 기본 정보로 사용자 생성
-        const fallbackPlayers = attendanceData.map((attendance: any) => {
-          const attendance_status: AttendanceStatus = attendance.status || 'present';
-          return {
-            id: attendance.user_id,
-            name: `선수-${attendance.user_id.substring(0, 8)}`,
-            skill_level: 'n',
-            skill_label: 'N (미지정)',
-            gender: '',
-            skill_code: '',
-            status: attendance_status,
-          };
-        });
-        
-        console.log("🔧 폴백 선수 데이터 생성:", fallbackPlayers.length, "명");
-        setTodayPlayers(fallbackPlayers);
-        return;
-      }
-      
-      // 레벨 정보 가져오기 
-      const { data: levelData, error: levelError } = await supabase
-        .from('level_info')
-        .select('code, name');
-        
-      if (levelError) {
-        console.error("Error fetching level info:", levelError);
-      }
-      
-      console.log("Level info data:", levelData);
-      
-      // 레벨 정보를 객체로 변환
-      const levelMap: Record<string, string> = {};
-      if (levelData) {
-        levelData.forEach((level: any) => {
-          if (level.code) {
-            levelMap[level.code.toLowerCase()] = level.name || '';
-          }
-        });
-      }
-      console.log("Level map:", levelMap);
-      
-      if (profilesData && profilesData.length > 0) {
-        console.log("✅ 프로필 데이터 발견:", profilesData.length, "명");
-        
-        // 프로필이 없는 출석자들 찾기
-        const profiledUserIds = profilesData.map((p: any) => p.id);
-        const missingProfileUsers = userIds.filter(id => !profiledUserIds.includes(id));
-        
-        if (missingProfileUsers.length > 0) {
-          console.log("⚠️ 프로필이 없는 출석자:", missingProfileUsers.length, "명");
-          console.log("프로필 없는 사용자 ID들:", missingProfileUsers.slice(0, 5)); // 처음 5개만 로그
+
+        const userIds = attendanceData.map(a => a.user_id).filter(Boolean);
+        if (userIds.length === 0) {
+          setTodayPlayers([]);
+          return;
         }
-        
-        // 프로필 데이터를 기반으로 선수 정보 생성
-        const playersWithProfiles = profilesData
-          console.log("⚠️ 프로필이 없는 출석자:", missingProfileUsers.length, "명");
-          console.log("프로필 없는 사용자 ID들:", missingProfileUsers.slice(0, 5)); // 처음 5개만 로그
-        }
-        
-        // 프로필 데이터를 기반으로 선수 정보 생성
-        const playersWithProfiles = finalProfiles
-          .map((profile: any) => {
-            // 디버깅용 로그 (처음 3명만)
-            if (profilesData.indexOf(profile) < 3) {
-              console.log('Raw profile data:', profile);
-            }
-            
-            // 이름이 없는 경우 확인
-            if (!profile.username && !profile.full_name) {
-              console.warn('⚠️ NO USERNAME/FULL_NAME for profile:', profile);
-            }
-            
-            let skill_code = '';
-            let skill_level = '';
-            let skill_label = '';
-            
-            // 해당 사용자의 기본 프로필 정보 사용
-            const userId = profile.id;
-            
-            // 기본 skill_level 설정
-            skill_level = profile.skill_level ? String(profile.skill_level).toLowerCase() : 'n';
-            
-            // levelMap에서 해당 스킬 레벨에 맞는 레이블 찾기
-            if (levelMap[skill_level]) {
-              skill_label = levelMap[skill_level];
-            }
-            
-            // skill_label이 없으면 LEVEL_LABELS에서 해당 코드로 가져옴
-            if (!skill_label) {
-              const normalizedLevel = normalizeLevel(skill_code, skill_level);
-              skill_label = LEVEL_LABELS[normalizedLevel] || 'N (미지정)';
-            }
-            
-            // 이름 설정: 우선 username, 없으면 full_name, 없으면 ID의 짧은 버전
-            const playerName = profile.username || profile.full_name || `선수-${profile.id.substring(0, 4)}`;
-            
-            // 해당 사용자의 출석 상태 찾기 (기본값은 present)
-            const attendance = attendanceData?.find((a: any) => a.user_id === userId);
-            // 상태가 명시적으로 설정되어 있는지 확인하고, 없으면 'present'로 설정
-            const status: AttendanceStatus = attendance?.status || 'present';
-            
-            // 출석 레코드가 있지만 status가 없는 경우 DB 업데이트 (마이그레이션 지원)
-            if (attendance && !attendance.status) {
-              console.log(`Updating attendance status for ${playerName} to 'present'`);
-              // 비동기 업데이트 (결과를 기다리지 않음)
-              supabase
-                .from('attendances')
-                .update({ status: 'present' })
-                .eq('id', attendance.id)
-                .then(({ error }) => {
-                  if (error) console.error('출석 상태 초기화 오류:', error);
-                });
-            }
-            
-            return {
-              id: profile.id,
-              name: playerName,
-              skill_level,
-              skill_label,
-              gender: profile.gender || '',
-              skill_code,
-              status, // 출석 상태 추가
-            };
-          })
-          .filter((p: any) => p.id);
-        
-        // 프로필이 없는 출석자들을 위한 기본 선수 정보 생성
-        const playersWithoutProfiles = missingProfileUsers.map(userId => {
-          const attendance = attendanceData?.find((a: any) => a.user_id === userId);
+
+        const profiles = await fetchProfilesByUserIds(userIds);
+
+        const { data: levelData } = await supabase
+          .from('level_info')
+          .select('code, name');
+        const levelMap: Record<string, string> = {};
+        (levelData || []).forEach((level: any) => {
+          if (level.code) levelMap[level.code.toLowerCase()] = level.name || '';
+        });
+
+        const profiledUserIds = new Set((profiles || []).map((p: any) => p.id));
+
+        const playersWithProfiles = (profiles || []).map((profile: any) => {
+          const userId = profile.id;
+          const attendance = attendanceData.find((a: any) => a.user_id === userId);
           const status: AttendanceStatus = attendance?.status || 'present';
-          
+          const skill_code = '';
+          const skill_level = profile.skill_level ? String(profile.skill_level).toLowerCase() : 'n';
+          let skill_label = levelMap[skill_level] || '';
+          if (!skill_label) {
+            const normalizedLevel = normalizeLevel(skill_code, skill_level);
+            skill_label = LEVEL_LABELS[normalizedLevel] || 'N (미지정)';
+          }
+          const name = profile.username || profile.full_name || `선수-${String(profile.id).substring(0, 4)}`;
+          return {
+            id: profile.id,
+            name,
+            skill_level,
+            skill_label,
+            gender: profile.gender || '',
+            skill_code,
+            status,
+          };
+        });
+
+        const missingProfileUsers = userIds.filter(id => !profiledUserIds.has(id));
+        const playersWithoutProfiles = missingProfileUsers.map(userId => {
+          const attendance = attendanceData.find((a: any) => a.user_id === userId);
+          const status: AttendanceStatus = attendance?.status || 'present';
           return {
             id: userId,
-            name: `선수-${userId.substring(0, 8)}`,
+            name: `선수-${String(userId).substring(0, 8)}`,
             skill_level: 'n',
             skill_label: 'N (미지정)',
             gender: '',
@@ -370,46 +173,18 @@ export default function PlayersPage() {
             status,
           };
         });
-        
-        // 모든 선수 데이터 결합
+
         const allPlayers = [...playersWithProfiles, ...playersWithoutProfiles];
-        console.log("📊 최종 선수 목록:", {
-          프로필있음: playersWithProfiles.length,
-          프로필없음: playersWithoutProfiles.length,
-          총계: allPlayers.length
-        });
-        
         setTodayPlayers(allPlayers);
-      } else {
-        console.log("❌ 프로필 데이터가 없습니다. 출석 데이터만으로 선수 목록을 생성합니다.");
-        
-        // 프로필 데이터가 없을 때는 출석 데이터만으로 기본 선수 정보 생성
-        const fallbackPlayers = attendanceData.map((attendance: any) => {
-          const attendance_status: AttendanceStatus = attendance.status || 'present';
-          return {
-            id: attendance.user_id,
-            name: `선수-${attendance.user_id.substring(0, 8)}`,
-            skill_level: 'n',
-            skill_label: 'N (미지정)',
-            gender: '',
-            skill_code: '',
-            status: attendance_status,
-          };
-        });
-        
-        console.log("🔧 출석 데이터로만 선수 생성:", fallbackPlayers.length, "명");
-        setTodayPlayers(fallbackPlayers);
+      } catch (fetchError) {
+        console.error('데이터 조회 중 오류:', fetchError);
+        setTodayPlayers([]);
       }
-    } catch (fetchError) {
-      console.error('❌ 데이터 조회 중 오류:', fetchError);
-      alert('데이터 조회 중 오류가 발생했습니다. 다시 시도해주세요.');
-      setTodayPlayers([]);
     }
-    
-    // 컴포넌트 마운트 시 선수 데이터 가져오기
+
+    // 초기 로드 및 실시간 갱신 설정
     fetchPlayers();
-    
-    // 실시간 출석 데이터 업데이트 리스너 추가
+
     const attendanceChannel = supabase
       .channel('attendance-changes')
       .on(
@@ -417,17 +192,14 @@ export default function PlayersPage() {
         {
           event: '*',
           schema: 'public',
-          table: 'attendances'
+          table: 'attendances',
         },
-        (payload) => {
-          console.log('🔄 출석 데이터 변경 감지:', payload);
-          // 출석 데이터가 변경되면 다시 조회
+        () => {
           fetchPlayers();
         }
       )
       .subscribe();
 
-    // 클린업 함수
     return () => {
       supabase.removeChannel(attendanceChannel);
     };

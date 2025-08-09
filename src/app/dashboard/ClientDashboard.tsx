@@ -325,7 +325,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
               {profile?.username || profile?.full_name || '회원'}님
             </span>
             <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
-              레벨: {profile?.skill_level_name || 'E2급'}
+              레벨: {profile?.skill_level || 'E2급'}
             </span>
             {userIsAdmin && (
               <span className="bg-red-200 text-red-800 px-3 py-1 rounded-full">

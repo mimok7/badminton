@@ -51,132 +51,102 @@ export default function MatchRegistrationPage() {
   const [registering, setRegistering] = useState<string | null>(null);
   const [showParticipants, setShowParticipants] = useState<string | null>(null);
 
-  // 경기 일정과 사용자 참가 정보 조회
+  // 경기 일정과 사용자 참가 정보 조회 (고속화: 일괄 조회 + 조인)
   const fetchSchedulesAndParticipation = async () => {
     try {
       setLoading(true);
-      
-      // 예정된 경기 일정만 조회
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // 1) 예정된 경기 일정만 조회 (필요 컬럼만)
       const { data: schedulesData, error: schedulesError } = await supabase
         .from('match_schedules')
-        .select('*')
+        .select('id, match_date, start_time, end_time, location, max_participants, status, description')
         .eq('status', 'scheduled')
-        .gte('match_date', new Date().toISOString().split('T')[0])
+        .gte('match_date', todayStr)
         .order('match_date', { ascending: true })
         .order('start_time', { ascending: true });
 
       if (schedulesError) {
         console.error('경기 일정 조회 오류:', schedulesError);
+        setSchedules([]);
+        setUserMatches([]);
         return;
       }
 
       const schedulesList = schedulesData || [];
       setSchedules(schedulesList);
 
-      if (!user || schedulesList.length === 0) {
+      if (schedulesList.length === 0) {
         setUserMatches([]);
         return;
       }
 
-      // 사용자의 참가 정보 조회
-      const { data: participationsData, error: participationsError } = await supabase
-        .from('match_participants')
-        .select('*')
-        .eq('user_id', user.id)
-        .in('match_schedule_id', schedulesList.map(s => s.id));
+      const scheduleIds = schedulesList.map((s) => s.id);
 
-      if (participationsError) {
-        console.error('참가 정보 조회 오류:', participationsError);
-        return;
+      // 2) 쿼리들 병렬 수행
+      const tasks: Promise<any>[] = [];
+      if (user) {
+        tasks.push(
+          supabase
+            .from('match_participants')
+            .select('match_schedule_id, status, registered_at')
+            .eq('user_id', user.id)
+            .in('match_schedule_id', scheduleIds)
+        );
+      } else {
+        tasks.push(Promise.resolve({ data: [], error: null }));
       }
 
-      // 각 경기별 모든 참가자 정보 조회
-      const allParticipantsPromises = schedulesList.map(async (schedule) => {
-        try {
-          console.log(`🔍 경기 ${schedule.id} 참가자 조회 시작...`);
-          
-          // 먼저 간단한 쿼리로 참가자 수만 확인
-          const { data: simpleCount, error: countError } = await supabase
-            .from('match_participants')
-            .select('id')
-            .eq('match_schedule_id', schedule.id)
-            .eq('status', 'registered');
+      tasks.push(
+        supabase
+          .from('match_participants')
+          .select(`id, user_id, status, registered_at, match_schedule_id, profiles ( username, full_name, skill_level )`)
+          .in('match_schedule_id', scheduleIds)
+          .eq('status', 'registered')
+      );
 
-          console.log(`📊 경기 ${schedule.id} 간단 참가자 수:`, simpleCount?.length || 0);
+      const [participationsRes, participantsRes] = await Promise.all(tasks);
 
-          // 상세 참가자 정보 조회 - 조인 방식 변경
-          const { data: participants, error } = await supabase
-            .from('match_participants')
-            .select(`
-              id,
-              user_id,
-              status,
-              registered_at
-            `)
-            .eq('match_schedule_id', schedule.id)
-            .eq('status', 'registered');
+      if (participationsRes.error) {
+        console.error('참가 정보 조회 오류:', participationsRes.error);
+      }
+      if (participantsRes.error) {
+        console.error('참가자 목록 조회 오류:', participantsRes.error);
+      }
 
-          if (error) {
-            console.error(`❌ 경기 ${schedule.id} 참가자 조회 오류:`, error);
-            // 에러가 있어도 빈 배열로 계속 진행
-            return { scheduleId: schedule.id, participants: [] };
-          }
+      const participationsData = (participationsRes?.data || []) as Array<{ match_schedule_id: string; status: string; registered_at: string }>;
+      const participantsAll = (participantsRes?.data || []) as Array<any>;
 
-          console.log(`📋 경기 ${schedule.id} 참가자 데이터:`, participants);
-
-          if (!participants || participants.length === 0) {
-            console.log(`⚠️ 경기 ${schedule.id}에 참가자가 없습니다.`);
-            return { scheduleId: schedule.id, participants: [] };
-          }
-
-          // 각 참가자의 프로필 정보를 별도로 조회
-          const participantsWithProfiles = await Promise.all(
-            participants.map(async (participant) => {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('username, full_name, skill_level')
-                .eq('user_id', participant.user_id)
-                .single();
-
-              return {
-                id: participant.id,
-                user_id: participant.user_id,
-                username: profile?.username || '',
-                full_name: profile?.full_name || '',
-                skill_level: profile?.skill_level || null,
-                status: participant.status
-              };
-            })
-          );
-
-          console.log(`✅ 경기 ${schedule.id} 포맷된 참가자 (${participantsWithProfiles.length}명):`, participantsWithProfiles);
-
-          return { scheduleId: schedule.id, participants: participantsWithProfiles };
-        } catch (err) {
-          console.error(`💥 경기 ${schedule.id} 처리 중 오류:`, err);
-          return { scheduleId: schedule.id, participants: [] };
-        }
-      });
-
-      const allParticipantsData = await Promise.all(allParticipantsPromises);
-      const participantsBySchedule = allParticipantsData.reduce((acc, data) => {
-        acc[data.scheduleId] = data.participants;
+      // 3) 스케줄별 참가자 그룹핑
+      const participantsBySchedule = participantsAll.reduce((acc: Record<string, any[]>, row: any) => {
+        const key = row.match_schedule_id;
+        const formatted = {
+          id: row.id,
+          user_id: row.user_id,
+          username: row.profiles?.username || '',
+          full_name: row.profiles?.full_name || '',
+          skill_level: row.profiles?.skill_level ?? null,
+          status: row.status,
+        };
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(formatted);
         return acc;
       }, {} as Record<string, any[]>);
 
-      // 경기 일정과 참가 정보 결합
-      const userMatchesInfo: UserMatchInfo[] = schedulesList.map(schedule => {
-        const participation = (participationsData || []).find(p => p.match_schedule_id === schedule.id);
+      // 4) 최종 매핑
+      const userMatchesInfo: UserMatchInfo[] = schedulesList.map((schedule) => {
+        const participation = user
+          ? (participationsData || []).find((p) => p.match_schedule_id === schedule.id)
+          : null;
         const participants = participantsBySchedule[schedule.id] || [];
-        
-        console.log(`경기 ID ${schedule.id}: 참가자 수 = ${participants.length}`, participants);
-        
+
         return {
           schedule,
-          participation: participation || null,
+          participation: participation as any,
           isRegistered: participation?.status === 'registered',
           actualParticipantCount: participants.length,
-          participants
+          participants,
         };
       });
 
@@ -231,26 +201,75 @@ export default function MatchRegistrationPage() {
         }
       } else {
         // 새로운 참가 신청
-        const { error } = await supabase
+        console.log(`📝 새로운 참가 신청 데이터:`, {
+          match_schedule_id: scheduleId,
+          user_id: user.id,
+          status: 'registered'
+        });
+
+        const { data: insertedData, error } = await supabase
           .from('match_participants')
           .insert({
             match_schedule_id: scheduleId,
             user_id: user.id,
             status: 'registered'
-          });
+          })
+          .select('*');
+
+        console.log(`📤 참가 신청 결과:`, { data: insertedData, error });
 
         if (error) {
           console.error('❌ 참가 신청 오류:', error);
-          alert('참가 신청 중 오류가 발생했습니다.');
+          console.error('❌ 참가 신청 상세 오류:', JSON.stringify(error, null, 2));
+          alert(`참가 신청 중 오류가 발생했습니다: ${error.message || error.details || '알 수 없는 오류'}`);
           return;
         }
+
+        console.log('✅ 참가 신청 DB 저장 성공:', insertedData);
       }
 
-      console.log('✅ 참가 신청 완료! 데이터 새로고침 중...');
+      console.log('✅ 참가 신청 완료! 낙관적 UI 반영...');
+
+      // 낙관적 UI 업데이트: 해당 경기의 참가자 수 증가 및 버튼 전환
+      setUserMatches((prev) =>
+        prev.map((m) => {
+          if (m.schedule.id !== scheduleId) return m;
+          // 이미 등록 상태면 그대로 반환
+          if (m.isRegistered) return m;
+
+          const me = {
+            id: `temp-${user.id}-${Date.now()}`,
+            user_id: user.id,
+            username: profile?.username || '',
+            full_name: profile?.full_name || '',
+            skill_level: profile?.skill_level || null,
+            status: 'registered'
+          } as any;
+
+          return {
+            ...m,
+            isRegistered: true,
+            participation: {
+              id: `temp-${user.id}-${Date.now()}`,
+              match_schedule_id: scheduleId,
+              user_id: user.id,
+              status: 'registered',
+              registered_at: new Date().toISOString()
+            } as any,
+            actualParticipantCount: (m.actualParticipantCount || 0) + 1,
+            participants: [...m.participants, me]
+          };
+        })
+      );
+
+      // 데이터 새로고침(백그라운드)으로 정확한 데이터 동기화
+      setTimeout(async () => {
+        console.log('🔄 참가 신청 후 데이터 새로고침 시작...');
+        await fetchSchedulesAndParticipation();
+        console.log('🔄 참가 신청 후 데이터 새로고침 완료!');
+      }, 300);
+
       alert('참가 신청이 완료되었습니다!');
-      
-      // 데이터 새로고침
-      await fetchSchedulesAndParticipation();
     } catch (error) {
       console.error('💥 참가 신청 중 오류:', error);
       alert('참가 신청 중 오류가 발생했습니다.');
@@ -280,11 +299,33 @@ export default function MatchRegistrationPage() {
         return;
       }
 
-      console.log('✅ 참가 취소 완료! 데이터 새로고침 중...');
+      console.log('✅ 참가 취소 완료! 낙관적 UI 반영...');
+
+      // 낙관적 UI 업데이트: 해당 경기의 참가자 수 감소 및 버튼 전환
+      setUserMatches((prev) =>
+        prev.map((m) => {
+          if (m.schedule.id !== scheduleId) return m;
+          if (!m.isRegistered) return m;
+          return {
+            ...m,
+            isRegistered: false,
+            participation: m.participation
+              ? { ...m.participation, status: 'cancelled' as any }
+              : null,
+            actualParticipantCount: Math.max((m.actualParticipantCount || 0) - 1, 0),
+            participants: m.participants.filter((p) => p.user_id !== user.id)
+          };
+        })
+      );
+
+      // 데이터 새로고침(백그라운드)
+      setTimeout(async () => {
+        console.log('🔄 참가 취소 후 데이터 새로고침 시작...');
+        await fetchSchedulesAndParticipation();
+        console.log('🔄 참가 취소 후 데이터 새로고침 완료!');
+      }, 300);
+
       alert('참가가 취소되었습니다.');
-      
-      // 데이터 새로고침
-      await fetchSchedulesAndParticipation();
     } catch (error) {
       console.error('💥 참가 취소 중 오류:', error);
       alert('참가 취소 중 오류가 발생했습니다.');

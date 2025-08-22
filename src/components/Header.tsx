@@ -75,29 +75,8 @@ export default function Header() {
                     {isAdmin && (
                       <>
                         <Link 
-                          href="/players" 
-                          className="text-sm font-medium hover:text-blue-600 transition-colors border-l pl-4 ml-2"
-                        >
-                          경기생성
-                        </Link>
-                        
-                        <Link 
-                          href="/match-assignment" 
-                          className="text-sm font-medium hover:text-blue-600 transition-colors"
-                        >
-                          경기배정
-                        </Link>
-                        
-                        <Link 
-                          href="/match-schedule" 
-                          className="text-sm font-medium hover:text-blue-600 transition-colors"
-                        >
-                          일정관리
-                        </Link>
-                        
-                        <Link 
                           href="/admin" 
-                          className="text-sm font-medium hover:text-blue-600 transition-colors"
+                          className="text-sm font-medium hover:text-blue-600 transition-colors border-l pl-4 ml-2"
                         >
                           관리자
                         </Link>

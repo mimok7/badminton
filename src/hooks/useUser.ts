@@ -19,38 +19,48 @@ export function useUser() {
   const [loading, setLoading] = useState(true);
   const supabase = createClientComponentClient();
 
+  const fetchProfile = async (userId: string) => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    setProfile(profile);
+    return profile;
+  };
+
   useEffect(() => {
+    let isMounted = true;
+
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
         
-        setProfile(profile);
-      }
+        if (!isMounted) return;
+        
+        setUser(user);
 
-      setLoading(false);
+        if (user) {
+          await fetchProfile(user.id);
+        }
+      } catch (error) {
+        console.error('User fetch error:', error);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     };
 
     getUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return;
+        
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .single();
-          
-          setProfile(profile);
+          await fetchProfile(session.user.id);
         } else {
           setProfile(null);
         }
@@ -59,7 +69,10 @@ export function useUser() {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   // 파생 상태: 관리자 여부

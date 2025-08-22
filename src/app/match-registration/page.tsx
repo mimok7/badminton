@@ -61,7 +61,7 @@ export default function MatchRegistrationPage() {
       // 1) 예정된 경기 일정만 조회 (필요 컬럼만)
       const { data: schedulesData, error: schedulesError } = await supabase
         .from('match_schedules')
-        .select('id, match_date, start_time, end_time, location, max_participants, status, description')
+        .select('id, match_date, start_time, end_time, location, max_participants, status, description, current_participants')
         .eq('status', 'scheduled')
         .gte('match_date', todayStr)
         .order('match_date', { ascending: true })
@@ -85,28 +85,22 @@ export default function MatchRegistrationPage() {
       const scheduleIds = schedulesList.map((s) => s.id);
 
       // 2) 쿼리들 병렬 수행
-      const tasks: Promise<any>[] = [];
+      let participationsRes;
       if (user) {
-        tasks.push(
-          supabase
-            .from('match_participants')
-            .select('match_schedule_id, status, registered_at')
-            .eq('user_id', user.id)
-            .in('match_schedule_id', scheduleIds)
-        );
+        participationsRes = await supabase
+          .from('match_participants')
+          .select('match_schedule_id, status, registered_at')
+          .eq('user_id', user.id)
+          .in('match_schedule_id', scheduleIds);
       } else {
-        tasks.push(Promise.resolve({ data: [], error: null }));
+        participationsRes = { data: [], error: null };
       }
 
-      tasks.push(
-        supabase
-          .from('match_participants')
-          .select(`id, user_id, status, registered_at, match_schedule_id, profiles ( username, full_name, skill_level )`)
-          .in('match_schedule_id', scheduleIds)
-          .eq('status', 'registered')
-      );
-
-      const [participationsRes, participantsRes] = await Promise.all(tasks);
+      const participantsRes = await supabase
+        .from('match_participants')
+        .select('id, user_id, status, registered_at, match_schedule_id, profiles ( username, full_name, skill_level )')
+        .in('match_schedule_id', scheduleIds)
+        .eq('status', 'registered');
 
       if (participationsRes.error) {
         console.error('참가 정보 조회 오류:', participationsRes.error);

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { RequireAdmin } from '@/components/AuthGuard';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useUser } from '@/hooks/useUser';
@@ -36,12 +37,35 @@ interface ScheduleWithParticipants extends MatchSchedule {
 }
 
 export default function MatchSchedulePage() {
+  // 전체 경기 일괄 삭제
+  const deleteAllSchedules = async () => {
+    if (!confirm('정말로 모든 경기를 삭제하시겠습니까? 관련된 모든 참가 신청도 함께 삭제됩니다.')) {
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('match_schedules')
+        .delete()
+        .neq('id', ''); // 모든 id가 ''이 아닌 row 삭제
+      if (error) {
+        console.error('전체 경기 삭제 오류:', error);
+        alert('전체 경기 삭제 중 오류가 발생했습니다.');
+        return;
+      }
+      await fetchSchedules();
+      alert('모든 경기가 성공적으로 삭제되었습니다.');
+    } catch (error) {
+      console.error('전체 경기 삭제 중 오류:', error);
+      alert('전체 경기 삭제 중 오류가 발생했습니다.');
+    }
+  };
   const { user } = useUser();
   const supabase = createClientComponentClient();
   const [schedules, setSchedules] = useState<ScheduleWithParticipants[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<MatchSchedule | null>(null);
+  const router = useRouter();
 
   // 새 경기 생성 폼 데이터
   const [newSchedule, setNewSchedule] = useState({
@@ -57,10 +81,14 @@ export default function MatchSchedulePage() {
   const fetchSchedules = async () => {
     try {
       setLoading(true);
+      const today = new Date();
+      today.setHours(0,0,0,0);
 
+      // 오늘 이후 일정만 조회하도록 필터링을 서버에서 처리
       const { data: schedulesData, error: schedulesError } = await supabase
         .from('match_schedules')
         .select('*')
+        .gte('match_date', today.toISOString().split('T')[0])
         .order('match_date', { ascending: true })
         .order('start_time', { ascending: true });
 
@@ -69,42 +97,39 @@ export default function MatchSchedulePage() {
         return;
       }
 
-
-      // 오늘 날짜(yyyy-mm-dd) 기준으로 오늘 이전 일정은 제외
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      const filteredSchedules: MatchSchedule[] = (schedulesData || []).filter((schedule: MatchSchedule) => {
-        const scheduleDate = new Date(schedule.match_date);
-        scheduleDate.setHours(0,0,0,0);
-        return scheduleDate >= today;
-      });
-
-      if (filteredSchedules.length === 0) {
+      if (!schedulesData || schedulesData.length === 0) {
         setSchedules([]);
         return;
       }
 
-      // 각 경기의 참가자 정보 조회
-      const schedulesWithParticipants = await Promise.all(
-        filteredSchedules.map(async (schedule: MatchSchedule) => {
-          const { data: participants } = await supabase
-            .from('match_participants')
-            .select(`
-              *,
-              profiles (
-                username,
-                full_name
-              )
-            `)
-            .eq('match_schedule_id', schedule.id)
-            .eq('status', 'registered');
-
-          return {
-            ...schedule,
-            participants: participants || []
-          } as ScheduleWithParticipants;
-        })
+      // 각 경기의 참가자 정보를 병렬로 조회 (registered와 attended 상태 모두 포함)
+      const participantPromises = schedulesData.map(schedule => 
+        supabase
+          .from('match_participants')
+          .select(`
+            *,
+            profiles (
+              username,
+              full_name
+            )
+          `)
+          .eq('match_schedule_id', schedule.id)
+          .in('status', ['registered', 'attended'])
       );
+
+      const participantResults = await Promise.allSettled(participantPromises);
+
+      const schedulesWithParticipants = schedulesData.map((schedule, index) => {
+        const participants = participantResults[index].status === 'fulfilled' 
+          ? (participantResults[index].value.data || [])
+          : [];
+        
+        return {
+          ...schedule,
+          participants,
+          current_participants: participants.length // 실제 참가자 수로 업데이트
+        };
+      }) as ScheduleWithParticipants[];
 
       setSchedules(schedulesWithParticipants);
 
@@ -174,7 +199,7 @@ export default function MatchSchedulePage() {
 
       if (error) {
         console.error('상태 업데이트 오류:', error);
-        alert('상태 업데이트 중 오류가 발생했습니다.');
+        alert(`상태 업데이트 중 오류가 발생했습니다: ${error.message || JSON.stringify(error)}`);
         return;
       }
 
@@ -184,6 +209,80 @@ export default function MatchSchedulePage() {
     } catch (error) {
       console.error('상태 업데이트 중 오류:', error);
       alert('상태 업데이트 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 경기 참가 신청
+  const joinMatch = async (scheduleId: string) => {
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      // 이미 참가 신청했는지 확인
+      const { data: existingParticipant } = await supabase
+        .from('match_participants')
+        .select('id')
+        .eq('match_schedule_id', scheduleId)
+        .eq('user_id', user.id)
+        .eq('status', 'registered')
+        .single();
+
+      if (existingParticipant) {
+        alert('이미 참가 신청한 경기입니다.');
+        return;
+      }
+
+      // 참가 신청 추가
+      const { error } = await supabase
+        .from('match_participants')
+        .insert({
+          match_schedule_id: scheduleId,
+          user_id: user.id,
+          status: 'registered'
+        });
+
+      if (error) {
+        console.error('참가 신청 오류:', error);
+        alert('참가 신청 중 오류가 발생했습니다.');
+        return;
+      }
+
+      // 목록 새로고침
+      await fetchSchedules();
+      alert('참가 신청이 완료되었습니다!');
+
+    } catch (error) {
+      console.error('참가 신청 중 오류:', error);
+      alert('참가 신청 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 참가 신청 취소
+  const cancelJoinMatch = async (scheduleId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('match_participants')
+        .delete()
+        .eq('match_schedule_id', scheduleId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('참가 취소 오류:', error);
+        alert('참가 취소 중 오류가 발생했습니다.');
+        return;
+      }
+
+      // 목록 새로고침
+      await fetchSchedules();
+      alert('참가 신청이 취소되었습니다.');
+
+    } catch (error) {
+      console.error('참가 취소 중 오류:', error);
+      alert('참가 취소 중 오류가 발생했습니다.');
     }
   };
 
@@ -248,12 +347,26 @@ export default function MatchSchedulePage() {
               </h1>
               <p className="text-gray-600">관리자 전용 - 경기 일정을 생성하고 관리할 수 있습니다</p>
             </div>
-            <Button 
-              onClick={() => setShowCreateForm(true)}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              새 경기 생성
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => setShowCreateForm(true)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                새 경기 생성
+              </Button>
+              <Button
+                onClick={() => router.push('/recurring-matches')}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                정기모임 생성
+              </Button>
+              <Button
+                onClick={deleteAllSchedules}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                전체 경기 삭제
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -452,6 +565,7 @@ export default function MatchSchedulePage() {
                               onClick={() => updateScheduleStatus(schedule.id, 'ongoing')}
                               className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
                               size="sm"
+                              disabled={schedule.current_participants === 0}
                             >
                               진행 시작
                             </Button>
@@ -493,6 +607,35 @@ export default function MatchSchedulePage() {
                         >
                           삭제
                         </Button>
+
+                        {/* 참가자 신청/취소 버튼 - scheduled 또는 ongoing 상태에서 모두 노출 */}
+                        {(schedule.status === 'scheduled' || schedule.status === 'ongoing') && user && (
+                          (() => {
+                            // 현재 사용자가 참가 신청했는지 확인
+                            const isParticipant = schedule.participants.some(
+                              participant => participant.user_id === user.id && 
+                              participant.status === 'registered'
+                            );
+                            
+                            return isParticipant ? (
+                              <Button
+                                onClick={() => cancelJoinMatch(schedule.id)}
+                                className="bg-red-500 hover:bg-red-600 text-white text-sm"
+                                size="sm"
+                              >
+                                참가 취소
+                              </Button>
+                            ) : (
+                              <Button
+                                onClick={() => joinMatch(schedule.id)}
+                                className="bg-blue-500 hover:bg-blue-600 text-white text-sm"
+                                size="sm"
+                              >
+                                참가 신청
+                              </Button>
+                            );
+                          })()
+                        )}
                       </div>
                     </div>
                   ))}

@@ -2,25 +2,26 @@ import { Player, Team, Match } from '@/types';
 
 /**
  * 레벨별 점수 매핑 (A1이 최고, E2가 최하위)
+ * 더 세밀한 점수 차이로 공정한 매칭 구현
  */
 const LEVEL_SCORES: Record<string, number> = {
-  'A1': 10, 'A2': 9,
-  'B1': 8,  'B2': 7,
-  'C1': 6,  'C2': 5,
-  'D1': 4,  'D2': 3,
-  'E1': 2,  'E2': 1,
+  'A1': 20, 'A2': 18,
+  'B1': 16, 'B2': 14,
+  'C1': 12, 'C2': 10,
+  'D1': 8,  'D2': 6,
+  'E1': 4,  'E2': 2,
   // 호환성을 위한 기존 레벨
-  'A': 9,   'B': 7,   'C': 5,   'D': 3,   'E': 1,   'N': 1
+  'A': 18,  'B': 14,  'C': 10,  'D': 6,   'E': 2,   'N': 2
 };
 
 /**
  * 선수의 레벨 점수를 반환
  * @param player - 선수 객체
- * @returns 레벨 점수 (1-10)
+ * @returns 레벨 점수 (2-20, 높을수록 실력 좋음)
  */
 function getPlayerLevelScore(player: Player): number {
   const level = player.skill_level?.toUpperCase() || 'E2';
-  return LEVEL_SCORES[level] || 1;
+  return LEVEL_SCORES[level] || 2;
 }
 
 /**
@@ -33,13 +34,53 @@ function getTeamScore(team: Team): number {
 }
 
 /**
- * 두 팀 간의 레벨 차이를 계산
+ * 팀의 평균 레벨 점수를 계산 (더 정확한 비교를 위해)
+ * @param team - 팀 객체
+ * @returns 팀의 평균 레벨 점수
+ */
+function getTeamAverageScore(team: Team): number {
+  return getTeamScore(team) / 2;
+}
+
+/**
+ * 팀의 레벨 밸런스를 계산 (팀 내 실력차)
+ * @param team - 팀 객체
+ * @returns 팀 내 실력차 (낮을수록 균형잡힘)
+ */
+function getTeamBalance(team: Team): number {
+  return Math.abs(getPlayerLevelScore(team.player1) - getPlayerLevelScore(team.player2));
+}
+
+/**
+ * 두 팀 간의 레벨 차이를 계산 (개선된 매칭 알고리즘)
  * @param team1 - 팀 1
  * @param team2 - 팀 2
- * @returns 절댓값 레벨 차이
+ * @returns 팀 간 매칭 점수 (낮을수록 좋은 매치)
  */
-function getTeamScoreDifference(team1: Team, team2: Team): number {
-  return Math.abs(getTeamScore(team1) - getTeamScore(team2));
+function getTeamMatchScore(team1: Team, team2: Team): number {
+  // 1. 팀 간 총점 차이 (가중치 70%)
+  const scoreDifference = Math.abs(getTeamScore(team1) - getTeamScore(team2));
+  
+  // 2. 팀 내부 밸런스 차이 (가중치 20%)
+  const balanceDifference = Math.abs(getTeamBalance(team1) - getTeamBalance(team2));
+  
+  // 3. 평균 레벨 차이 (가중치 10%)
+  const averageDifference = Math.abs(getTeamAverageScore(team1) - getTeamAverageScore(team2));
+  
+  return (scoreDifference * 0.7) + (balanceDifference * 0.2) + (averageDifference * 0.1);
+}
+
+/**
+ * 팀 조합의 공정성 점수 계산
+ * @param team - 팀 객체
+ * @returns 공정성 점수 (높을수록 좋은 팀 구성)
+ */
+function getTeamFairnessScore(team: Team): number {
+  const totalScore = getTeamScore(team);
+  const balance = getTeamBalance(team);
+  
+  // 높은 총점과 낮은 실력차를 선호
+  return totalScore - (balance * 2);
 }
 
 /**
@@ -52,7 +93,7 @@ export function createBalancedMixedDoublesMatches(
   players: Player[],
   numberOfCourts: number
 ): Match[] {
-  console.log('🎯 레벨 균형 고려 혼복 경기 생성 시작');
+  console.log('🎯 최적화된 레벨 균형 고려 혼복 경기 생성 시작');
   
   // 기본 유효성 검사
   if (players.length < 4 || numberOfCourts === 0) {
@@ -86,8 +127,8 @@ export function createBalancedMixedDoublesMatches(
   const matches: Match[] = [];
   const usedPlayers = new Set<string>();
   
-  // 가능한 모든 팀 조합 생성
-  const possibleTeams: { team: Team, score: number, males: number, females: number }[] = [];
+  // 가능한 모든 혼복 팀 조합 생성 및 평가
+  const possibleTeams: { team: Team, score: number, fairness: number }[] = [];
   
   for (let m = 0; m < sortedMales.length; m++) {
     for (let f = 0; f < sortedFemales.length; f++) {
@@ -96,12 +137,19 @@ export function createBalancedMixedDoublesMatches(
         player2: sortedFemales[f]
       };
       const score = getTeamScore(team);
-      possibleTeams.push({ team, score, males: m, females: f });
+      const fairness = getTeamFairnessScore(team);
+      possibleTeams.push({ team, score, fairness });
     }
   }
 
-  // 팀 점수별로 정렬
-  possibleTeams.sort((a, b) => b.score - a.score);
+  // 팀을 공정성과 총점으로 정렬 (공정하고 강한 팀 우선)
+  possibleTeams.sort((a, b) => {
+    // 1차: 공정성 점수로 정렬
+    const fairnessDiff = b.fairness - a.fairness;
+    if (Math.abs(fairnessDiff) > 1) return fairnessDiff;
+    // 2차: 총점으로 정렬
+    return b.score - a.score;
+  });
 
   console.log('가능한 팀 조합:', possibleTeams.length, '개');
 
@@ -116,7 +164,7 @@ export function createBalancedMixedDoublesMatches(
       continue;
     }
 
-    let bestMatch: { team: Team, score: number, difference: number } | null = null;
+    let bestMatch: { team: Team, score: number, matchScore: number } | null = null;
     let bestMatchIndex = -1;
 
     for (let j = i + 1; j < possibleTeams.length; j++) {
@@ -135,20 +183,20 @@ export function createBalancedMixedDoublesMatches(
         continue;
       }
 
-      const scoreDifference = Math.abs(team1Data.score - team2Data.score);
-
-      // 실력 차이 제한 (예: 3점 이하만 허용)
-      if (scoreDifference > 3) continue;
-
-      if (!bestMatch || scoreDifference < bestMatch.difference) {
+      const matchScore = getTeamMatchScore(team1Data.team, team2Data.team);
+      
+      // 매칭 점수 제한 (너무 큰 실력차는 제외)
+      if (matchScore > 8) continue; // 조정 가능한 임계값
+      
+      if (!bestMatch || matchScore < bestMatch.matchScore) {
         bestMatch = {
           team: team2Data.team,
           score: team2Data.score,
-          difference: scoreDifference
+          matchScore: matchScore
         };
         bestMatchIndex = j;
         // 완벽한 매치면 바로 종료
-        if (scoreDifference === 0) break;
+        if (matchScore <= 2) break;
       }
     }
 
@@ -168,7 +216,7 @@ export function createBalancedMixedDoublesMatches(
       usedPlayers.add(bestMatch.team.player1.id);
       usedPlayers.add(bestMatch.team.player2.id);
       
-      console.log(`⚖️ 경기 ${matches.length}: Team1(${team1Data.score}점) vs Team2(${bestMatch.score}점) - 차이: ${bestMatch.difference}점`);
+      console.log(`⚖️ 경기 ${matches.length}: Team1(${team1Data.score}점) vs Team2(${bestMatch.score}점) - 매칭점수: ${bestMatch.matchScore.toFixed(1)}`);
       console.log(`   Team1: ${team1Data.team.player1.name}(${team1Data.team.player1.skill_level}) + ${team1Data.team.player2.name}(${team1Data.team.player2.skill_level})`);
       console.log(`   Team2: ${bestMatch.team.player1.name}(${bestMatch.team.player1.skill_level}) + ${bestMatch.team.player2.name}(${bestMatch.team.player2.skill_level})`);
       
@@ -185,7 +233,7 @@ export function createBalancedMixedDoublesMatches(
     matches.push(...additionalMatches);
   }
   
-  console.log(`✅ 레벨 균형 혼복 경기 생성 완료: ${matches.length}개 경기`);
+  console.log(`✅ 최적화된 레벨 균형 혼복 경기 생성 완료: ${matches.length}개 경기`);
   return matches;
 }
 
@@ -423,3 +471,67 @@ function shuffle<T>(array: T[]): T[] {
   }
   return newArray; // 섞인 배열의 복사본을 반환 (원본 배열 불변성 유지)
 }
+
+/**
+ * 최적화된 통합 경기 생성 시스템
+ * 레벨 균형을 고려한 최고 품질의 경기 생성
+ * @param players - 참가 선수 목록
+ * @param numberOfCourts - 코트 수
+ * @param preferMixedDoubles - 혼복 우선 여부 (default: true)
+ * @returns 생성된 경기 목록
+ */
+export function createOptimizedMatches(
+  players: Player[],
+  numberOfCourts: number,
+  preferMixedDoubles: boolean = true
+): Match[] {
+  console.log('🎯 최적화된 통합 경기 생성 시작');
+  console.log(`📊 참가자: ${players.length}명, 코트: ${numberOfCourts}개, 혼복우선: ${preferMixedDoubles}`);
+  
+  // 기본 유효성 검사
+  if (players.length < 4 || numberOfCourts === 0) {
+    console.warn('경기 생성 불가: 참가자 부족 또는 코트 없음');
+    return [];
+  }
+
+  // 성별 분포 확인
+  const maleCount = players.filter(p => {
+    const gender = (p.gender || '').toLowerCase();
+    return gender === 'm' || gender === 'male' || gender === 'man';
+  }).length;
+  const femaleCount = players.length - maleCount;
+  
+  console.log(`👥 성별 분포: 남성 ${maleCount}명, 여성 ${femaleCount}명`);
+  
+  let matches: Match[] = [];
+  
+  // 혼복 우선이고 남녀가 충분한 경우
+  if (preferMixedDoubles && maleCount >= 2 && femaleCount >= 2) {
+    console.log('🎯 최적화된 혼복 생성 모드');
+    matches = createBalancedMixedDoublesMatches(players, numberOfCourts);
+  } 
+  // 일반 복식으로 진행
+  else {
+    console.log('🎯 최적화된 일반복식 생성 모드');
+    matches = createBalancedDoublesMatches(players, numberOfCourts);
+  }
+  
+  // 결과 요약 출력
+  console.log(`✅ 최적화된 경기 생성 완료: ${matches.length}개 경기`);
+  
+  // 경기별 레벨 분석
+  matches.forEach((match, index) => {
+    const team1Score = getTeamScore(match.team1);
+    const team2Score = getTeamScore(match.team2);
+    const matchScore = getTeamMatchScore(match.team1, match.team2);
+    console.log(`🏸 경기 ${index + 1}: ${team1Score}점 vs ${team2Score}점 (매칭점수: ${matchScore.toFixed(1)})`);
+  });
+  
+  return matches;
+}
+
+/**
+ * 기존 호환성을 위한 래퍼 함수들
+ */
+export { createBalancedMixedDoublesMatches as createMixedMatches };
+export { createBalancedDoublesMatches as createDoublesMatches };

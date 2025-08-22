@@ -28,6 +28,16 @@ interface AdminMenuCard {
 
 // 관리자 카드 메뉴 데이터
 const ADMIN_MENU_CARDS: AdminMenuCard[] = [
+  {
+    id: 'attendance-all-test',
+    name: '전체 회원 출석 테스트',
+    icon: '🧪',
+    path: '/attendance-all-test',
+    description: '경기 일정 선택 후 모든 회원을 출석자로 일괄 등록',
+    category: 'member',
+    color: 'green',
+    adminOnly: true
+  },
   // 경기 관리 카테고리
   { 
     id: 'match-schedule', 
@@ -243,74 +253,61 @@ export default function AdminDashboard({ userId, email }: { userId: string; emai
     const fetchAdminData = async () => {
       try {
         setLoading(true);
-
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('username, full_name')
-          .eq('id', userId);
-
-        const profile = profiles?.[0];
-        setUsername(profile?.username || profile?.full_name || email.split('@')[0]);
-
         const today = new Date().toISOString().slice(0, 10);
-
-        const { count: totalUsers } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true });
-
-        const { count: todayAttendance } = await supabase
-          .from('attendances')
-          .select('*', { count: 'exact', head: true })
-          .eq('attended_at', today);
-
-        let totalMatches = 0;
-        let upcomingMatches = 0;
-
-        try {
-          const { count: matchCount } = await supabase
-            .from('match_schedules')
-            .select('*', { count: 'exact', head: true });
-          totalMatches = matchCount || 0;
-
-          const { count: upcomingCount } = await supabase
-            .from('match_schedules')
-            .select('*', { count: 'exact', head: true })
-            .gte('match_date', today)
-            .eq('status', 'scheduled');
-          upcomingMatches = upcomingCount || 0;
-        } catch (matchError) {
-          // match_schedules 테이블 미생성 처리
-        }
-
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const { data: activeUsers } = await supabase
-          .from('attendances')
-          .select('user_id')
-          .gte('attended_at', sevenDaysAgo.toISOString().slice(0, 10));
 
-        const uniqueActiveUsers = activeUsers ? [...new Set(activeUsers.map(a => a.user_id))] : [];
+        // 병렬로 모든 데이터 요청
+        const [
+          profilesResult,
+          totalUsersResult,
+          todayAttendanceResult,
+          matchCountResult,
+          upcomingCountResult,
+          activeUsersResult,
+          myAttendanceResult
+        ] = await Promise.allSettled([
+          supabase.from('profiles').select('username, full_name').eq('id', userId),
+          supabase.from('profiles').select('*', { count: 'exact', head: true }),
+          supabase.from('attendances').select('*', { count: 'exact', head: true }).eq('attended_at', today),
+          supabase.from('match_schedules').select('*', { count: 'exact', head: true }),
+          supabase.from('match_schedules').select('*', { count: 'exact', head: true }).gte('match_date', today).eq('status', 'scheduled'),
+          supabase.from('attendances').select('user_id').gte('attended_at', sevenDaysAgo.toISOString().slice(0, 10)),
+          supabase.from('attendances').select('status').eq('user_id', userId).eq('attended_at', today)
+        ]);
+
+        // 프로필 정보
+        if (profilesResult.status === 'fulfilled') {
+          const profile = profilesResult.value.data?.[0];
+          setUsername(profile?.username || profile?.full_name || email.split('@')[0]);
+        }
+
+        // 통계 데이터 설정
+        const totalUsers = totalUsersResult.status === 'fulfilled' ? (totalUsersResult.value.count || 0) : 0;
+        const todayAttendance = todayAttendanceResult.status === 'fulfilled' ? (todayAttendanceResult.value.count || 0) : 0;
+        const totalMatches = matchCountResult.status === 'fulfilled' ? (matchCountResult.value.count || 0) : 0;
+        const upcomingMatches = upcomingCountResult.status === 'fulfilled' ? (upcomingCountResult.value.count || 0) : 0;
+        
+        // 활성 사용자 계산
+        let activeMembers = 0;
+        if (activeUsersResult.status === 'fulfilled') {
+          const uniqueActiveUsers = activeUsersResult.value.data ? [...new Set(activeUsersResult.value.data.map(a => a.user_id))] : [];
+          activeMembers = uniqueActiveUsers.length;
+        }
 
         setStats({
-          totalUsers: totalUsers || 0,
-          todayAttendance: todayAttendance || 0,
+          totalUsers,
+          todayAttendance,
           totalMatches,
           upcomingMatches,
-          activeMembers: uniqueActiveUsers.length
+          activeMembers
         });
 
-        const { data: attendanceData, error: myAttErr } = await supabase
-          .from('attendances')
-          .select('status')
-          .eq('user_id', userId)
-          .eq('attended_at', today);
-          
-        if (myAttErr && myAttErr.code !== 'PGRST116') {
-          console.error('내 출석 상태 조회 오류:', myAttErr);
+        // 내 출석 상태
+        if (myAttendanceResult.status === 'fulfilled') {
+          const myAttendance = myAttendanceResult.value.data?.[0];
+          setMyAttendanceStatus(myAttendance?.status || null);
         }
-        
-        const myAttendance = attendanceData?.[0];
-        setMyAttendanceStatus(myAttendance?.status || null);
 
       } catch (error) {
         console.error('관리자 대시보드 데이터 조회 오류:', error);

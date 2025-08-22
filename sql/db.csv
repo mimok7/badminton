@@ -1,0 +1,162 @@
+table_schema,table_name,column_name,data_type,is_nullable,column_default
+public,attendances,id,uuid,NO,gen_random_uuid()
+public,attendances,user_id,uuid,YES,null
+public,attendances,attended_at,date,NO,null
+public,attendances,status,text,YES,'present'::text
+public,dashboard_menus,id,uuid,NO,gen_random_uuid()
+public,dashboard_menus,name,text,NO,null
+public,dashboard_menus,description,text,YES,null
+public,dashboard_menus,path,text,NO,null
+public,dashboard_menus,icon,text,YES,null
+public,dashboard_menus,is_active,boolean,NO,true
+public,dashboard_menus,display_order,integer,NO,0
+public,dashboard_menus,created_at,timestamp with time zone,NO,now()
+public,dashboard_menus,admin_only,boolean,YES,false
+public,game_days,id,uuid,NO,gen_random_uuid()
+public,game_days,game_date,date,NO,null
+public,game_days,status,text,NO,'preparing'::text
+public,game_days,created_by,uuid,YES,null
+public,game_days,created_at,timestamp with time zone,NO,now()
+public,generated_matches,id,uuid,NO,uuid_generate_v4()
+public,generated_matches,session_id,uuid,YES,null
+public,generated_matches,match_number,integer,NO,null
+public,generated_matches,team1_player1_id,uuid,YES,null
+public,generated_matches,team1_player2_id,uuid,YES,null
+public,generated_matches,team2_player1_id,uuid,YES,null
+public,generated_matches,team2_player2_id,uuid,YES,null
+public,generated_matches,match_type,character varying,YES,'doubles'::character varying
+public,generated_matches,created_at,timestamp with time zone,YES,now()
+public,generated_matches,team1_expected_score,integer,YES,0
+public,generated_matches,team2_expected_score,integer,YES,0
+public,generated_matches,status,character varying,YES,'scheduled'::character varying
+public,generated_matches,match_result,jsonb,YES,null
+public,generated_matches,completed_at,timestamp with time zone,YES,null
+public,level_info,code,text,NO,null
+public,level_info,name,text,NO,null
+public,match_participants,id,uuid,NO,gen_random_uuid()
+public,match_participants,match_schedule_id,uuid,NO,null
+public,match_participants,user_id,uuid,NO,null
+public,match_participants,registered_at,timestamp with time zone,YES,CURRENT_TIMESTAMP
+public,match_participants,status,character varying,NO,'registered'::character varying
+public,match_participants,notes,text,YES,null
+public,match_player_status,player_id,uuid,YES,null
+public,match_player_status,username,text,YES,null
+public,match_player_status,full_name,text,YES,null
+public,match_player_status,total_scheduled_matches,bigint,YES,null
+public,match_player_status,completed_matches,bigint,YES,null
+public,match_player_status,wins,bigint,YES,null
+public,match_player_status,losses,bigint,YES,null
+public,match_result,id,uuid,NO,gen_random_uuid()
+public,match_result,user_id,uuid,YES,null
+public,match_result,attended_at,date,NO,null
+public,match_result,match_no,integer,NO,null
+public,match_result,win,boolean,YES,null
+public,match_result,score,integer,YES,0
+public,match_result,created_at,timestamp without time zone,YES,now()
+public,match_results,id,uuid,NO,uuid_generate_v4()
+public,match_results,match_schedule_id,uuid,YES,null
+public,match_results,team1_score1,integer,YES,0
+public,match_results,team1_score2,integer,YES,0
+public,match_results,team1_score3,integer,YES,0
+public,match_results,team2_score1,integer,YES,0
+public,match_results,team2_score2,integer,YES,0
+public,match_results,team2_score3,integer,YES,0
+public,match_results,winner_team,integer,YES,null
+public,match_results,total_sets,integer,YES,2
+public,match_results,match_duration,integer,YES,null
+public,match_results,started_at,timestamp with time zone,YES,null
+public,match_results,completed_at,timestamp with time zone,YES,null
+public,match_results,recorded_by,uuid,YES,null
+public,match_results,notes,text,YES,null
+public,match_schedules,id,uuid,NO,gen_random_uuid()
+public,match_schedules,match_date,date,NO,null
+public,match_schedules,start_time,time without time zone,NO,null
+public,match_schedules,end_time,time without time zone,NO,null
+public,match_schedules,location,character varying,NO,null
+public,match_schedules,max_participants,integer,NO,20
+public,match_schedules,current_participants,integer,NO,0
+public,match_schedules,status,character varying,NO,'scheduled'::character varying
+public,match_schedules,description,text,YES,null
+public,match_schedules,created_at,timestamp with time zone,YES,CURRENT_TIMESTAMP
+public,match_schedules,updated_at,timestamp with time zone,YES,CURRENT_TIMESTAMP
+public,match_schedules,created_by,uuid,YES,null
+public,match_schedules,updated_by,uuid,YES,null
+public,match_schedules,generated_match_id,uuid,YES,null
+public,match_schedules,scheduled_date,date,NO,CURRENT_DATE
+public,match_schedules,scheduled_time,time without time zone,NO,'09:00:00'::time without time zone
+public,match_schedules,court_number,integer,NO,1
+public,match_schedules,estimated_duration,integer,YES,30
+public,match_schedules,assigned_by,uuid,YES,null
+public,match_schedules,assigned_at,timestamp with time zone,YES,now()
+public,match_sessions,id,uuid,NO,uuid_generate_v4()
+public,match_sessions,session_date,date,NO,null
+public,match_sessions,session_name,character varying,YES,'정기 경기'::character varying
+public,match_sessions,created_at,timestamp with time zone,YES,now()
+public,match_sessions,created_by,uuid,YES,null
+public,match_sessions,status,character varying,YES,'draft'::character varying
+public,match_sessions,total_matches,integer,YES,0
+public,match_sessions,assigned_matches,integer,YES,0
+public,matches,id,uuid,NO,uuid_generate_v4()
+public,matches,game_day_id,uuid,NO,null
+public,matches,court_number,integer,NO,null
+public,matches,round_number,integer,NO,1
+public,matches,team1_player1_id,uuid,NO,null
+public,matches,team1_player2_id,uuid,NO,null
+public,matches,team2_player1_id,uuid,NO,null
+public,matches,team2_player2_id,uuid,NO,null
+public,matches,team1_score,integer,YES,0
+public,matches,team2_score,integer,YES,0
+public,matches,winner_team,integer,YES,null
+public,matches,status,text,NO,'pending'::text
+public,matches,created_at,timestamp with time zone,NO,now()
+public,notifications,id,uuid,NO,gen_random_uuid()
+public,notifications,user_id,uuid,NO,null
+public,notifications,title,character varying,NO,null
+public,notifications,message,text,NO,null
+public,notifications,type,character varying,NO,'general'::character varying
+public,notifications,related_match_id,uuid,YES,null
+public,notifications,is_read,boolean,NO,false
+public,notifications,created_at,timestamp with time zone,YES,now()
+public,notifications,read_at,timestamp with time zone,YES,null
+public,participants,game_day_id,uuid,NO,null
+public,participants,profile_id,uuid,NO,null
+public,participants,joined_at,timestamp with time zone,NO,now()
+public,profiles,id,uuid,NO,gen_random_uuid()
+public,profiles,username,text,YES,null
+public,profiles,full_name,text,YES,null
+public,profiles,skill_level,text,YES,null
+public,profiles,gender,text,YES,null
+public,profiles,updated_at,timestamp with time zone,YES,now()
+public,profiles,role,text,NO,'user'::text
+public,profiles,user_id,uuid,YES,null
+public,profiles,email,text,YES,null
+public,recurring_match_templates,id,uuid,NO,gen_random_uuid()
+public,recurring_match_templates,name,character varying,NO,null
+public,recurring_match_templates,description,text,YES,null
+public,recurring_match_templates,day_of_week,integer,NO,null
+public,recurring_match_templates,start_time,time without time zone,NO,null
+public,recurring_match_templates,end_time,time without time zone,NO,null
+public,recurring_match_templates,location,character varying,NO,null
+public,recurring_match_templates,max_participants,integer,NO,20
+public,recurring_match_templates,is_active,boolean,YES,true
+public,recurring_match_templates,advance_days,integer,YES,7
+public,recurring_match_templates,created_at,timestamp with time zone,YES,CURRENT_TIMESTAMP
+public,recurring_match_templates,updated_at,timestamp with time zone,YES,CURRENT_TIMESTAMP
+public,recurring_match_templates,created_by,uuid,YES,null
+public,recurring_templates_view,id,uuid,YES,null
+public,recurring_templates_view,name,character varying,YES,null
+public,recurring_templates_view,description,text,YES,null
+public,recurring_templates_view,day_name,text,YES,null
+public,recurring_templates_view,day_of_week,integer,YES,null
+public,recurring_templates_view,start_time,time without time zone,YES,null
+public,recurring_templates_view,end_time,time without time zone,YES,null
+public,recurring_templates_view,location,character varying,YES,null
+public,recurring_templates_view,max_participants,integer,YES,null
+public,recurring_templates_view,is_active,boolean,YES,null
+public,recurring_templates_view,advance_days,integer,YES,null
+public,recurring_templates_view,created_at,timestamp with time zone,YES,null
+public,user_notification_stats,user_id,uuid,YES,null
+public,user_notification_stats,total_notifications,bigint,YES,null
+public,user_notification_stats,unread_count,bigint,YES,null
+public,user_notification_stats,read_count,bigint,YES,null
+public,user_notification_stats,latest_notification,timestamp with time zone,YES,null

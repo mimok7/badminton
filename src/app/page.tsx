@@ -2,18 +2,19 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useUser } from '@/hooks/useUser';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function HomePage() {
   const { user, profile, isAdmin, loading } = useUser();
   const [myAttendanceStatus, setMyAttendanceStatus] = useState<'present' | 'lesson' | 'absent' | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const supabase = createClientComponentClient();
+  const supabase = useMemo(() => createClientComponentClient(), []);
 
-  // 내 출석 상태 가져오기
-  const fetchMyAttendanceStatus = async () => {
+  // 내 출석 상태 가져오기 (메모이제이션)
+  const fetchMyAttendanceStatus = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -34,10 +35,10 @@ export default function HomePage() {
     } catch (error) {
       console.error('출석 상태 조회 실패:', error);
     }
-  };
+  }, [user, supabase]);
 
-  // 내 출석 상태 업데이트 함수
-  const updateMyAttendanceStatus = async (status: 'present' | 'lesson' | 'absent') => {
+  // 내 출석 상태 업데이트 함수 (메모이제이션)
+  const updateMyAttendanceStatus = useCallback(async (status: 'present' | 'lesson' | 'absent') => {
     if (!user || isUpdatingStatus) return;
 
     setIsUpdatingStatus(true);
@@ -69,21 +70,16 @@ export default function HomePage() {
     } finally {
       setIsUpdatingStatus(false);
     }
-  };
+  }, [user, isUpdatingStatus, supabase]);
 
   useEffect(() => {
     if (user) {
       fetchMyAttendanceStatus();
     }
-  }, [user]);
+  }, [user, fetchMyAttendanceStatus]);
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center p-0 bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-        <p className="mt-4 text-gray-600">로딩 중...</p>
-      </main>
-    );
+    return <LoadingSpinner fullScreen text="애플리케이션 로딩 중..." />;
   }
 
   return (

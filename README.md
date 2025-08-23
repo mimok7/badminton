@@ -27,9 +27,30 @@
 
 ## 기술 스택
 
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
-- **Backend**: Supabase (PostgreSQL, Authentication, RLS)
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL, Authentication, RLS, Realtime)
+- **State Management**: React Context API with optimized caching
+- **Performance**: Optimized bundle splitting, lazy loading, memoization
 - **Deployment**: Vercel
+
+## 성능 최적화
+
+### 🚀 로딩 성능 개선사항
+- **Supabase 클라이언트 최적화**: 싱글톤 패턴으로 중복 생성 방지
+- **React 메모이제이션**: useCallback, useMemo를 활용한 불필요한 리렌더링 방지
+- **데이터 캐싱**: 프로필 및 일정 데이터 5분간 캐싱
+- **컴포넌트 최적화**: 로딩 상태 개선 및 레이지 로딩 적용
+- **번들 최적화**: Next.js 15의 최신 최적화 기능 활용
+
+### 📊 성능 모니터링
+- 개발 환경에서 페이지 로드 시간 자동 측정
+- 3초 이상 로딩 시 자동 경고
+- Web Vitals 지표 추적
+
+### ⚡ 추가 최적화 기능
+- **압축**: Gzip 압축 활성화
+- **이미지 최적화**: WebP/AVIF 포맷 지원
+- **정적 파일 최적화**: 캐싱 및 CDN 활용
 
 ## 데이터베이스 구조
 

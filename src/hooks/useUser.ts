@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
@@ -13,22 +13,42 @@ interface Profile {
   gender: string | null;
 }
 
+// 캐시된 프로필 데이터
+let cachedProfile: Profile | null = null;
+let cachedUserId: string | null = null;
+
 export function useUser() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClientComponentClient();
+  const supabase = useMemo(() => createClientComponentClient(), []);
 
-  const fetchProfile = async (userId: string) => {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+  const fetchProfile = useCallback(async (userId: string) => {
+    // 캐시된 프로필이 같은 사용자의 것이면 재사용
+    if (cachedProfile && cachedUserId === userId) {
+      setProfile(cachedProfile);
+      return cachedProfile;
+    }
+
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      if (!error && profile) {
+        cachedProfile = profile;
+        cachedUserId = userId;
+        setProfile(profile);
+        return profile;
+      }
+    } catch (error) {
+      console.error('Profile fetch error:', error);
+    }
     
-    setProfile(profile);
-    return profile;
-  };
+    return null;
+  }, [supabase]);
 
   useEffect(() => {
     let isMounted = true;
@@ -63,6 +83,8 @@ export function useUser() {
           await fetchProfile(session.user.id);
         } else {
           setProfile(null);
+          cachedProfile = null;
+          cachedUserId = null;
         }
         
         setLoading(false);
@@ -73,10 +95,10 @@ export function useUser() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase, fetchProfile]);
 
-  // 파생 상태: 관리자 여부
-  const isAdmin = profile?.role === 'admin';
+  // 파생 상태: 관리자 여부 (메모이제이션)
+  const isAdmin = useMemo(() => profile?.role === 'admin', [profile?.role]);
 
   return { user, profile, loading, isAdmin };
 }

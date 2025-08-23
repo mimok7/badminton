@@ -4,12 +4,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useUser } from '@/hooks/useUser';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useCallback, useMemo } from 'react';
 
 export default function Header() {
   const { user, profile, isAdmin, loading } = useUser();
-  const supabase = createClientComponentClient();
+  const supabase = useMemo(() => createClientComponentClient(), []);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
@@ -21,14 +22,79 @@ export default function Header() {
     } catch (error) {
       console.error('❌ 로그아웃 중 오류:', error);
     }
-  };
+  }, [supabase]);
+
+  // 네비게이션 메뉴 메모이제이션
+  const navigationMenu = useMemo(() => {
+    if (loading) return null;
+
+    if (!user) {
+      return (
+        <Link 
+          href="/match-registration" 
+          className="text-sm font-medium hover:text-blue-600 transition-colors"
+        >
+          경기 일정
+        </Link>
+      );
+    }
+
+    return (
+      <>
+        <Link 
+          href="/dashboard" 
+          className="text-sm font-medium hover:text-blue-600 transition-colors"
+        >
+          대시보드
+        </Link>
+        
+        <Link 
+          href="/match-results" 
+          className="text-sm font-medium hover:text-blue-600 transition-colors"
+        >
+          배정현황
+        </Link>
+        
+        <Link 
+          href="/my-schedule" 
+          className="text-sm font-medium hover:text-blue-600 transition-colors"
+        >
+          나의 일정
+        </Link>
+        
+        <Link 
+          href="/profile" 
+          className="text-sm font-medium hover:text-blue-600 transition-colors"
+        >
+          프로필
+        </Link>
+        
+        {/* 관리자 전용 메뉴 */}
+        {isAdmin && (
+          <Link 
+            href="/admin" 
+            className="text-sm font-medium hover:text-blue-600 transition-colors border-l pl-4 ml-2"
+          >
+            관리자
+          </Link>
+        )}
+      </>
+    );
+  }, [user, isAdmin, loading]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-blue-50 backdrop-blur supports-[backdrop-filter]:bg-blue-50/90">
       <nav className="container flex h-16 items-center justify-between px-4">
         <div className="flex items-center">
           <Link href="/" className="flex items-center hover:opacity-80">
-            <Image src="/badminton.png" alt="Badminton Logo" width={40} height={40} />
+            <Image 
+              src="/badminton.png" 
+              alt="Badminton Logo" 
+              width={40} 
+              height={40}
+              priority
+              sizes="40px"
+            />
             <span className="ml-2 font-semibold">라켓 뚱보단</span>
           </Link>
         </div>
@@ -40,60 +106,7 @@ export default function Header() {
             <>
               {/* 네비게이션 메뉴 */}
               <div className="hidden md:flex items-center space-x-4">
-                {user ? (
-                  <>
-                    {/* 인증된 사용자 공통 메뉴 */}
-                    <Link 
-                      href="/dashboard" 
-                      className="text-sm font-medium hover:text-blue-600 transition-colors"
-                    >
-                      대시보드
-                    </Link>
-                    
-                    <Link 
-                      href="/match-results" 
-                      className="text-sm font-medium hover:text-blue-600 transition-colors"
-                    >
-                      배정현황
-                    </Link>
-                    
-                    <Link 
-                      href="/my-schedule" 
-                      className="text-sm font-medium hover:text-blue-600 transition-colors"
-                    >
-                      나의 일정
-                    </Link>
-                    
-                    <Link 
-                      href="/profile" 
-                      className="text-sm font-medium hover:text-blue-600 transition-colors"
-                    >
-                      프로필
-                    </Link>
-                    
-                    {/* 관리자 전용 메뉴 */}
-                    {isAdmin && (
-                      <>
-                        <Link 
-                          href="/admin" 
-                          className="text-sm font-medium hover:text-blue-600 transition-colors border-l pl-4 ml-2"
-                        >
-                          관리자
-                        </Link>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  /* 비로그인 사용자 메뉴 */
-                  <>
-                    <Link 
-                      href="/match-registration" 
-                      className="text-sm font-medium hover:text-blue-600 transition-colors"
-                    >
-                      경기 일정
-                    </Link>
-                  </>
-                )}
+                {navigationMenu}
               </div>
 
               {/* 사용자 정보 및 로그인/로그아웃 */}

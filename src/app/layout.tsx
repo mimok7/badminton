@@ -4,6 +4,8 @@ import "./globals.css";
 import Header from "@/components/Header";
 import NotificationInitializer from "@/components/NotificationInitializer";
 import RealtimeNotifications from "@/components/RealtimeNotifications";
+import PerformanceMonitor from "@/components/PerformanceMonitor";
+import { AppDataProvider } from "@/contexts/AppDataContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,10 +30,13 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} bg-gray-50 text-gray-900 antialiased`}>
-        <NotificationInitializer />
-        <RealtimeNotifications />
-        <Header />
-        <main>{children}</main>
+        <AppDataProvider>
+          <PerformanceMonitor />
+          <NotificationInitializer />
+          <RealtimeNotifications />
+          <Header />
+          <main>{children}</main>
+        </AppDataProvider>
       </body>
     </html>
   );

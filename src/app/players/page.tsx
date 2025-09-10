@@ -45,10 +45,15 @@ function PlayersPage() {
 
   // 경기 배정 타입 상태
   const [assignType, setAssignType] = useState<'today' | 'scheduled'>('today');
+  // 세션명 자동 생성으로 전환 (입력 상태 제거)
   
   // 일정 관리를 위한 상태
   const [availableDates, setAvailableDates] = useState<AvailableDate[]>([]);
   const [selectedAssignDate, setSelectedAssignDate] = useState<string>('');
+  // 생성 및 배정 대상 일정과 참가자 선택 상태
+  const [selectedGenDate, setSelectedGenDate] = useState<string>('');
+  const [selectedPlayerIdsForGen, setSelectedPlayerIdsForGen] = useState<Set<string>>(new Set());
+  const [registeredPlayersForGen, setRegisteredPlayersForGen] = useState<ExtendedPlayer[] | null>(null);
 
   useEffect(() => {
     async function initializeData() {
@@ -62,7 +67,7 @@ function PlayersPage() {
         setTodayPlayers(players);
 
         // 경기 세션 및 배정 가능한 일정 조회
-        await fetchMatchSessions();
+  await fetchMatchSessions();
         await fetchAvailableDates();
       } catch (error) {
         console.error('❌ 초기 데이터 조회 중 오류:', error);
@@ -75,13 +80,13 @@ function PlayersPage() {
   }, []);
 
   // 경기 세션 조회 함수
-  const fetchMatchSessions = async () => {
+  const fetchMatchSessions = async (dateOverride?: string) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const base = (dateOverride || selectedGenDate || new Date().toISOString().split('T')[0]);
       const { data: sessions, error } = await supabase
         .from('match_sessions')
         .select('*')
-        .eq('session_date', today)
+        .eq('session_date', base)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -90,6 +95,30 @@ function PlayersPage() {
       console.error('경기 세션 조회 오류:', error);
     }
   };
+
+  // 날짜 선택 시: 해당 날짜의 등록자 로드 + 세션도 해당 날짜로 필터링
+  useEffect(() => {
+    const loadByDate = async () => {
+      if (!selectedGenDate) {
+        setRegisteredPlayersForGen(null);
+        fetchMatchSessions();
+        return;
+      }
+      try {
+        const { fetchRegisteredPlayersForDate } = await import('./utils');
+        const players = await fetchRegisteredPlayersForDate(selectedGenDate);
+        setRegisteredPlayersForGen(players);
+        await fetchMatchSessions(selectedGenDate);
+      } catch (e) {
+        console.error('선택일 참가자/세션 로드 오류:', e);
+        setRegisteredPlayersForGen([]);
+      }
+    };
+    loadByDate();
+  // 날짜 변경 시 기존 선택 초기화
+  setSelectedPlayerIdsForGen(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGenDate]);
 
   // 배정 가능한 일정 조회 함수
   const fetchAvailableDates = async () => {
@@ -194,20 +223,25 @@ function PlayersPage() {
     
     setLoading(true);
     try {
-      const presentPlayers = todayPlayers.filter(p => p.status === 'present');
-      if (presentPlayers.length < 4) {
+      const basePool = selectedGenDate && registeredPlayersForGen
+        ? registeredPlayersForGen
+        : (todayPlayers.filter(p => p.status === 'present'));
+      const selectedPlayers = selectedPlayerIdsForGen.size > 0
+        ? basePool.filter(p => selectedPlayerIdsForGen.has(p.id))
+        : basePool;
+      if (selectedPlayers.length < 4) {
         alert('경기를 생성하려면 최소 4명의 출석자가 필요합니다.');
         return;
       }
 
-      const playersForMatch = presentPlayers.map(player => ({
+      const playersForMatch = selectedPlayers.map(player => ({
         ...player,
         skill_level: normalizeLevel(player.skill_level)
       }));
 
       // 경기 생성 로직 (from match-utils)
-      const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
-      const generatedMatches = createBalancedDoublesMatches(playersForMatch, 4); // 최대 코트 수
+  const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
+  const generatedMatches = createBalancedDoublesMatches(playersForMatch, 4, perPlayerMinGames); // 최대 코트 수
       
       if (generatedMatches.length === 0) {
         alert('균형잡힌 경기를 생성할 수 없습니다.');
@@ -237,39 +271,27 @@ function PlayersPage() {
 
     setLoading(true);
     try {
-      const presentPlayers = todayPlayers.filter(p => p.status === 'present');
-      if (presentPlayers.length < 4) {
+      const basePool = selectedGenDate && registeredPlayersForGen
+        ? registeredPlayersForGen
+        : (todayPlayers.filter(p => p.status === 'present'));
+      const selectedPlayers = selectedPlayerIdsForGen.size > 0
+        ? basePool.filter(p => selectedPlayerIdsForGen.has(p.id))
+        : basePool;
+      if (selectedPlayers.length < 4) {
         alert('경기를 생성하려면 최소 4명의 출석자가 필요합니다.');
         return;
       }
 
-      const shuffledPlayers = [...presentPlayers].sort(() => Math.random() - 0.5);
-      const generatedMatches = [];
-      let gameId = 1;
+  // 유틸: 팀은 랜덤으로 섞되, 상대팀은 실력 유사하게 페어링
+  const { createRandomBalancedDoublesMatches } = await import('@/utils/match-utils');
+  const generated = createRandomBalancedDoublesMatches(selectedPlayers, 4, perPlayerMinGames);
+  // 코트 번호 재부여(순서 기반)
+  const matchesWithCourt = generated.map((m, idx) => ({ ...m, court: idx + 1 }));
 
-      for (let i = 0; i < shuffledPlayers.length; i += 4) {
-        if (i + 3 < shuffledPlayers.length) {
-          const match = {
-            id: `random-${gameId}`,
-            court: gameId,
-            team1: {
-              player1: shuffledPlayers[i],
-              player2: shuffledPlayers[i + 1]
-            },
-            team2: {
-              player1: shuffledPlayers[i + 2],
-              player2: shuffledPlayers[i + 3]
-            }
-          };
-          generatedMatches.push(match);
-          gameId++;
-        }
-      }
-
-      setMatches(generatedMatches);
-      setPlayerGameCounts(calculatePlayerGameCounts(generatedMatches));
+  setMatches(matchesWithCourt);
+  setPlayerGameCounts(calculatePlayerGameCounts(matchesWithCourt));
       
-      console.log(`✅ 랜덤 경기 생성 완료: ${generatedMatches.length}경기`);
+  console.log(`✅ 랜덤 경기 생성 완료: ${matchesWithCourt.length}경기`);
     } catch (error) {
       console.error('❌ 랜덤 경기 생성 중 오류:', error);
       alert(`랜덤 경기 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
@@ -283,20 +305,25 @@ function PlayersPage() {
 
     setLoading(true);
     try {
-      const presentPlayers = todayPlayers.filter(p => p.status === 'present');
-      if (presentPlayers.length < 4) {
+      const basePool = selectedGenDate && registeredPlayersForGen
+        ? registeredPlayersForGen
+        : (todayPlayers.filter(p => p.status === 'present'));
+      const selectedPlayers = selectedPlayerIdsForGen.size > 0
+        ? basePool.filter(p => selectedPlayerIdsForGen.has(p.id))
+        : basePool;
+      if (selectedPlayers.length < 4) {
         alert('혼합복식 경기를 생성하려면 최소 4명의 출석자가 필요합니다.');
         return;
       }
 
-      const playersForMatch = presentPlayers.map(player => ({
+      const playersForMatch = selectedPlayers.map(player => ({
         ...player,
         skill_level: normalizeLevel(player.skill_level)
       }));
 
-      // 혼복 경기 생성 로직 (from match-utils)
-      const { createMixedDoublesMatches } = await import('@/utils/match-utils');
-      const generatedMatches = createMixedDoublesMatches(playersForMatch, 4); // 최대 코트 수
+      // 혼성+동성 조합 경기 생성 로직 (from match-utils)
+  const { createMixedAndSameSexDoublesMatches } = await import('@/utils/match-utils');
+  const generatedMatches = createMixedAndSameSexDoublesMatches(playersForMatch, 4, perPlayerMinGames); // 최대 코트 수
       
       if (generatedMatches.length === 0) {
         alert('혼합복식 경기를 생성할 수 없습니다. 남녀 선수 구성을 확인해주세요.');
@@ -329,7 +356,19 @@ function PlayersPage() {
 
     setLoading(true);
     try {
-      const sessionName = `${new Date().toLocaleDateString('ko-KR')} ${assignType === 'today' ? '즉시배정' : '예정배정'} - ${matches.length}경기`;
+      if (!selectedGenDate) {
+        alert('배정할 경기 일정을 선택해주세요.');
+        setLoading(false);
+        return;
+      }
+      // 세션명 자동 생성: YYYY-MM-DD_모드_일련번호
+      const mode = assignType === 'today' ? '오늘' : '예정';
+      const { count } = await supabase
+        .from('match_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('session_date', selectedGenDate);
+      const n = (count ?? 0) + 1;
+      const sessionName = `${selectedGenDate}_${mode}_${n}`;
       
       // 경기 세션 생성
       const { data: sessionData, error: sessionError } = await supabase
@@ -338,7 +377,7 @@ function PlayersPage() {
           session_name: sessionName,
           total_matches: matches.length,
           assigned_matches: assignType === 'today' ? matches.length : 0,
-          session_date: new Date().toISOString().split('T')[0]
+          session_date: selectedGenDate
         })
         .select()
         .single();
@@ -366,8 +405,9 @@ function PlayersPage() {
       alert(`✅ ${matches.length}개 경기가 ${assignType === 'today' ? '오늘 바로' : '예정으로'} 배정되었습니다!`);
       
       // 상태 초기화 및 새로고침
-      setMatches([]);
-      setPlayerGameCounts({});
+  setMatches([]);
+  setPlayerGameCounts({});
+  setSelectedPlayerIdsForGen(new Set());
       await fetchMatchSessions();
       
     } catch (error) {
@@ -503,6 +543,75 @@ function PlayersPage() {
             <AttendanceStatus todayPlayers={todayPlayers} />
             
             <MatchSessionStatus matchSessions={matchSessions} />
+
+            {/* 일정 선택 및 참가자 선택 섹션 */}
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded">
+              <h3 className="text-lg font-semibold mb-3 text-amber-800">📅 경기 일정 & 참가자 선택</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">배정할 경기 날짜</label>
+                  <select
+                    className="w-full border rounded px-3 py-2 text-sm"
+                    value={selectedGenDate}
+                    onChange={(e) => setSelectedGenDate(e.target.value)}
+                  >
+                    <option value="">날짜를 선택하세요</option>
+                    {availableDates.map(d => (
+                      <option key={d.date} value={d.date}>
+                        {new Date(d.date).toLocaleDateString('ko-KR')} — 여유 {d.availableSlots}명, 장소 {d.location}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">선택된 날짜로 세션이 생성됩니다.</p>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">참가 선수 선택(미선택 시 {selectedGenDate ? '해당 날짜 신청자' : '출석자'} 전체)</label>
+                  <div className="max-h-44 overflow-auto border rounded">
+                    <ul className="divide-y">
+                      {(
+                        selectedGenDate
+                          ? (registeredPlayersForGen || [])
+                          : (todayPlayers || []).filter(p => p.status === 'present')
+                        ).map(p => {
+                        const isChecked = selectedPlayerIdsForGen.has(p.id);
+                        return (
+                          <li key={p.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                setSelectedPlayerIdsForGen(prev => {
+                                  const next = new Set(prev);
+                                  if (e.target.checked) next.add(p.id); else next.delete(p.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <span className="flex-1 truncate">{p.name}</span>
+                            <span className="text-xs text-gray-500">{(p.skill_level || 'E2').toUpperCase()}</span>
+                            <span className="text-xs text-gray-500">{(p.gender || '').toString()}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                  <div className="mt-2 flex gap-2 text-xs">
+                    <button
+                      className="px-2 py-1 border rounded hover:bg-gray-50"
+                      onClick={() => setSelectedPlayerIdsForGen(new Set((selectedGenDate ? (registeredPlayersForGen || []) : (todayPlayers || []).filter(p => p.status === 'present')).map(p => p.id)))}
+                    >
+                      모두 선택
+                    </button>
+                    <button
+                      className="px-2 py-1 border rounded hover:bg-gray-50"
+                      onClick={() => setSelectedPlayerIdsForGen(new Set())}
+                    >
+                      선택 해제
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
             
             <MatchGenerationControls
               todayPlayers={todayPlayers}

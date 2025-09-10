@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { RequireAdmin } from '@/components/AuthGuard';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -66,6 +66,8 @@ export default function MatchSchedulePage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<MatchSchedule | null>(null);
   const router = useRouter();
+  // 상세보기 토글 상태: 스케줄별로 참가자 이름 목록 표시 여부
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   // 새 경기 생성 폼 데이터
   const [newSchedule, setNewSchedule] = useState({
@@ -77,7 +79,7 @@ export default function MatchSchedulePage() {
     description: ''
   });
 
-  // 경기 일정 목록 조회
+  // 경기 일정 목록 조회 (배치 조회: 일정 -> 참가자 -> 프로필)
   const fetchSchedules = async () => {
     try {
       setLoading(true);
@@ -102,34 +104,68 @@ export default function MatchSchedulePage() {
         return;
       }
 
-      // 각 경기의 참가자 정보를 병렬로 조회 (registered와 attended 상태 모두 포함)
-      const participantPromises = schedulesData.map(schedule => 
-        supabase
-          .from('match_participants')
-          .select(`
-            *,
-            profiles (
-              username,
-              full_name
-            )
-          `)
-          .eq('match_schedule_id', schedule.id)
-          .in('status', ['registered', 'attended'])
-      );
+      // 1) 모든 일정의 ID 수집
+      const scheduleIds = schedulesData.map(s => s.id);
 
-      const participantResults = await Promise.allSettled(participantPromises);
+      // 2) 해당 일정들의 참가자 일괄 조회 (현재 참가자 수 정의에 맞춰 'registered'만 카운트)
+      const { data: participantsAll, error: participantsError } = await supabase
+        .from('match_participants')
+        .select('*')
+        .in('match_schedule_id', scheduleIds)
+        .in('status', ['registered']);
 
-      const schedulesWithParticipants = schedulesData.map((schedule, index) => {
-        const participants = participantResults[index].status === 'fulfilled' 
-          ? (participantResults[index].value.data || [])
-          : [];
-        
+      if (participantsError) {
+        console.error('참가자 조회 오류:', participantsError);
+      }
+
+      const participantsBySchedule: Record<string, MatchParticipant[]> = {};
+      const userIdSet = new Set<string>();
+      (participantsAll || []).forEach((p) => {
+        if (!participantsBySchedule[p.match_schedule_id as unknown as string]) {
+          participantsBySchedule[p.match_schedule_id as unknown as string] = [] as any;
+        }
+        participantsBySchedule[p.match_schedule_id as unknown as string].push(p as any);
+        if (p.user_id) userIdSet.add(p.user_id as unknown as string);
+      });
+
+      // 3) 참가자 프로필 일괄 조회 (이름/닉네임 표시용)
+      let profilesMap: Record<string, { username: string | null; full_name: string | null }> = {};
+      if (userIdSet.size > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, user_id, username, full_name')
+          .in('user_id', Array.from(userIdSet));
+
+        if (profilesError) {
+          console.warn('프로필 조회 오류 (이름 표시 건너뜀):', profilesError);
+        } else if (profilesData) {
+          profilesMap = profilesData.reduce((acc: any, cur: any) => {
+            // map by profiles.user_id to match match_participants.user_id
+            acc[cur.user_id] = { username: cur.username ?? null, full_name: cur.full_name ?? null };
+            return acc;
+          }, {} as Record<string, { username: string | null; full_name: string | null }>);
+        }
+      }
+
+      // 4) 스케줄과 참가자 + 프로필 매핑
+      const schedulesWithParticipants = schedulesData.map((schedule) => {
+        const list = (participantsBySchedule[schedule.id] || []).map((p: any) => ({
+          id: p.id,
+          user_id: p.user_id,
+          registered_at: p.registered_at,
+          status: p.status,
+          profiles: profilesMap[p.user_id] ? {
+            username: profilesMap[p.user_id].username ?? undefined,
+            full_name: profilesMap[p.user_id].full_name ?? undefined,
+          } : undefined,
+        })) as MatchParticipant[];
+
         return {
           ...schedule,
-          participants,
-          current_participants: participants.length // 실제 참가자 수로 업데이트
-        };
-      }) as ScheduleWithParticipants[];
+          participants: list,
+          current_participants: list.length,
+        } as ScheduleWithParticipants;
+      });
 
       setSchedules(schedulesWithParticipants);
 
@@ -142,6 +178,24 @@ export default function MatchSchedulePage() {
 
   useEffect(() => {
     fetchSchedules();
+  }, []);
+
+  // 참가자 변화 실시간 반영: Realtime 구독으로 자동 새로고침
+  useEffect(() => {
+    const channel = supabase
+      .channel('match_participants_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_participants' }, (payload) => {
+        const changedScheduleId = (payload.new as any)?.match_schedule_id || (payload.old as any)?.match_schedule_id;
+        // 현재 목록에 있는 일정의 변경일 때만 갱신 (간단히 전체 갱신)
+        if (changedScheduleId) {
+          fetchSchedules();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // 새 경기 생성
@@ -198,6 +252,29 @@ export default function MatchSchedulePage() {
         .eq('id', scheduleId);
 
       if (error) {
+        // 체크 제약 위반(예: 23514) 시, DB가 'in_progress'를 요구하는 환경일 수 있어 호환값으로 재시도
+        const code = (error as any)?.code || '';
+        const msg = (error as any)?.message || '';
+        const isCheckViolation = code === '23514' || String(msg).includes('match_schedules_status_check');
+
+        if (isCheckViolation && newStatus === 'ongoing') {
+          const fallback = 'in_progress';
+          const { error: retryError } = await supabase
+            .from('match_schedules')
+            .update({ status: fallback as any, updated_by: user?.id })
+            .eq('id', scheduleId);
+
+          if (retryError) {
+            console.error('상태 업데이트 재시도 실패:', retryError);
+            alert(`상태 업데이트 중 오류가 발생했습니다: ${retryError.message || JSON.stringify(retryError)}`);
+            return;
+          }
+
+          await fetchSchedules();
+          alert('경기 상태가 "진행중"으로 변경되었습니다. (DB 호환 상태값 사용)');
+          return;
+        }
+
         console.error('상태 업데이트 오류:', error);
         alert(`상태 업데이트 중 오류가 발생했습니다: ${error.message || JSON.stringify(error)}`);
         return;
@@ -235,13 +312,15 @@ export default function MatchSchedulePage() {
       }
 
       // 참가 신청 추가
-      const { error } = await supabase
+      const { data: insertedData, error } = await supabase
         .from('match_participants')
         .insert({
           match_schedule_id: scheduleId,
           user_id: user.id,
           status: 'registered'
-        });
+        })
+        .select('id, match_schedule_id, user_id, registered_at')
+        .single();
 
       if (error) {
         console.error('참가 신청 오류:', error);
@@ -249,9 +328,31 @@ export default function MatchSchedulePage() {
         return;
       }
 
-      // 목록 새로고침
-      await fetchSchedules();
-      alert('참가 신청이 완료되었습니다!');
+      // Optimistic UI: 즉시 로컬 상태 반영 (participant 추가 및 참가자 수 증가)
+      setSchedules((prev) => prev.map((s) => {
+        if (s.id !== scheduleId) return s;
+    const newParticipant = {
+          id: insertedData?.id || `temp-${Date.now()}`,
+          user_id: user.id,
+          registered_at: insertedData?.registered_at || new Date().toISOString(),
+          status: 'registered',
+          profiles: {
+      username: (user as any)?.user_metadata?.username || (user as any)?.email || ''
+          }
+        } as MatchParticipant;
+
+        return {
+          ...s,
+          participants: [...s.participants, newParticipant],
+          current_participants: (s.current_participants || 0) + 1
+        };
+      }));
+
+  // Optimistic UI already updated above. Refresh in background to sync with DB.
+  fetchSchedules();
+  // small delayed refresh to handle eventual consistency
+  setTimeout(() => fetchSchedules(), 700);
+  alert('참가 신청이 완료되었습니다!');
 
     } catch (error) {
       console.error('참가 신청 중 오류:', error);
@@ -276,9 +377,21 @@ export default function MatchSchedulePage() {
         return;
       }
 
-      // 목록 새로고침
-      await fetchSchedules();
-      alert('참가 신청이 취소되었습니다.');
+      // Optimistic UI: 즉시 로컬 상태 반영 (participant 제거 및 참가자 수 감소)
+      setSchedules((prev) => prev.map((s) => {
+        if (s.id !== scheduleId) return s;
+        const filtered = s.participants.filter(p => p.user_id !== user.id);
+        return {
+          ...s,
+          participants: filtered,
+          current_participants: Math.max(0, (s.current_participants || 0) - 1)
+        };
+      }));
+
+  // Background refresh to sync with DB; optimistic update already applied
+  fetchSchedules();
+  setTimeout(() => fetchSchedules(), 700);
+  alert('참가 신청이 취소되었습니다.');
 
     } catch (error) {
       console.error('참가 취소 중 오류:', error);
@@ -317,7 +430,8 @@ export default function MatchSchedulePage() {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'scheduled': return '예정';
-      case 'ongoing': return '진행중';
+  case 'ongoing':
+  case 'in_progress': return '진행중';
       case 'completed': return '완료';
       case 'cancelled': return '취소됨';
       default: return status;
@@ -328,7 +442,8 @@ export default function MatchSchedulePage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled': return 'bg-blue-100 text-blue-800';
-      case 'ongoing': return 'bg-yellow-100 text-yellow-800';
+  case 'ongoing':
+  case 'in_progress': return 'bg-yellow-100 text-yellow-800';
       case 'completed': return 'bg-green-100 text-green-800';
       case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -499,12 +614,9 @@ export default function MatchSchedulePage() {
                   <p className="text-sm mt-2">새 경기를 생성해보세요!</p>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {schedules.map((schedule) => (
-                    <div
-                      key={schedule.id}
-                      className="border rounded-lg p-6 hover:shadow-md transition-shadow"
-                    >
+                    <div key={schedule.id} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
@@ -540,22 +652,43 @@ export default function MatchSchedulePage() {
                         </div>
                       </div>
 
-                      {/* 참가자 목록 */}
-                      {schedule.participants.length > 0 && (
-                        <div className="mb-4">
-                          <h4 className="font-semibold text-gray-900 mb-2">참가자 목록:</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {schedule.participants.map((participant) => (
-                              <span
-                                key={participant.id}
-                                className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
-                              >
-                                {participant.profiles?.username || participant.profiles?.full_name || '알 수 없음'}
-                              </span>
-                            ))}
-                          </div>
+                      {/* 참가자 상세보기 토글 + 목록 */}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-gray-900">참가자</h4>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExpanded((prev) => ({ ...prev, [schedule.id]: !prev[schedule.id] }))}
+                          >
+                            {expanded[schedule.id] ? '닫기' : `상세보기 (${schedule.participants.length}명)`}
+                          </Button>
                         </div>
-                      )}
+                        {expanded[schedule.id] && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {schedule.participants.length === 0 ? (
+                              <span className="text-gray-500 text-sm">아직 참가자가 없습니다.</span>
+                            ) : (
+                              schedule.participants.map((participant) => {
+                                const baseName = (participant.profiles?.username && String(participant.profiles.username))
+                                  || (participant.profiles?.full_name && String(participant.profiles.full_name))
+                                  || '이름 없음';
+                                const isMe = participant.user_id === user?.id;
+                                return (
+                                  <span
+                                    key={participant.id}
+                                    title={baseName}
+                                    className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm cursor-default"
+                                  >
+                                    {baseName}
+                                    {isMe && <span className="text-green-700 ml-1">*</span>}
+                                  </span>
+                                );
+                              })
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                       {/* 관리 버튼들 */}
                       <div className="flex flex-wrap gap-2">

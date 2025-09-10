@@ -19,19 +19,25 @@ export default function HomePage() {
     
     try {
       const today = new Date().toISOString().slice(0, 10);
+      const profileId = profile?.id;
+      if (!profileId) {
+        setMyAttendanceStatus(null);
+        return;
+      }
+
       const { data: myAttendance, error: myAttErr } = await supabase
         .from('attendances')
         .select('status')
-        .eq('user_id', user.id)
+        .eq('user_id', profileId)
         .eq('attended_at', today)
-        .single();
-        
-      if (myAttErr && myAttErr.code !== 'PGRST116') {
+        .maybeSingle();
+
+      if (myAttErr) {
         console.error('내 출석 상태 조회 오류:', myAttErr);
         setMyAttendanceStatus(null);
-      } else {
-        setMyAttendanceStatus(myAttendance?.status || null);
+        return;
       }
+      setMyAttendanceStatus(myAttendance?.status || null);
     } catch (error) {
       console.error('출석 상태 조회 실패:', error);
     }
@@ -39,31 +45,48 @@ export default function HomePage() {
 
   // 내 출석 상태 업데이트 함수 (메모이제이션)
   const updateMyAttendanceStatus = useCallback(async (status: 'present' | 'lesson' | 'absent') => {
-    if (!user || isUpdatingStatus) return;
+  if (!user || !profile || isUpdatingStatus) return;
 
     setIsUpdatingStatus(true);
     try {
       const today = new Date().toISOString().slice(0, 10);
       
-      const { error } = await supabase
-        .from('attendances')
-        .upsert({
-          user_id: user.id,
-          attended_at: today,
-          status: status,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,attended_at'
-        });
+      // 1) 기존 레코드 업데이트 시도
+      const profileId = profile.id;
 
-      if (error) {
-        console.error('출석 상태 업데이트 오류:', error);
+      const { data: updated, error: updateErr } = await supabase
+        .from('attendances')
+        .update({ status })
+        .eq('user_id', profileId)
+        .eq('attended_at', today)
+        .select('id');
+
+      if (updateErr) {
+        console.error('출석 상태 업데이트 오류:', updateErr);
         alert('출석 상태 업데이트에 실패했습니다.');
-      } else {
-        setMyAttendanceStatus(status);
-        const statusText = status === 'present' ? '출석' : status === 'lesson' ? '레슨' : '불참';
-        alert(`출석 상태가 "${statusText}"로 업데이트되었습니다.`);
+        return;
       }
+
+      // 2) 업데이트된 행이 없다면 신규 삽입
+      if (!updated || updated.length === 0) {
+    const { error: insertErr } = await supabase
+          .from('attendances')
+          .insert({
+      user_id: profileId,
+            attended_at: today,
+            status,
+          });
+
+        if (insertErr) {
+          console.error('출석 상태 신규 등록 오류:', insertErr);
+          alert('출석 상태 등록에 실패했습니다.');
+          return;
+        }
+      }
+
+      setMyAttendanceStatus(status);
+      const statusText = status === 'present' ? '출석' : status === 'lesson' ? '레슨' : '불참';
+      alert(`출석 상태가 "${statusText}"로 업데이트되었습니다.`);
     } catch (error) {
       console.error('출석 상태 업데이트 실패:', error);
       alert('출석 상태 업데이트 중 오류가 발생했습니다.');

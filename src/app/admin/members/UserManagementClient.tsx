@@ -1,14 +1,15 @@
 'use client';
 
-import { useTransition } from 'react';
-import Link from 'next/link';
+import { useMemo, useState, useTransition } from 'react';
 import type { AdminUser } from '@/types';
-import { deleteUser } from './actions';
-import { useUser } from '@/hooks/useUser';
+import { deleteUser, updateUser } from './actions';
 
 export default function UserManagementClient({ users, myUserId }: { users: AdminUser[]; myUserId: string }) {
     const [isPending, startTransition] = useTransition();
-    const { profile } = useUser();
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [draft, setDraft] = useState<Record<string, any>>({});
+    const levelOptions = useMemo(() => ['E2','E1','D2','D1','C2','C1','B2','B1','A2','A1'], []);
+    const roleOptions = useMemo(() => ['user','admin'], []);
 
     const handleDelete = (user: AdminUser) => {
         if (user.id === myUserId) {
@@ -27,30 +28,43 @@ export default function UserManagementClient({ users, myUserId }: { users: Admin
         }
     };
 
+    const startEdit = (user: AdminUser) => {
+        setEditingId(user.id);
+        setDraft({
+            username: user.username ?? '',
+            email: user.email ?? '',
+            skill_level: user.skill_level ?? 'E2',
+            gender: user.gender ?? '',
+            role: user.role ?? 'user',
+        });
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setDraft({});
+    };
+
+    const saveEdit = (user: AdminUser) => {
+        startTransition(async () => {
+            const payload: any = {
+                username: draft.username,
+                full_name: draft.full_name,
+                skill_level: draft.skill_level,
+                gender: draft.gender,
+                role: draft.role,
+            };
+            const res = await updateUser(user.id, payload);
+            if (res?.error) {
+                alert(`수정 실패: ${res.error}`);
+            } else {
+                setEditingId(null);
+                setDraft({});
+            }
+        });
+    };
+
     return (
         <div>
-            {/* 상단 인사말 섹션 */}
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-md p-6 mb-8 text-white">
-                <div className="flex items-center justify-between mb-2">
-                    <h1 className="text-2xl font-semibold flex items-center gap-2">
-                        👥 회원 관리
-                    </h1>
-                    <Link href="/" className="text-white hover:text-blue-100 transition-colors">
-                        🏠 홈
-                    </Link>
-                </div>
-                <div className="flex items-center gap-4 text-sm mb-4">
-                    <span className="bg-red-200 text-red-800 px-3 py-1 rounded-full">
-                        {profile?.username || profile?.full_name || '관리자'}님
-                    </span>
-                    <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
-                        회원 관리 권한
-                    </span>
-                </div>
-                <p className="text-blue-100">
-                    클럽 회원들을 효율적으로 관리하고 운영하세요! 👨‍👩‍👧‍👦
-                </p>
-            </div>
 
             {/* 회원 통계 */}
             <div className="grid grid-cols-3 gap-2 md:gap-4 mb-8">
@@ -68,37 +82,59 @@ export default function UserManagementClient({ users, myUserId }: { users: Admin
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-gray-500">
-                <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                    <tr>
-                        <th scope="col" className="px-4 py-3">이름</th>
-                        <th scope="col" className="px-4 py-3">이메일</th>
-                        <th scope="col" className="px-4 py-3">레벨</th>
-                        <th scope="col" className="px-4 py-3">성별</th>
-                        <th scope="col" className="px-4 py-3">역할</th>
-                        <th scope="col" className="px-4 py-3">작업</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {users.map((user) => (
-                        <tr key={user.id} className="border-b bg-white hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-900">{user.username}</td>
-                            <td className="px-4 py-3">{user.email}</td>
-                            <td className="px-4 py-3">{user.skill_label || user.skill_level || '미지정'}</td>
-                            <td className="px-4 py-3">{user.gender === 'M' ? '남성' : user.gender === 'F' ? '여성' : '기타'}</td>
-                            <td className="px-4 py-3">{user.role}</td>
-                            <td className="px-4 py-3">
-                                <button onClick={() => handleDelete(user)} disabled={isPending || user.id === myUserId}
-                                    className="text-red-500 hover:underline disabled:text-gray-400 disabled:no-underline">
-                                    {isPending ? '삭제중...' : '삭제'}
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4">
+                {users.map((user) => {
+                    const isEditing = editingId === user.id;
+                    return (
+                        <div key={user.id} className="bg-white rounded shadow p-3 flex flex-col justify-between">
+                            <div>
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="font-semibold text-gray-900">
+                                                                        {isEditing ? (
+                                                                                <input value={draft.username ?? ''} onChange={(e) => setDraft({ ...draft, username: e.target.value })} className="border rounded px-2 py-1 w-full" />
+                                                                        ) : (
+                                                                                user.username || '-' 
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-xs text-white bg-blue-600 px-2 py-0.5 rounded">{user.role}</div>
+                                                                </div>
+
+                                <div className="mt-2 text-sm text-gray-700">
+                                    {isEditing ? (
+                                        <select value={draft.skill_level ?? 'E2'} onChange={(e) => setDraft({ ...draft, skill_level: e.target.value })} className="border rounded px-2 py-1 w-full">
+                                            {levelOptions.map(l => <option key={l} value={l}>{l}</option>)}
+                                        </select>
+                                    ) : (
+                                        <span className="inline-block px-2 py-1 bg-gray-100 rounded">{user.skill_label || user.skill_level || '미지정'}</span>
+                                    )}
+                                </div>
+                                <div className="mt-2 text-sm text-gray-700">{isEditing ? (
+                                    <select value={draft.gender ?? ''} onChange={(e) => setDraft({ ...draft, gender: e.target.value })} className="border rounded px-2 py-1 w-full">
+                                        <option value="">선택</option>
+                                        <option value="M">남성</option>
+                                        <option value="F">여성</option>
+                                        <option value="O">기타</option>
+                                    </select>
+                                ) : (user.gender === 'M' ? '남성' : user.gender === 'F' ? '여성' : '기타')} </div>
+                                <div className="mt-2 text-sm text-gray-500">{user.email}</div>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between gap-2">
+                                {isEditing ? (
+                                    <>
+                                        <button onClick={() => saveEdit(user)} disabled={isPending} className="text-green-600">저장</button>
+                                        <button onClick={cancelEdit} disabled={isPending} className="text-gray-600">취소</button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button onClick={() => startEdit(user)} className="text-blue-600">수정</button>
+                                        <button onClick={() => handleDelete(user)} disabled={isPending || user.id === myUserId} className="text-red-500">삭제</button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
         </div>
     );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { getLevelScore } from '@/utils/match-utils';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { NotificationService } from '@/utils/notification-service';
 import { MatchSession, GeneratedMatch, AvailableDate } from '../types';
@@ -349,10 +350,10 @@ export default function MatchAssignmentManager({
                       경기번호
                     </th>
                     <th className="border border-gray-200 px-4 py-3 text-center text-sm font-semibold text-gray-700">
-                      팀1
+                      팀1 (레벨합)
                     </th>
                     <th className="border border-gray-200 px-4 py-3 text-center text-sm font-semibold text-gray-700">
-                      팀2
+                      팀2 (레벨합)
                     </th>
                     <th className="border border-gray-200 px-2 py-3 text-center text-sm font-semibold text-gray-700">
                       경기상태
@@ -388,10 +389,12 @@ export default function MatchAssignmentManager({
                         {match.match_number}
                       </td>
                       <td className="border border-gray-200 px-4 py-3 text-center text-sm text-blue-700">
+                        <div className="font-semibold text-blue-900 mb-1">합계: {getLevelScore(match.team1_player1.skill_level) + getLevelScore(match.team1_player2.skill_level)}</div>
                         {getPlayerNameDisplay(match.team1_player1.name, match.team1_player1.skill_level)},<br />
                         {getPlayerNameDisplay(match.team1_player2.name, match.team1_player2.skill_level)}
                       </td>
                       <td className="border border-gray-200 px-4 py-3 text-center text-sm text-red-700">
+                        <div className="font-semibold text-red-900 mb-1">합계: {getLevelScore(match.team2_player1.skill_level) + getLevelScore(match.team2_player2.skill_level)}</div>
                         {getPlayerNameDisplay(match.team2_player1.name, match.team2_player1.skill_level)},<br />
                         {getPlayerNameDisplay(match.team2_player2.name, match.team2_player2.skill_level)}
                       </td>

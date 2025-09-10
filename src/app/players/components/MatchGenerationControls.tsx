@@ -56,21 +56,7 @@ export default function MatchGenerationControls({
           <strong className="text-blue-600"> 경기 배정 관리</strong>에서 실제 진행할 경기를 선택할 수 있습니다.
         </p>
         
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <p className="text-sm text-blue-800">
-                💡 <strong>Tip:</strong> 경기 생성 후 배정 관리에서 날짜별로 경기를 배정하세요!
-              </p>
-            </div>
-            <a
-              href="/match-assignment"
-              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm font-medium transition-colors whitespace-nowrap"
-            >
-              ⚡ 배정 관리로 이동
-            </a>
-          </div>
-        </div>
+  {/* Tip and quick link removed as requested */}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <button 

@@ -296,6 +296,64 @@ function MatchResultsPage() {
     );
   };
 
+  // 결과 제출 컴포넌트
+  function MatchResultRow({ match, onSaved }: { match: AssignedMatch, onSaved: () => void }) {
+    const [team1Score, setTeam1Score] = useState<number>(0);
+    const [team2Score, setTeam2Score] = useState<number>(0);
+    const [submitting, setSubmitting] = useState(false);
+
+    const submitResult = async () => {
+      if (!match || !match.generated_match) return;
+      setSubmitting(true);
+      try {
+        const payload = {
+          match_id: match.generated_match.id,
+          winner_team1: team1Score > team2Score,
+          team1_score: team1Score,
+          team2_score: team2Score
+        };
+
+        const res = await fetch('/api/match-results', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || '결과 저장 중 오류');
+
+        // 저장 후 목록 새로고침
+        onSaved();
+      } catch (err) {
+        console.error('결과 저장 오류:', err);
+        alert('결과 저장에 실패했습니다. 콘솔을 확인하세요.');
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    return (
+      <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={team1Score}
+            onChange={(e) => setTeam1Score(Number(e.target.value))}
+            className="w-20 px-2 py-1 border rounded" />
+          <span className="text-sm text-gray-500">vs</span>
+          <input
+            type="number"
+            value={team2Score}
+            onChange={(e) => setTeam2Score(Number(e.target.value))}
+            className="w-20 px-2 py-1 border rounded" />
+        </div>
+        <Button onClick={submitResult} disabled={submitting}>
+          {submitting ? '저장 중...' : '결과 저장'}
+        </Button>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-6">
@@ -312,27 +370,9 @@ function MatchResultsPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* 상단 인사말 섹션 */}
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-md p-6 mb-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
-              📋 배정 현황 확인
-            </h1>
-            <Link href="/" className="text-white hover:text-blue-100 transition-colors">
-              🏠 홈
-            </Link>
-          </div>
-          <div className="flex items-center gap-4 text-sm mb-4">
-            <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full">
-              회원님
-            </span>
-            <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
-              배정된 경기 현황
-            </span>
-          </div>
-          <p className="text-blue-100">
-            배정된 경기 현황과 일정을 확인하고 관리하세요! 🎯
-          </p>
+        {/* 상단 제목 */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold">📋 배정 현황 확인</h1>
         </div>
 
         {/* 필터 컨트롤 */}
@@ -507,29 +547,37 @@ function MatchResultsPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {assignedMatches.map((match) => (
                       <tr key={match.id} className="hover:bg-gray-50">
-                        <td className="w-1/12 px-2 py-4 whitespace-nowrap text-center">
+                        <td className="w-1/12 px-2 py-4 whitespace-nowrap text-center align-top">
                           <div className="text-sm font-medium text-gray-900">
                             {match.generated_match?.match_number}
                           </div>
                         </td>
-                        <td className="w-10/12 px-6 py-4">
-                          <div className="flex justify-center items-center gap-4">
-                            {/* 팀 1 */}
-                            <div className="flex items-center justify-center space-x-2 flex-1 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                              {getPlayerNameWithHighlight(match.generated_match?.team1_player1)}
-                              <span className="text-gray-400">,</span>
-                              {getPlayerNameWithHighlight(match.generated_match?.team1_player2)}
+                        <td className="w-10/12 px-6 py-4 align-top">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex justify-center items-center gap-4">
+                              {/* 팀 1 */}
+                              <div className="flex items-center justify-center space-x-2 flex-1 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                {getPlayerNameWithHighlight(match.generated_match?.team1_player1)}
+                                <span className="text-gray-400">,</span>
+                                {getPlayerNameWithHighlight(match.generated_match?.team1_player2)}
+                              </div>
+                              
+                              {/* 팀 2 */}
+                              <div className="flex items-center justify-center space-x-2 flex-1 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                                {getPlayerNameWithHighlight(match.generated_match?.team2_player1)}
+                                <span className="text-gray-400">,</span>
+                                {getPlayerNameWithHighlight(match.generated_match?.team2_player2)}
+                              </div>
                             </div>
-                            
-                            {/* 팀 2 */}
-                            <div className="flex items-center justify-center space-x-2 flex-1 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                              {getPlayerNameWithHighlight(match.generated_match?.team2_player1)}
-                              <span className="text-gray-400">,</span>
-                              {getPlayerNameWithHighlight(match.generated_match?.team2_player2)}
-                            </div>
+
+                            {/* 결과 입력 UI */}
+                            <MatchResultRow
+                              match={match}
+                              onSaved={() => fetchAssignedMatches()}
+                            />
                           </div>
                         </td>
-                        <td className="w-1/12 px-3 py-4 whitespace-nowrap text-center">
+                        <td className="w-1/12 px-3 py-4 whitespace-nowrap text-center align-top">
                           {getStatusBadge(match.status)}
                         </td>
                       </tr>

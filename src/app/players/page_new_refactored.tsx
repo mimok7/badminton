@@ -226,7 +226,7 @@ function PlayersPage() {
   const playersForMatch: Player[] = presentPlayers.map(toPlayer);
 
   const numberOfCourts = Math.max(1, Math.floor(presentPlayers.length / 4));
-  const generatedMatches = createBalancedDoublesMatches(playersForMatch, numberOfCourts);
+  const generatedMatches = createBalancedDoublesMatches(playersForMatch, numberOfCourts, perPlayerMinGames);
       
       if (generatedMatches.length === 0) {
         alert('균형잡힌 경기를 생성할 수 없습니다.');
@@ -304,7 +304,7 @@ function PlayersPage() {
   const playersForMatch: Player[] = presentPlayers.map(toPlayer);
 
   const numberOfCourts = Math.max(1, Math.floor(presentPlayers.length / 4));
-  const generatedMatches = createMixedDoublesMatches(playersForMatch, numberOfCourts);
+  const generatedMatches = createMixedDoublesMatches(playersForMatch, numberOfCourts, perPlayerMinGames);
       
       if (generatedMatches.length === 0) {
         alert('혼합복식 경기를 생성할 수 없습니다. 남녀 선수 구성을 확인해주세요.');
@@ -635,24 +635,9 @@ function PlayersPage() {
                 <div className="bg-white border rounded-lg p-6">
                   <h3 className="text-lg font-semibold mb-3">🎯 새로운 경기 일정 생성</h3>
                   <p className="text-sm text-gray-600 mb-4">
-                    출석한 선수들로 경기를 생성합니다. 생성된 경기는 위의 경기 일정에 추가되고, 
-                    <strong className="text-blue-600"> 경기 배정 관리</strong>에서 실제 진행할 경기를 선택할 수 있습니다.
+                    출석한 선수들로 경기를 생성합니다. 생성된 경기는 위의 경기 일정에 추가됩니다.
                   </p>
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                      <div>
-                        <p className="text-sm text-blue-800">
-                          💡 <strong>Tip:</strong> 경기 생성 후 배정 관리에서 날짜별로 경기를 배정하세요!
-                        </p>
-                      </div>
-                      <a
-                        href="/match-assignment"
-                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm font-medium transition-colors"
-                      >
-                        ⚡ 배정 관리로 이동
-                      </a>
-                    </div>
-                  </div>
+                  {/* Tip box removed per request */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <button 
                       className="bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg font-medium transition-colors disabled:bg-gray-400"

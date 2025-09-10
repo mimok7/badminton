@@ -17,7 +17,7 @@ export default function MatchSessionStatus({ matchSessions }: MatchSessionStatus
           <p className="text-sm">아래 버튼으로 경기를 생성하면 자동으로 경기 일정이 만들어집니다</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {matchSessions.map(session => (
             <div key={session.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-white rounded border gap-4">
               <div className="flex-1 min-w-0">

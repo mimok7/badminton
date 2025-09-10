@@ -247,15 +247,9 @@ function MatchAssignmentPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto mt-10 p-6 bg-white shadow rounded">
-      <div className="flex items-center justify-between mb-6">
+    <div className="w-full min-h-screen p-6 bg-white">
+      <div className="mb-6">
         <h2 className="text-3xl font-bold text-gray-800">⚡ 경기 배정 관리</h2>
-        <button
-          onClick={() => window.location.href = '/players'}
-          className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded transition-colors"
-        >
-          ← 경기 생성으로 돌아가기
-        </button>
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -282,7 +276,7 @@ function MatchAssignmentPage() {
             </a>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {matchSessions.map(session => (
               <div key={session.id} className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">

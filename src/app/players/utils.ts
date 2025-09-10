@@ -234,3 +234,82 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
     return [];
   }
 };
+
+// 선택한 날짜의 신청자(registered)만 불러오는 함수
+export const fetchRegisteredPlayersForDate = async (date: string): Promise<ExtendedPlayer[]> => {
+  try {
+    const target = date;
+
+    // 1) 해당 날짜의 스케줄 조회 (예정/진행중 위주)
+    const { data: schedules, error: schedulesError } = await supabase
+      .from('match_schedules')
+      .select('id')
+      .eq('match_date', target);
+
+    if (schedulesError) {
+      console.error('❌ 일정 조회 오류:', schedulesError);
+      return [];
+    }
+
+    const scheduleIds = (schedules || []).map((s: any) => s.id);
+    if (scheduleIds.length === 0) return [];
+
+    // 2) 해당 스케줄들의 참가자 중 registered 상태만
+    const { data: participants, error: participantsError } = await supabase
+      .from('match_participants')
+      .select('user_id, status')
+      .in('match_schedule_id', scheduleIds)
+      .eq('status', 'registered');
+
+    if (participantsError) {
+      console.error('❌ 참가자 조회 오류:', participantsError);
+      return [];
+    }
+
+    const userIds = Array.from(new Set((participants || []).map((p: any) => p.user_id).filter(Boolean)));
+    if (userIds.length === 0) return [];
+
+    // 3) 프로필 조회 (id 기준 매칭)
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username, full_name, skill_level, gender')
+      .in('id', userIds);
+
+    if (profilesError) {
+      console.error('❌ 프로필 조회 오류:', profilesError);
+      return [];
+    }
+
+    // 4) 레벨 라벨 매핑용 level_info 조회
+    const { data: levelData } = await supabase
+      .from('level_info')
+      .select('code, name');
+
+    const levelMap: Record<string, string> = {};
+    (levelData || []).forEach((lvl: any) => {
+      if (lvl.code) levelMap[String(lvl.code).toLowerCase()] = lvl.name || '';
+    });
+
+    // 5) ExtendedPlayer 배열로 변환 (status는 생성 로직 재사용을 위해 present로 지정)
+    const players: ExtendedPlayer[] = (profiles || []).map((profile: any) => {
+      const raw = (profile.skill_level || '').toString().toLowerCase();
+      const normalized = normalizeLevel('', raw);
+      const label = levelMap[normalized] || LEVEL_LABELS[normalized] || 'E2 (초급)';
+      const name = profile.username || profile.full_name || `선수-${String(profile.id).slice(0, 4)}`;
+      return {
+        id: profile.id,
+        name,
+        skill_level: normalized,
+        skill_label: label,
+        gender: profile.gender || '',
+        skill_code: '',
+        status: 'present',
+      } as ExtendedPlayer;
+    });
+
+    return players;
+  } catch (error) {
+    console.error('❌ 날짜별 참가자 조회 중 오류:', error);
+    return [];
+  }
+};

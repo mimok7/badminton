@@ -96,9 +96,10 @@ export default function MatchRegistrationPage() {
         participationsRes = { data: [], error: null };
       }
 
+      // 참가자(순수 행) 조회
       const participantsRes = await supabase
         .from('match_participants')
-        .select('id, user_id, status, registered_at, match_schedule_id, profiles ( username, full_name, skill_level )')
+        .select('id, user_id, status, registered_at, match_schedule_id')
         .in('match_schedule_id', scheduleIds)
         .eq('status', 'registered');
 
@@ -112,15 +113,41 @@ export default function MatchRegistrationPage() {
       const participationsData = (participationsRes?.data || []) as Array<{ match_schedule_id: string; status: string; registered_at: string }>;
       const participantsAll = (participantsRes?.data || []) as Array<any>;
 
+      // 참가자 user_id로 프로필 일괄 조회 (username/full_name/skill_level)
+      const uniqueUserIds = Array.from(new Set(participantsAll.map((p: any) => p.user_id)));
+      let profilesById: Record<string, { username?: string; full_name?: string; skill_level?: string | null }> = {};
+      if (uniqueUserIds.length > 0) {
+        // profiles 테이블은 auth.users.id를 profiles.user_id 컬럼에 저장하는 경우가 일반적이므로
+        // participant.user_id(auth.users.id)로 프로필을 조회해야 합니다.
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, user_id, username, full_name, skill_level')
+          .in('user_id', uniqueUserIds);
+        if (profilesError) {
+          console.error('프로필 조회 오류:', profilesError);
+        } else {
+          profilesById = (profilesData || []).reduce((acc: Record<string, any>, row: any) => {
+            // 매핑 키를 profiles.user_id로 사용
+            acc[row.user_id] = {
+              username: row.username,
+              full_name: row.full_name,
+              skill_level: row.skill_level ?? null,
+            };
+            return acc;
+          }, {} as Record<string, any>);
+        }
+      }
+
       // 3) 스케줄별 참가자 그룹핑
       const participantsBySchedule = participantsAll.reduce((acc: Record<string, any[]>, row: any) => {
         const key = row.match_schedule_id;
+        const p = profilesById[row.user_id] || {};
         const formatted = {
           id: row.id,
           user_id: row.user_id,
-          username: row.profiles?.username || '',
-          full_name: row.profiles?.full_name || '',
-          skill_level: row.profiles?.skill_level ?? null,
+          username: p.username || '',
+          full_name: p.full_name || '',
+          skill_level: p.skill_level ?? null,
           status: row.status,
         };
         if (!acc[key]) acc[key] = [];
@@ -332,6 +359,30 @@ export default function MatchRegistrationPage() {
     fetchSchedulesAndParticipation();
   }, [user]);
 
+  // 실시간 참가자 변화 감지(다른 회원의 신청/취소도 자동 반영)
+  useEffect(() => {
+    // Realtime: match_participants 테이블의 INSERT/UPDATE/DELETE 변경 구독
+    const channel = supabase
+      .channel('realtime-match-participants')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'match_participants' },
+        () => {
+          // 변경 발생 시 최신 데이터로 동기화
+          fetchSchedulesAndParticipation();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {
+        // noop
+      }
+    };
+  }, []);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled': return 'bg-blue-100 text-blue-800';
@@ -434,15 +485,13 @@ export default function MatchRegistrationPage() {
                           참가자: {matchInfo.actualParticipantCount} / {matchInfo.schedule.max_participants}
                         </div>
                         
-                        {matchInfo.actualParticipantCount > 0 && (
-                          <Button
-                            onClick={() => setShowParticipants(showParticipants === matchInfo.schedule.id ? null : matchInfo.schedule.id)}
-                            variant="outline"
-                            className="text-xs px-2 py-1 h-7"
-                          >
-                            {showParticipants === matchInfo.schedule.id ? '참가자 숨기기' : `참가자 확인 (${matchInfo.actualParticipantCount})`}
-                          </Button>
-                        )}
+                        <Button
+                          onClick={() => setShowParticipants(showParticipants === matchInfo.schedule.id ? null : matchInfo.schedule.id)}
+                          variant="outline"
+                          className="text-xs px-2 py-1 h-7"
+                        >
+                          {showParticipants === matchInfo.schedule.id ? '참가자 숨기기' : `참가자 확인 (${matchInfo.actualParticipantCount})`}
+                        </Button>
                       </div>
 
                       <div className="space-x-2 flex flex-col items-end">
@@ -485,7 +534,7 @@ export default function MatchRegistrationPage() {
                               >
                                 <span className="text-gray-400 mr-1">{index + 1}.</span>
                                 <span className="truncate flex-1">
-                                  {participant.username || participant.full_name || `사용자-${participant.user_id.slice(0, 8)}`}
+                                  {participant.username || participant.full_name || '이름 없음'}
                                   {participant.user_id === user?.id && (
                                     <span className="text-green-600 ml-1">*</span>
                                   )}

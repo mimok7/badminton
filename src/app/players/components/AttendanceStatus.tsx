@@ -1,6 +1,6 @@
-'use client';
+ 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ExtendedPlayer, LEVEL_LABELS } from '../types';
 
 interface AttendanceStatusProps {
@@ -48,6 +48,22 @@ export default function AttendanceStatus({ todayPlayers }: AttendanceStatusProps
     levelCounts[levelLabel] = (levelCounts[levelLabel] || 0) + 1;
   });
 
+  // 이름을 한글 사전(ㄱㄴㄷ) 순으로 정렬
+  const sortedPlayers = todayPlayers.slice().sort((a, b) => {
+    const nameA = (a.name || '').trim();
+    const nameB = (b.name || '').trim();
+    return nameA.localeCompare(nameB, 'ko', { sensitivity: 'base' });
+  });
+
+  // 필터 상태: all / present / lesson / absent
+  const [filter, setFilter] = useState<'all' | 'present' | 'lesson' | 'absent'>('all');
+
+  // 정렬된 선수 목록에서 필터 적용
+  const filteredPlayers = sortedPlayers.filter(player => {
+    if (filter === 'all') return true;
+    return player.status === filter;
+  });
+
   return (
     <div className="mb-6">
       {/* 출석자 요약 */}
@@ -81,37 +97,49 @@ export default function AttendanceStatus({ todayPlayers }: AttendanceStatusProps
 
       {/* 출석 상태별 현황 */}
       <div className="flex gap-2 mb-3 text-sm">
-        <div className="border rounded px-3 py-1 bg-green-50">
+        <button onClick={() => setFilter('all')} className={`border rounded px-3 py-1 ${filter === 'all' ? 'bg-blue-50' : 'bg-white'}`}>
+          <span className="font-medium">전체</span>: 
+          <span className="ml-1 text-gray-700 font-medium">{todayPlayers.length}명</span>
+        </button>
+        <button onClick={() => setFilter('present')} className={`border rounded px-3 py-1 ${filter === 'present' ? 'bg-green-50' : 'bg-white'}`}>
           <span className="font-medium">출석</span>: 
           <span className="ml-1 text-green-600 font-medium">{todayPlayers.filter(p => p.status === 'present').length}명</span>
-        </div>
-        <div className="border rounded px-3 py-1 bg-yellow-50">
+        </button>
+        <button onClick={() => setFilter('lesson')} className={`border rounded px-3 py-1 ${filter === 'lesson' ? 'bg-yellow-50' : 'bg-white'}`}>
           <span className="font-medium">레슨</span>: 
           <span className="ml-1 text-yellow-600 font-medium">{todayPlayers.filter(p => p.status === 'lesson').length}명</span>
-        </div>
-        <div className="border rounded px-3 py-1 bg-red-50">
+        </button>
+        <button onClick={() => setFilter('absent')} className={`border rounded px-3 py-1 ${filter === 'absent' ? 'bg-red-50' : 'bg-white'}`}>
           <span className="font-medium">불참</span>: 
           <span className="ml-1 text-red-600 font-medium">{todayPlayers.filter(p => p.status === 'absent').length}명</span>
-        </div>
+        </button>
       </div>
       
-      {/* 선수 목록 (간소화) */}
-      <div className="mt-3 border rounded p-3 max-h-48 overflow-y-auto">
+      {/* 선수 목록: 카드 너비 고정(예: 160px)으로 화면에 따라 한 줄에 표시되는 갯수 자동 조정 */}
+      <div className="mt-3">
         <h4 className="font-semibold mb-2">선수 목록</h4>
-        {todayPlayers.map((player, index) => (
-          <div key={player.id} className="flex justify-between items-center py-1 border-b last:border-b-0">
-            <span className="text-sm">
-              {index + 1}. {player.name} ({player.skill_label})
-            </span>
-            <span className={`text-xs px-2 py-1 rounded ${
-              player.status === 'present' ? 'bg-green-100 text-green-800' :
-              player.status === 'lesson' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-red-100 text-red-800'
-            }`}>
-              {player.status === 'present' ? '출석' : player.status === 'lesson' ? '레슨' : '불참'}
-            </span>
-          </div>
-        ))}
+  <div className="grid gap-3 max-h-64 overflow-y-auto p-1" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', justifyContent: 'start' }}>
+          {filteredPlayers.map((player) => (
+            <div key={player.id} className="bg-white border rounded-lg p-3 flex flex-col justify-between shadow-sm w-32">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{player.name}</div>
+                  <div className="text-xs text-gray-500 truncate">{player.skill_label}</div>
+                </div>
+                <div>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    player.status === 'present' ? 'bg-green-100 text-green-800' :
+                    player.status === 'lesson' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {player.status === 'present' ? '출석' : player.status === 'lesson' ? '레슨' : '불참'}
+                  </span>
+                </div>
+              </div>
+              
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

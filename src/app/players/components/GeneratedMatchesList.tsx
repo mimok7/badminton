@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { getTeamScore } from '@/utils/match-utils';
 import { Match } from '@/types';
 
 interface GeneratedMatchesListProps {
@@ -55,9 +56,11 @@ export default function GeneratedMatchesList({
                 </td>
                 <td className="border border-gray-300 px-2 py-2 text-center text-blue-600 text-xs">
                   {getPlayerName(match.team1.player1)}, {getPlayerName(match.team1.player2)}
+                  <span className="text-xs text-gray-500 ml-2">({getTeamScore(match.team1)})</span>
                 </td>
                 <td className="border border-gray-300 px-2 py-2 text-center text-red-600 text-xs">
                   {getPlayerName(match.team2.player1)}, {getPlayerName(match.team2.player2)}
+                  <span className="text-xs text-gray-500 ml-2">({getTeamScore(match.team2)})</span>
                 </td>
               </tr>
             ))}
@@ -70,11 +73,11 @@ export default function GeneratedMatchesList({
         <div className="mb-6">
           <h4 className="text-lg font-semibold mb-3">1인당 총 게임수</h4>
           <div className="bg-gray-50 p-4 rounded border">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-sm">
+            <div className="grid gap-2 text-sm" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', justifyContent: 'start' }}>
               {Object.entries(playerGameCounts)
-                .sort(([, a], [, b]) => b - a) // 게임수 많은 순으로 정렬
+                .sort(([nameA], [nameB]) => nameA.localeCompare(nameB, 'ko', { sensitivity: 'base' })) // 한글 사전(ㄱㄴㄷ) 순 정렬
                 .map(([playerName, gameCount]) => (
-                  <div key={playerName} className="flex justify-between bg-white p-2 rounded border">
+                  <div key={playerName} className="flex justify-between bg-white p-2 rounded border" style={{ width: '120px', minWidth: '120px' }}>
                     <span className="font-medium truncate mr-2">{playerName}</span>
                     <span className="text-blue-600 font-bold flex-shrink-0">{gameCount}</span>
                   </div>
@@ -100,37 +103,13 @@ export default function GeneratedMatchesList({
         <p className="text-sm text-gray-600 mb-4">
           생성된 {matches.length}개의 경기를 어떻게 배정하시겠습니까?
         </p>
+        {/* 세션명은 자동 생성됩니다. */}
         
-        <div className="space-y-3 mb-4">
-          <label className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-white cursor-pointer">
-            <input
-              type="radio"
-              name="assignType"
-              value="today"
-              checked={assignType === 'today'}
-              onChange={(e) => setAssignType(e.target.value as 'today' | 'scheduled')}
-              className="form-radio text-green-500 mt-0.5 flex-shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <span className="font-medium text-green-700">🔥 오늘 바로 배정</span>
-              <p className="text-sm text-gray-600">회원들이 지금 바로 경기할 수 있도록 배정합니다</p>
-            </div>
-          </label>
-          
-          <label className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-white cursor-pointer">
-            <input
-              type="radio"
-              name="assignType"
-              value="scheduled"
-              checked={assignType === 'scheduled'}
-              onChange={(e) => setAssignType(e.target.value as 'today' | 'scheduled')}
-              className="form-radio text-blue-500 mt-0.5 flex-shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <span className="font-medium text-blue-700">📅 예정 경기로 저장</span>
-              <p className="text-sm text-gray-600">나중에 경기 배정 관리에서 일정을 배정합니다</p>
-            </div>
-          </label>
+        <div className="mb-4">
+          <div className="p-3 border rounded-lg bg-white">
+            <div className="font-medium text-green-700">🔥 오늘 바로 배정</div>
+            <p className="text-sm text-gray-600">이 페이지는 항상 오늘 바로 배정으로 작동합니다. 생성된 경기는 즉시 배정됩니다.</p>
+          </div>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3">

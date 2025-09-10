@@ -290,7 +290,7 @@ export default function AttendanceAllTestPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto mt-10 p-6 bg-white rounded shadow">
+    <div className="w-full min-h-screen p-6 bg-white rounded shadow">
       <h1 className="text-2xl font-bold mb-4">회원 출석 관리</h1>
       
       {/* 탭 메뉴 */}
@@ -346,7 +346,7 @@ export default function AttendanceAllTestPage() {
                   등록 가능한 회원 목록 ({getAvailableMembers().length}명)
                 </label>
                 <div className="max-h-60 overflow-y-auto border rounded p-3 bg-gray-50">
-                  <div className="flex flex-col gap-2">
+                  <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, 150px)', justifyContent: 'start' }}>
                     {getAvailableMembers().map(m => {
                       const uid = m.user_id || m.id;
                       const status = attendanceStatus[uid];
@@ -354,21 +354,21 @@ export default function AttendanceAllTestPage() {
                       if (status === 'cancelled') statusText = '취소됨';
                       else statusText = '미등록';
                       return (
-                        <div key={uid} className="flex items-center gap-2">
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm min-w-[80px]">
-                            {m.username || m.full_name || uid}
-                          </span>
-                          <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
-                            {statusText}
-                          </span>
-                          <Button
-                            size="sm"
-                            className="bg-green-500 hover:bg-green-600 text-white"
-                            disabled={loading || !selectedSchedule}
-                            onClick={() => handleAttendanceMember(uid)}
-                          >
-                            출석등록
-                          </Button>
+                        <div key={uid} className="flex flex-col items-start gap-2 p-2 border rounded bg-gray-50 w-[150px]">
+                          <div className="w-full flex items-center justify-between">
+                            <div className="text-sm font-medium text-blue-600 truncate">{m.username || m.full_name || uid}</div>
+                            <span className="text-xs px-2 py-0.5 rounded bg-gray-50 text-gray-600">{statusText}</span>
+                          </div>
+                          <div className="w-full">
+                            <Button
+                              size="sm"
+                              className="bg-green-300 hover:bg-green-400 text-green-800 w-full"
+                              disabled={loading || !selectedSchedule}
+                              onClick={() => handleAttendanceMember(uid)}
+                            >
+                              출석등록
+                            </Button>
+                          </div>
                         </div>
                       );
                     })}
@@ -386,7 +386,7 @@ export default function AttendanceAllTestPage() {
                   등록된 회원 목록 ({getRegisteredMembers().length}명)
                 </label>
                 <div className="max-h-60 overflow-y-auto border rounded p-3 bg-gray-50">
-                  <div className="flex flex-col gap-2">
+                  <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, 150px)', justifyContent: 'start' }}>
                     {getRegisteredMembers().map(m => {
                       const uid = m.user_id || m.id;
                       const status = attendanceStatus[uid];
@@ -394,21 +394,21 @@ export default function AttendanceAllTestPage() {
                       if (status === 'registered') statusText = '등록됨';
                       else if (status === 'attended') statusText = '출석';
                       return (
-                        <div key={uid} className="flex items-center gap-2">
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm min-w-[80px]">
-                            {m.username || m.full_name || uid}
-                          </span>
-                          <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">
-                            {statusText}
-                          </span>
-                          <Button
-                            size="sm"
-                            className="bg-red-500 hover:bg-red-600 text-white"
-                            disabled={loading || !selectedSchedule}
-                            onClick={() => handleCancelAttendanceMember(uid)}
-                          >
-                            출석취소
-                          </Button>
+                        <div key={uid} className="flex flex-col items-start gap-2 p-2 border rounded bg-gray-50 w-[150px]">
+                          <div className="w-full flex items-center justify-between">
+                            <div className="text-sm font-medium text-blue-600 truncate">{m.username || m.full_name || uid}</div>
+                            <span className="text-xs px-2 py-0.5 rounded bg-green-50 text-green-600">{statusText}</span>
+                          </div>
+                          <div className="w-full">
+                            <Button
+                              size="sm"
+                              className="bg-red-300 hover:bg-red-400 text-red-800 w-full"
+                              disabled={loading || !selectedSchedule}
+                              onClick={() => handleCancelAttendanceMember(uid)}
+                            >
+                              출석취소
+                            </Button>
+                          </div>
                         </div>
                       );
                     })}

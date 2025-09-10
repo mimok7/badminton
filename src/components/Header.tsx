@@ -31,7 +31,7 @@ export default function Header() {
     if (!user) {
       return (
         <Link 
-          href="/match-registration" 
+          href="/match-schedule" 
           className="text-sm font-medium hover:text-blue-600 transition-colors"
         >
           경기 일정
@@ -46,6 +46,12 @@ export default function Header() {
           className="text-sm font-medium hover:text-blue-600 transition-colors"
         >
           대시보드
+        </Link>
+        <Link 
+          href="/match-schedule" 
+          className="text-sm font-medium hover:text-blue-600 transition-colors"
+        >
+          경기 일정
         </Link>
         
         <Link 

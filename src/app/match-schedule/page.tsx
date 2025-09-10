@@ -614,7 +614,7 @@ export default function MatchSchedulePage() {
                   <p className="text-sm mt-2">새 경기를 생성해보세요!</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6">
                   {schedules.map((schedule) => (
                     <div key={schedule.id} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-4">

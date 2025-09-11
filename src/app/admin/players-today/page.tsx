@@ -321,10 +321,28 @@ export default function PlayersTodayPage() {
     try {
       const present = todayPlayers.filter(p => p.status === 'present');
       if (present.length < 4) { alert('최소 4명의 출석자가 필요합니다.'); return; }
-    const { createRandomBalancedDoublesMatches } = await import('@/utils/match-utils');
-  const generated = createRandomBalancedDoublesMatches(present, 4, perPlayerMinGames).map((m: any, i: number) => ({ ...m, court: i + 1 }));
-  setMatches(generated);
-  setSessionMode('랜덤');
+      // normalize levels for scoring
+      const playersForMatch = present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }));
+      const { createRandomBalancedDoublesMatches } = await import('@/utils/match-utils');
+      const targetMatches = Math.ceil((playersForMatch.length * perPlayerMinGames) / 4);
+      let generated: any[] = [];
+      let attempts = 0;
+      let maxCourts = Math.max(4, Math.ceil(playersForMatch.length / 4));
+      while (attempts < 4) {
+        generated = createRandomBalancedDoublesMatches(playersForMatch, maxCourts, perPlayerMinGames).map((m: any, i: number) => ({ ...m, court: i + 1 }));
+        const counts = calculatePlayerGameCounts(generated);
+        const missing = playersForMatch.filter(p => (counts[p.id] || 0) < perPlayerMinGames);
+        if (generated.length >= targetMatches && missing.length === 0) break;
+        attempts += 1;
+        maxCourts = Math.min(playersForMatch.length, maxCourts + 2);
+      }
+      const finalCounts = calculatePlayerGameCounts(generated);
+      const stillMissing = playersForMatch.filter(p => (finalCounts[p.id] || 0) < perPlayerMinGames);
+      if (stillMissing.length > 0) {
+        console.warn(`${stillMissing.length}명의 선수가 목표 경기수에 도달하지 못했습니다. (생성된 경기 ${generated.length}개)`);
+      }
+      setMatches(generated);
+      setSessionMode('랜덤');
       setPlayerGameCounts(calculatePlayerGameCounts(generated));
     } catch (e) {
       console.error(e);
@@ -339,10 +357,30 @@ export default function PlayersTodayPage() {
       const present = todayPlayers.filter(p => p.status === 'present');
       if (present.length < 4) { alert('최소 4명의 출석자가 필요합니다.'); return; }
       const playersForMatch = present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }));
-    const { createMixedAndSameSexDoublesMatches } = await import('@/utils/match-utils');
-  const generated = createMixedAndSameSexDoublesMatches(playersForMatch, 4, perPlayerMinGames).map((m: any, i: number) => ({ ...m, court: i + 1 }));
-  setMatches(generated);
-  setSessionMode('혼복');
+      const { createMixedAndSameSexDoublesMatches } = await import('@/utils/match-utils');
+      // target matches = ceil((players * perPlayerMinGames) / 4)
+      const targetMatches = Math.ceil((playersForMatch.length * perPlayerMinGames) / 4);
+      // try generation multiple times, expanding per-round courts if needed to improve coverage
+      let generated: any[] = [];
+      let attempts = 0;
+      let maxCourts = Math.max(4, Math.ceil(playersForMatch.length / 4));
+      while (attempts < 4) {
+        generated = createMixedAndSameSexDoublesMatches(playersForMatch, maxCourts, perPlayerMinGames).map((m: any, i: number) => ({ ...m, court: i + 1 }));
+        const counts = calculatePlayerGameCounts(generated);
+        const missing = playersForMatch.filter(p => (counts[p.id] || 0) < perPlayerMinGames);
+        if (generated.length >= targetMatches && missing.length === 0) break;
+        // try again with more courts to create more variety
+        attempts += 1;
+        maxCourts = Math.min(playersForMatch.length, maxCourts + 2);
+      }
+      // final check
+      const finalCounts = calculatePlayerGameCounts(generated);
+      const stillMissing = playersForMatch.filter(p => (finalCounts[p.id] || 0) < perPlayerMinGames);
+      if (stillMissing.length > 0) {
+        console.warn(`${stillMissing.length}명의 선수가 목표 경기수에 도달하지 못했습니다. (생성된 경기 ${generated.length}개)`);
+      }
+      setMatches(generated);
+      setSessionMode('혼복');
       setPlayerGameCounts(calculatePlayerGameCounts(generated));
     } catch (e) { console.error(e); alert('혼복 경기 생성 중 오류'); }
     finally { setLoading(false); }
@@ -450,8 +488,8 @@ export default function PlayersTodayPage() {
         <MatchSessionStatus matchSessions={matchSessions} />
         <MatchGenerationControls
           todayPlayers={todayPlayers}
-          perPlayerMinGames={1}
-          setPerPlayerMinGames={() => {}}
+          perPlayerMinGames={perPlayerMinGames}
+          setPerPlayerMinGames={setPerPlayerMinGames}
           onGenerateByLevel={handleAssignByLevel}
           onGenerateRandom={handleAssignRandom}
           onGenerateMixed={handleAssignMixed}

@@ -25,7 +25,7 @@ export default function MatchGenerationControls({
   }
 
   const presentPlayers = todayPlayers.filter(p => p.status === 'present').length;
-  const expectedMatches = Math.ceil(presentPlayers / 4);
+  const expectedMatches = Math.ceil((presentPlayers * perPlayerMinGames) / 4);
 
   return (
     <div>

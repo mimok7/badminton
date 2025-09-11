@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { fetchRegisteredPlayersForDate } from '@/app/players/utils';
 
 interface TeamAssignment {
   id: string;
@@ -9,6 +10,7 @@ interface TeamAssignment {
   player_name: string;
   team_type: 'racket' | 'shuttle'; // 라켓팀 또는 셔틀팀
   created_at: string;
+  round_title?: string;
 }
 
 interface RoundSummary {
@@ -16,6 +18,7 @@ interface RoundSummary {
   racket_team: string[];
   shuttle_team: string[];
   total_players: number;
+  title?: string;
 }
 
 export default function TeamManagementPage() {
@@ -23,67 +26,92 @@ export default function TeamManagementPage() {
   const [rounds, setRounds] = useState<RoundSummary[]>([]);
   const [currentRound, setCurrentRound] = useState<number>(1);
   const [todayPlayers, setTodayPlayers] = useState<string[]>([]);
+  const [schedules, setSchedules] = useState<Array<{id: string; start_time: string; end_time: string; location: string; match_date: string}>>([]);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<Record<string, 'racket' | 'shuttle'>>({});
   const [loading, setLoading] = useState(true);
 
   // 오늘 출석한 선수들 조회
   const fetchTodayPlayers = async () => {
     try {
+      // 우선: 선택된 스케줄이 있으면 해당 스케줄의 등록자(registered)를 사용
+      if (selectedScheduleId) {
+        // 스케줄에서 match_date를 가져와서 날짜 기반 등록자 조회
+        const { data: schedule } = await supabase.from('match_schedules').select('match_date').eq('id', selectedScheduleId).single();
+        const date = schedule?.match_date || new Date().toISOString().slice(0,10);
+        const regs = await fetchRegisteredPlayersForDate(date);
+        const names = regs.map(r => `${r.name}(${(r.skill_level || '').toUpperCase()})`);
+        setTodayPlayers(names);
+        return;
+      }
+
+      // 선택된 스케줄이 없으면 기존 출석 데이터를 사용
       const today = new Date().toISOString().slice(0, 10);
-      
-      // 출석 데이터 조회
       const { data: attendanceData, error } = await supabase
         .from('attendances')
         .select('user_id, status')
         .eq('attended_at', today)
         .eq('status', 'present'); // 출석한 선수만
-        
+
       if (error) {
         console.error('출석 데이터 조회 오류:', error);
+        setTodayPlayers([]);
         return;
       }
-      
+
       if (!attendanceData || attendanceData.length === 0) {
         console.log('오늘 출석한 선수가 없습니다.');
+        setTodayPlayers([]);
         return;
       }
-      
-      // 프로필 정보 조회 (스킬 레벨 포함)
+
       const userIds = attendanceData.map(a => a.user_id);
       const { data: profilesData, error: profileError } = await supabase
         .from('profiles')
         .select('id, username, full_name, skill_level')
         .in('id', userIds);
-        
+
       if (profileError) {
         console.error('프로필 조회 오류:', profileError);
+        setTodayPlayers([]);
         return;
       }
-      
-      // 레벨 정보도 함께 가져오기
-      const { data: levelData, error: levelError } = await supabase
-        .from('level_info')
-        .select('code, name');
-        
-      const levelMap: Record<string, string> = {};
-      if (levelData) {
-        levelData.forEach((level: any) => {
-          if (level.code) {
-            levelMap[level.code.toLowerCase()] = level.name || level.code.toUpperCase();
-          }
-        });
-      }
-      
+
       const playerNamesWithLevel = profilesData?.map(p => {
         const playerName = p.username || p.full_name || `선수-${p.id.substring(0, 4)}`;
         const skillLevel = p.skill_level ? String(p.skill_level).toLowerCase() : 'n';
         const levelCode = skillLevel.toUpperCase();
         return `${playerName}(${levelCode})`;
       }) || [];
-      
+
       setTodayPlayers(playerNamesWithLevel);
     } catch (error) {
       console.error('선수 조회 중 오류:', error);
+      setTodayPlayers([]);
+    }
+  };
+
+  // 스케줄 목록을 불러와 선택할 수 있게 함
+  const fetchSchedulesList = async () => {
+    try {
+      const today = new Date().toISOString().slice(0,10);
+      const { data, error } = await supabase
+        .from('match_schedules')
+        .select('id, match_date, start_time, end_time, location')
+        .gte('match_date', today)
+        .order('match_date', { ascending: true });
+
+      if (error) {
+        console.error('일정 목록 조회 오류:', error);
+        return;
+      }
+
+      setSchedules(data || []);
+      if (data && data.length > 0 && !selectedScheduleId) {
+        setSelectedScheduleId(data[0].id);
+      }
+    } catch (e) {
+      console.error('일정 조회 실패:', e);
     }
   };
 
@@ -126,6 +154,7 @@ export default function TeamManagementPage() {
             roundsMap[assignment.round_number].shuttle_team.push(assignment.player_name);
           }
           roundsMap[assignment.round_number].total_players++;
+          if (assignment.round_title) roundsMap[assignment.round_number].title = assignment.round_title;
         });
         
         const roundsArray = Object.values(roundsMap);
@@ -149,12 +178,21 @@ export default function TeamManagementPage() {
         alert('팀 배정을 먼저 해주세요.');
         return;
       }
-      
+      // build a readable round title: use selected schedule date if available
+      let titleDate = new Date().toISOString().slice(0,10);
+      if (selectedScheduleId) {
+        const { data: schedule } = await supabase.from('match_schedules').select('match_date').eq('id', selectedScheduleId).single();
+        if (schedule?.match_date) titleDate = schedule.match_date;
+      }
+
+      const roundTitle = `경기일정 ${titleDate} ${currentRound}회차`;
+
       const assignmentData = Object.entries(assignments).map(([playerName, teamType]) => ({
         round_number: currentRound,
         player_name: playerName,
         team_type: teamType,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        round_title: roundTitle
       }));
       
       // 로컬 스토리지에 저장 (DB 테이블이 없는 경우)
@@ -174,14 +212,15 @@ export default function TeamManagementPage() {
         round: currentRound,
         racket_team: racketPlayers,
         shuttle_team: shuttlePlayers,
-        total_players: Object.keys(assignments).length
+        total_players: Object.keys(assignments).length,
+        title: roundTitle
       };
       
       setRounds([...rounds, newRound]);
       setCurrentRound(currentRound + 1);
       setAssignments({});
       
-      alert(`${currentRound}회차 팀 배정이 저장되었습니다.`);
+  alert(`${roundTitle} 팀 배정이 저장되었습니다.`);
     } catch (error) {
       console.error('저장 중 오류:', error);
       alert('저장 중 오류가 발생했습니다.');
@@ -216,6 +255,7 @@ export default function TeamManagementPage() {
           roundsMap[assignment.round_number].shuttle_team.push(assignment.player_name);
         }
         roundsMap[assignment.round_number].total_players++;
+        if (assignment.round_title) roundsMap[assignment.round_number].title = assignment.round_title;
       });
       
       const roundsArray = Object.values(roundsMap);
@@ -258,6 +298,7 @@ export default function TeamManagementPage() {
 
   useEffect(() => {
     const initializeData = async () => {
+      await fetchSchedulesList();
       await fetchTodayPlayers();
       await fetchRoundsData();
       // DB에서 실패한 경우 로컬 스토리지에서 불러오기
@@ -266,6 +307,11 @@ export default function TeamManagementPage() {
     
     initializeData();
   }, []);
+
+  // 선택된 스케줄 변경 시 선수 목록 갱신
+  useEffect(() => {
+    fetchTodayPlayers();
+  }, [selectedScheduleId]);
 
   if (loading) {
     return (
@@ -280,8 +326,23 @@ export default function TeamManagementPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-8 text-center">회차별 라켓팀 / 셔틀팀 관리</h1>
-      
+      <h1 className="text-3xl font-bold mb-4 text-center">회차별 라켓팀 / 셔틀팀 관리</h1>
+
+      {/* 상단: 스케줄 선택 */}
+      <div className="max-w-3xl mx-auto mb-6">
+        <label className="text-xl font-medium mr-3">스케줄 선택</label>
+        <select
+          value={selectedScheduleId ?? ''}
+          onChange={(e) => setSelectedScheduleId(e.target.value || null)}
+          className="border px-3 py-2 rounded text-lg"
+        >
+          <option value="">(출석 기준)</option>
+          {schedules.map(s => (
+            <option key={s.id} value={s.id}>{s.match_date} {s.start_time} · {s.location}</option>
+          ))}
+        </select>
+      </div>
+
       {/* 현재 출석자 및 팀 배정 섹션 */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <h2 className="text-xl font-semibold mb-4">
@@ -292,9 +353,10 @@ export default function TeamManagementPage() {
         </h2>
         
         {todayPlayers.length === 0 ? (
-          <p className="text-gray-500">오늘 출석한 선수가 없습니다.</p>
+          <p className="text-gray-500">선택된 일정에 참가자가 없습니다.</p>
         ) : (
           <>
+            {/* 기존 드롭다운은 상단으로 이동됨 */}
             <div className="flex gap-4 mb-4">
               <button
                 onClick={autoAssignTeams}
@@ -397,7 +459,7 @@ export default function TeamManagementPage() {
                 {rounds.sort((a, b) => b.round - a.round).map((round) => (
                   <tr key={round.round} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {round.round}회차
+                      {round.title ? <div className="font-medium">{round.title}</div> : <div>{round.round}회차</div>}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       <div className="flex flex-wrap gap-1">

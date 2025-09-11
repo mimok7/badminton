@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { RequireAdmin } from '@/components/AuthGuard';
+import { LEVEL_LABELS } from '@/app/players/types';
 import AttendanceStatus from '@/app/players/components/AttendanceStatus';
 import MatchSessionStatus from '@/app/players/components/MatchSessionStatus';
 import MatchGenerationControls from '@/app/players/components/MatchGenerationControls';
@@ -30,44 +31,198 @@ export default function PlayersTodayPage() {
   const [sessionMode, setSessionMode] = useState<'레벨' | '랜덤' | '혼복'>('레벨');
   const [perPlayerMinGames, setPerPlayerMinGames] = useState<number>(1);
 
-  // 로컬(KST) 기준 YYYY-MM-DD 반환
-  const getTodayLocal = () => new Date().toLocaleDateString('en-CA');
+  // 로컬(KST) 기준 YYYY-MM-DD 반환 (타임존 문제 해결)
+  const getTodayLocal = () => {
+    const now = new Date();
+    // 로컬 타임존의 오늘 날짜를 정확히 계산
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
-  useEffect(() => {
-    const init = async () => {
-      // 오늘 날짜 기준으로: "오늘 경기 참가자" ∩ "오늘 출석(present)" 교집합만 표시
-  const today = getTodayLocal();
+  // 출석 데이터 갱신 함수
+  const refreshAttendanceData = async () => {
+    const today = getTodayLocal();
+    console.log('출석 데이터 갱신 시작 - 날짜:', today);
+
+    try {
+      // 오늘 경기 참가자 조회
       const participants = await fetchRegisteredPlayersForDate(today);
+      console.log('참가자 데이터 조회 결과:', participants);
+      
+      if (!participants || participants.length === 0) {
+        console.log('오늘 등록된 참가자가 없습니다.');
+        setTodayPlayers([]);
+        return;
+      }
+
+      // 오늘 출석 데이터 조회
       const { data: attendancePresent, error: attErr } = await supabase
         .from('attendances')
         .select('user_id')
         .eq('attended_at', today)
         .eq('status', 'present');
+        
       if (attErr) {
         console.error('출석 조회 오류:', attErr);
-        setTodayPlayers([]);
-      } else {
-        const presentSet = new Set((attendancePresent || []).map((a: any) => a.user_id));
-        const filtered = (participants || [])
-          .filter(p => presentSet.has(p.id))
-          .map(p => ({ ...p, status: 'present' as const }));
-        setTodayPlayers(filtered);
+        // 출석 조회 실패해도 참가자는 absent 상태로 표시
+        const absentPlayers = participants.map(p => ({ ...p, status: 'absent' as const }));
+        setTodayPlayers(absentPlayers);
+        return;
       }
+
+      console.log('출석 데이터 조회 결과:', attendancePresent);
+
+      // 참가자가 없고 출석 데이터만 있는 경우: 출석 데이터를 참가자로 변환
+      if ((!participants || participants.length === 0) && attendancePresent && attendancePresent.length > 0) {
+        console.log('참가자 데이터가 없어 출석 데이터를 참가자로 사용');
+
+        // 출석한 사용자들의 프로필 조회
+        const attendanceUserIds = attendancePresent.map((a: any) => a.user_id);
+        const { data: profiles, error: profileErr } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, skill_level, gender')
+          .in('id', attendanceUserIds);
+
+        if (profileErr) {
+          console.error('프로필 조회 오류:', profileErr);
+          setTodayPlayers([]);
+          return;
+        }
+
+        // 레벨 정보 조회
+        const { data: levelData } = await supabase
+          .from('level_info')
+          .select('code, name');
+
+        const levelMap: Record<string, string> = {};
+        (levelData || []).forEach((lvl: any) => {
+          if (lvl.code) levelMap[String(lvl.code).toLowerCase()] = lvl.name || '';
+        });
+
+        // 출석 데이터를 참가자 데이터로 변환
+        const playersFromAttendance: ExtendedPlayer[] = (profiles || []).map((profile: any) => {
+          const raw = (profile.skill_level || '').toString().toLowerCase();
+          const normalized = normalizeLevel('', raw);
+          const label = levelMap[normalized] || LEVEL_LABELS[normalized] || 'E2 (초급)';
+          const name = profile.username || profile.full_name || `선수-${String(profile.id).slice(0, 4)}`;
+          return {
+            id: profile.id,
+            name,
+            skill_level: normalized,
+            skill_label: label,
+            gender: profile.gender || '',
+            skill_code: '',
+            status: 'present', // 출석 데이터이므로 present로 설정
+          } as ExtendedPlayer;
+        });
+
+        console.log(`출석 데이터에서 ${playersFromAttendance.length}명 참가자 생성`);
+        setTodayPlayers(playersFromAttendance);
+        return;
+      }
+
+      // 참가자와 출석 데이터 결합
+      const attendanceMap = new Map(attendancePresent?.map((a: any) => [a.user_id, true]) || []);
+      const combinedPlayers = participants.map(p => ({
+        ...p,
+        status: attendanceMap.has(p.id) ? 'present' : 'absent'
+      })) as ExtendedPlayer[];
+
+      console.log('최종 결합된 플레이어 데이터:', combinedPlayers);
+      setTodayPlayers(combinedPlayers);
+
+    } catch (error) {
+      console.error('출석 데이터 갱신 오류:', error);
+      // 오류 발생 시에도 참가자 데이터는 absent 상태로 표시
+      try {
+        const participants = await fetchRegisteredPlayersForDate(today);
+        const absentPlayers = participants.map(p => ({ ...p, status: 'absent' as const }));
+        setTodayPlayers(absentPlayers);
+      } catch (fallbackError) {
+        console.error('참가자 데이터 조회 실패:', fallbackError);
+        setTodayPlayers([]);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      console.log('페이지 초기 로딩 시작');
+      await refreshAttendanceData();
       await fetchMatchSessions();
       await fetchTodaySchedules();
+      console.log('페이지 초기 로딩 완료');
     };
-  init();
-  // 페이지 로딩 시에만 초기 데이터 로딩
+    init();
   }, []);
 
   // 포커스 시 갱신: 오늘 세션/일정 재조회
   useEffect(() => {
     const onFocus = () => {
+      console.log('페이지 포커스 - 데이터 갱신');
+      refreshAttendanceData().catch(err => console.error('포커스 갱신 오류:', err));
       fetchMatchSessions();
       fetchTodaySchedules();
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
+  // 실시간 구독: 출석 데이터 변경 시 자동 갱신
+  useEffect(() => {
+    const today = getTodayLocal();
+    
+    console.log('실시간 구독 설정 - 오늘 날짜:', today);
+    
+    const attendanceChannel = supabase
+      .channel('attendance_changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'attendances',
+        filter: `attended_at=eq.${today}`
+      }, (payload) => {
+        console.log('출석 데이터 변경 감지:', payload);
+        // 비동기 함수를 즉시 실행하여 상태 업데이트 보장
+        refreshAttendanceData().catch(err => console.error('실시간 갱신 오류:', err));
+      })
+      .subscribe();
+
+    const participantChannel = supabase
+      .channel('participant_changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'match_participants'
+      }, (payload) => {
+        console.log('참가자 데이터 변경 감지:', payload);
+        // 비동기 함수를 즉시 실행하여 상태 업데이트 보장
+        refreshAttendanceData().catch(err => console.error('실시간 갱신 오류:', err));
+      })
+      .subscribe();
+
+    const scheduleChannel = supabase
+      .channel('schedule_changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'match_schedules',
+        filter: `match_date=eq.${today}`
+      }, (payload) => {
+        console.log('경기 일정 변경 감지:', payload);
+        // 경기 일정 변경 시 일정 목록도 갱신
+        fetchTodaySchedules();
+      })
+      .subscribe();
+
+    return () => {
+      console.log('실시간 구독 해제');
+      supabase.removeChannel(attendanceChannel);
+      supabase.removeChannel(participantChannel);
+      supabase.removeChannel(scheduleChannel);
+    };
   }, []);
 
   const fetchMatchSessions = async () => {
@@ -87,14 +242,51 @@ export default function PlayersTodayPage() {
 
   const fetchTodaySchedules = async () => {
     try {
-  const today = getTodayLocal();
+      const today = getTodayLocal();
       const { data, error } = await supabase
         .from('match_schedules')
         .select('id, match_date, start_time, end_time, location, status, current_participants, max_participants')
         .eq('match_date', today)
         .order('start_time', { ascending: true });
+
       if (error) throw error;
-      setTodaySchedules(data || []);
+
+      // 실제 참가자 수로 current_participants 업데이트
+      if (data && data.length > 0) {
+        for (const schedule of data) {
+          // 해당 일정의 실제 참가자 수 조회
+          const { count: actualCount, error: countError } = await supabase
+            .from('match_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('match_schedule_id', schedule.id)
+            .eq('status', 'registered');
+
+          if (!countError && actualCount !== schedule.current_participants) {
+            // current_participants가 실제 참가자 수와 다르면 업데이트
+            await supabase
+              .from('match_schedules')
+              .update({ current_participants: actualCount || 0 })
+              .eq('id', schedule.id);
+
+            console.log(`경기 일정 ${schedule.id} 참가자 수 업데이트: ${schedule.current_participants} → ${actualCount || 0}`);
+          }
+        }
+
+        // 업데이트된 데이터 다시 조회
+        const { data: updatedData, error: refetchError } = await supabase
+          .from('match_schedules')
+          .select('id, match_date, start_time, end_time, location, status, current_participants, max_participants')
+          .eq('match_date', today)
+          .order('start_time', { ascending: true });
+
+        if (!refetchError) {
+          setTodaySchedules(updatedData || []);
+        } else {
+          setTodaySchedules(data || []);
+        }
+      } else {
+        setTodaySchedules(data || []);
+      }
     } catch (e) {
       console.error('오늘 경기 일정 조회 오류:', e);
     }
@@ -233,6 +425,28 @@ export default function PlayersTodayPage() {
           )}
         </div>
         <AttendanceStatus todayPlayers={todayPlayers} />
+        
+        {/* 수동 갱신 버튼 */}
+        <div className="mb-6 flex gap-4">
+          <button
+            onClick={() => refreshAttendanceData().catch(err => console.error('수동 갱신 오류:', err))}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+            disabled={loading}
+          >
+            🔄 데이터 수동 갱신
+          </button>
+          <button
+            onClick={() => {
+              fetchMatchSessions();
+              fetchTodaySchedules();
+            }}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+            disabled={loading}
+          >
+            📅 경기 일정 갱신
+          </button>
+        </div>
+        
         <MatchSessionStatus matchSessions={matchSessions} />
         <MatchGenerationControls
           todayPlayers={todayPlayers}

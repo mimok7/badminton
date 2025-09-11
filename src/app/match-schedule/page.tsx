@@ -37,6 +37,24 @@ interface ScheduleWithParticipants extends MatchSchedule {
 }
 
 export default function MatchSchedulePage() {
+  // 참가자 수 업데이트 헬퍼 함수
+  const updateParticipantCount = async (scheduleId: string) => {
+    try {
+      const { count } = await supabase
+        .from('match_participants')
+        .select('*', { count: 'exact', head: true })
+        .eq('match_schedule_id', scheduleId)
+        .in('status', ['registered', 'attended']);
+      
+      await supabase
+        .from('match_schedules')
+        .update({ current_participants: count || 0 })
+        .eq('id', scheduleId);
+    } catch (error) {
+      console.error('참가자 수 업데이트 오류:', error);
+    }
+  };
+
   // 전체 경기 일괄 삭제
   const deleteAllSchedules = async () => {
     if (!confirm('정말로 모든 경기를 삭제하시겠습니까? 관련된 모든 참가 신청도 함께 삭제됩니다.')) {
@@ -127,12 +145,12 @@ export default function MatchSchedulePage() {
       // 1) 모든 일정의 ID 수집
       const scheduleIds = schedulesData.map(s => s.id);
 
-      // 2) 해당 일정들의 참가자 일괄 조회 (현재 참가자 수 정의에 맞춰 'registered'만 카운트)
+      // 2) 해당 일정들의 참가자 일괄 조회 (참가자로 인정되는 상태: registered, attended)
       const { data: participantsAll, error: participantsError } = await supabase
         .from('match_participants')
         .select('*')
         .in('match_schedule_id', scheduleIds)
-        .in('status', ['registered']);
+        .in('status', ['registered', 'attended']);
 
       if (participantsError) {
         console.error('참가자 조회 오류:', participantsError);
@@ -150,18 +168,18 @@ export default function MatchSchedulePage() {
 
       // 3) 참가자 프로필 일괄 조회 (이름/닉네임 표시용)
       let profilesMap: Record<string, { username: string | null; full_name: string | null }> = {};
-      if (userIdSet.size > 0) {
+    if (userIdSet.size > 0) {
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
-          .select('id, user_id, username, full_name')
-          .in('user_id', Array.from(userIdSet));
+      .select('id, username, full_name')
+      .in('id', Array.from(userIdSet));
 
         if (profilesError) {
           console.warn('프로필 조회 오류 (이름 표시 건너뜀):', profilesError);
         } else if (profilesData) {
           profilesMap = profilesData.reduce((acc: any, cur: any) => {
-            // map by profiles.user_id to match match_participants.user_id
-            acc[cur.user_id] = { username: cur.username ?? null, full_name: cur.full_name ?? null };
+            // map by profiles.id to match match_participants.user_id
+            acc[cur.id] = { username: cur.username ?? null, full_name: cur.full_name ?? null };
             return acc;
           }, {} as Record<string, { username: string | null; full_name: string | null }>);
         }
@@ -207,7 +225,14 @@ export default function MatchSchedulePage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'match_participants' }, (payload) => {
         const changedScheduleId = (payload.new as any)?.match_schedule_id || (payload.old as any)?.match_schedule_id;
         // 현재 목록에 있는 일정의 변경일 때만 갱신 (간단히 전체 갱신)
-        if (changedScheduleId) {
+        if (changedScheduleId && schedules.some(s => s.id === changedScheduleId)) {
+          fetchSchedules();
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_schedules' }, (payload) => {
+        const changedScheduleId = (payload.new as any)?.id || (payload.old as any)?.id;
+        // 현재 목록에 있는 일정의 변경일 때만 갱신
+        if (changedScheduleId && schedules.some(s => s.id === changedScheduleId)) {
           fetchSchedules();
         }
       })
@@ -216,7 +241,7 @@ export default function MatchSchedulePage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [schedules]);
 
   // 새 경기 생성
   const handleCreateSchedule = async (e: React.FormEvent) => {
@@ -398,6 +423,9 @@ export default function MatchSchedulePage() {
         return;
       }
 
+      // 참가자 수 업데이트 (registered + attended)
+      await updateParticipantCount(scheduleId);
+
       // Optimistic UI: 즉시 로컬 상태 반영 (participant 추가 및 참가자 수 증가)
       setSchedules((prev) => prev.map((s) => {
         if (s.id !== scheduleId) return s;
@@ -420,8 +448,6 @@ export default function MatchSchedulePage() {
 
   // Optimistic UI already updated above. Refresh in background to sync with DB.
   fetchSchedules();
-  // small delayed refresh to handle eventual consistency
-  setTimeout(() => fetchSchedules(), 700);
   alert('참가 신청이 완료되었습니다!');
 
     } catch (error) {
@@ -447,6 +473,9 @@ export default function MatchSchedulePage() {
         return;
       }
 
+      // 참가자 수 업데이트 (registered + attended)
+      await updateParticipantCount(scheduleId);
+
       // Optimistic UI: 즉시 로컬 상태 반영 (participant 제거 및 참가자 수 감소)
       setSchedules((prev) => prev.map((s) => {
         if (s.id !== scheduleId) return s;
@@ -460,7 +489,6 @@ export default function MatchSchedulePage() {
 
   // Background refresh to sync with DB; optimistic update already applied
   fetchSchedules();
-  setTimeout(() => fetchSchedules(), 700);
   alert('참가 신청이 취소되었습니다.');
 
     } catch (error) {
@@ -743,7 +771,7 @@ export default function MatchSchedulePage() {
                                 const baseName = (participant.profiles?.username && String(participant.profiles.username))
                                   || (participant.profiles?.full_name && String(participant.profiles.full_name))
                                   || '이름 없음';
-                                const isMe = participant.user_id === user?.id;
+                                const isMe = participant.user_id === user?.id; // auth.uid()
                                 return (
                                   <span
                                     key={participant.id}

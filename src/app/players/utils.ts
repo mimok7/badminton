@@ -239,6 +239,7 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
 export const fetchRegisteredPlayersForDate = async (date: string): Promise<ExtendedPlayer[]> => {
   try {
     const target = date;
+    console.log(`참가자 조회 시작: 날짜 ${target}`);
 
     // 1) 해당 날짜의 스케줄 조회 (예정/진행중 위주)
     const { data: schedules, error: schedulesError } = await supabase
@@ -251,8 +252,13 @@ export const fetchRegisteredPlayersForDate = async (date: string): Promise<Exten
       return [];
     }
 
+    if (!schedules || schedules.length === 0) {
+      console.log(`해당 날짜(${target})에 등록된 경기가 없습니다.`);
+      return [];
+    }
+
     const scheduleIds = (schedules || []).map((s: any) => s.id);
-    if (scheduleIds.length === 0) return [];
+    console.log(`경기 일정 ${scheduleIds.length}개 발견:`, scheduleIds);
 
     // 2) 해당 스케줄들의 참가자 중 registered 상태만
     const { data: participants, error: participantsError } = await supabase
@@ -266,7 +272,14 @@ export const fetchRegisteredPlayersForDate = async (date: string): Promise<Exten
       return [];
     }
 
+    if (!participants || participants.length === 0) {
+      console.log(`해당 경기들에 등록된 참가자가 없습니다.`);
+      return [];
+    }
+
     const userIds = Array.from(new Set((participants || []).map((p: any) => p.user_id).filter(Boolean)));
+    console.log(`참가자 ${userIds.length}명 발견:`, userIds);
+
     if (userIds.length === 0) return [];
 
     // 3) 프로필 조회 (id 기준 매칭)
@@ -280,6 +293,11 @@ export const fetchRegisteredPlayersForDate = async (date: string): Promise<Exten
       return [];
     }
 
+    if (!profiles || profiles.length === 0) {
+      console.log('참가자들의 프로필을 찾을 수 없습니다.');
+      return [];
+    }
+
     // 4) 레벨 라벨 매핑용 level_info 조회
     const { data: levelData } = await supabase
       .from('level_info')
@@ -290,7 +308,7 @@ export const fetchRegisteredPlayersForDate = async (date: string): Promise<Exten
       if (lvl.code) levelMap[String(lvl.code).toLowerCase()] = lvl.name || '';
     });
 
-    // 5) ExtendedPlayer 배열로 변환 (status는 생성 로직 재사용을 위해 present로 지정)
+    // 5) ExtendedPlayer 배열로 변환 (status는 absent로 초기화 - 실제 출석 데이터로 업데이트됨)
     const players: ExtendedPlayer[] = (profiles || []).map((profile: any) => {
       const raw = (profile.skill_level || '').toString().toLowerCase();
       const normalized = normalizeLevel('', raw);
@@ -303,10 +321,11 @@ export const fetchRegisteredPlayersForDate = async (date: string): Promise<Exten
         skill_label: label,
         gender: profile.gender || '',
         skill_code: '',
-        status: 'present',
+        status: 'absent', // 초기 상태는 absent, 실제 출석 데이터로 업데이트됨
       } as ExtendedPlayer;
     });
 
+    console.log(`최종 참가자 데이터 ${players.length}명 생성 완료`);
     return players;
   } catch (error) {
     console.error('❌ 날짜별 참가자 조회 중 오류:', error);

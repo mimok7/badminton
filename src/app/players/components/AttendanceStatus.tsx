@@ -38,9 +38,31 @@ export default function AttendanceStatus({ todayPlayers }: AttendanceStatusProps
     );
   }
 
-  // 레벨별 카운트 계산
+  // 레벨별 카운트 계산 (출석자만 기반)
   const levelCounts: Record<string, number> = {};
   const activePlayers = todayPlayers.filter(p => p.status === 'present');
+
+  // 출석자(present)가 한 명도 없으면 안내만 보여주고 나머지 UI는 숨김
+  if (activePlayers.length === 0) {
+    return (
+      <div className="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-6 mb-8 rounded-r-lg">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-6 w-6 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium">출석자가 없습니다</h3>
+            <div className="mt-2 text-sm">
+              <p>오늘 출석한 인원이 없습니다.</p>
+              <p>출석 체크 후 다시 확인해 주세요.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   activePlayers.forEach(player => {
     const level = player.skill_level || 'n';
@@ -48,15 +70,15 @@ export default function AttendanceStatus({ todayPlayers }: AttendanceStatusProps
     levelCounts[levelLabel] = (levelCounts[levelLabel] || 0) + 1;
   });
 
-  // 이름을 한글 사전(ㄱㄴㄷ) 순으로 정렬
-  const sortedPlayers = todayPlayers.slice().sort((a, b) => {
+  // 이름을 한글 사전(ㄱㄴㄷ) 순으로 정렬 (출석자 기준 기본 정렬)
+  const sortedPlayers = activePlayers.slice().sort((a, b) => {
     const nameA = (a.name || '').trim();
     const nameB = (b.name || '').trim();
     return nameA.localeCompare(nameB, 'ko', { sensitivity: 'base' });
   });
 
-  // 필터 상태: all / present / lesson / absent
-  const [filter, setFilter] = useState<'all' | 'present' | 'lesson' | 'absent'>('all');
+  // 필터 상태: 기본을 'present'로 설정
+  const [filter, setFilter] = useState<'all' | 'present' | 'lesson' | 'absent'>('present');
 
   // 정렬된 선수 목록에서 필터 적용
   const filteredPlayers = sortedPlayers.filter(player => {
@@ -67,9 +89,10 @@ export default function AttendanceStatus({ todayPlayers }: AttendanceStatusProps
   return (
     <div className="mb-6">
       {/* 출석자 요약 */}
-      <div className="mb-4">
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded">오늘 경기</span>
         <span className="font-semibold">오늘 출석자: </span>
-        <span className="text-blue-600 font-bold">{todayPlayers.length}명</span>
+        <span className="text-blue-600 font-bold">{activePlayers.length}명</span>
       </div>
 
       {/* 레벨별 현황 */}
@@ -115,32 +138,33 @@ export default function AttendanceStatus({ todayPlayers }: AttendanceStatusProps
         </button>
       </div>
       
-      {/* 선수 목록: 카드 너비 고정(예: 160px)으로 화면에 따라 한 줄에 표시되는 갯수 자동 조정 */}
-      <div className="mt-3">
-        <h4 className="font-semibold mb-2">선수 목록</h4>
-  <div className="grid gap-3 max-h-64 overflow-y-auto p-1" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', justifyContent: 'start' }}>
-          {filteredPlayers.map((player) => (
-            <div key={player.id} className="bg-white border rounded-lg p-3 flex flex-col justify-between shadow-sm w-32">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{player.name}</div>
-                  <div className="text-xs text-gray-500 truncate">{player.skill_label}</div>
-                </div>
-                <div>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    player.status === 'present' ? 'bg-green-100 text-green-800' :
-                    player.status === 'lesson' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {player.status === 'present' ? '출석' : player.status === 'lesson' ? '레슨' : '불참'}
-                  </span>
+      {/* 선수 목록 (출석자 없으면 숨김) */}
+      {activePlayers.length > 0 && (
+        <div className="mt-3">
+          <h4 className="font-semibold mb-2">선수 목록</h4>
+          <div className="grid gap-3 max-h-64 overflow-y-auto p-1" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', justifyContent: 'start' }}>
+            {filteredPlayers.map((player) => (
+              <div key={player.id} className="bg-white border rounded-lg p-3 flex flex-col justify-between shadow-sm w-32">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{player.name}</div>
+                    <div className="text-xs text-gray-500 truncate">{player.skill_label}</div>
+                  </div>
+                  <div>
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      player.status === 'present' ? 'bg-green-100 text-green-800' :
+                      player.status === 'lesson' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {player.status === 'present' ? '출석' : player.status === 'lesson' ? '레슨' : '불참'}
+                    </span>
+                  </div>
                 </div>
               </div>
-              
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -43,12 +43,24 @@ export default function MatchSchedulePage() {
       return;
     }
     try {
-      const { error } = await supabase
+      // 1) 참가 신청 전체 삭제 (외래키 제약 회피)
+      const { error: delParticipantsErr } = await supabase
+        .from('match_participants')
+        .delete()
+        .not('match_schedule_id', 'is', null);
+      if (delParticipantsErr) {
+        console.error('전체 참가자 삭제 오류:', delParticipantsErr);
+        alert('전체 참가자 삭제 중 오류가 발생했습니다.');
+        return;
+      }
+
+      // 2) 경기 전체 삭제 (id not null)
+      const { error: delSchedulesErr } = await supabase
         .from('match_schedules')
         .delete()
-        .neq('id', ''); // 모든 id가 ''이 아닌 row 삭제
-      if (error) {
-        console.error('전체 경기 삭제 오류:', error);
+        .not('id', 'is', null);
+      if (delSchedulesErr) {
+        console.error('전체 경기 삭제 오류:', delSchedulesErr);
         alert('전체 경기 삭제 중 오류가 발생했습니다.');
         return;
       }
@@ -65,6 +77,14 @@ export default function MatchSchedulePage() {
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<MatchSchedule | null>(null);
+  const [editForm, setEditForm] = useState<{
+    match_date: string;
+    start_time: string;
+    end_time: string;
+    location: string;
+    max_participants: number;
+    description: string | null;
+  } | null>(null);
   const router = useRouter();
   // 상세보기 토글 상태: 스케줄별로 참가자 이름 목록 표시 여부
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -237,6 +257,56 @@ export default function MatchSchedulePage() {
     } catch (error) {
       console.error('경기 생성 중 오류:', error);
       alert('경기 생성 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 경기 수정 열기
+  const openEdit = (schedule: MatchSchedule) => {
+    setEditingSchedule(schedule);
+    setEditForm({
+      match_date: schedule.match_date || '',
+      start_time: schedule.start_time || '',
+      end_time: schedule.end_time || '',
+      location: schedule.location || '',
+      max_participants: schedule.max_participants ?? 20,
+      description: schedule.description ?? ''
+    });
+  };
+
+  // 경기 수정 저장
+  const handleUpdateSchedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSchedule || !editForm) return;
+
+    const payload = {
+      match_date: editForm.match_date,
+      start_time: editForm.start_time,
+      end_time: editForm.end_time,
+      location: editForm.location,
+      max_participants: editForm.max_participants,
+      description: editForm.description,
+      updated_by: user?.id
+    } as any;
+
+    try {
+      const { error } = await supabase
+        .from('match_schedules')
+        .update(payload)
+        .eq('id', editingSchedule.id);
+
+      if (error) {
+        console.error('경기 수정 오류:', error);
+        alert('경기 수정 중 오류가 발생했습니다.');
+        return;
+      }
+
+      setEditingSchedule(null);
+      setEditForm(null);
+      await fetchSchedules();
+      alert('경기 정보가 수정되었습니다.');
+    } catch (err) {
+      console.error('경기 수정 중 오류:', err);
+      alert('경기 수정 중 오류가 발생했습니다.');
     }
   };
 
@@ -692,6 +762,14 @@ export default function MatchSchedulePage() {
 
                       {/* 관리 버튼들 */}
                       <div className="flex flex-wrap gap-2">
+                        <Button
+                          onClick={() => openEdit(schedule)}
+                          variant="outline"
+                          className="text-sm"
+                          size="sm"
+                        >
+                          수정
+                        </Button>
                         {schedule.status === 'scheduled' && (
                           <>
                             <Button
@@ -778,6 +856,98 @@ export default function MatchSchedulePage() {
           </div>
         )}
       </div>
+
+      {/* 수정 모달 */}
+      {editingSchedule && editForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-bold">경기 수정</h3>
+              <button
+                onClick={() => { setEditingSchedule(null); setEditForm(null); }}
+                className="text-gray-500 hover:text-gray-700"
+                aria-label="close"
+              >×</button>
+            </div>
+            <form onSubmit={handleUpdateSchedule} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">경기 날짜 *</label>
+                  <input
+                    type="date"
+                    required
+                    value={editForm.match_date}
+                    onChange={(e) => setEditForm({ ...editForm, match_date: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">장소 *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.location}
+                    onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">시작 시간 *</label>
+                  <input
+                    type="time"
+                    required
+                    value={editForm.start_time}
+                    onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">종료 시간 *</label>
+                  <input
+                    type="time"
+                    required
+                    value={editForm.end_time}
+                    onChange={(e) => setEditForm({ ...editForm, end_time: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">최대 참가자 수</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={editForm.max_participants}
+                    onChange={(e) => setEditForm({ ...editForm, max_participants: Number(e.target.value) || 1 })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">경기 설명</label>
+                <textarea
+                  rows={3}
+                  value={editForm.description || ''}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => { setEditingSchedule(null); setEditForm(null); }}
+                >
+                  취소
+                </Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">저장</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </RequireAdmin>
   );
 }

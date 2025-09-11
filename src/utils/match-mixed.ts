@@ -1,5 +1,5 @@
 import { Player, Match, Team } from '@/types';
-import { getTeamFairnessScore, getTeamMatchScore, getTeamScore, jitter, reorderMatchesToAvoidConsecutive } from './match-helpers';
+import { getTeamFairnessScore, getTeamMatchScore, getTeamScore, jitter, reorderMatchesToAvoidConsecutive, MAX_TEAM_SCORE_DIFF } from './match-helpers';
 
 const isMale = (p: Player) => (p.gender || '').toLowerCase() === 'm' || (p.gender || '').toLowerCase() === 'male' || (p.gender || '').toLowerCase() === 'man';
 const isFemale = (p: Player) => (p.gender || '').toLowerCase() === 'f' || (p.gender || '').toLowerCase() === 'female' || (p.gender || '').toLowerCase() === 'woman' || (p.gender || '').toLowerCase() === 'w';
@@ -18,7 +18,7 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
   const maxAttempts = Math.max(20, players.length * minGamesPerPlayer * 6);
   const needsMore = () => players.some(p => counts[p.id] < minGamesPerPlayer);
   let stalled = 0;
-  while ((result.length < targetMatches || needsMore()) && attempts < maxAttempts) {
+  while (result.length < targetMatches && attempts < maxAttempts) {
     // prefer males/females who have lower counts
     const males = players.filter(isMale).sort((a, b) => counts[a.id] - counts[b.id]);
     const females = players.filter(isFemale).sort((a, b) => counts[a.id] - counts[b.id]);
@@ -39,8 +39,10 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
   const matches: Match[] = [];
   const used = new Set<string>();
   let court = 1;
+  const remainingSlots = Math.max(0, targetMatches - result.length);
+  const allowedThisRound = Math.min(numberOfCourts, remainingSlots);
 
-    for (let i = 0; i < mixedCandidates.length && court <= numberOfCourts; i++) {
+  for (let i = 0; i < mixedCandidates.length && court <= allowedThisRound; i++) {
       const t1 = mixedCandidates[i].team;
       if (used.has(t1.player1.id) || used.has(t1.player2.id)) continue;
 
@@ -49,14 +51,17 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
         const t2 = mixedCandidates[j].team;
         if (used.has(t2.player1.id) || used.has(t2.player2.id)) continue;
         if (t1.player1.id === t2.player1.id || t1.player1.id === t2.player2.id || t1.player2.id === t2.player1.id || t1.player2.id === t2.player2.id) continue;
-        const ms = getTeamMatchScore(t1, t2);
-        if (ms <= 6) cands.push({ team: t2, score: getTeamScore(t2), ms });
+  const ms = getTeamMatchScore(t1, t2);
+  const diff = Math.abs(getTeamScore(t1) - getTeamScore(t2));
+  // require balanced teams: score diff <= MAX_TEAM_SCORE_DIFF
+  if (ms <= 6 && diff <= MAX_TEAM_SCORE_DIFF) cands.push({ team: t2, score: getTeamScore(t2), ms });
       }
       if (cands.length > 0) {
         cands.sort((a, b) => a.ms - b.ms);
         const pick = cands[Math.floor(Math.random() * Math.min(3, cands.length))];
-        const match = { id: `match-mixed-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, team1: t1, team2: pick.team, court: court++ };
-        matches.push(match);
+  const match = { id: `match-mixed-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, team1: t1, team2: pick.team, court: court++ };
+  if (result.length >= targetMatches) break;
+  matches.push(match);
         [t1.player1.id, t1.player2.id, pick.team.player1.id, pick.team.player2.id].forEach(id => used.add(id));
         counts[t1.player1.id]++; counts[t1.player2.id]++; counts[pick.team.player1.id]++; counts[pick.team.player2.id]++;
       } else {
@@ -69,12 +74,14 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
           if (used.has(t2.player1.id) || used.has(t2.player2.id)) continue;
           if (t1.player1.id === t2.player1.id || t1.player1.id === t2.player2.id || t1.player2.id === t2.player1.id || t1.player2.id === t2.player2.id) continue;
           const ms = getTeamMatchScore(t1, t2);
-          if (ms <= 6) sameCands.push({ team: t2, ms });
+          const diff = Math.abs(getTeamScore(t1) - getTeamScore(t2));
+          if (ms <= 6 && diff <= MAX_TEAM_SCORE_DIFF) sameCands.push({ team: t2, ms });
         }
         if (sameCands.length > 0) {
           sameCands.sort((a, b) => a.ms - b.ms);
           const pick2 = sameCands[0];
           const match = { id: `match-mixed-fallback-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, team1: t1, team2: pick2.team, court: court++ };
+          if (result.length >= targetMatches) break;
           matches.push(match);
           [t1.player1.id, t1.player2.id, pick2.team.player1.id, pick2.team.player2.id].forEach(id => used.add(id));
           counts[t1.player1.id]++; counts[t1.player2.id]++; counts[pick2.team.player1.id]++; counts[pick2.team.player2.id]++;
@@ -82,41 +89,117 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
       }
     }
 
-    // append matches from this attempt
-    result.push(...matches);
+    // append matches from this attempt (but don't exceed target)
+    for (const m of matches) {
+      if (result.length >= targetMatches) break;
+      result.push(m);
+    }
 
     // check if everyone reached minGamesPerPlayer
     attempts += 1;
     stalled = matches.length === 0 ? stalled + 1 : 0;
   }
 
-  // Greedy final inclusion if some players still below target
+  // Final coverage: ensure every player gets at least minGames
   let guard = 0;
-  while (players.some(p => counts[p.id] < minGamesPerPlayer) && guard < 20) {
-    const four = [...players].sort((a, b) => counts[a.id] - counts[b.id]).slice(0, 4);
-    if (four.length < 4) break;
-    // Try to form mixed first, else same-sex
-    const males = four.filter(isMale);
-    const females = four.filter(isFemale);
+  // Final coverage: use swaps first; only add new matches if result.length < targetMatches
+  while (players.some(p => counts[p.id] < minGamesPerPlayer) && guard < 50) {
+    const needers = players.filter(p => counts[p.id] < minGamesPerPlayer).sort((a, b) => counts[a.id] - counts[b.id]);
+    const picks: Player[] = [] as any;
+    for (const p of needers) { if (picks.length < 4 && !picks.find(x => x.id === p.id)) picks.push(p); }
+    if (picks.length < 4) {
+      const fillers = [...players].sort((a, b) => counts[a.id] - counts[b.id]).filter(p => !picks.find(x => x.id === p.id));
+      for (const p of fillers) { if (picks.length < 4) picks.push(p); }
+    }
+    if (picks.length < 4) break;
+    const malesP = picks.filter(isMale);
+    const femalesP = picks.filter(isFemale);
     let t1: Team | null = null;
     let t2: Team | null = null;
-    if (males.length >= 1 && females.length >= 1) {
-      // pair male+female by extremes
-      const mSorted = males;
-      const fSorted = females;
-      if (mSorted.length >= 2 && fSorted.length >= 2) {
-        t1 = { player1: mSorted[0], player2: fSorted[fSorted.length - 1] };
-        t2 = { player1: fSorted[0], player2: mSorted[mSorted.length - 1] };
+    if (malesP.length >= 2 && femalesP.length >= 2) {
+      t1 = { player1: malesP[0], player2: femalesP[femalesP.length - 1] };
+      t2 = { player1: femalesP[0], player2: malesP[malesP.length - 1] };
+    }
+  if (!t1 || !t2) {
+      // fallback same-sex
+      const byCounts = [...picks];
+      // choose pairing with best balance (team score diff <= 1 preferred)
+      const candidates: [Team, Team][] = [
+        [ { player1: byCounts[0], player2: byCounts[1] }, { player1: byCounts[2], player2: byCounts[3] } ],
+        [ { player1: byCounts[0], player2: byCounts[2] }, { player1: byCounts[1], player2: byCounts[3] } ],
+        [ { player1: byCounts[0], player2: byCounts[3] }, { player1: byCounts[1], player2: byCounts[2] } ],
+      ];
+      let best: { t1: Team; t2: Team } | null = null;
+      let bestDiff = Number.POSITIVE_INFINITY;
+        for (const [a, b] of candidates) {
+        const diff = Math.abs(getTeamScore(a) - getTeamScore(b));
+        if (diff <= MAX_TEAM_SCORE_DIFF) { best = { t1: a, t2: b }; break; }
+        if (diff < bestDiff) { bestDiff = diff; best = { t1: a, t2: b }; }
+      }
+      t1 = best!.t1; t2 = best!.t2;
+    }
+    if (result.length < targetMatches) {
+      result.push({ id: `match-mixed-cover-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, team1: t1!, team2: t2!, court: (result.length % numberOfCourts) + 1 });
+      [t1!.player1.id, t1!.player2.id, t2!.player1.id, t2!.player2.id].forEach(id => counts[id] = (counts[id] || 0) + 1);
+    } else {
+      // perform swap-based replacements into existing matches to include missing players without increasing match count
+      const missing = players.filter(p => counts[p.id] < minGamesPerPlayer);
+      const getIds = (m: Match) => [m.team1.player1.id, m.team1.player2.id, m.team2.player1.id, m.team2.player2.id];
+      const isInMatch = (m: Match, pid: string) => getIds(m).includes(pid);
+      type Slot = { mi: number; team: 1 | 2; pos: 1 | 2; id: string };
+      const collectSlots = (): Slot[] => {
+        const slots: Slot[] = [];
+        for (let mi = 0; mi < result.length; mi++) {
+          const m = result[mi];
+          slots.push({ mi, team: 1, pos: 1, id: m.team1.player1.id });
+          slots.push({ mi, team: 1, pos: 2, id: m.team1.player2.id });
+          slots.push({ mi, team: 2, pos: 1, id: m.team2.player1.id });
+          slots.push({ mi, team: 2, pos: 2, id: m.team2.player2.id });
+        }
+        return slots;
+      };
+      const replaceInMatchIfBalanced = (slot: Slot, newPlayer: Player): boolean => {
+        const m = result[slot.mi];
+        const decId = slot.id;
+        const t1c = { player1: m.team1.player1, player2: m.team1.player2 } as Team;
+        const t2c = { player1: m.team2.player1, player2: m.team2.player2 } as Team;
+        if (slot.team === 1) {
+          if (slot.pos === 1) t1c.player1 = newPlayer; else t1c.player2 = newPlayer;
+        } else {
+          if (slot.pos === 1) t2c.player1 = newPlayer; else t2c.player2 = newPlayer;
+        }
+        if (isInMatch(m, newPlayer.id)) return false;
+        const diff = Math.abs(getTeamScore(t1c) - getTeamScore(t2c));
+        if (diff > MAX_TEAM_SCORE_DIFF) return false;
+        if (slot.team === 1) {
+          if (slot.pos === 1) m.team1.player1 = newPlayer; else m.team1.player2 = newPlayer;
+        } else {
+          if (slot.pos === 1) m.team2.player1 = newPlayer; else m.team2.player2 = newPlayer;
+        }
+        counts[decId] = Math.max(0, (counts[decId] || 0) - 1);
+        counts[newPlayer.id] = (counts[newPlayer.id] || 0) + 1;
+        return true;
+      };
+      for (const p of missing) {
+        if (counts[p.id] >= minGamesPerPlayer) continue;
+        let swapped = false;
+        const slots = collectSlots().sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0));
+        for (const s of slots) {
+          if ((counts[s.id] || 0) <= minGamesPerPlayer) continue;
+          const m = result[s.mi];
+          if (isInMatch(m, p.id)) continue;
+          if (replaceInMatchIfBalanced(s, p)) { swapped = true; break; }
+        }
+        if (!swapped) {
+          const slots2 = collectSlots();
+          for (const s of slots2) {
+            const m = result[s.mi];
+            if (isInMatch(m, p.id)) continue;
+            if (replaceInMatchIfBalanced(s, p)) { swapped = true; break; }
+          }
+        }
       }
     }
-    if (!t1 || !t2) {
-      // fallback make two same-sex teams by current order
-      const byCounts = [...four];
-      t1 = { player1: byCounts[0], player2: byCounts[3] };
-      t2 = { player1: byCounts[1], player2: byCounts[2] };
-    }
-    result.push({ id: `match-mixed-greedy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, team1: t1!, team2: t2!, court: (result.length % numberOfCourts) + 1 });
-    [t1!.player1.id, t1!.player2.id, t2!.player1.id, t2!.player2.id].forEach(id => counts[id] = (counts[id] || 0) + 1);
     guard += 1;
   }
 

@@ -230,7 +230,7 @@ function PlayersPage() {
         ? basePool.filter(p => selectedPlayerIdsForGen.has(p.id))
         : basePool;
       if (selectedPlayers.length < 4) {
-        alert('경기를 생성하려면 최소 4명의 출석자가 필요합니다.');
+        console.warn('경기를 생성하려면 최소 4명의 출석자가 필요합니다.');
         return;
       }
 
@@ -294,7 +294,6 @@ function PlayersPage() {
   console.log(`✅ 랜덤 경기 생성 완료: ${matchesWithCourt.length}경기`);
     } catch (error) {
       console.error('❌ 랜덤 경기 생성 중 오류:', error);
-      alert(`랜덤 경기 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     } finally {
       setLoading(false);
     }

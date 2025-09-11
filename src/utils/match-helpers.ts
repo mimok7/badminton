@@ -55,6 +55,9 @@ export function getTeamMatchScore(team1: Team, team2: Team): number {
   return scoreDifference * 0.7 + balanceDifference * 0.2 + averageDifference * 0.1;
 }
 
+// Maximum allowed team score difference when enforcing strict balance
+export const MAX_TEAM_SCORE_DIFF = 1;
+
 export function getTeamFairnessScore(team: Team): number {
   const totalScore = getTeamScore(team);
   const balance = getTeamBalance(team);

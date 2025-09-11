@@ -1,5 +1,5 @@
 import { Player, Match, Team } from '@/types';
-import { getTeamScore, getTeamFairnessScore, getTeamMatchScore, jitter, getMinimumMatchCount, countUniquePlayersInMatches, reorderMatchesToAvoidConsecutive } from './match-helpers';
+import { getTeamScore, getTeamFairnessScore, getTeamMatchScore, jitter, getMinimumMatchCount, countUniquePlayersInMatches, reorderMatchesToAvoidConsecutive, MAX_TEAM_SCORE_DIFF } from './match-helpers';
 
 export function createBalancedDoublesMatches(players: Player[], numberOfCourts: number, minGamesPerPlayer = 1): Match[] {
   if (!Array.isArray(players) || players.length < 4 || numberOfCourts <= 0) return [];
@@ -43,7 +43,8 @@ export function createBalancedDoublesMatches(players: Player[], numberOfCourts: 
         if (used.has(q1) || used.has(q2)) continue;
         if (p1 === q1 || p1 === q2 || p2 === q1 || p2 === q2) continue;
         const diff = Math.abs(t1.score - t2.score);
-        if (diff > 4) continue;
+        // enforce tight balance: team scores must be tied or differ by at most 1
+        if (diff > 1) continue;
         candidates.push({ team: t2.team, score: t2.score, diff, index: j });
       }
       if (candidates.length > 0) {
@@ -116,18 +117,114 @@ export function createBalancedDoublesMatches(players: Player[], numberOfCourts: 
     }
   }
 
-  // Greedy final inclusion: if some players still below target, create extra matches using the 4 lowest-count players repeatedly
+  // Greedy final inclusion: if some players still below target, try to create extra matches up to targetMatches.
+  // If we've reached targetMatches but still have missing players, perform swap-based replacements into existing matches
   const skillOf = (p: Player) => getTeamScore({ player1: p, player2: p });
+  // helper to pick the best pairing among 4 players such that team score diff <= 1 if possible
+  const bestBalancedPairs = (four: Player[]): { t1: Team; t2: Team } | null => {
+    if (four.length !== 4) return null;
+    const combos: [Team, Team][] = [
+      [ { player1: four[0], player2: four[1] }, { player1: four[2], player2: four[3] } ],
+      [ { player1: four[0], player2: four[2] }, { player1: four[1], player2: four[3] } ],
+      [ { player1: four[0], player2: four[3] }, { player1: four[1], player2: four[2] } ],
+    ];
+    // first try to find any with diff <= MAX_TEAM_SCORE_DIFF
+    for (const [a, b] of combos) {
+      const diff = Math.abs(getTeamScore(a) - getTeamScore(b));
+      if (diff <= MAX_TEAM_SCORE_DIFF) return { t1: a, t2: b };
+    }
+    // otherwise pick the minimum-diff combination to avoid deadlock
+    let best: { t1: Team; t2: Team } | null = null;
+    let bestDiff = Number.POSITIVE_INFINITY;
+    for (const [a, b] of combos) {
+      const diff = Math.abs(getTeamScore(a) - getTeamScore(b));
+      if (diff < bestDiff) { bestDiff = diff; best = { t1: a, t2: b }; }
+    }
+    return best;
+  };
   let guard = 0;
-  while (normalized.some(p => counts[p.id] < minGamesPerPlayer) && guard < 20) {
-    const four = [...normalized].sort((a, b) => counts[a.id] - counts[b.id] || skillOf(a) - skillOf(b)).slice(0, 4);
-    if (four.length < 4) break;
-    // pair to balance: sort by skill and pair extremes
-    const bySkill = [...four].sort((a, b) => skillOf(a) - skillOf(b));
-    const t1: Team = { player1: bySkill[0], player2: bySkill[3] };
-    const t2: Team = { player1: bySkill[1], player2: bySkill[2] };
-    result.push({ id: `match-balanced-greedy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, team1: t1, team2: t2, court: (result.length % numberOfCourts) + 1 });
-    [t1.player1.id, t1.player2.id, t2.player1.id, t2.player2.id].forEach(id => counts[id] = (counts[id] || 0) + 1);
+  while (normalized.some(p => counts[p.id] < minGamesPerPlayer) && guard < 50) {
+    // 우선 순위: 최소 경기 미달자 → 나머지 전체(반복 허용)에서 보충
+    const needers = normalized.filter(p => counts[p.id] < minGamesPerPlayer).sort((a, b) => counts[a.id] - counts[b.id] || skillOf(a) - skillOf(b));
+    const picks: Player[] = [];
+    for (const p of needers) { if (picks.length < 4 && !picks.find(x => x.id === p.id)) picks.push(p); }
+    if (picks.length < 4) {
+      const fillers = [...normalized]
+        .sort((a, b) => counts[a.id] - counts[b.id] || skillOf(a) - skillOf(b))
+        .filter(p => !picks.find(x => x.id === p.id));
+      for (const p of fillers) { if (picks.length < 4) picks.push(p); }
+    }
+    if (picks.length < 4) break; // 더 이상 구성 불가
+  const bySkill = [...picks].sort((a, b) => skillOf(a) - skillOf(b));
+  const pairing = bestBalancedPairs([bySkill[0], bySkill[1], bySkill[2], bySkill[3]]);
+  const t1: Team = pairing!.t1;
+  const t2: Team = pairing!.t2;
+    if (result.length < targetMatches) {
+      result.push({ id: `match-balanced-cover-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, team1: t1, team2: t2, court: (result.length % numberOfCourts) + 1 });
+      [t1.player1.id, t1.player2.id, t2.player1.id, t2.player2.id].forEach(id => counts[id] = (counts[id] || 0) + 1);
+    } else {
+      // perform swap-based replacement into existing matches to include missing players without increasing match count
+      const missing = normalized.filter(p => counts[p.id] < minGamesPerPlayer);
+      const getIds = (m: Match) => [m.team1.player1.id, m.team1.player2.id, m.team2.player1.id, m.team2.player2.id];
+      const isInMatch = (m: Match, pid: string) => getIds(m).includes(pid);
+      type Slot = { mi: number; team: 1 | 2; pos: 1 | 2; id: string };
+      const collectSlots = (): Slot[] => {
+        const slots: Slot[] = [];
+        for (let mi = 0; mi < result.length; mi++) {
+          const m = result[mi];
+          slots.push({ mi, team: 1, pos: 1, id: m.team1.player1.id });
+          slots.push({ mi, team: 1, pos: 2, id: m.team1.player2.id });
+          slots.push({ mi, team: 2, pos: 1, id: m.team2.player1.id });
+          slots.push({ mi, team: 2, pos: 2, id: m.team2.player2.id });
+        }
+        return slots;
+      };
+      const replaceInMatchIfBalanced = (slot: Slot, newPlayer: Player): boolean => {
+        const m = result[slot.mi];
+        const decId = slot.id;
+        const t1c = { player1: m.team1.player1, player2: m.team1.player2 } as Team;
+        const t2c = { player1: m.team2.player1, player2: m.team2.player2 } as Team;
+        if (slot.team === 1) {
+          if (slot.pos === 1) t1c.player1 = newPlayer; else t1c.player2 = newPlayer;
+        } else {
+          if (slot.pos === 1) t2c.player1 = newPlayer; else t2c.player2 = newPlayer;
+        }
+        // prevent duplicates
+        if (isInMatch(m, newPlayer.id)) return false;
+        const diff = Math.abs(getTeamScore(t1c) - getTeamScore(t2c));
+        if (diff > MAX_TEAM_SCORE_DIFF) return false;
+        // commit
+        if (slot.team === 1) {
+          if (slot.pos === 1) m.team1.player1 = newPlayer; else m.team1.player2 = newPlayer;
+        } else {
+          if (slot.pos === 1) m.team2.player1 = newPlayer; else m.team2.player2 = newPlayer;
+        }
+        counts[decId] = Math.max(0, (counts[decId] || 0) - 1);
+        counts[newPlayer.id] = (counts[newPlayer.id] || 0) + 1;
+        return true;
+      };
+      // attempt greedy swaps for each missing player
+      for (const p of missing) {
+        if (counts[p.id] >= minGamesPerPlayer) continue;
+        let swapped = false;
+        const slots = collectSlots().sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0));
+        for (const s of slots) {
+          if ((counts[s.id] || 0) <= minGamesPerPlayer) continue;
+          const m = result[s.mi];
+          if (isInMatch(m, p.id)) continue;
+          if (replaceInMatchIfBalanced(s, p)) { swapped = true; break; }
+        }
+        if (!swapped) {
+          // try any slot
+          const slots2 = collectSlots();
+          for (const s of slots2) {
+            const m = result[s.mi];
+            if (isInMatch(m, p.id)) continue;
+            if (replaceInMatchIfBalanced(s, p)) { swapped = true; break; }
+          }
+        }
+      }
+    }
     guard += 1;
   }
 

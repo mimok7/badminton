@@ -178,7 +178,7 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
           
           // 해당 사용자의 출석 상태 찾기
           const attendance = attendanceData?.find((a: any) => a.user_id === userId);
-          const status = attendance?.status || 'present';
+          const status = attendance?.status ?? 'absent';
           
           return {
             id: profile.id,
@@ -197,8 +197,8 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
       const missingProfileUsers = userIds.filter(id => !profiledUserIds.includes(id));
       
       const playersWithoutProfiles = missingProfileUsers.map(userId => {
-        const attendance = attendanceData?.find((a: any) => a.user_id === userId);
-        const status = attendance?.status || 'present';
+  const attendance = attendanceData?.find((a: any) => a.user_id === userId);
+  const status = attendance?.status ?? 'absent';
         
         return {
           id: userId,
@@ -215,7 +215,7 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
       return [...playersWithProfiles, ...playersWithoutProfiles];
     } else {
       const fallbackPlayers = attendanceData.map((attendance: any) => {
-        const attendance_status = attendance.status || 'present';
+        const attendance_status = attendance.status ?? 'absent';
         return {
           id: attendance.user_id,
           name: `선수-${attendance.user_id.substring(0, 8)}`,

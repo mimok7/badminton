@@ -7,12 +7,22 @@ import MatchSessionStatus from '@/app/players/components/MatchSessionStatus';
 import MatchGenerationControls from '@/app/players/components/MatchGenerationControls';
 import GeneratedMatchesList from '@/app/players/components/GeneratedMatchesList';
 import { ExtendedPlayer, MatchSession } from '@/app/players/types';
-import { supabase, fetchTodayPlayers, calculatePlayerGameCounts, normalizeLevel } from '@/app/players/utils';
+import { supabase, fetchTodayPlayers, fetchRegisteredPlayersForDate, calculatePlayerGameCounts, normalizeLevel } from '@/app/players/utils';
 import { Match } from '@/types';
 
 export default function PlayersTodayPage() {
   const [todayPlayers, setTodayPlayers] = useState<ExtendedPlayer[] | null>(null);
   const [matchSessions, setMatchSessions] = useState<MatchSession[]>([]);
+  const [todaySchedules, setTodaySchedules] = useState<Array<{
+    id: string;
+    match_date: string;
+    start_time: string;
+    end_time: string;
+    location: string;
+    status: string;
+    current_participants: number | null;
+    max_participants: number | null;
+  }>>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [playerGameCounts, setPlayerGameCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
@@ -20,18 +30,49 @@ export default function PlayersTodayPage() {
   const [sessionMode, setSessionMode] = useState<'레벨' | '랜덤' | '혼복'>('레벨');
   const [perPlayerMinGames, setPerPlayerMinGames] = useState<number>(1);
 
+  // 로컬(KST) 기준 YYYY-MM-DD 반환
+  const getTodayLocal = () => new Date().toLocaleDateString('en-CA');
+
   useEffect(() => {
     const init = async () => {
-      const players = await fetchTodayPlayers();
-      setTodayPlayers(players);
+      // 오늘 날짜 기준으로: "오늘 경기 참가자" ∩ "오늘 출석(present)" 교집합만 표시
+  const today = getTodayLocal();
+      const participants = await fetchRegisteredPlayersForDate(today);
+      const { data: attendancePresent, error: attErr } = await supabase
+        .from('attendances')
+        .select('user_id')
+        .eq('attended_at', today)
+        .eq('status', 'present');
+      if (attErr) {
+        console.error('출석 조회 오류:', attErr);
+        setTodayPlayers([]);
+      } else {
+        const presentSet = new Set((attendancePresent || []).map((a: any) => a.user_id));
+        const filtered = (participants || [])
+          .filter(p => presentSet.has(p.id))
+          .map(p => ({ ...p, status: 'present' as const }));
+        setTodayPlayers(filtered);
+      }
       await fetchMatchSessions();
+      await fetchTodaySchedules();
     };
-    init();
+  init();
+  // 페이지 로딩 시에만 초기 데이터 로딩
+  }, []);
+
+  // 포커스 시 갱신: 오늘 세션/일정 재조회
+  useEffect(() => {
+    const onFocus = () => {
+      fetchMatchSessions();
+      fetchTodaySchedules();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, []);
 
   const fetchMatchSessions = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+  const today = getTodayLocal();
       const { data, error } = await supabase
         .from('match_sessions')
         .select('*')
@@ -41,6 +82,21 @@ export default function PlayersTodayPage() {
       setMatchSessions(data || []);
     } catch (e) {
       console.error('세션 조회 오류:', e);
+    }
+  };
+
+  const fetchTodaySchedules = async () => {
+    try {
+  const today = getTodayLocal();
+      const { data, error } = await supabase
+        .from('match_schedules')
+        .select('id, match_date, start_time, end_time, location, status, current_participants, max_participants')
+        .eq('match_date', today)
+        .order('start_time', { ascending: true });
+      if (error) throw error;
+      setTodaySchedules(data || []);
+    } catch (e) {
+      console.error('오늘 경기 일정 조회 오류:', e);
     }
   };
 
@@ -102,7 +158,7 @@ export default function PlayersTodayPage() {
 
   const handleDirectAssign = async () => {
     if (matches.length === 0) { alert('배정할 경기가 없습니다.'); return; }
-    const today = new Date().toISOString().split('T')[0];
+  const today = getTodayLocal();
   const mode = sessionMode; // use generation mode (레벨/랜덤/혼복)
   const makeSessionName = async () => {
       // count today sessions to generate sequence
@@ -143,7 +199,8 @@ export default function PlayersTodayPage() {
       if (insErr) throw insErr;
   alert(`✅ ${matches.length}개 경기가 오늘 순서대로 배정되었습니다. (세션: ${sessionName})`);
   setMatches([]); setPlayerGameCounts({});
-      await fetchMatchSessions();
+  await fetchMatchSessions();
+  await fetchTodaySchedules();
     } catch (e) {
       console.error('배정 오류:', e);
       alert('배정 중 오류가 발생했습니다.');
@@ -154,6 +211,27 @@ export default function PlayersTodayPage() {
     <RequireAdmin>
       <div className="p-6">
         <h1 className="text-xl font-bold mb-4">오늘 경기 생성/배정</h1>
+        {/* 오늘의 등록된 경기 - 최상단으로 이동 */}
+        <div className="mb-6 p-4 border border-purple-300 rounded bg-purple-50">
+          <h3 className="text-lg font-semibold mb-3">🗓️ 오늘의 등록된 경기</h3>
+          {todaySchedules.length === 0 ? (
+            <div className="text-gray-600 text-sm">오늘 등록된 경기가 없습니다.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {todaySchedules.map((s) => (
+                <div key={s.id} className="bg-white rounded border p-3 text-sm">
+                  <div className="font-medium text-gray-800">{s.start_time} - {s.end_time} · {s.location}</div>
+                  <div className="text-gray-600 mt-1">
+                    인원: {s.current_participants ?? 0} / {s.max_participants ?? 0}명
+                  </div>
+                  <div className="text-xs mt-1">
+                    상태: <span className="font-medium">{s.status}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <AttendanceStatus todayPlayers={todayPlayers} />
         <MatchSessionStatus matchSessions={matchSessions} />
         <MatchGenerationControls

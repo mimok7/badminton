@@ -305,14 +305,62 @@ export default function PlayersTodayPage() {
         return;
       }
       const playersForMatch = present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }));
-    const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
-  const generated = createBalancedDoublesMatches(playersForMatch, 4, perPlayerMinGames).map((m, i) => ({ ...m, court: i + 1 }));
+      const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
+      
+      // 목표 경기수 계산
+      const targetMatches = Math.ceil((playersForMatch.length * perPlayerMinGames) / 4);
+      
+      // 재시도 로직: 최대 4회 시도하며 코트 수를 점진적으로 증가
+      let generated: any[] = [];
+      let attempts = 0;
+      let maxCourts = Math.max(4, Math.ceil(playersForMatch.length / 4));
+      
+      while (attempts < 4) {
+        generated = createBalancedDoublesMatches(playersForMatch, maxCourts, perPlayerMinGames)
+          .map((m: any, i: number) => ({ ...m, court: i + 1 }));
+        
+        const counts = calculatePlayerGameCounts(generated);
+        const missing = playersForMatch.filter(p => (counts[p.id] || 0) < perPlayerMinGames);
+        
+        // 목표 경기수를 만족하고 모든 선수가 최소 경기수를 채웠다면 성공
+        if (generated.length >= targetMatches && missing.length === 0) {
+          break;
+        }
+        
+        attempts += 1;
+        maxCourts = Math.min(playersForMatch.length, maxCourts + 2);
+      }
+      
+      // 최종 검증: 모든 출석자가 포함되었는지 확인
+      const finalCounts = calculatePlayerGameCounts(generated);
+      const stillMissing = playersForMatch.filter(p => (finalCounts[p.id] || 0) < perPlayerMinGames);
+      
+      if (stillMissing.length > 0) {
+        const missingNames = stillMissing.map(p => p.name).join(', ');
+        console.warn(`⚠️ ${stillMissing.length}명의 선수가 목표 경기수에 도달하지 못했습니다:`, missingNames);
+        console.warn(`생성된 경기: ${generated.length}개, 목표: ${targetMatches}개`);
+      }
+      
+      // 전체 참가자 통계 출력
+      console.log('📊 레벨별 경기 생성 완료:');
+      console.log(`- 총 출석자: ${playersForMatch.length}명`);
+      console.log(`- 생성된 경기: ${generated.length}개`);
+      console.log(`- 목표 경기수: ${targetMatches}개`);
+      console.log(`- 1인당 목표: ${perPlayerMinGames}경기`);
+      
+      // 경기 수 분포 출력
+      const distribution: Record<number, number> = {};
+      Object.values(finalCounts).forEach((count: any) => {
+        distribution[count] = (distribution[count] || 0) + 1;
+      });
+      console.log('- 경기 수 분포:', distribution);
+      
       setMatches(generated);
-  setSessionMode('레벨');
-      setPlayerGameCounts(calculatePlayerGameCounts(generated));
+      setSessionMode('레벨');
+      setPlayerGameCounts(finalCounts);
     } catch (e) {
-      console.error(e);
-      alert('레벨별 경기 생성 중 오류');
+      console.error('레벨별 경기 생성 중 오류:', e);
+      alert('레벨별 경기 생성 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }

@@ -10,13 +10,38 @@ export function createRandomBalancedDoublesMatches(players: Player[], numberOfCo
   const totalPlayers = players.length;
   const targetPlayerSlots = totalPlayers * minGamesPerPlayer;
   const targetMatches = Math.ceil(targetPlayerSlots / 4);
+  
+  console.log(`🎲 랜덤 경기 생성 시작: ${totalPlayers}명, 목표 ${targetMatches}경기`);
+
+  // helper: given 4 players, pick best-balanced pairing preferring diff <= MAX_TEAM_SCORE_DIFF
+  const bestBalancedPairs = (four: Player[]): { t1: Team; t2: Team } | null => {
+    if (four.length !== 4) return null;
+    const combos: [Team, Team][] = [
+      [ { player1: four[0], player2: four[1] }, { player1: four[2], player2: four[3] } ],
+      [ { player1: four[0], player2: four[2] }, { player1: four[1], player2: four[3] } ],
+      [ { player1: four[0], player2: four[3] }, { player1: four[1], player2: four[2] } ],
+    ];
+    for (const [a, b] of combos) {
+      const diff = Math.abs(getTeamScore(a) - getTeamScore(b));
+      if (diff <= MAX_TEAM_SCORE_DIFF) return { t1: a, t2: b };
+    }
+    let best: { t1: Team; t2: Team } | null = null;
+    let bestDiff = Number.POSITIVE_INFINITY;
+    for (const [a, b] of combos) {
+      const diff = Math.abs(getTeamScore(a) - getTeamScore(b));
+      if (diff < bestDiff) { bestDiff = diff; best = { t1: a, t2: b }; }
+    }
+    return best;
+  };
 
   let attempts = 0;
   const maxAttempts = Math.max(20, players.length * minGamesPerPlayer * 3);
   const needsMore = () => players.some(p => counts[p.id] < minGamesPerPlayer);
   let stalled = 0;
+  const maxStalled = 5;
+  
   // Hard-cap by targetMatches to avoid runaway growth; coverage is handled by a swap pass later
-  while (result.length < targetMatches && attempts < maxAttempts) {
+  while (result.length < targetMatches && attempts < maxAttempts && stalled < maxStalled) {
     // shuffle but favor players with lower counts by sorting then shuffling chunks
     const pool = shuffle([...players].sort((a, b) => counts[a.id] - counts[b.id]));
     const used = new Set<string>();
@@ -71,30 +96,66 @@ export function createRandomBalancedDoublesMatches(players: Player[], numberOfCo
     stalled = result.length === before ? stalled + 1 : 0;
   }
 
+  // 🚨 최우선: 0회 경기 선수를 절대 남기지 않음 (단, targetMatches 초과 금지)
+  let zeroAttempts = 0;
+  const maxZeroAttempts = 20;
+  while (result.length < targetMatches && zeroAttempts < maxZeroAttempts) {
+    const zeroNow = players.filter(p => counts[p.id] === 0);
+    if (zeroNow.length === 0) break;
+    
+    console.warn(`⚠️ 랜덤 경기 - 0회 경기 선수 발견: ${zeroNow.length}명`);
+    console.warn(`   선수: ${zeroNow.map(p => `${p.name}(${p.skill_level})`).join(', ')}`);
+    
+    // 0회 선수 중 4명 선택
+    const picks: Player[] = [];
+    for (const p of zeroNow) {
+      if (picks.length < 4) picks.push(p);
+    }
+    
+    // 4명 미만이면 경기 수 적은 선수로 보충
+    if (picks.length < 4) {
+      const fillers = [...players]
+        .filter(p => !picks.find(x => x.id === p.id))
+        .sort((a, b) => counts[a.id] - counts[b.id]);
+      for (const p of fillers) {
+        if (picks.length < 4) picks.push(p);
+      }
+    }
+    
+    if (picks.length < 4) {
+      console.error('❌ 랜덤 경기 - 4명 구성 실패, 중단');
+      break;
+    }
+    
+    const pairing = bestBalancedPairs(picks);
+    if (!pairing) {
+      console.error('❌ 랜덤 경기 - 팀 페어링 실패');
+      zeroAttempts++;
+      continue;
+    }
+    
+    const t1 = pairing.t1;
+    const t2 = pairing.t2;
+    
+    result.push({ 
+      id: `match-rand-zero-cover-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, 
+      team1: t1, 
+      team2: t2, 
+      court: (result.length % numberOfCourts) + 1 
+    });
+    
+    [t1.player1.id, t1.player2.id, t2.player1.id, t2.player2.id].forEach(id => {
+      counts[id] = (counts[id] || 0) + 1;
+    });
+    
+    zeroAttempts++;
+  }
+
   // Final coverage (swap-based): ensure everyone gets at least minGames without increasing match count
   const getIds = (m: Match) => [m.team1.player1.id, m.team1.player2.id, m.team2.player1.id, m.team2.player2.id];
   const isInMatch = (m: Match, pid: string) => getIds(m).includes(pid);
   const missing = players.filter(p => counts[p.id] < minGamesPerPlayer);
-  // helper: given 4 players, pick best-balanced pairing preferring diff <= MAX_TEAM_SCORE_DIFF
-  const bestBalancedPairs = (four: Player[]): { t1: Team; t2: Team } | null => {
-    if (four.length !== 4) return null;
-    const combos: [Team, Team][] = [
-      [ { player1: four[0], player2: four[1] }, { player1: four[2], player2: four[3] } ],
-      [ { player1: four[0], player2: four[2] }, { player1: four[1], player2: four[3] } ],
-      [ { player1: four[0], player2: four[3] }, { player1: four[1], player2: four[2] } ],
-    ];
-    for (const [a, b] of combos) {
-      const diff = Math.abs(getTeamScore(a) - getTeamScore(b));
-      if (diff <= MAX_TEAM_SCORE_DIFF) return { t1: a, t2: b };
-    }
-    let best: { t1: Team; t2: Team } | null = null;
-    let bestDiff = Number.POSITIVE_INFINITY;
-    for (const [a, b] of combos) {
-      const diff = Math.abs(getTeamScore(a) - getTeamScore(b));
-      if (diff < bestDiff) { bestDiff = diff; best = { t1: a, t2: b }; }
-    }
-    return best;
-  };
+  
   if (missing.length > 0 && result.length > 0) {
     // Precompute slots: [matchIndex, team, slotKey]
     type Slot = { mi: number; team: 1 | 2; pos: 1 | 2; id: string };
@@ -157,23 +218,106 @@ export function createRandomBalancedDoublesMatches(players: Player[], numberOfCo
     }
   }
 
-  // If result length is less than targetMatches, try to create additional matches using lowest-count players
-  const needToAdd = targetMatches - result.length;
-  if (needToAdd > 0) {
-    // repeatedly pick 4 lowest-count players and form best-balanced pairs until reach targetMatches2
+  // 🚨 중요: targetMatches에 도달하지 못한 경우 추가 경기 생성 (필수!)
+  if (result.length < targetMatches) {
+    console.warn(`⚠️ 랜덤 경기 - 목표 미달: ${result.length}개 / ${targetMatches}개, 추가 경기 생성 중...`);
     let attemptsAdd = 0;
-  while (result.length < targetMatches && attemptsAdd < 50) {
-      const pool = [...players].sort((a, b) => (counts[a.id] || 0) - (counts[b.id] || 0));
+    const maxAttemptsAdd = Math.max(50, (targetMatches - result.length) * 10);
+    
+    while (result.length < targetMatches && attemptsAdd < maxAttemptsAdd) {
+      // 경기 수가 적은 선수 우선 선택
+      const pool = [...players].sort((a, b) => {
+        const countDiff = (counts[a.id] || 0) - (counts[b.id] || 0);
+        if (countDiff !== 0) return countDiff;
+        return Math.random() - 0.5; // 같은 경기 수면 랜덤
+      });
+      
       const picks: Player[] = [];
-      for (const p of pool) { if (picks.length < 4 && !picks.find(x => x.id === p.id)) picks.push(p); }
-      if (picks.length < 4) break;
+      for (const p of pool) { 
+        if (picks.length < 4 && !picks.find(x => x.id === p.id)) {
+          picks.push(p);
+        }
+      }
+      
+      if (picks.length < 4) {
+        console.error(`❌ 랜덤 경기 - 4명 구성 실패 (현재 ${picks.length}명), 중단`);
+        break;
+      }
+      
       const pairing = bestBalancedPairs(picks);
-      if (!pairing) break;
-      const match: Match = { id: `match-rand-fill-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, team1: pairing.t1, team2: pairing.t2, court: (result.length % numberOfCourts) + 1 };
+      if (!pairing) {
+        console.error('❌ 랜덤 경기 - 팀 페어링 실패');
+        attemptsAdd++;
+        continue;
+      }
+      
+      const match: Match = { 
+        id: `match-rand-fill-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, 
+        team1: pairing.t1, 
+        team2: pairing.t2, 
+        court: (result.length % numberOfCourts) + 1 
+      };
       result.push(match);
-      counts[pairing.t1.player1.id]++; counts[pairing.t1.player2.id]++; counts[pairing.t2.player1.id]++; counts[pairing.t2.player2.id]++;
-      attemptsAdd += 1;
+      counts[pairing.t1.player1.id]++;
+      counts[pairing.t1.player2.id]++;
+      counts[pairing.t2.player1.id]++;
+      counts[pairing.t2.player2.id]++;
+      attemptsAdd++;
     }
+    
+    console.log(`  → 추가 경기 생성 완료: ${result.length}개`);
+  }
+
+  // 🚨 중요: targetMatches를 초과한 경기는 제거 (46명 → 12경기 엄수)
+  if (result.length > targetMatches) {
+    console.warn(`⚠️ 랜덤 경기 - 경기 수 초과 감지: ${result.length}개 → ${targetMatches}개로 조정`);
+    result.splice(targetMatches); // 초과분 제거
+    
+    // counts 재계산
+    for (const key in counts) {
+      counts[key] = 0;
+    }
+    for (const m of result) {
+      counts[m.team1.player1.id] = (counts[m.team1.player1.id] || 0) + 1;
+      counts[m.team1.player2.id] = (counts[m.team1.player2.id] || 0) + 1;
+      counts[m.team2.player1.id] = (counts[m.team2.player1.id] || 0) + 1;
+      counts[m.team2.player2.id] = (counts[m.team2.player2.id] || 0) + 1;
+    }
+  }
+
+  // 최종 검증 및 상세 로깅
+  const finalMissing = players.filter(p => counts[p.id] < minGamesPerPlayer);
+  const zeroGames = players.filter(p => counts[p.id] === 0);
+  
+  console.log('✅ 랜덤 경기 생성 완료:');
+  console.log(`  - 목표 경기: ${targetMatches}개`);
+  console.log(`  - 생성된 경기: ${result.length}개`);
+  console.log(`  - 참가한 선수: ${players.filter(p => counts[p.id] > 0).length}명 / ${players.length}명`);
+  
+  // 경기 수 부족 경고
+  if (result.length < targetMatches) {
+    console.error(`❌ 치명적: 목표 경기 수 미달! ${result.length}개 / ${targetMatches}개`);
+    console.error(`   부족한 경기: ${targetMatches - result.length}개`);
+  }
+  
+  // 경기 수 분포
+  const distribution: Record<number, number> = {};
+  players.forEach(p => {
+    const count = counts[p.id] || 0;
+    distribution[count] = (distribution[count] || 0) + 1;
+  });
+  console.log('  - 경기 수 분포:', distribution);
+  
+  if (zeroGames.length > 0) {
+    console.error(`❌ 치명적: ${zeroGames.length}명이 경기에 한 번도 참여하지 못함!`);
+    console.error(`   선수: ${zeroGames.map(p => `${p.name}(${p.skill_level})`).join(', ')}`);
+  }
+  
+  if (finalMissing.length > 0) {
+    console.warn(`⚠️ ${finalMissing.length}명이 목표 ${minGamesPerPlayer}회 미달:`);
+    finalMissing.forEach(p => {
+      console.warn(`   - ${p.name}(${p.skill_level}): ${counts[p.id] || 0}회`);
+    });
   }
 
   return reorderMatchesToAvoidConsecutive(result);

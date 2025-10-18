@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 import { fetchRegisteredPlayersForDate } from '@/app/players/utils';
 
 interface TeamAssignment {
@@ -22,7 +22,7 @@ interface RoundSummary {
 }
 
 export default function TeamManagementPage() {
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseClient();
   const [rounds, setRounds] = useState<RoundSummary[]>([]);
   const [currentRound, setCurrentRound] = useState<number>(1);
   const [todayPlayers, setTodayPlayers] = useState<string[]>([]);

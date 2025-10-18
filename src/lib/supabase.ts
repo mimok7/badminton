@@ -21,3 +21,13 @@ export const createOptimizedBrowserClient = () => {
   
   return browserClient;
 };
+
+// createClientComponentClient 래퍼 (호환성 유지)
+export const getSupabaseClient = () => {
+  if (typeof window === 'undefined') {
+    // 서버 사이드
+    return supabase;
+  }
+  // 클라이언트 사이드 - 싱글톤 사용
+  return createOptimizedBrowserClient();
+};

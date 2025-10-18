@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 
 interface Profile {
   id: string;
@@ -21,7 +21,7 @@ export function useUser() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = useMemo(() => createClientComponentClient(), []);
+  const supabase = useMemo(() => getSupabaseClient(), []);
 
   const fetchProfile = useCallback(async (userId: string) => {
     // 캐시된 프로필이 같은 사용자의 것이면 재사용

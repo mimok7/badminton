@@ -247,9 +247,22 @@ export default function MatchSchedulePage() {
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) return;
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
 
     try {
+      // 세션 확인
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('세션 오류:', sessionError);
+        alert('세션이 만료되었습니다. 다시 로그인해주세요.');
+        window.location.href = '/login';
+        return;
+      }
+
       const { error } = await supabase
         .from('match_schedules')
         .insert({
@@ -260,7 +273,15 @@ export default function MatchSchedulePage() {
 
       if (error) {
         console.error('경기 생성 오류:', error);
-        alert('경기 생성 중 오류가 발생했습니다.');
+        
+        // 401 Unauthorized 처리
+        if (error.message.includes('JWT') || error.message.includes('401')) {
+          alert('세션이 만료되었습니다. 다시 로그인해주세요.');
+          window.location.href = '/login';
+          return;
+        }
+        
+        alert('경기 생성 중 오류가 발생했습니다: ' + error.message);
         return;
       }
 

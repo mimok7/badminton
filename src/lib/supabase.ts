@@ -11,7 +11,15 @@ export const getSupabaseClient = (): SupabaseClient => {
   
   supabaseInstance = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storageKey: 'badminton-auth-token', // 고유 키로 저장소 충돌 방지
+      }
+    }
   );
   
   return supabaseInstance;

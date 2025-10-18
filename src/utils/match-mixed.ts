@@ -13,11 +13,32 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
   const totalPlayers = players.length;
   const targetPlayerSlots = totalPlayers * minGamesPerPlayer;
   const targetMatches = Math.ceil(targetPlayerSlots / 4);
+  
+  console.log(`👫 혼합복식 경기 생성 시작: ${totalPlayers}명, 목표 ${targetMatches}경기`);
 
   let attempts = 0;
   const maxAttempts = Math.max(20, players.length * minGamesPerPlayer * 6);
   const needsMore = () => players.some(p => counts[p.id] < minGamesPerPlayer);
   let stalled = 0;
+  
+  // helper: given 4 players, pick best-balanced pairing
+  const bestBalancedPairs = (four: Player[]): { t1: Team; t2: Team } | null => {
+    if (four.length !== 4) return null;
+    const candidates: [Team, Team][] = [
+      [ { player1: four[0], player2: four[1] }, { player1: four[2], player2: four[3] } ],
+      [ { player1: four[0], player2: four[2] }, { player1: four[1], player2: four[3] } ],
+      [ { player1: four[0], player2: four[3] }, { player1: four[1], player2: four[2] } ],
+    ];
+    let best: { t1: Team; t2: Team } | null = null;
+    let bestDiff = Number.POSITIVE_INFINITY;
+    for (const [a, b] of candidates) {
+      const diff = Math.abs(getTeamScore(a) - getTeamScore(b));
+      if (diff <= MAX_TEAM_SCORE_DIFF) { best = { t1: a, t2: b }; break; }
+      if (diff < bestDiff) { bestDiff = diff; best = { t1: a, t2: b }; }
+    }
+    return best;
+  };
+  
   while (result.length < targetMatches && attempts < maxAttempts) {
     // prefer males/females who have lower counts
     const males = players.filter(isMale).sort((a, b) => counts[a.id] - counts[b.id]);
@@ -100,6 +121,66 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
     stalled = matches.length === 0 ? stalled + 1 : 0;
   }
 
+  // 🚨 최우선: 0회 경기 선수를 절대 남기지 않음 (단, targetMatches 초과 금지)
+  const zeroGamePlayers = players.filter(p => counts[p.id] === 0);
+  if (zeroGamePlayers.length > 0) {
+    console.warn(`⚠️ 혼합복식 - 0회 경기 선수 발견: ${zeroGamePlayers.length}명`);
+    console.warn(`   선수: ${zeroGamePlayers.map(p => `${p.name}(${p.skill_level})`).join(', ')}`);
+    
+    // 0회 선수들을 반드시 포함시키기 위한 강제 매칭 (targetMatches까지만)
+    while (zeroGamePlayers.length > 0 && result.length < targetMatches) {
+      const zeroNow = players.filter(p => counts[p.id] === 0);
+      if (zeroNow.length === 0) break;
+      
+      // 0회 선수 중 4명 선택
+      const picks: Player[] = [];
+      for (const p of zeroNow) {
+        if (picks.length < 4) picks.push(p);
+      }
+      
+      // 4명 미만이면 경기 수 적은 선수로 보충
+      if (picks.length < 4) {
+        const fillers = [...players]
+          .filter(p => !picks.find(x => x.id === p.id))
+          .sort((a, b) => counts[a.id] - counts[b.id]);
+        for (const p of fillers) {
+          if (picks.length < 4) picks.push(p);
+        }
+      }
+      
+      if (picks.length < 4) break;
+      
+      // 혼합복식 우선, 안되면 동성 복식
+      const malesP = picks.filter(isMale);
+      const femalesP = picks.filter(isFemale);
+      let t1: Team | null = null;
+      let t2: Team | null = null;
+      
+      if (malesP.length >= 2 && femalesP.length >= 2) {
+        t1 = { player1: malesP[0], player2: femalesP[0] };
+        t2 = { player1: malesP[1], player2: femalesP[1] };
+      } else {
+        const pairing = bestBalancedPairs(picks);
+        if (!pairing) break;
+        t1 = pairing.t1;
+        t2 = pairing.t2;
+      }
+      
+      if (!t1 || !t2) break;
+      
+      result.push({ 
+        id: `match-mixed-zero-cover-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, 
+        team1: t1, 
+        team2: t2, 
+        court: (result.length % numberOfCourts) + 1 
+      });
+      
+      [t1.player1.id, t1.player2.id, t2.player1.id, t2.player2.id].forEach(id => {
+        counts[id] = (counts[id] || 0) + 1;
+      });
+    }
+  }
+
   // Final coverage: ensure every player gets at least minGames
   let guard = 0;
   // Final coverage: use swaps first; only add new matches if result.length < targetMatches
@@ -120,23 +201,12 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
       t1 = { player1: malesP[0], player2: femalesP[femalesP.length - 1] };
       t2 = { player1: femalesP[0], player2: malesP[malesP.length - 1] };
     }
-  if (!t1 || !t2) {
-      // fallback same-sex
-      const byCounts = [...picks];
-      // choose pairing with best balance (team score diff <= 1 preferred)
-      const candidates: [Team, Team][] = [
-        [ { player1: byCounts[0], player2: byCounts[1] }, { player1: byCounts[2], player2: byCounts[3] } ],
-        [ { player1: byCounts[0], player2: byCounts[2] }, { player1: byCounts[1], player2: byCounts[3] } ],
-        [ { player1: byCounts[0], player2: byCounts[3] }, { player1: byCounts[1], player2: byCounts[2] } ],
-      ];
-      let best: { t1: Team; t2: Team } | null = null;
-      let bestDiff = Number.POSITIVE_INFINITY;
-        for (const [a, b] of candidates) {
-        const diff = Math.abs(getTeamScore(a) - getTeamScore(b));
-        if (diff <= MAX_TEAM_SCORE_DIFF) { best = { t1: a, t2: b }; break; }
-        if (diff < bestDiff) { bestDiff = diff; best = { t1: a, t2: b }; }
-      }
-      t1 = best!.t1; t2 = best!.t2;
+    if (!t1 || !t2) {
+      // fallback same-sex using bestBalancedPairs
+      const pairing = bestBalancedPairs(picks);
+      if (!pairing) break;
+      t1 = pairing.t1;
+      t2 = pairing.t2;
     }
     if (result.length < targetMatches) {
       result.push({ id: `match-mixed-cover-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, team1: t1!, team2: t2!, court: (result.length % numberOfCourts) + 1 });
@@ -201,6 +271,126 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
       }
     }
     guard += 1;
+  }
+
+  // 🚨 중요: targetMatches에 도달하지 못한 경우 추가 경기 생성 (필수!)
+  if (result.length < targetMatches) {
+    console.warn(`⚠️ 혼합복식 - 목표 미달: ${result.length}개 / ${targetMatches}개, 추가 경기 생성 중...`);
+    let attemptsAdd = 0;
+    const maxAttemptsAdd = Math.max(50, (targetMatches - result.length) * 10);
+    
+    while (result.length < targetMatches && attemptsAdd < maxAttemptsAdd) {
+      // 경기 수가 적은 선수 우선 선택
+      const pool = [...players].sort((a, b) => {
+        const countDiff = (counts[a.id] || 0) - (counts[b.id] || 0);
+        if (countDiff !== 0) return countDiff;
+        return Math.random() - 0.5;
+      });
+      
+      const picks: Player[] = [];
+      for (const p of pool) { 
+        if (picks.length < 4 && !picks.find(x => x.id === p.id)) {
+          picks.push(p);
+        }
+      }
+      
+      if (picks.length < 4) {
+        console.error(`❌ 혼합복식 - 4명 구성 실패 (현재 ${picks.length}명), 중단`);
+        break;
+      }
+      
+      // 혼합복식 우선, 안되면 동성 복식
+      const malesP = picks.filter(isMale);
+      const femalesP = picks.filter(isFemale);
+      let t1: Team | null = null;
+      let t2: Team | null = null;
+      
+      if (malesP.length >= 2 && femalesP.length >= 2) {
+        t1 = { player1: malesP[0], player2: femalesP[0] };
+        t2 = { player1: malesP[1], player2: femalesP[1] };
+      } else {
+        const pairing = bestBalancedPairs(picks);
+        if (!pairing) {
+          console.error('❌ 혼합복식 - 팀 페어링 실패');
+          attemptsAdd++;
+          continue;
+        }
+        t1 = pairing.t1;
+        t2 = pairing.t2;
+      }
+      
+      if (!t1 || !t2) {
+        attemptsAdd++;
+        continue;
+      }
+      
+      const match: Match = { 
+        id: `match-mixed-fill-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, 
+        team1: t1, 
+        team2: t2, 
+        court: (result.length % numberOfCourts) + 1 
+      };
+      result.push(match);
+      counts[t1.player1.id]++;
+      counts[t1.player2.id]++;
+      counts[t2.player1.id]++;
+      counts[t2.player2.id]++;
+      attemptsAdd++;
+    }
+    
+    console.log(`  → 추가 경기 생성 완료: ${result.length}개`);
+  }
+
+  // 🚨 중요: targetMatches를 초과한 경기는 제거 (46명 → 12경기 엄수)
+  if (result.length > targetMatches) {
+    console.warn(`⚠️ 혼합복식 - 경기 수 초과 감지: ${result.length}개 → ${targetMatches}개로 조정`);
+    result.splice(targetMatches); // 초과분 제거
+    
+    // counts 재계산
+    for (const key in counts) {
+      counts[key] = 0;
+    }
+    for (const m of result) {
+      counts[m.team1.player1.id] = (counts[m.team1.player1.id] || 0) + 1;
+      counts[m.team1.player2.id] = (counts[m.team1.player2.id] || 0) + 1;
+      counts[m.team2.player1.id] = (counts[m.team2.player1.id] || 0) + 1;
+      counts[m.team2.player2.id] = (counts[m.team2.player2.id] || 0) + 1;
+    }
+  }
+
+  // 최종 검증 및 상세 로깅
+  const finalMissing = players.filter(p => counts[p.id] < minGamesPerPlayer);
+  const zeroGames = players.filter(p => counts[p.id] === 0);
+  
+  console.log('✅ 혼합복식 경기 생성 완료:');
+  console.log(`  - 목표 경기: ${targetMatches}개`);
+  console.log(`  - 생성된 경기: ${result.length}개`);
+  console.log(`  - 참가한 선수: ${players.filter(p => counts[p.id] > 0).length}명 / ${players.length}명`);
+  
+  // 경기 수 부족 경고
+  if (result.length < targetMatches) {
+    console.error(`❌ 치명적: 목표 경기 수 미달! ${result.length}개 / ${targetMatches}개`);
+    console.error(`   부족한 경기: ${targetMatches - result.length}개`);
+  }
+  
+  // 경기 수 분포
+  const distribution: Record<number, number> = {};
+  players.forEach(p => {
+    const count = counts[p.id] || 0;
+    distribution[count] = (distribution[count] || 0) + 1;
+  });
+  console.log('  - 경기 수 분포:', distribution);
+  
+  if (zeroGames.length > 0) {
+    console.error(`❌ 치명적: ${zeroGames.length}명이 경기에 한 번도 참여하지 못함!`);
+    console.error(`   선수: ${zeroGames.map(p => `${p.name}(${p.skill_level})`).join(', ')}`);
+  }
+  
+  if (finalMissing.length > 0) {
+    console.warn(`⚠️ ${finalMissing.length}명이 목표 ${minGamesPerPlayer}회 미달:`);
+    finalMissing.forEach(p => {
+      console.warn(`   - ${p.name}(${p.skill_level}): ${counts[p.id] || 0}회`);
+    });
   }
 
   return reorderMatchesToAvoidConsecutive(result);

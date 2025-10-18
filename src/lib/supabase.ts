@@ -1,33 +1,24 @@
 // lib/supabase.ts
-import { createBrowserClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-// 서버 사이드용 클라이언트
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// 싱글톤 인스턴스
+let supabaseInstance: SupabaseClient | null = null;
 
-// 브라우저용 최적화된 클라이언트 (싱글톤 패턴)
-let browserClient: ReturnType<typeof createBrowserClient> | null = null;
-
-export const createOptimizedBrowserClient = () => {
-  if (browserClient) return browserClient;
+// 통합 Supabase 클라이언트 (서버/클라이언트 모두 사용 가능)
+export const getSupabaseClient = (): SupabaseClient => {
+  if (supabaseInstance) return supabaseInstance;
   
-  browserClient = createBrowserClient(
+  supabaseInstance = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
   
-  return browserClient;
+  return supabaseInstance;
 };
 
-// createClientComponentClient 래퍼 (호환성 유지)
-export const getSupabaseClient = () => {
-  if (typeof window === 'undefined') {
-    // 서버 사이드
-    return supabase;
-  }
-  // 클라이언트 사이드 - 싱글톤 사용
-  return createOptimizedBrowserClient();
-};
+// 기존 호환성을 위한 export (deprecated)
+export const supabase = getSupabaseClient();
+
+// 브라우저용 최적화된 클라이언트 (deprecated, getSupabaseClient 사용 권장)
+export const createOptimizedBrowserClient = getSupabaseClient;

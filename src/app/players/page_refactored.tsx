@@ -303,6 +303,7 @@ function PlayersPage() {
               onGenerateByLevel={() => console.log('레벨별 경기 생성')} // 임시
               onGenerateRandom={() => console.log('랜덤 경기 생성')} // 임시
               onGenerateMixed={() => console.log('혼복 경기 생성')} // 임시
+              onManualAssign={() => console.log('수동 배정')} // 임시
             />
             
             <GeneratedMatchesList

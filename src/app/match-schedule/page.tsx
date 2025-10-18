@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { RequireAdmin } from '@/components/AuthGuard';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { Button } from '@/components/ui/button';
 
@@ -90,7 +90,7 @@ export default function MatchSchedulePage() {
     }
   };
   const { user } = useUser();
-  const supabase = createClientComponentClient();
+  const supabase = useMemo(() => getSupabaseClient(), []);
   const [schedules, setSchedules] = useState<ScheduleWithParticipants[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);

@@ -8,8 +8,11 @@ import MatchSessionStatus from '@/app/players/components/MatchSessionStatus';
 import MatchGenerationControls from '@/app/players/components/MatchGenerationControls';
 import GeneratedMatchesList from '@/app/players/components/GeneratedMatchesList';
 import { ExtendedPlayer, MatchSession } from '@/app/players/types';
-import { supabase, fetchTodayPlayers, fetchRegisteredPlayersForDate, calculatePlayerGameCounts, normalizeLevel } from '@/app/players/utils';
+import { getSupabaseClient } from '@/lib/supabase';
+import { fetchTodayPlayers, fetchRegisteredPlayersForDate, calculatePlayerGameCounts, normalizeLevel } from '@/app/players/utils';
 import { Match } from '@/types';
+
+const supabase = getSupabaseClient();
 
 export default function PlayersTodayPage() {
   const [todayPlayers, setTodayPlayers] = useState<ExtendedPlayer[] | null>(null);

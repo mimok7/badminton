@@ -1,7 +1,7 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 import { ExtendedPlayer, LEVEL_LABELS } from './types';
 
-export const supabase = createClientComponentClient();
+export const supabase = getSupabaseClient();
 
 // 레벨별 점수 매핑 (높은 숫자가 높은 실력)
 export const getLevelScore = (level: string): number => {

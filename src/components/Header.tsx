@@ -62,6 +62,20 @@ export default function Header() {
         </Link>
         
         <Link 
+          href="/tournament-bracket" 
+          className="text-sm font-medium hover:text-blue-600 transition-colors"
+        >
+          대진표
+        </Link>
+        
+        <Link 
+          href="/my-tournament-matches" 
+          className="text-sm font-medium hover:text-blue-600 transition-colors"
+        >
+          내 대회
+        </Link>
+        
+        <Link 
           href="/my-schedule" 
           className="text-sm font-medium hover:text-blue-600 transition-colors"
         >

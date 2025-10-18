@@ -10,6 +10,7 @@ interface MatchGenerationControlsProps {
   onGenerateByLevel: () => void;
   onGenerateRandom: () => void;
   onGenerateMixed: () => void;
+  onManualAssign: () => void;
 }
 
 export default function MatchGenerationControls({
@@ -18,7 +19,8 @@ export default function MatchGenerationControls({
   setPerPlayerMinGames,
   onGenerateByLevel,
   onGenerateRandom,
-  onGenerateMixed
+  onGenerateMixed,
+  onManualAssign
 }: MatchGenerationControlsProps) {
   if (!todayPlayers || todayPlayers.length === 0) {
     return null;
@@ -58,7 +60,7 @@ export default function MatchGenerationControls({
         
   {/* Tip and quick link removed as requested */}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
           <button 
             className="bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded font-medium transition-colors"
             onClick={onGenerateByLevel}
@@ -76,6 +78,12 @@ export default function MatchGenerationControls({
             onClick={onGenerateMixed}
           >
             👫 혼합복식
+          </button>
+          <button 
+            className="bg-orange-500 hover:bg-orange-600 text-white py-3 px-4 rounded font-medium transition-colors"
+            onClick={onManualAssign}
+          >
+            ✋ 수동 배정
           </button>
         </div>
       </div>

@@ -619,6 +619,7 @@ function PlayersPage() {
               onGenerateByLevel={handleAssignByLevel}
               onGenerateRandom={handleAssignRandom}
               onGenerateMixed={handleAssignMixed}
+              onManualAssign={() => {}} // 수동 배정은 별도 컴포넌트에서 처리
             />
             
             <GeneratedMatchesList

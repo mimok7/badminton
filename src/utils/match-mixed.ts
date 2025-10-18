@@ -42,82 +42,123 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
     // prefer males/females who have lower counts
     const males = players.filter(isMale).sort((a, b) => counts[a.id] - counts[b.id]);
     const females = players.filter(isFemale).sort((a, b) => counts[a.id] - counts[b.id]);
+    const unspecified = players.filter(p => !isMale(p) && !isFemale(p)).sort((a, b) => counts[a.id] - counts[b.id]);
 
-    if (males.length === 0 || females.length === 0) {
-      console.warn('⚠️ 혼합복식: 남성 또는 여성 부족');
+    // 남녀 모두 없으면 중단
+    if (males.length === 0 && females.length === 0) {
+      console.warn('⚠️ 혼합복식: 성별 정보가 있는 선수가 없음');
       break;
     }
 
-    const mixedCandidates: { team: Team; score: number; fairness: number }[] = [];
-    for (const m of males) for (const f of females) {
-      const t: Team = { player1: m, player2: f };
-      mixedCandidates.push({ team: t, score: getTeamScore(t), fairness: getTeamFairnessScore(t) });
+    // 혼복 가능한 모든 팀 조합 생성
+    const allCandidates: { team: Team; score: number; isMixed: boolean }[] = [];
+    
+    // 혼복 팀 (남-여)
+    if (males.length > 0 && females.length > 0) {
+      for (const m of males) {
+        for (const f of females) {
+          const t: Team = { player1: m, player2: f };
+          allCandidates.push({ team: t, score: getTeamScore(t), isMixed: true });
+        }
+      }
     }
-    mixedCandidates.sort((a, b) => {
-      const fa = b.fairness + jitter(0.2) - (a.fairness + jitter(0.2));
-      if (Math.abs(fa) > 0.5) return fa;
-      const sa = b.score + jitter(0.2) - (a.score + jitter(0.2));
-      if (Math.abs(sa) > 0.5) return sa;
-      return Math.random() < 0.5 ? -1 : 1;
-    });
+    
+    // 미지정 + 남성
+    for (const u of unspecified) {
+      for (const m of males) {
+        const t: Team = { player1: u, player2: m };
+        allCandidates.push({ team: t, score: getTeamScore(t), isMixed: false });
+      }
+    }
+    
+    // 미지정 + 여성
+    for (const u of unspecified) {
+      for (const f of females) {
+        const t: Team = { player1: u, player2: f };
+        allCandidates.push({ team: t, score: getTeamScore(t), isMixed: false });
+      }
+    }
+    
+    // 같은 성별 (미지정 제외)
+    for (let i = 0; i < males.length; i++) {
+      for (let j = i + 1; j < males.length; j++) {
+        const t: Team = { player1: males[i], player2: males[j] };
+        allCandidates.push({ team: t, score: getTeamScore(t), isMixed: false });
+      }
+    }
+    for (let i = 0; i < females.length; i++) {
+      for (let j = i + 1; j < females.length; j++) {
+        const t: Team = { player1: females[i], player2: females[j] };
+        allCandidates.push({ team: t, score: getTeamScore(t), isMixed: false });
+      }
+    }
+    
+    // 미지정끼리
+    for (let i = 0; i < unspecified.length; i++) {
+      for (let j = i + 1; j < unspecified.length; j++) {
+        const t: Team = { player1: unspecified[i], player2: unspecified[j] };
+        allCandidates.push({ team: t, score: getTeamScore(t), isMixed: false });
+      }
+    }
+    
+    // 점수로 정렬
+    allCandidates.sort((a, b) => a.score - b.score);
 
     const matches: Match[] = [];
     const used = new Set<string>();
 
-    for (let i = 0; i < mixedCandidates.length; i++) {
-      const t1 = mixedCandidates[i].team;
-      if (used.has(t1.player1.id) || used.has(t1.player2.id)) continue;
+    for (let i = 0; i < allCandidates.length; i++) {
+      const t1 = allCandidates[i];
+      if (used.has(t1.team.player1.id) || used.has(t1.team.player2.id)) continue;
 
-      const cands: { team: Team; score: number; ms: number }[] = [];
-      for (let j = i + 1; j < mixedCandidates.length; j++) {
-        const t2 = mixedCandidates[j].team;
-        if (used.has(t2.player1.id) || used.has(t2.player2.id)) continue;
-        if (t1.player1.id === t2.player1.id || t1.player1.id === t2.player2.id || t1.player2.id === t2.player1.id || t1.player2.id === t2.player2.id) continue;
-        const ms = getTeamMatchScore(t1, t2);
-        const diff = Math.abs(getTeamScore(t1) - getTeamScore(t2));
-        if (ms <= 6 && diff <= MAX_TEAM_SCORE_DIFF) cands.push({ team: t2, score: getTeamScore(t2), ms });
+      // 점수 차이 <= MAX_TEAM_SCORE_DIFF인 상대팀 찾기
+      let bestOpponent: { team: Team; diff: number } | null = null;
+
+      for (let j = i + 1; j < allCandidates.length; j++) {
+        const t2 = allCandidates[j];
+        if (used.has(t2.team.player1.id) || used.has(t2.team.player2.id)) continue;
+        if (t1.team.player1.id === t2.team.player1.id || t1.team.player1.id === t2.team.player2.id ||
+            t1.team.player2.id === t2.team.player1.id || t1.team.player2.id === t2.team.player2.id) continue;
+
+        const diff = Math.abs(t1.score - t2.score);
+        
+        // 점수 차이가 MAX_TEAM_SCORE_DIFF 이하면 최적 후보
+        if (diff <= MAX_TEAM_SCORE_DIFF) {
+          if (!bestOpponent || diff < bestOpponent.diff) {
+            bestOpponent = { team: t2.team, diff };
+          }
+        }
       }
-      if (cands.length > 0) {
-        cands.sort((a, b) => a.ms - b.ms);
-        const pick = cands[Math.floor(Math.random() * Math.min(3, cands.length))];
-        matches.push({ 
-          id: `match-mixed-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, 
-          team1: t1, 
-          team2: pick.team, 
-          court: (matches.length % numberOfCourts) + 1 
+
+      // MAX_TEAM_SCORE_DIFF 이하의 상대가 없으면 최소 차이 상대 선택
+      if (!bestOpponent) {
+        let minDiff = Number.POSITIVE_INFINITY;
+        for (let j = i + 1; j < allCandidates.length; j++) {
+          const t2 = allCandidates[j];
+          if (used.has(t2.team.player1.id) || used.has(t2.team.player2.id)) continue;
+          if (t1.team.player1.id === t2.team.player1.id || t1.team.player1.id === t2.team.player2.id ||
+              t1.team.player2.id === t2.team.player1.id || t1.team.player2.id === t2.team.player2.id) continue;
+
+          const diff = Math.abs(t1.score - t2.score);
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestOpponent = { team: t2.team, diff };
+          }
+        }
+      }
+
+      if (bestOpponent) {
+        matches.push({
+          id: `match-mixed-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          team1: t1.team,
+          team2: bestOpponent.team,
+          court: (matches.length % numberOfCourts) + 1
         });
-        [t1.player1.id, t1.player2.id, pick.team.player1.id, pick.team.player2.id].forEach(id => used.add(id));
-        counts[t1.player1.id]++; 
-        counts[t1.player2.id]++; 
-        counts[pick.team.player1.id]++; 
-        counts[pick.team.player2.id]++;
-      } else {
-        // same-sex fallback to avoid excluding players
-        const pool = isMale(t1.player1) ? players.filter(isMale) : players.filter(isFemale);
-        const sameCands: { team: Team; ms: number }[] = [];
-        for (let x = 0; x < pool.length; x++) for (let y = x + 1; y < pool.length; y++) {
-          const t2: Team = { player1: pool[x], player2: pool[y] };
-          if (used.has(t2.player1.id) || used.has(t2.player2.id)) continue;
-          if (t1.player1.id === t2.player1.id || t1.player1.id === t2.player2.id || t1.player2.id === t2.player1.id || t1.player2.id === t2.player2.id) continue;
-          const ms = getTeamMatchScore(t1, t2);
-          const diff = Math.abs(getTeamScore(t1) - getTeamScore(t2));
-          if (ms <= 6 && diff <= MAX_TEAM_SCORE_DIFF) sameCands.push({ team: t2, ms });
-        }
-        if (sameCands.length > 0) {
-          sameCands.sort((a, b) => a.ms - b.ms);
-          const pick2 = sameCands[0];
-          matches.push({ 
-            id: `match-mixed-fallback-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, 
-            team1: t1, 
-            team2: pick2.team, 
-            court: (matches.length % numberOfCourts) + 1 
-          });
-          [t1.player1.id, t1.player2.id, pick2.team.player1.id, pick2.team.player2.id].forEach(id => used.add(id));
-          counts[t1.player1.id]++; 
-          counts[t1.player2.id]++; 
-          counts[pick2.team.player1.id]++; 
-          counts[pick2.team.player2.id]++;
-        }
+        [t1.team.player1.id, t1.team.player2.id, bestOpponent.team.player1.id, bestOpponent.team.player2.id].forEach(id => used.add(id));
+        counts[t1.team.player1.id]++;
+        counts[t1.team.player2.id]++;
+        counts[bestOpponent.team.player1.id]++;
+        counts[bestOpponent.team.player2.id]++;
       }
     }
 

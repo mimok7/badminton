@@ -298,14 +298,22 @@ export default function TeamManagementPage() {
 
       // DB에 저장 시도
       try {
+        // 모든 필드를 명시적으로 설정 (null 대신 빈 배열 사용)
         const insertData: any = {
           assignment_date: titleDate,
           round_number: currentRound,
           title: roundTitle,
-          team_type: teamConfig.type
+          team_type: teamConfig.type,
+          racket_team: [],
+          shuttle_team: [],
+          team1: [],
+          team2: [],
+          team3: [],
+          team4: [],
+          pairs_data: {}
         };
 
-        // 팀 타입에 따라 적절한 필드 추가
+        // 팀 타입에 따라 적절한 필드에만 값 설정
         if (teamConfig.type === 'pairs') {
           // pairs 모드: 페어 데이터를 JSON으로 저장
           const pairsData: Record<string, string[]> = {};
@@ -324,25 +332,51 @@ export default function TeamManagementPage() {
           insertData.team3 = team3Players;
           insertData.team4 = team4Players;
         } else {
+          // 2팀 모드 (기본)
           insertData.racket_team = racketPlayers;
           insertData.shuttle_team = shuttlePlayers;
         }
 
         console.log('📥 DB에 저장할 데이터:', insertData);
         
-        const { data, error } = await supabase
+        // 먼저 select 없이 insert만 시도
+        const { error: insertError } = await supabase
           .from('team_assignments')
-          .insert([insertData])
-          .select();
+          .insert([insertData]);
 
-        if (error) {
-          console.error('❌ DB 저장 오류:', error);
-          throw error;
+        if (insertError) {
+          console.error('❌ DB 저장 오류 - 상세:', {
+            message: insertError.message,
+            code: insertError.code,
+            details: insertError.details,
+            hint: insertError.hint,
+            fullError: JSON.stringify(insertError)
+          });
+          throw insertError;
         }
         
-        console.log('✅ DB에 저장 성공:', data);
-      } catch (dbError) {
-        console.warn('⚠️ DB 저장 실패, 로컬 스토리지에 저장합니다:', dbError);
+        console.log('✅ DB에 저장 성공');
+        
+        // 저장 확인을 위해 데이터 다시 조회
+        const { data, error: selectError } = await supabase
+          .from('team_assignments')
+          .select()
+          .eq('assignment_date', titleDate)
+          .eq('round_number', currentRound);
+        
+        if (selectError) {
+          console.warn('⚠️ 저장 확인 중 오류 (무시함):', selectError);
+        } else {
+          console.log('✅ 저장 확인 완료:', data);
+        }
+      } catch (dbError: any) {
+        console.warn('⚠️ DB 저장 실패, 로컬 스토리지에 저장합니다:', {
+          message: dbError?.message,
+          code: dbError?.code,
+          details: dbError?.details,
+          hint: dbError?.hint,
+          fullError: dbError
+        });
         
         // 로컬 스토리지에 저장 (폴백)
         const assignmentData = Object.entries(assignments).map(([playerName, teamType]) => ({
@@ -364,11 +398,25 @@ export default function TeamManagementPage() {
         round: currentRound,
         racket_team: racketPlayers,
         shuttle_team: shuttlePlayers,
+        team1: team1Players,
+        team2: team2Players,
+        team3: team3Players,
+        team4: team4Players,
         total_players: Object.keys(assignments).length,
         title: roundTitle,
         assignment_date: titleDate,
         team_type: teamConfig.type
       };
+      
+      // pairs 모드일 때 pairs_data 추가
+      if (teamConfig.type === 'pairs') {
+        const pairsData: Record<string, string[]> = {};
+        Object.entries(assignments).forEach(([player, team]) => {
+          if (!pairsData[team]) pairsData[team] = [];
+          pairsData[team].push(player);
+        });
+        newRound.pairs_data = pairsData;
+      }
       
       setRounds([...rounds, newRound]);
       setCurrentRound(currentRound + 1);
@@ -1603,7 +1651,7 @@ export default function TeamManagementPage() {
           onClick={closeParticipantsModal}
         >
           <div 
-            className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[70vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 모달 헤더 */}
@@ -1643,136 +1691,134 @@ export default function TeamManagementPage() {
             </div>
 
             {/* 모달 컨텐츠 */}
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {selectedRoundForModal.team_type === '2teams' && (
-                  <>
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <div className="font-semibold text-blue-900 mb-3 flex items-center gap-2 text-lg">
-                        🏸 라켓팀 
-                        <span className="text-sm font-normal">({selectedRoundForModal.racket_team?.length || 0}명)</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedRoundForModal.racket_team?.map((player, idx) => (
-                          <span key={idx} className="inline-block bg-blue-200 text-blue-900 text-sm px-3 py-1.5 rounded-lg font-medium">
-                            {player}
-                          </span>
-                        ))}
-                      </div>
+            <div className="p-6 space-y-4">
+              {selectedRoundForModal.team_type === '2teams' && (
+                <>
+                  <div className="bg-blue-50 rounded-lg p-4 w-full">
+                    <div className="font-semibold text-blue-900 mb-3 flex items-center gap-2 text-lg">
+                      🏸 라켓팀 
+                      <span className="text-sm font-normal">({selectedRoundForModal.racket_team?.length || 0}명)</span>
                     </div>
-                    <div className="bg-purple-50 rounded-lg p-4">
-                      <div className="font-semibold text-purple-900 mb-3 flex items-center gap-2 text-lg">
-                        🏃‍♂️ 셔틀팀 
-                        <span className="text-sm font-normal">({selectedRoundForModal.shuttle_team?.length || 0}명)</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedRoundForModal.shuttle_team?.map((player, idx) => (
-                          <span key={idx} className="inline-block bg-purple-200 text-purple-900 text-sm px-3 py-1.5 rounded-lg font-medium">
-                            {player}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRoundForModal.racket_team?.map((player, idx) => (
+                        <span key={idx} className="inline-block bg-blue-200 text-blue-900 text-sm px-3 py-1.5 rounded-lg font-medium">
+                          {player}
+                        </span>
+                      ))}
                     </div>
-                  </>
-                )}
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-4 w-full">
+                    <div className="font-semibold text-purple-900 mb-3 flex items-center gap-2 text-lg">
+                      🏃‍♂️ 셔틀팀 
+                      <span className="text-sm font-normal">({selectedRoundForModal.shuttle_team?.length || 0}명)</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRoundForModal.shuttle_team?.map((player, idx) => (
+                        <span key={idx} className="inline-block bg-purple-200 text-purple-900 text-sm px-3 py-1.5 rounded-lg font-medium">
+                          {player}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
-                {selectedRoundForModal.team_type === '3teams' && (
-                  <>
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <div className="font-semibold text-blue-900 mb-3 text-lg">
-                        팀 1 ({selectedRoundForModal.team1?.length || 0}명)
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedRoundForModal.team1?.map((player, idx) => (
-                          <span key={idx} className="inline-block bg-blue-200 text-blue-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
-                        ))}
-                      </div>
+              {selectedRoundForModal.team_type === '3teams' && (
+                <>
+                  <div className="bg-blue-50 rounded-lg p-4 w-full">
+                    <div className="font-semibold text-blue-900 mb-3 text-lg">
+                      팀 1 ({selectedRoundForModal.team1?.length || 0}명)
                     </div>
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <div className="font-semibold text-green-900 mb-3 text-lg">
-                        팀 2 ({selectedRoundForModal.team2?.length || 0}명)
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedRoundForModal.team2?.map((player, idx) => (
-                          <span key={idx} className="inline-block bg-green-200 text-green-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
-                        ))}
-                      </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRoundForModal.team1?.map((player, idx) => (
+                        <span key={idx} className="inline-block bg-blue-200 text-blue-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                      ))}
                     </div>
-                    <div className="bg-purple-50 rounded-lg p-4">
-                      <div className="font-semibold text-purple-900 mb-3 text-lg">
-                        팀 3 ({selectedRoundForModal.team3?.length || 0}명)
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedRoundForModal.team3?.map((player, idx) => (
-                          <span key={idx} className="inline-block bg-purple-200 text-purple-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
-                        ))}
-                      </div>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4 w-full">
+                    <div className="font-semibold text-green-900 mb-3 text-lg">
+                      팀 2 ({selectedRoundForModal.team2?.length || 0}명)
                     </div>
-                  </>
-                )}
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRoundForModal.team2?.map((player, idx) => (
+                        <span key={idx} className="inline-block bg-green-200 text-green-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-4 w-full">
+                    <div className="font-semibold text-purple-900 mb-3 text-lg">
+                      팀 3 ({selectedRoundForModal.team3?.length || 0}명)
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRoundForModal.team3?.map((player, idx) => (
+                        <span key={idx} className="inline-block bg-purple-200 text-purple-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
-                {selectedRoundForModal.team_type === '4teams' && (
-                  <>
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <div className="font-semibold text-blue-900 mb-3 text-lg">
-                        팀 1 ({selectedRoundForModal.team1?.length || 0}명)
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedRoundForModal.team1?.map((player, idx) => (
-                          <span key={idx} className="inline-block bg-blue-200 text-blue-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
-                        ))}
-                      </div>
+              {selectedRoundForModal.team_type === '4teams' && (
+                <>
+                  <div className="bg-blue-50 rounded-lg p-4 w-full">
+                    <div className="font-semibold text-blue-900 mb-3 text-lg">
+                      팀 1 ({selectedRoundForModal.team1?.length || 0}명)
                     </div>
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <div className="font-semibold text-green-900 mb-3 text-lg">
-                        팀 2 ({selectedRoundForModal.team2?.length || 0}명)
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedRoundForModal.team2?.map((player, idx) => (
-                          <span key={idx} className="inline-block bg-green-200 text-green-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
-                        ))}
-                      </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRoundForModal.team1?.map((player, idx) => (
+                        <span key={idx} className="inline-block bg-blue-200 text-blue-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                      ))}
                     </div>
-                    <div className="bg-purple-50 rounded-lg p-4">
-                      <div className="font-semibold text-purple-900 mb-3 text-lg">
-                        팀 3 ({selectedRoundForModal.team3?.length || 0}명)
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedRoundForModal.team3?.map((player, idx) => (
-                          <span key={idx} className="inline-block bg-purple-200 text-purple-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
-                        ))}
-                      </div>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4 w-full">
+                    <div className="font-semibold text-green-900 mb-3 text-lg">
+                      팀 2 ({selectedRoundForModal.team2?.length || 0}명)
                     </div>
-                    <div className="bg-orange-50 rounded-lg p-4">
-                      <div className="font-semibold text-orange-900 mb-3 text-lg">
-                        팀 4 ({selectedRoundForModal.team4?.length || 0}명)
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedRoundForModal.team4?.map((player, idx) => (
-                          <span key={idx} className="inline-block bg-orange-200 text-orange-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
-                        ))}
-                      </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRoundForModal.team2?.map((player, idx) => (
+                        <span key={idx} className="inline-block bg-green-200 text-green-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                      ))}
                     </div>
-                  </>
-                )}
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-4 w-full">
+                    <div className="font-semibold text-purple-900 mb-3 text-lg">
+                      팀 3 ({selectedRoundForModal.team3?.length || 0}명)
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRoundForModal.team3?.map((player, idx) => (
+                        <span key={idx} className="inline-block bg-purple-200 text-purple-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-4 w-full">
+                    <div className="font-semibold text-orange-900 mb-3 text-lg">
+                      팀 4 ({selectedRoundForModal.team4?.length || 0}명)
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRoundForModal.team4?.map((player, idx) => (
+                        <span key={idx} className="inline-block bg-orange-200 text-orange-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
-                {selectedRoundForModal.team_type === 'pairs' && selectedRoundForModal.pairs_data && (
-                  <>
-                    {Object.entries(selectedRoundForModal.pairs_data).map(([pairName, players]: [string, any]) => (
-                      <div key={pairName} className="bg-teal-50 rounded-lg p-4">
-                        <div className="font-semibold text-teal-900 mb-3 text-lg">
-                          👥 {pairName.replace('pair', '페어 ')} ({players?.length || 0}명)
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {players?.map((player: string, idx: number) => (
-                            <span key={idx} className="inline-block bg-teal-200 text-teal-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
-                          ))}
-                        </div>
+              {selectedRoundForModal.team_type === 'pairs' && selectedRoundForModal.pairs_data && (
+                <>
+                  {Object.entries(selectedRoundForModal.pairs_data).map(([pairName, players]: [string, any]) => (
+                    <div key={pairName} className="bg-teal-50 rounded-lg p-4 w-full">
+                      <div className="font-semibold text-teal-900 mb-3 text-lg">
+                        👥 {pairName.replace('pair', '페어 ')} ({players?.length || 0}명)
                       </div>
-                    ))}
-                  </>
-                )}
-              </div>
+                      <div className="flex flex-wrap gap-2">
+                        {players?.map((player: string, idx: number) => (
+                          <span key={idx} className="inline-block bg-teal-200 text-teal-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
 
             {/* 모달 푸터 */}

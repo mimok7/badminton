@@ -26,6 +26,13 @@ ADD COLUMN IF NOT EXISTS team3 JSONB,
 ADD COLUMN IF NOT EXISTS team4 JSONB,
 ADD COLUMN IF NOT EXISTS pairs_data JSONB;
 
+-- 기존 테이블의 NOT NULL 제약 제거 (유연성을 위해)
+ALTER TABLE team_assignments
+ALTER COLUMN racket_team DROP NOT NULL;
+
+ALTER TABLE team_assignments
+ALTER COLUMN shuttle_team DROP NOT NULL;
+
 -- 날짜별 인덱스 추가 (빠른 조회)
 CREATE INDEX IF NOT EXISTS idx_team_assignments_date ON team_assignments(assignment_date);
 
@@ -47,24 +54,21 @@ CREATE POLICY "Anyone can read team assignments"
   FOR SELECT
   USING (true);
 
--- 인증된 사용자만 생성/수정/삭제 허용
-CREATE POLICY "Authenticated users can insert team assignments"
+-- 모든 사용자 생성/수정/삭제 허용 (개발 환경)
+CREATE POLICY "Anyone can insert team assignments"
   ON team_assignments
   FOR INSERT
-  TO authenticated
   WITH CHECK (true);
 
-CREATE POLICY "Authenticated users can update team assignments"
+CREATE POLICY "Anyone can update team assignments"
   ON team_assignments
   FOR UPDATE
-  TO authenticated
   USING (true)
   WITH CHECK (true);
 
-CREATE POLICY "Authenticated users can delete team assignments"
+CREATE POLICY "Anyone can delete team assignments"
   ON team_assignments
   FOR DELETE
-  TO authenticated
   USING (true);
 
 -- updated_at 자동 업데이트 트리거 함수

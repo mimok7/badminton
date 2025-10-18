@@ -138,70 +138,116 @@ export default function TournamentBracketPage() {
   const generateMatchesFromTeam = async (teamAssignment: TeamAssignment, matchesPerPlayer: number, matchType: string) => {
     if (!teamAssignment) return [];
 
-    const generatedMatches: Match[] = [];
-    let matchNumber = 1;
+    // 팀 구성에서 선수 목록 추출
+    const playerList: string[] = [];
 
     if (teamAssignment.team_type === 'pairs' && teamAssignment.pairs_data) {
-      // 페어 팀 경기 생성
-      const pairTeams = Object.entries(teamAssignment.pairs_data).map(([pairName, players]) => ({
-        name: pairName,
-        players: players
-      }));
-
-      // 모든 선수의 경기 수 추적
-      const playerMatchCount: Record<string, number> = {};
-      pairTeams.forEach(team => {
-        team.players.forEach(player => {
-          playerMatchCount[player] = 0;
-        });
+      // 페어에서 선수 추출
+      Object.values(teamAssignment.pairs_data).forEach(players => {
+        playerList.push(...(Array.isArray(players) ? players : []));
       });
+    } else if (teamAssignment.racket_team && teamAssignment.shuttle_team) {
+      // 라켓팀과 셔틀팀에서 선수 추출
+      playerList.push(...(Array.isArray(teamAssignment.racket_team) ? teamAssignment.racket_team : []));
+      playerList.push(...(Array.isArray(teamAssignment.shuttle_team) ? teamAssignment.shuttle_team : []));
+    }
 
-      // 가능한 모든 매치 조합 생성
-      const possibleMatches: { team1: string[]; team2: string[]; priority: number }[] = [];
-      for (let i = 0; i < pairTeams.length; i++) {
-        for (let j = i + 1; j < pairTeams.length; j++) {
-          possibleMatches.push({
-            team1: pairTeams[i].players,
-            team2: pairTeams[j].players,
-            priority: 0
-          });
-        }
+    // 중복 제거 및 유효성 검사
+    const uniquePlayers = [...new Set(playerList)].filter(p => p && typeof p === 'string').map(p => p.trim());
+
+    if (uniquePlayers.length < 4) {
+      console.warn('최소 4명의 선수가 필요합니다.');
+      return [];
+    }
+
+    // 선수를 ExtendedPlayer로 변환
+    const players = uniquePlayers.map((name, idx) => ({
+      id: `player-${idx}-${Date.now()}`,
+      name,
+      skill_level: 'e2',
+      skill_label: 'E2 (초급)',
+      skill_code: 'e2',
+      gender: 'mixed' as const
+    }));
+
+    // 경기 타입에 따라 경기 생성 함수 선택
+    let generatedMatches: any[] = [];
+
+    try {
+      if (matchType === 'level_based') {
+        const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
+        generatedMatches = createBalancedDoublesMatches(players, 4, 1);
+      } else if (matchType === 'random') {
+        const { createRandomBalancedDoublesMatches } = await import('@/utils/match-utils');
+        generatedMatches = createRandomBalancedDoublesMatches(players, 4, 1);
+      } else if (matchType === 'mixed_doubles') {
+        const { createMixedAndSameSexDoublesMatches } = await import('@/utils/match-utils');
+        generatedMatches = createMixedAndSameSexDoublesMatches(players, 4, 1);
+      } else {
+        // 기본: 랜덤
+        const { createRandomBalancedDoublesMatches } = await import('@/utils/match-utils');
+        generatedMatches = createRandomBalancedDoublesMatches(players, 4, 1);
       }
+    } catch (e) {
+      console.error('경기 생성 함수 로드 오류:', e);
+      return [];
+    }
 
-      // 경기 선택 (균등 분배)
-      while (possibleMatches.length > 0) {
-        // 우선순위 계산 (선수들의 경기 수 합이 적을수록 우선)
-        possibleMatches.forEach(match => {
-          const count1 = match.team1.reduce((sum, p) => sum + (playerMatchCount[p] || 0), 0);
-          const count2 = match.team2.reduce((sum, p) => sum + (playerMatchCount[p] || 0), 0);
-          match.priority = count1 + count2;
-        });
+    // 12회차로 나누어 배치
+    const finalMatches: Match[] = [];
+    const maxRounds = 12;
+    let currentMatchNumber = 1;
+    let roundIndex = 0;
 
-        possibleMatches.sort((a, b) => a.priority - b.priority);
-        const selectedMatch = possibleMatches[0];
+    for (let round = 1; round <= maxRounds; round++) {
+      // 각 회차에서 선수 수 / 4 개의 경기 생성
+      const matchesPerRound = Math.ceil(uniquePlayers.length / 4);
 
-        // 모든 선수가 충분한 경기를 했는지 확인
-        const allPlayersReachedLimit = selectedMatch.team1.every(p => (playerMatchCount[p] || 0) >= matchesPerPlayer) &&
-                                        selectedMatch.team2.every(p => (playerMatchCount[p] || 0) >= matchesPerPlayer);
-        if (allPlayersReachedLimit) break;
+      for (let i = 0; i < matchesPerRound; i++) {
+        if (roundIndex >= generatedMatches.length) {
+          // 생성된 경기가 부족하면 랜덤으로 새로운 경기 생성
+          const shuffled = [...uniquePlayers].sort(() => Math.random() - 0.5);
+          for (let j = 0; j < shuffled.length - 3; j += 4) {
+            const group = shuffled.slice(j, j + 4);
+            if (group.length !== 4) continue;
 
-        const courtNumber = ((matchNumber - 1) % 4) + 1;
-        generatedMatches.push({
-          round: 1,
-          match_number: matchNumber++,
-          team1: selectedMatch.team1,
-          team2: selectedMatch.team2,
+            const team1 = [group[0], group[1]];
+            const team2 = [group[2], group[3]];
+            const courtNumber = ((currentMatchNumber - 1) % 4) + 1;
+
+            finalMatches.push({
+              round: round,
+              match_number: currentMatchNumber++,
+              team1,
+              team2,
+              court: `Court ${courtNumber}`,
+              status: 'pending' as const
+            });
+          }
+          break;
+        }
+
+        const match = generatedMatches[roundIndex++];
+        const courtNumber = ((currentMatchNumber - 1) % 4) + 1;
+
+        finalMatches.push({
+          round: round,
+          match_number: currentMatchNumber++,
+          team1: match.team1.map((p: any) => p.name || p),
+          team2: match.team2.map((p: any) => p.name || p),
           court: `Court ${courtNumber}`,
           status: 'pending' as const
         });
-
-        selectedMatch.team1.forEach(p => playerMatchCount[p]++);
-        selectedMatch.team2.forEach(p => playerMatchCount[p]++);
-        possibleMatches.shift();
       }
     }
 
-    return generatedMatches;
+    console.log('🏆 대회 경기 생성 완료:');
+    console.log(`- 총 선수: ${uniquePlayers.length}명`);
+    console.log(`- 경기 타입: ${matchType}`);
+    console.log(`- 총 회차: ${maxRounds}회차`);
+    console.log(`- 생성된 경기: ${finalMatches.length}개`);
+
+    return finalMatches;
   };
 
   // 대회 생성 및 경기 저장
@@ -520,162 +566,123 @@ export default function TournamentBracketPage() {
             {matches.length === 0 ? (
               <p className="text-gray-500 text-center py-12">경기가 없습니다.</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {matches.map((match, index) => {
-                  const isCompleted = match.status === 'completed';
-                  const isPending = match.status === 'pending';
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-300 bg-white">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-sm">회차</th>
+                      <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-sm">라켓팀</th>
+                      <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-sm">셔틀팀</th>
+                      <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-sm">상태</th>
+                      <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-sm">점수</th>
+                      <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-sm">관리</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matches.map((match, index) => {
+                      const isCompleted = match.status === 'completed';
+                      const isPending = match.status === 'pending';
+                      const team1Score = match.score_team1 || 0;
+                      const team2Score = match.score_team2 || 0;
 
-                  return (
-                    <div
-                      key={match.id}
-                      className={`border-2 rounded-lg p-4 ${
-                        isCompleted
-                          ? 'border-green-300 bg-green-50'
-                          : isPending
-                          ? 'border-gray-300 bg-white'
-                          : 'border-yellow-300 bg-yellow-50'
-                      }`}
-                    >
-                      {/* 경기 헤더 */}
-                      <div className="flex justify-between items-center mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-lg">경기 {match.match_number}</span>
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      return (
+                        <tr 
+                          key={match.id || `match-${index}`}
+                          className={`hover:bg-blue-50 ${isCompleted ? 'bg-green-50' : isPending ? 'bg-gray-50' : 'bg-yellow-50'}`}
+                        >
+                          <td className="border border-gray-300 px-4 py-3 text-center font-medium text-sm">
+                            {index + 1}
+                          </td>
+                          <td className="border border-gray-300 px-4 py-3 text-center text-blue-700 text-sm">
+                            <div className="font-medium">{match.team1.join(', ')}</div>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-3 text-center text-red-700 text-sm">
+                            <div className="font-medium">{match.team2.join(', ')}</div>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-3 text-center text-sm">
+                            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
                               isCompleted
                                 ? 'bg-green-200 text-green-800'
                                 : isPending
                                 ? 'bg-gray-200 text-gray-700'
                                 : 'bg-yellow-200 text-yellow-800'
-                            }`}
-                          >
-                            {isCompleted ? '✓ 완료' : isPending ? '대기중' : '진행중'}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-600">🏟️ {match.court}</div>
-                      </div>
-
-                      {/* 팀 vs 팀 */}
-                      <div className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center mb-3">
-                        {/* 팀 1 */}
-                        <div
-                          className={`text-center p-3 rounded-lg ${
-                            isCompleted && match.winner === 'team1'
-                              ? 'bg-blue-100 border-2 border-blue-400'
-                              : 'bg-gray-50'
-                          }`}
-                        >
-                          <div className="font-semibold text-blue-700 mb-2">팀 1</div>
-                          {match.team1.map((player, i) => (
-                            <div key={i} className="text-sm text-gray-800 font-medium">
-                              {player}
-                            </div>
-                          ))}
-                          {isCompleted && (
-                            <div className="text-2xl font-bold text-blue-600 mt-2">
-                              {match.score_team1}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* VS */}
-                        <div className="text-2xl font-bold text-gray-400">VS</div>
-
-                        {/* 팀 2 */}
-                        <div
-                          className={`text-center p-3 rounded-lg ${
-                            isCompleted && match.winner === 'team2'
-                              ? 'bg-red-100 border-2 border-red-400'
-                              : 'bg-gray-50'
-                          }`}
-                        >
-                          <div className="font-semibold text-red-700 mb-2">팀 2</div>
-                          {match.team2.map((player, i) => (
-                            <div key={i} className="text-sm text-gray-800 font-medium">
-                              {player}
-                            </div>
-                          ))}
-                          {isCompleted && (
-                            <div className="text-2xl font-bold text-red-600 mt-2">
-                              {match.score_team2}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* 점수 입력 영역 */}
-                      {!isCompleted && editingMatchId === match.id ? (
-                        <div className="border-t pt-3">
-                          <div className="flex gap-3 items-center justify-center">
-                            <div className="flex items-center gap-2">
-                              <label className="text-sm font-medium text-gray-700">팀1 점수:</label>
-                              <input
-                                type="number"
-                                min="0"
-                                defaultValue={match.score_team1 || 0}
-                                id={`score1-${match.id}`}
-                                className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-sm font-medium text-gray-700">팀2 점수:</label>
-                              <input
-                                type="number"
-                                min="0"
-                                defaultValue={match.score_team2 || 0}
-                                id={`score2-${match.id}`}
-                                className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                              />
-                            </div>
-                            <button
-                              onClick={() => {
-                                const score1Input = document.getElementById(`score1-${match.id}`) as HTMLInputElement;
-                                const score2Input = document.getElementById(`score2-${match.id}`) as HTMLInputElement;
-                                const score1 = parseInt(score1Input.value) || 0;
-                                const score2 = parseInt(score2Input.value) || 0;
-                                
-                                updateMatchScore(match.id!, score1, score2);
-                              }}
-                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                            >
-                              저장
-                            </button>
-                            <button
-                              onClick={() => setEditingMatchId(null)}
-                              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                            >
-                              취소
-                            </button>
-                          </div>
-                        </div>
-                      ) : !isCompleted ? (
-                        <div className="text-center mt-3 pt-3 border-t">
-                          <button
-                            onClick={() => setEditingMatchId(match.id!)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                          >
-                            점수 입력
-                          </button>
-                        </div>
-                      ) : null}
-
-                      {/* 승자 표시 */}
-                      {isCompleted && match.winner && (
-                        <div className="text-center mt-3 pt-3 border-t">
-                          <span className="inline-block bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-semibold">
-                            🏆 {match.winner === 'team1' ? '팀 1' : match.winner === 'team2' ? '팀 2' : '무승부'} 승리!
-                          </span>
-                          <button
-                            onClick={() => setEditingMatchId(match.id!)}
-                            className="ml-3 text-xs text-blue-600 hover:text-blue-700 underline"
-                          >
-                            수정
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                            }`}>
+                              {isCompleted ? '✓ 완료' : isPending ? '대기중' : '진행중'}
+                            </span>
+                          </td>
+                          <td className="border border-gray-300 px-4 py-3 text-center text-sm">
+                            {isCompleted ? (
+                              <div className="font-bold">
+                                <span className={`${match.winner === 'team1' ? 'text-blue-600 font-bold text-lg' : 'text-gray-500'}`}>
+                                  {team1Score}
+                                </span>
+                                {' vs '}
+                                <span className={`${match.winner === 'team2' ? 'text-red-600 font-bold text-lg' : 'text-gray-500'}`}>
+                                  {team2Score}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="border border-gray-300 px-4 py-3 text-center text-sm">
+                            {!isCompleted && editingMatchId === match.id ? (
+                              <div className="flex gap-2 justify-center items-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  defaultValue={team1Score}
+                                  id={`score1-${match.id}`}
+                                  className="w-12 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                                <span className="text-xs font-bold">vs</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  defaultValue={team2Score}
+                                  id={`score2-${match.id}`}
+                                  className="w-12 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const score1Input = document.getElementById(`score1-${match.id}`) as HTMLInputElement;
+                                    const score2Input = document.getElementById(`score2-${match.id}`) as HTMLInputElement;
+                                    const score1 = parseInt(score1Input.value) || 0;
+                                    const score2 = parseInt(score2Input.value) || 0;
+                                    updateMatchScore(match.id!, score1, score2);
+                                  }}
+                                  className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs"
+                                >
+                                  저장
+                                </button>
+                                <button
+                                  onClick={() => setEditingMatchId(null)}
+                                  className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs"
+                                >
+                                  취소
+                                </button>
+                              </div>
+                            ) : !isCompleted ? (
+                              <button
+                                onClick={() => setEditingMatchId(match.id!)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium"
+                              >
+                                입력
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setEditingMatchId(match.id!)}
+                                className="text-xs text-blue-600 hover:text-blue-700 underline"
+                              >
+                                수정
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

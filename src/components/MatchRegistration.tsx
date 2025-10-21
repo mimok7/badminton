@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 
 interface MatchSchedule {
   id: string;
@@ -38,7 +38,7 @@ export default function MatchRegistration({
   currentUserId, 
   onRegistrationChange 
 }: MatchRegistrationProps) {
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseClient();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(false);
   const [userRegistration, setUserRegistration] = useState<Participant | null>(null);
@@ -101,7 +101,25 @@ export default function MatchRegistration({
       setLoading(true);
       console.log('📝 경기 참가 신청:', schedule.id, currentUserId);
 
-      // 먼저 이미 등록되어 있는지 확인
+      // 1. 프로필 존재 여부 확인
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', currentUserId)
+        .maybeSingle();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('❌ 프로필 확인 오류:', profileError);
+      }
+
+      // 프로필이 없으면 에러 메시지 (회원가입 페이지로 유도)
+      if (!profileData) {
+        alert('프로필 정보가 없습니다. 프로필 설정 페이지에서 정보를 등록해주세요.');
+        window.location.href = '/profile';
+        return;
+      }
+
+      // 2. 먼저 이미 등록되어 있는지 확인
       const { data: existingData, error: checkError } = await supabase
         .from('match_participants')
         .select('id')
@@ -121,7 +139,7 @@ export default function MatchRegistration({
         return;
       }
 
-      // 등록 진행
+      // 3. 등록 진행
       const { error } = await supabase
         .from('match_participants')
         .insert([{
@@ -134,6 +152,8 @@ export default function MatchRegistration({
         console.error('❌ 참가 신청 오류:', error);
         if (error.code === '23505') { // unique constraint violation
           alert('이미 참가 신청하셨습니다.');
+        } else if (error.code === '23503') { // foreign key violation
+          alert('프로필 정보가 올바르지 않습니다. 프로필 페이지에서 정보를 확인해주세요.');
         } else {
           alert('참가 신청 중 오류가 발생했습니다.');
         }

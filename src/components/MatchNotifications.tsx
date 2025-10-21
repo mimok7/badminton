@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 
 interface MatchAssignmentNotification {
@@ -16,7 +16,7 @@ export default function MatchNotifications() {
   const { user } = useUser();
   const [notifications, setNotifications] = useState<MatchAssignmentNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseClient();
 
   useEffect(() => {
     if (!user) return;

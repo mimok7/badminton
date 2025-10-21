@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useUser } from '@/hooks/useUser';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 import { useCallback, useMemo } from 'react';
 
 export default function Header() {
   const { user, profile, isAdmin, loading } = useUser();
-  const supabase = useMemo(() => createClientComponentClient(), []);
+  const supabase = useMemo(() => getSupabaseClient(), []);
 
   const handleLogout = useCallback(async () => {
     try {

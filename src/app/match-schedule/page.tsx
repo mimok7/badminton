@@ -413,7 +413,40 @@ export default function MatchSchedulePage() {
     }
 
     try {
-      // 이미 참가 신청했는지 확인
+      // 1. 프로필 존재 여부 확인 및 생성
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('프로필 확인 오류:', profileError);
+      }
+
+      // 프로필이 없으면 생성
+      if (!profileData) {
+        console.log('프로필이 없습니다. 생성 중...');
+        const { error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            username: user.email?.split('@')[0] || 'user',
+            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Unknown',
+            email: user.email,
+            skill_level: 'E2', // 기본 레벨 (대문자)
+            role: 'user'
+          });
+
+        if (createError) {
+          console.error('프로필 생성 오류:', createError);
+          alert('프로필 생성 중 오류가 발생했습니다. 관리자에게 문의하세요.');
+          return;
+        }
+        console.log('✅ 프로필 생성 완료');
+      }
+
+      // 2. 이미 참가 신청했는지 확인
       const { data: existingParticipant, error: checkError } = await supabase
         .from('match_participants')
         .select('id')
@@ -433,7 +466,7 @@ export default function MatchSchedulePage() {
         return;
       }
 
-      // 참가 신청 추가
+      // 3. 참가 신청 추가
       const { data: insertedData, error } = await supabase
         .from('match_participants')
         .insert({
@@ -445,6 +478,20 @@ export default function MatchSchedulePage() {
         .maybeSingle();
 
       if (error) {
+        // 409 (Conflict) - 이미 등록됨 (UNIQUE 제약 위반)
+        if (error.code === '23505') {
+          console.log('이미 참가 신청된 경기입니다 (중복 방지)');
+          alert('이미 참가 신청한 경기입니다.');
+          // 현재 상태 새로고침
+          fetchSchedules();
+          return;
+        }
+        // 23503 - Foreign Key 제약 위반 (이미 처리했지만 혹시 모를 경우)
+        if (error.code === '23503') {
+          console.error('프로필 참조 오류:', error);
+          alert('프로필 정보가 올바르지 않습니다. 페이지를 새로고침 후 다시 시도해주세요.');
+          return;
+        }
         console.error('참가 신청 오류:', error);
         alert('참가 신청 중 오류가 발생했습니다.');
         return;

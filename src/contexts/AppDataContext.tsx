@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 
 interface AppDataContextType {
   profiles: any[];
@@ -24,7 +24,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [profiles, setProfiles] = useState<any[]>(cachedProfiles);
   const [matchSchedules, setMatchSchedules] = useState<any[]>(cachedSchedules);
   const [loading, setLoading] = useState(!cachedProfiles.length && !cachedSchedules.length);
-  const supabase = useMemo(() => createClientComponentClient(), []);
+  const supabase = useMemo(() => getSupabaseClient(), []);
 
   const refreshProfiles = useCallback(async () => {
     const now = Date.now();

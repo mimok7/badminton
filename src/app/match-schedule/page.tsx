@@ -414,13 +414,19 @@ export default function MatchSchedulePage() {
 
     try {
       // 이미 참가 신청했는지 확인
-      const { data: existingParticipant } = await supabase
+      const { data: existingParticipant, error: checkError } = await supabase
         .from('match_participants')
         .select('id')
         .eq('match_schedule_id', scheduleId)
         .eq('user_id', user.id)
         .eq('status', 'registered')
-        .single();
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('등록 확인 오류:', checkError);
+        alert('등록 확인 중 오류가 발생했습니다.');
+        return;
+      }
 
       if (existingParticipant) {
         alert('이미 참가 신청한 경기입니다.');
@@ -436,7 +442,7 @@ export default function MatchSchedulePage() {
           status: 'registered'
         })
         .select('id, match_schedule_id, user_id, registered_at')
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('참가 신청 오류:', error);

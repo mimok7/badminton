@@ -101,6 +101,27 @@ export default function MatchRegistration({
       setLoading(true);
       console.log('📝 경기 참가 신청:', schedule.id, currentUserId);
 
+      // 먼저 이미 등록되어 있는지 확인
+      const { data: existingData, error: checkError } = await supabase
+        .from('match_participants')
+        .select('id')
+        .eq('match_schedule_id', schedule.id)
+        .eq('user_id', currentUserId)
+        .eq('status', 'registered')
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('❌ 등록 확인 오류:', checkError);
+        alert('등록 확인 중 오류가 발생했습니다.');
+        return;
+      }
+
+      if (existingData) {
+        alert('이미 참가 신청하셨습니다.');
+        return;
+      }
+
+      // 등록 진행
       const { error } = await supabase
         .from('match_participants')
         .insert([{

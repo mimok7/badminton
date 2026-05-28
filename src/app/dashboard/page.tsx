@@ -323,26 +323,26 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 min-h-screen">
+    <div className="container mx-auto p-4 sm:p-6 min-h-screen">
       {/* 상단 헤더 */}
-      <div className="bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg shadow-md p-6 mb-8 text-white">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg shadow-md p-6 mb-8 text-white">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             🏆 나의 경기 대시보드
           </h1>
-          <Link href="/" className="text-white hover:text-purple-100 transition-colors">
+          <Link href="/" className="text-white hover:text-blue-100 transition-colors">
             🏠 홈
           </Link>
         </div>
         <div className="flex items-center gap-4 text-sm mb-4">
-          <span className="bg-purple-200 text-purple-800 px-3 py-1 rounded-full">
+          <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
             {profile?.username || profile?.full_name || '회원'}님
           </span>
           <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
             레벨: {profile?.skill_level}급
           </span>
         </div>
-        <p className="text-purple-100">
+        <p className="text-blue-100">
           나의 경기 기록과 통계를 확인하고 상대방별 승부 기록을 검색해보세요! 📊
         </p>
       </div>
@@ -352,9 +352,9 @@ export default function DashboardPage() {
         <div className="flex border-b border-gray-200">
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex-1 px-6 py-3 text-center font-medium transition-colors ${
+            className={`flex-1 px-4 sm:px-6 py-3 text-center font-medium transition-colors ${
               activeTab === 'history'
-                ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -362,9 +362,9 @@ export default function DashboardPage() {
           </button>
           <button
             onClick={() => setActiveTab('stats')}
-            className={`flex-1 px-6 py-3 text-center font-medium transition-colors ${
+            className={`flex-1 px-4 sm:px-6 py-3 text-center font-medium transition-colors ${
               activeTab === 'stats'
-                ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -372,9 +372,9 @@ export default function DashboardPage() {
           </button>
           <button
             onClick={() => setActiveTab('search')}
-            className={`flex-1 px-6 py-3 text-center font-medium transition-colors ${
+            className={`flex-1 px-4 sm:px-6 py-3 text-center font-medium transition-colors ${
               activeTab === 'search'
-                ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -383,7 +383,7 @@ export default function DashboardPage() {
         </div>
 
         {/* 탭 내용 */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {/* 경기 내역 탭 */}
           {activeTab === 'history' && (
             <div>
@@ -391,7 +391,7 @@ export default function DashboardPage() {
               
               {loading ? (
                 <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
                   <p>경기 내역을 불러오는 중...</p>
                 </div>
               ) : matchHistory.length === 0 ? (
@@ -503,9 +503,9 @@ export default function DashboardPage() {
                   <div className="text-3xl font-bold text-red-900 mb-2">{myStats.losses}</div>
                   <div className="text-red-600">패배</div>
                 </div>
-                <div className="bg-purple-50 p-6 rounded-lg text-center">
-                  <div className="text-3xl font-bold text-purple-900 mb-2">{myStats.winRate}%</div>
-                  <div className="text-purple-600">승률</div>
+                <div className="bg-indigo-50 p-6 rounded-lg text-center">
+                  <div className="text-3xl font-bold text-indigo-900 mb-2">{myStats.winRate}%</div>
+                  <div className="text-indigo-600">승률</div>
                 </div>
               </div>
 
@@ -531,9 +531,9 @@ export default function DashboardPage() {
 
               {/* 승률 평가 */}
               {myStats.totalMatches > 0 && (
-                <div className="mt-6 p-4 bg-purple-50 rounded-lg">
-                  <h4 className="font-semibold text-purple-800 mb-2">📈 승률 평가</h4>
-                  <p className="text-purple-700">
+                <div className="mt-6 p-4 bg-indigo-50 rounded-lg">
+                  <h4 className="font-semibold text-indigo-800 mb-2">📈 승률 평가</h4>
+                  <p className="text-indigo-700">
                     {myStats.winRate >= 70 ? '🔥 우수한 성과입니다!' :
                      myStats.winRate >= 50 ? '👍 좋은 성과입니다!' :
                      '💪 더 좋은 결과를 위해 화이팅!'}
@@ -556,7 +556,7 @@ export default function DashboardPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && searchOpponent()}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <Button onClick={searchOpponent} disabled={searchLoading || !searchQuery.trim()}>
                   {searchLoading ? '검색 중...' : '🔍 검색'}

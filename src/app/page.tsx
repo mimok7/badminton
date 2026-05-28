@@ -106,8 +106,8 @@ export default function HomePage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gray-50">
-      <div className="text-center max-w-3xl">
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-8 bg-gray-50">
+      <div className="text-center w-full max-w-3xl">
 
         {!user ? (
           /* 비로그인 사용자 */

@@ -1,30 +1,72 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
-import { useUser } from '@/hooks/useUser';
 
 export const dynamic = 'force-dynamic';
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = getSupabaseClient();
-  const { user, loading: userLoading } = useUser();
-  const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [autoFillMessage, setAutoFillMessage] = useState('');
 
-  // 이미 로그인된 사용자는 홈페이지로 리다이렉트 (useEffect 안에서 처리)
-  useEffect(() => {
-    if (!userLoading && user) {
-      router.push('/');
+  const handleNameChange = async (value: string) => {
+    setFullName(value);
+    
+    if (!value.trim()) {
+      setAutoFillMessage('');
+      return;
     }
-  }, [user, userLoading, router]);
+
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('full_name', value.trim())
+        .maybeSingle();
+
+      if (data?.username) {
+        setIdentifier(data.username);
+        setAutoFillMessage(`✓ ${data.username}`);
+      } else {
+        setAutoFillMessage('이름을 찾을 수 없습니다.');
+      }
+    } catch (err) {
+      console.error('프로필 조회 에러:', err);
+    }
+  };
+
+  const resolveEmail = async (inputValue: string): Promise<string | null> => {
+    try {
+      let email = inputValue.trim();
+      
+      if (!email.includes('@')) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', email)
+          .single();
+
+        if (!data?.email) {
+          return null;
+        }
+        email = data.email;
+      }
+
+      return email;
+    } catch (err) {
+      return null;
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,42 +74,34 @@ export default function LoginPage() {
     setError('');
 
     try {
-      
+      const email = await resolveEmail(identifier);
+
+      if (!email) {
+        setError('입력한 이름 또는 이메일을 찾을 수 없습니다.');
+        setLoading(false);
+        return;
+      }
+
       const { data, error: loginError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password
+        email,
+        password
       });
 
       if (loginError) {
-        console.error('❌ 로그인 오류:', loginError);
-        
-        if (loginError.message.includes('rate limit')) {
-          setError('너무 많은 로그인 시도가 있었습니다. 잠시 후 다시 시도해주세요. (약 1분 대기)');
-        } else if (loginError.message.includes('Invalid login credentials')) {
-          setError('이메일 또는 비밀번호가 올바르지 않습니다.');
-        } else if (loginError.message.includes('Email not confirmed')) {
-          setError('이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.');
-        } else {
-          setError('로그인 중 오류가 발생했습니다: ' + loginError.message);
-        }
+        setError('아이디 또는 비밀번호가 올바르지 않습니다.');
         setLoading(false);
         return;
       }
 
       router.push('/');
     } catch (error) {
-      console.error('❌ 로그인 중 오류:', error);
       setError('로그인 중 오류가 발생했습니다.');
       setLoading(false);
     }
   };
 
-  if (userLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
+  if (loading && !password) {
+    // 로그인 중 - 폼이 여전히 표시되어야 함
   }
 
   return (
@@ -91,20 +125,47 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                이메일
+              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+                한글 이름
               </label>
               <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your-email@example.com"
+                id="fullName"
+                name="fullName"
+                type="text"
+                autoComplete="name"
+                value={fullName}
+                onChange={(e) => handleNameChange(e.target.value)}
+                placeholder="예: 김진호"
                 className="w-full"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                이름을 입력하면 아이디가 자동으로 채워집니다.
+              </p>
+              {autoFillMessage && (
+                <p className={`mt-1 text-xs ${autoFillMessage.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>
+                  {autoFillMessage}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1">
+                아이디 또는 이메일
+              </label>
+              <Input
+                id="identifier"
+                name="identifier"
+                type="text"
+                autoComplete="username"
+                required
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="username 또는 이메일 입력"
+                className="w-full"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                예: kim_jinho 또는 kim_jinho@badminton.local
+              </p>
             </div>
 
             <div>

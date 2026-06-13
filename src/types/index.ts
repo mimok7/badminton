@@ -80,3 +80,5 @@ export interface MatchResultData {
   recorded_by: string;
   notes?: string;
 }
+
+export type { Database, Json } from './supabase';

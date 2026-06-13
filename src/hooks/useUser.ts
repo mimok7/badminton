@@ -55,14 +55,19 @@ export function useUser() {
 
     const getUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (!isMounted) return;
-        
-        setUser(user);
 
-        if (user) {
-          await fetchProfile(user.id);
+        if (sessionError) {
+          console.error('Session fetch error:', sessionError);
+        }
+
+        const sessionUser = session?.user ?? null;
+        setUser(sessionUser);
+
+        if (sessionUser) {
+          await fetchProfile(sessionUser.id);
         }
       } catch (error) {
         console.error('User fetch error:', error);

@@ -3,19 +3,19 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { RequireAuth } from '@/components/AuthGuard';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
 
 interface MatchSchedule {
   id: string;
-  match_date: string;
-  start_time: string;
-  end_time: string;
-  location: string;
+  match_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
   max_participants: number;
   current_participants: number;
-  status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
+  status: string;
   description: string | null;
 }
 
@@ -23,7 +23,7 @@ interface MatchParticipant {
   id: string;
   match_schedule_id: string;
   user_id: string;
-  status: 'registered' | 'cancelled' | 'attended' | 'absent';
+  status: string;
   registered_at: string;
 }
 
@@ -35,8 +35,8 @@ interface UserMatchInfo {
   participants: Array<{
     id: string;
     user_id: string;
-    username: string;
-    full_name: string;
+    username: string | null;
+    full_name: string | null;
     skill_level: string | null;
     status: string;
   }>;
@@ -44,12 +44,14 @@ interface UserMatchInfo {
 
 export default function MatchRegistrationPage() {
   const { user, profile } = useUser();
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseClient();
   const [schedules, setSchedules] = useState<MatchSchedule[]>([]);
   const [userMatches, setUserMatches] = useState<UserMatchInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState<string | null>(null);
   const [showParticipants, setShowParticipants] = useState<string | null>(null);
+  const formatMatchDate = (value: string | null, options: Intl.DateTimeFormatOptions) =>
+    value ? new Date(value).toLocaleDateString('ko-KR', options) : '날짜 미정';
 
   // 경기 일정과 사용자 참가 정보 조회 (고속화: 일괄 조회 + 조인)
   const fetchSchedulesAndParticipation = async () => {
@@ -74,7 +76,10 @@ export default function MatchRegistrationPage() {
         return;
       }
 
-      const schedulesList = schedulesData || [];
+      const schedulesList: MatchSchedule[] = (schedulesData || []).map((schedule) => ({
+        ...schedule,
+        status: schedule.status || 'scheduled',
+      }));
       setSchedules(schedulesList);
 
       if (schedulesList.length === 0) {
@@ -145,7 +150,7 @@ export default function MatchRegistrationPage() {
         const formatted = {
           id: row.id,
           user_id: row.user_id,
-          username: p.username || '',
+          username: p.full_name || p.username || '',
           full_name: p.full_name || '',
           skill_level: p.skill_level ?? null,
           status: row.status,
@@ -261,7 +266,7 @@ export default function MatchRegistrationPage() {
           const me = {
             id: `temp-${user.id}-${Date.now()}`,
             user_id: user.id,
-            username: profile?.username || '',
+            username: profile?.full_name || profile?.username || '',
             full_name: profile?.full_name || '',
             skill_level: profile?.skill_level || null,
             status: 'registered'
@@ -418,7 +423,7 @@ export default function MatchRegistrationPage() {
           </div>
           <div className="flex items-center gap-4 text-sm mb-4">
             <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full">
-              {profile?.username || profile?.full_name || '회원'}님
+              {profile?.full_name || profile?.username || '회원'}님
             </span>
             <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
               레벨: {(profile?.skill_level ? `${profile.skill_level}급` : 'E2급')}
@@ -452,7 +457,7 @@ export default function MatchRegistrationPage() {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">
-                          {new Date(matchInfo.schedule.match_date).toLocaleDateString('ko-KR', {
+                          {formatMatchDate(matchInfo.schedule.match_date, {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric',
@@ -534,7 +539,7 @@ export default function MatchRegistrationPage() {
                               >
                                 <span className="text-gray-400 mr-1">{index + 1}.</span>
                                 <span className="truncate flex-1">
-                                  {participant.username || participant.full_name || '이름 없음'}
+                                  {participant.full_name || participant.username || '이름 없음'}
                                   {participant.user_id === user?.id && (
                                     <span className="text-green-600 ml-1">*</span>
                                   )}
@@ -582,7 +587,7 @@ export default function MatchRegistrationPage() {
                       <div className="flex justify-between items-center">
                         <div>
                           <h4 className="font-semibold text-gray-900">
-                            {new Date(matchInfo.schedule.match_date).toLocaleDateString('ko-KR', {
+                            {formatMatchDate(matchInfo.schedule.match_date, {
                               month: 'long',
                               day: 'numeric',
                               weekday: 'short'

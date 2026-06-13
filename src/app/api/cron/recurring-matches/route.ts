@@ -1,10 +1,10 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { getSupabaseServerClient } from '@/lib/supabase-server';
+import type { Database } from '@/types/supabase';
 
 export async function GET(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await getSupabaseServerClient();
 
     // 요청 헤더에서 인증 토큰 확인 (보안을 위해)
     const authHeader = request.headers.get('authorization');
@@ -48,10 +48,14 @@ export async function GET(request: Request) {
 // POST 메서드도 지원 (수동 실행용)
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await getSupabaseServerClient();
 
     // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { session },
+      error: authError,
+    } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
 
     if (authError || !user) {
       return NextResponse.json(
@@ -67,7 +71,9 @@ export async function POST(request: Request) {
       .eq('user_id', user.id)
       .single();
 
-    if (profileError || profile?.role !== 'admin') {
+    const typedProfile = profile as Pick<Database['public']['Tables']['profiles']['Row'], 'role'> | null;
+
+    if (profileError || typedProfile?.role !== 'admin') {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }

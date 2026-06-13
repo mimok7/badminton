@@ -1,8 +1,44 @@
 // DB 전체 점검 및 검증 스크립트
+const fs = require('fs');
+const path = require('path');
 const https = require('https');
 
-const SUPABASE_URL = 'https://htniaydnybggrdbylswa.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0bmlheWRueWJnZ3JkYnlsc3dhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjYzODEwNiwiZXhwIjoyMDY4MjE0MTA2fQ.gwwjvKPBGFgcUdGyzEy7fB_TD_kzUzFitu3CwDksvCo';
+function loadEnvFile() {
+  const envPath = path.join(__dirname, '..', '.env.local');
+  if (!fs.existsSync(envPath)) {
+    return;
+  }
+
+  const raw = fs.readFileSync(envPath, 'utf8');
+  raw.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      return;
+    }
+
+    const equalIndex = trimmed.indexOf('=');
+    if (equalIndex === -1) {
+      return;
+    }
+
+    const key = trimmed.slice(0, equalIndex).trim();
+    const value = trimmed.slice(equalIndex + 1).trim().replace(/^['"]|['"]$/g, '');
+
+    if (key && !process.env[key]) {
+      process.env[key] = value;
+    }
+  });
+}
+
+loadEnvFile();
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error('❌ .env.local 에 NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 설정이 필요합니다.');
+  process.exit(1);
+}
 
 function makeRequest(method, path, body = null) {
   return new Promise((resolve, reject) => {

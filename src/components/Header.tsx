@@ -7,6 +7,14 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { useCallback, useMemo, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 
+const USER_NAV_ITEMS = [
+  { href: '/dashboard', label: '대시보드', mobileLabel: '📈 대시보드' },
+  { href: '/tournament-bracket', label: '대진표', mobileLabel: '📊 대진표' },
+  { href: '/my-tournament-matches', label: '내 대회', mobileLabel: '🎪 내 대회' },
+  { href: '/my-schedule', label: '나의 일정', mobileLabel: '🏸 나의 일정' },
+  { href: '/profile', label: '프로필', mobileLabel: '👤 프로필' },
+];
+
 export default function Header() {
   const { user, profile, isAdmin, loading } = useUser();
   const supabase = useMemo(() => getSupabaseClient(), []);
@@ -31,65 +39,20 @@ export default function Header() {
     if (loading) return null;
 
     if (!user) {
-      return (
-        <Link 
-          href="/match-schedule" 
-          className="text-sm font-medium hover:text-blue-600 transition-colors"
-        >
-          경기 일정
-        </Link>
-      );
+      return null;
     }
 
     return (
       <>
-        <Link 
-          href="/dashboard" 
-          className="text-sm font-medium hover:text-blue-600 transition-colors"
-        >
-          대시보드
-        </Link>
-        <Link 
-          href="/match-schedule" 
-          className="text-sm font-medium hover:text-blue-600 transition-colors"
-        >
-          경기 일정
-        </Link>
-        
-        <Link 
-          href="/match-results" 
-          className="text-sm font-medium hover:text-blue-600 transition-colors"
-        >
-          배정현황
-        </Link>
-        
-        <Link 
-          href="/tournament-bracket" 
-          className="text-sm font-medium hover:text-blue-600 transition-colors"
-        >
-          대진표
-        </Link>
-        
-        <Link 
-          href="/my-tournament-matches" 
-          className="text-sm font-medium hover:text-blue-600 transition-colors"
-        >
-          내 대회
-        </Link>
-        
-        <Link 
-          href="/my-schedule" 
-          className="text-sm font-medium hover:text-blue-600 transition-colors"
-        >
-          나의 일정
-        </Link>
-        
-        <Link 
-          href="/profile" 
-          className="text-sm font-medium hover:text-blue-600 transition-colors"
-        >
-          프로필
-        </Link>
+        {USER_NAV_ITEMS.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="text-sm font-medium hover:text-blue-600 transition-colors"
+          >
+            {item.label}
+          </Link>
+        ))}
         
         {/* 관리자 전용 메뉴 */}
         {isAdmin && (
@@ -105,8 +68,8 @@ export default function Header() {
   }, [user, isAdmin, loading]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-blue-50 backdrop-blur supports-[backdrop-filter]:bg-blue-50/90">
-      <nav className="container flex h-16 items-center justify-between px-4">
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/75">
+      <nav className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center">
           <Link href="/" className="flex items-center hover:opacity-80">
             <Image 
@@ -138,7 +101,7 @@ export default function Header() {
                     {/* 사용자 정보 */}
                     <div className="hidden sm:flex flex-col text-right">
                       <div className="text-sm font-medium">
-                        {profile?.username || profile?.full_name || '사용자'}
+                        {profile?.full_name || profile?.username || '사용자'}
                       </div>
                       <div className="text-xs text-gray-500">
                         {isAdmin ? '관리자' : '회원'} | {profile?.skill_level?.toUpperCase() || 'N'}
@@ -187,60 +150,21 @@ export default function Header() {
 
       {/* 모바일 네비게이션 드로어 */}
       {isMobileMenuOpen && !loading && (
-        <div className="md:hidden border-t bg-blue-50/95 duration-200 animate-in fade-in slide-in-from-top-4">
+        <div className="md:hidden border-t border-slate-200/80 bg-white/95 duration-200 animate-in fade-in slide-in-from-top-4">
           <nav className="flex flex-col p-4 space-y-3">
             {/* 메뉴 항목 */}
             {user ? (
               <>
-                <Link 
-                  href="/dashboard" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-base font-semibold text-gray-700 hover:text-blue-600 border-b border-blue-100 pb-2 transition-colors"
-                >
-                  📈 대시보드
-                </Link>
-                <Link 
-                  href="/match-schedule" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-base font-semibold text-gray-700 hover:text-blue-600 border-b border-blue-100 pb-2 transition-colors"
-                >
-                  📅 경기 일정
-                </Link>
-                <Link 
-                  href="/match-results" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-base font-semibold text-gray-700 hover:text-blue-600 border-b border-blue-100 pb-2 transition-colors"
-                >
-                  🏆 배정현황
-                </Link>
-                <Link 
-                  href="/tournament-bracket" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-base font-semibold text-gray-700 hover:text-blue-600 border-b border-blue-100 pb-2 transition-colors"
-                >
-                  📊 대진표
-                </Link>
-                <Link 
-                  href="/my-tournament-matches" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-base font-semibold text-gray-700 hover:text-blue-600 border-b border-blue-100 pb-2 transition-colors"
-                >
-                  🎪 내 대회
-                </Link>
-                <Link 
-                  href="/my-schedule" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-base font-semibold text-gray-700 hover:text-blue-600 border-b border-blue-100 pb-2 transition-colors"
-                >
-                  🏸 나의 일정
-                </Link>
-                <Link 
-                  href="/profile" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-base font-semibold text-gray-700 hover:text-blue-600 border-b border-blue-100 pb-2 transition-colors"
-                >
-                  👤 프로필
-                </Link>
+                {USER_NAV_ITEMS.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-base font-semibold text-gray-700 hover:text-blue-600 border-b border-blue-100 pb-2 transition-colors"
+                  >
+                    {item.mobileLabel}
+                  </Link>
+                ))}
                 {isAdmin && (
                   <Link 
                     href="/admin" 
@@ -251,24 +175,16 @@ export default function Header() {
                   </Link>
                 )}
                 {/* 모바일 전용 사용자 정보 패널 */}
-                <div className="bg-white p-3 rounded-lg border border-blue-100 mt-2">
+                <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <div className="text-sm font-semibold text-gray-800">
-                    {profile?.username || profile?.full_name || '사용자'}님
+                    {profile?.full_name || profile?.username || '사용자'}님
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
                     {isAdmin ? '관리자' : '일반 회원'} • 등급: {profile?.skill_level?.toUpperCase() || 'E2'}
                   </div>
                 </div>
               </>
-            ) : (
-              <Link 
-                href="/match-schedule" 
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="text-base font-semibold text-gray-700 hover:text-blue-600 transition-colors"
-              >
-                📅 경기 일정
-              </Link>
-            )}
+            ) : null}
           </nav>
         </div>
       )}

@@ -120,3 +120,33 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .app-surface {
+    @apply min-h-screen bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_transparent_34%),linear-gradient(180deg,_#f8fbff_0%,_#eef6ff_46%,_#f8fafc_100%)];
+  }
+
+  .app-page {
+    @apply w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-8;
+  }
+
+  .app-page-wide {
+    @apply mx-auto w-full max-w-[1600px];
+  }
+
+  .app-page-header {
+    @apply rounded-[28px] border border-white/70 bg-white/85 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur sm:p-8;
+  }
+
+  .app-page-title {
+    @apply text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl;
+  }
+
+  .app-page-description {
+    @apply mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base;
+  }
+
+  .app-section-card {
+    @apply rounded-[24px] border border-slate-200/80 bg-white/92 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.08)] backdrop-blur sm:p-6;
+  }
+}

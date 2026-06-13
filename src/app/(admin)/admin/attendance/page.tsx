@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { Button } from '@/components/ui/button';
+
+export const dynamic = 'force-dynamic';
 
 export default function AdminAttendancePage() {
   const supabase = useMemo(() => getSupabaseClient(), []);

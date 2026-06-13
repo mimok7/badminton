@@ -1,0 +1,41 @@
+
+> badminton-matcher@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.4.1
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.10:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Ready in 2.7s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 1368ms (177 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 6.6s (866 modules)
+ GET / 200 in 7497ms
+ ✓ Compiled in 925ms (347 modules)
+ ✓ Compiled in 938ms (347 modules)
+ GET / 200 in 309ms
+ ✓ Compiled in 724ms (347 modules)
+ GET / 200 in 1615ms
+ ✓ Compiled in 1583ms (347 modules)
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 1175ms (862 modules)
+ GET /manifest.webmanifest 200 in 2424ms
+ GET / 200 in 2429ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 1017ms (875 modules)
+ GET /login 200 in 1299ms
+ ○ Compiling /api/auth/profile-email ...
+ ✓ Compiled /api/auth/profile-email in 1048ms (960 modules)
+ GET /api/auth/profile-email?fullName=%EA%B9%80%EC%A7%84%ED%98%B8 200 in 1524ms
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 1025ms (978 modules)
+ GET /admin 200 in 1589ms
+ ✓ Compiled in 689ms (358 modules)
+ ✓ Compiled in 642ms (358 modules)
+ GET /admin 200 in 96ms
+ GET /admin 200 in 57ms

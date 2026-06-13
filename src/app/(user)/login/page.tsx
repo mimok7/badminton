@@ -74,6 +74,24 @@ function LoginPageContent() {
     return message || '로그인 중 오류가 발생했습니다.';
   };
 
+  const getLookupErrorMessage = (message?: string) => {
+    const normalized = message?.toLowerCase() ?? '';
+
+    if (normalized.includes('multiple profiles found')) {
+      return '같은 한글 이름의 계정이 2개 이상 있습니다. 관리자에게 문의해주세요.';
+    }
+
+    if (normalized.includes('supabase server configuration is missing')) {
+      return '서버 설정이 올바르지 않습니다. 관리자에게 문의해주세요.';
+    }
+
+    if (normalized.includes('no profile found')) {
+      return '등록된 한글 이름을 찾지 못했습니다.';
+    }
+
+    return '이메일 조회 중 문제가 발생했습니다.';
+  };
+
   const handleNameSearch = async () => {
     const trimmedFullName = fullName.trim();
 
@@ -105,7 +123,8 @@ function LoginPageContent() {
       }
     } catch (err) {
       setEmail('');
-      setAutoFillMessage('이메일 조회 중 문제가 발생했습니다.');
+      const message = err instanceof Error ? err.message : undefined;
+      setAutoFillMessage(getLookupErrorMessage(message));
     } finally {
       setLookupLoading(false);
     }
@@ -235,7 +254,6 @@ function LoginPageContent() {
                 alt="라켓 뚱보단 로고"
                 width={128}
                 height={128}
-                priority
                 className="h-28 w-28 object-contain sm:h-32 sm:w-32"
               />
             </div>

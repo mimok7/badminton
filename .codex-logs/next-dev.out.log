@@ -39,3 +39,21 @@
  ✓ Compiled in 642ms (358 modules)
  GET /admin 200 in 96ms
  GET /admin 200 in 57ms
+ ✓ Compiled in 1813ms (358 modules)
+ ✓ Compiled in 865ms (358 modules)
+ ✓ Compiled in 1093ms (358 modules)
+ ✓ Compiled in 1184ms (358 modules)
+ ✓ Compiled in 747ms (358 modules)
+ ✓ Compiled in 795ms (358 modules)
+ ✓ Compiled in 654ms (358 modules)
+ ✓ Compiled in 589ms (358 modules)
+ ✓ Compiled in 532ms (358 modules)
+   ▲ Next.js 15.4.1
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.10:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Ready in 3.3s

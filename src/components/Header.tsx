@@ -77,7 +77,6 @@ export default function Header() {
               alt="Badminton Logo" 
               width={40} 
               height={40}
-              priority
               sizes="40px"
             />
             <span className="ml-2 font-semibold w-max">라켓 뚱보단</span>

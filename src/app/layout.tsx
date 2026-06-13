@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ConsoleSilencer from "@/components/ConsoleSilencer";
@@ -14,7 +14,6 @@ export const metadata: Metadata = {
   description: "참가자들로 경기를 자동으로 생성합니다.",
   applicationName: "라켓 뚱보단",
   manifest: "/manifest.webmanifest",
-  themeColor: "#2563eb",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -30,6 +29,10 @@ export const metadata: Metadata = {
     ],
     shortcut: ["/icon-192.png"],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({

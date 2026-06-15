@@ -27,28 +27,16 @@ AS $$
 DECLARE
     template_record RECORD;
     target_date DATE;
-    days_ahead INTEGER;
     matches_created INTEGER := 0;
-    current_day INTEGER;
 BEGIN
     -- 활성화된 모든 정기모임 템플릿 조회
     FOR template_record IN 
         SELECT * FROM recurring_match_templates 
         WHERE is_active = true
     LOOP
-        -- 다음 해당 요일 찾기 (advance_days 만큼 미리 생성)
-        current_day := EXTRACT(DOW FROM CURRENT_DATE);
-        
-        -- 다음 해당 요일까지의 일수 계산
-        IF template_record.day_of_week > current_day THEN
-            days_ahead := template_record.day_of_week - current_day;
-        ELSE
-            days_ahead := 7 - current_day + template_record.day_of_week;
-        END IF;
-        
-        -- advance_days 만큼 미리 생성된 일정이 있는지 확인
+        -- advance_days 범위 안에서 해당 요일이 오는 날짜들을 모두 생성
         FOR i IN 0..template_record.advance_days LOOP
-            target_date := CURRENT_DATE + (days_ahead + (i * 7));
+            target_date := CURRENT_DATE + i;
             
             -- 해당 날짜에 이미 일정이 있는지 확인
             IF NOT EXISTS (

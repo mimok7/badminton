@@ -1,4 +1,4 @@
-const CACHE_NAME = 'badminton-pwa-v1';
+const CACHE_NAME = 'badminton-pwa-v2';
 const APP_SHELL = [
   '/',
   '/manifest.webmanifest',
@@ -6,6 +6,22 @@ const APP_SHELL = [
   '/icon-512.png',
   '/icon-180.png',
 ];
+
+function isAppShellAsset(url) {
+  return APP_SHELL.includes(url.pathname);
+}
+
+function isStaticAssetRequest(request, url) {
+  if (request.destination === 'script' || request.destination === 'style' || request.destination === 'worker') {
+    return true;
+  }
+
+  if (url.pathname.startsWith('/_next/')) {
+    return true;
+  }
+
+  return /\.(?:js|css|png|jpg|jpeg|svg|webp|avif|ico|woff2?)$/i.test(url.pathname);
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -32,21 +48,38 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+  const url = new URL(event.request.url);
 
-      return fetch(event.request)
-        .then((networkResponse) => {
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+          return networkResponse;
+        }
+
+        if (isAppShellAsset(url)) {
           const responseClone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone).catch(() => undefined);
           });
-          return networkResponse;
-        })
-        .catch(() => caches.match('/'));
-    })
+        }
+
+        return networkResponse;
+      })
+      .catch(async () => {
+        if (event.request.mode === 'navigate') {
+          return caches.match('/') || Response.error();
+        }
+
+        if (isStaticAssetRequest(event.request, url)) {
+          return caches.match(event.request) || Response.error();
+        }
+
+        return Response.error();
+      })
   );
 });

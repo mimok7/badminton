@@ -7,6 +7,7 @@ import {
   DEFAULT_USER_REDIRECT,
   matchesRoutePrefix,
 } from '@/lib/route-access';
+import { getUserRole, isAdminRole } from '@/lib/auth';
 
 import type { NextRequest } from 'next/server';
 
@@ -43,8 +44,9 @@ export async function middleware(req: NextRequest) {
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
     const isAdminRoute = matchesRoutePrefix(pathname, ADMIN_ROUTE_PREFIXES);
     const isAuthRoute = matchesRoutePrefix(pathname, AUTH_ROUTE_PREFIXES);
     
@@ -54,24 +56,19 @@ export async function middleware(req: NextRequest) {
     }
 
     const mustChangePassword = shouldRequirePasswordChange(
-      session?.user?.user_metadata?.must_change_password
+      user?.user_metadata?.must_change_password
     );
 
-    if (session && mustChangePassword) {
+    if (user && mustChangePassword) {
       const url = req.nextUrl.clone();
       url.pathname = '/change-password';
       return NextResponse.redirect(url);
     }
 
-    if (session && isAuthRoute) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-
+    if (user && isAuthRoute) {
+      const role = await getUserRole(supabase, user);
       const url = req.nextUrl.clone();
-      url.pathname = profile?.role === 'admin' ? DEFAULT_ADMIN_REDIRECT : DEFAULT_USER_REDIRECT;
+      url.pathname = isAdminRole(role) ? DEFAULT_ADMIN_REDIRECT : DEFAULT_USER_REDIRECT;
       return NextResponse.redirect(url);
     }
 
@@ -79,20 +76,16 @@ export async function middleware(req: NextRequest) {
       return res;
     }
 
-    if (!session) {
+    if (userError || !user) {
       const url = req.nextUrl.clone();
       url.pathname = '/login';
       url.searchParams.set('redirectTo', pathname);
       return NextResponse.redirect(url);
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('user_id', session.user.id)
-      .maybeSingle();
+    const role = await getUserRole(supabase, user);
 
-    if (profileError || profile?.role !== 'admin') {
+    if (!isAdminRole(role)) {
       const url = req.nextUrl.clone();
       url.pathname = '/unauthorized';
       return NextResponse.redirect(url);

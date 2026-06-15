@@ -43,7 +43,6 @@ export const SECTIONS: MenuSection[] = [
   {
     title: '⚙️ 시스템 관리',
     items: [
-      { label: '백업관리', href: '/admin/backup', icon: '💾' },
       { label: '시스템', href: '/database-test', icon: '🔧' },
     ],
     color: 'orange',

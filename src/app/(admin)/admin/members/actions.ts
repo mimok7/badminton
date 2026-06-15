@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
-import type { Database } from '@/types/supabase';
+import { isUserAdmin } from '@/lib/auth';
 
 // 사용자를 삭제하려면 서비스 키를 사용하는 별도의 관리자 클라이언트가 필요합니다.
 // 이 키는 절대로 노출되어서는 안 됩니다.
@@ -11,19 +11,11 @@ const supabaseAdmin = getSupabaseAdminClient();
 async function isAdmin() {
     const supabase = await getSupabaseServerClient();
     const {
-        data: { session },
-    } = await supabase.auth.getSession();
-    const user = session?.user ?? null;
+        data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return false;
 
-    const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-
-    const typedProfile = profile as Pick<Database['public']['Tables']['profiles']['Row'], 'role'> | null;
-    return !error && typedProfile?.role === 'admin';
+    return isUserAdmin(supabase, user);
 }
 
 export async function deleteUser(userId: string) {

@@ -42,6 +42,7 @@ export default function RecurringMatchPage() {
   const { user } = useUser();
   const supabase = getSupabaseClient();
   const [templates, setTemplates] = useState<RecurringTemplate[]>([]);
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<RecurringTemplate | null>(null);
@@ -62,7 +63,7 @@ export default function RecurringMatchPage() {
   const [newTemplate, setNewTemplate] = useState({
     name: '',
     description: '',
-    day_of_week: 6,
+    day_of_weeks: [6],
     start_time: '14:00',
     end_time: '17:00',
     location: '',
@@ -103,17 +104,24 @@ export default function RecurringMatchPage() {
     e.preventDefault();
     
     if (!user) return;
+    if (newTemplate.day_of_weeks.length === 0) {
+      alert('요일을 하나 이상 선택해주세요.');
+      return;
+    }
 
     try {
-      const { error } = await supabase
-        .from('recurring_match_templates')
-        .insert({
-          ...newTemplate,
-          created_by: user.id
-        });
+      const rowsCount = newTemplate.day_of_weeks.length;
+      const response = await fetch('/api/admin/recurring-templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newTemplate),
+      });
 
-      if (error) {
-        console.error('템플릿 생성 오류:', error);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        console.error('템플릿 생성 오류:', payload);
         alert('템플릿 생성 중 오류가 발생했습니다.');
         return;
       }
@@ -122,7 +130,7 @@ export default function RecurringMatchPage() {
       setNewTemplate({
         name: '',
         description: '',
-        day_of_week: 6,
+        day_of_weeks: [6],
         start_time: '14:00',
         end_time: '17:00',
         location: '',
@@ -133,12 +141,26 @@ export default function RecurringMatchPage() {
 
       // 목록 새로고침
       await fetchTemplates();
-      alert('새 정기모임 템플릿이 생성되었습니다!');
+      alert(`${rowsCount}개의 정기모임 템플릿이 생성되었습니다!`);
 
     } catch (error) {
       console.error('템플릿 생성 중 오류:', error);
       alert('템플릿 생성 중 오류가 발생했습니다.');
     }
+  };
+
+  const toggleNewTemplateDay = (dayValue: number) => {
+    setNewTemplate((current) => {
+      const exists = current.day_of_weeks.includes(dayValue);
+      const nextDays = exists
+        ? current.day_of_weeks.filter((value) => value !== dayValue)
+        : [...current.day_of_weeks, dayValue].sort((a, b) => a - b);
+
+      return {
+        ...current,
+        day_of_weeks: nextDays,
+      };
+    });
   };
 
   // 템플릿 수정
@@ -220,6 +242,7 @@ export default function RecurringMatchPage() {
         return;
       }
 
+      setSelectedTemplateIds((current) => current.filter((templateId) => templateId !== id));
       await fetchTemplates();
       alert('템플릿이 삭제되었습니다.');
 
@@ -229,24 +252,60 @@ export default function RecurringMatchPage() {
   };
 
   // 수동으로 정기모임 생성 실행
-  const handleGenerateMatches = async () => {
+  const handleGenerateMatches = async (templateIds?: string[]) => {
     try {
-      const { data, error } = await supabase.rpc('daily_match_generation');
+      const idsToGenerate = templateIds?.filter(Boolean) ?? [];
+      const response = await fetch('/api/cron/recurring-matches', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(
+          idsToGenerate.length > 0
+            ? { template_ids: idsToGenerate }
+            : {}
+        ),
+      });
 
-      if (error) {
-        console.error('정기모임 생성 오류:', error);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        console.error('정기모임 생성 오류:', payload);
         alert('정기모임 생성 중 오류가 발생했습니다.');
         return;
       }
 
-      const result = parseGenerationResult(data);
+      const payload = await response.json();
+      const result = parseGenerationResult((payload?.result ?? payload) as Json | null);
       setGenerationResult(result);
+      if (idsToGenerate.length > 0) {
+        setSelectedTemplateIds([]);
+      }
       alert(`성공! ${result?.created_matches || 0}개의 새로운 정기모임이 생성되었습니다.`);
 
     } catch (error) {
       console.error('정기모임 생성 중 오류:', error);
       alert('정기모임 생성 중 오류가 발생했습니다.');
     }
+  };
+
+  const toggleTemplateSelection = (templateId: string) => {
+    setSelectedTemplateIds((current) =>
+      current.includes(templateId)
+        ? current.filter((id) => id !== templateId)
+        : [...current, templateId]
+    );
+  };
+
+  const selectableTemplates = templates.filter((template) => Boolean(template.id));
+  const allSelectableTemplateIds = selectableTemplates
+    .map((template) => template.id)
+    .filter((templateId): templateId is string => Boolean(templateId));
+  const isAllSelected =
+    allSelectableTemplateIds.length > 0 &&
+    allSelectableTemplateIds.every((templateId) => selectedTemplateIds.includes(templateId));
+
+  const toggleSelectAllTemplates = () => {
+    setSelectedTemplateIds(isAllSelected ? [] : allSelectableTemplateIds);
   };
 
   if (loading) {
@@ -273,13 +332,14 @@ export default function RecurringMatchPage() {
             >
               새 정기모임 템플릿 추가
             </Button>
-            
-            <Button 
-              onClick={handleGenerateMatches}
+
+            <Button
+              onClick={() => handleGenerateMatches(selectedTemplateIds)}
               variant="outline"
-              className="border-green-500 text-green-600 hover:bg-green-50"
+              className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+              disabled={selectedTemplateIds.length === 0}
             >
-              지금 정기모임 생성 실행
+              선택된 정기모임 생성 실행
             </Button>
           </div>
 
@@ -313,15 +373,29 @@ export default function RecurringMatchPage() {
                 
                 <div>
                   <label className="block text-sm font-medium mb-2">요일</label>
-                  <select
-                    value={newTemplate.day_of_week}
-                    onChange={(e) => setNewTemplate({...newTemplate, day_of_week: parseInt(e.target.value)})}
-                    className="w-full p-2 border border-gray-300 rounded"
-                  >
-                    {DAYS_OPTIONS.map(day => (
-                      <option key={day.value} value={day.value}>{day.label}</option>
-                    ))}
-                  </select>
+                  <div className="grid grid-cols-2 gap-2 rounded border border-gray-300 p-3 md:grid-cols-3">
+                    {DAYS_OPTIONS.map((day) => {
+                      const checked = newTemplate.day_of_weeks.includes(day.value);
+
+                      return (
+                        <label
+                          key={day.value}
+                          className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm transition-colors ${
+                            checked ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleNewTemplateDay(day.value)}
+                            className="h-4 w-4"
+                          />
+                          <span>{day.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500">여러 요일을 선택하면 동일한 조건으로 템플릿이 각각 생성됩니다.</p>
                 </div>
 
                 <div>
@@ -427,6 +501,17 @@ export default function RecurringMatchPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          onChange={toggleSelectAllTemplates}
+                          className="h-4 w-4"
+                        />
+                        <span>선택</span>
+                      </label>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       모임명
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -452,6 +537,16 @@ export default function RecurringMatchPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {templates.map((template) => (
                     <tr key={template.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {template.id ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedTemplateIds.includes(template.id)}
+                            onChange={() => toggleTemplateSelection(template.id || '')}
+                            className="h-4 w-4"
+                          />
+                        ) : null}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">

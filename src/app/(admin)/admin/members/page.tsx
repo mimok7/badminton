@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import type { AdminUser } from '@/types'
 import { getSupabaseServerClient } from '@/lib/supabase-server'
-import type { Database } from '@/types/supabase'
+import { isUserAdmin } from '@/lib/auth'
 import UserManagementClient from './UserManagementClient'
 
 export const dynamic = 'force-dynamic'
@@ -10,17 +10,11 @@ export default async function AdminMembersPage() {
   const supabase = await getSupabaseServerClient()
 
   // 1) 세션 확인
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect('/login')
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   // 2) 관리자 권한 확인
-  const { data: myProfile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('user_id', session.user.id)
-    .maybeSingle()
-  const typedProfile = myProfile as Pick<Database['public']['Tables']['profiles']['Row'], 'role'> | null
-  if (typedProfile?.role !== 'admin') redirect('/unauthorized')
+  if (!(await isUserAdmin(supabase, user))) redirect('/unauthorized')
 
   // 3) 사용자 목록 조회 (RPC 우선, 실패 시 폴백)
   let users: AdminUser[] = []
@@ -71,7 +65,7 @@ export default async function AdminMembersPage() {
   // 4) 렌더
   return (
     <div className="w-full mt-10 p-6">
-      <UserManagementClient users={users} myUserId={session.user.id} />
+      <UserManagementClient users={users} myUserId={user.id} />
     </div>
   )
 }

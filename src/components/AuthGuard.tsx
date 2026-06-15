@@ -17,7 +17,7 @@ export default function AuthGuard({
   requireAdmin = false,
   redirectTo = '/login'
 }: AuthGuardProps) {
-  const { user, profile, loading, isAdmin } = useUser();
+  const { user, loading, isAdmin } = useUser();
   const router = useRouter();
 
   useEffect(() => {
@@ -26,17 +26,17 @@ export default function AuthGuard({
     // 인증이 필요한 페이지인데 로그인하지 않은 경우
     if (requireAuth && !user) {
       console.log('🚫 인증 필요: 로그인 페이지로 리다이렉트');
-      router.push(redirectTo);
+      router.replace(redirectTo);
       return;
     }
 
     // 관리자 권한이 필요한 페이지인데 관리자가 아닌 경우
     if (requireAdmin && (!user || !isAdmin)) {
       console.log('🚫 관리자 권한 필요: 접근 거부');
-      router.push('/unauthorized');
+      router.replace('/unauthorized');
       return;
     }
-  }, [user, profile, loading, isAdmin, requireAuth, requireAdmin, router, redirectTo]);
+  }, [user, loading, isAdmin, requireAuth, requireAdmin, router, redirectTo]);
 
   // 로딩 중일 때
   if (loading) {

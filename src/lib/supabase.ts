@@ -5,18 +5,23 @@ import type { Database } from '@/types/supabase';
 type BrowserSupabaseClient = SupabaseClient<Database>;
 
 let supabaseInstance: BrowserSupabaseClient | null = null;
+const serverSupabasePlaceholder = {} as BrowserSupabaseClient;
 
 export const getSupabaseClient = (): BrowserSupabaseClient => {
+  if (typeof window === 'undefined') {
+    // Client components are still pre-rendered on the server in Next.js.
+    // Avoid constructing a browser client until we are actually in the browser.
+    return serverSupabasePlaceholder;
+  }
+
   if (supabaseInstance) {
     return supabaseInstance;
   }
 
-  if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.removeItem('badminton-auth-token');
-    } catch {
-      // Ignore localStorage access errors in restricted browsers.
-    }
+  try {
+    window.localStorage.removeItem('badminton-auth-token');
+  } catch {
+    // Ignore localStorage access errors in restricted browsers.
   }
 
   supabaseInstance = createBrowserClient<Database, 'public'>(
@@ -34,5 +39,10 @@ export const getSupabaseClient = (): BrowserSupabaseClient => {
   return supabaseInstance;
 };
 
-export const supabase = getSupabaseClient();
+export const supabase = new Proxy({} as BrowserSupabaseClient, {
+  get(_target, property, receiver) {
+    return Reflect.get(getSupabaseClient(), property, receiver);
+  },
+});
+
 export const createOptimizedBrowserClient = getSupabaseClient;

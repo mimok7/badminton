@@ -8,6 +8,17 @@ export default function PWARegister() {
       return;
     }
 
+    if (process.env.NODE_ENV !== 'production') {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => {
+          void registration.unregister();
+        });
+      }).catch(() => {
+        // Ignore cleanup failures in unsupported or locked-down browsers.
+      });
+      return;
+    }
+
     navigator.serviceWorker.register('/sw.js').catch(() => {
       // Ignore registration failures in unsupported or locked-down browsers.
     });

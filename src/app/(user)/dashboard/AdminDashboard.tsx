@@ -156,16 +156,6 @@ const ADMIN_MENU_CARDS: AdminMenuCard[] = [
     adminOnly: true
   },
   { 
-    id: 'data-backup', 
-    name: '데이터 백업', 
-    icon: '💾', 
-    path: '/admin/backup', 
-    description: '시스템 데이터 백업 및 복원 관리', 
-    category: 'system',
-    color: 'orange',
-    adminOnly: true
-  },
-  { 
     id: 'system-test', 
     name: '시스템 테스트', 
     icon: '🔧', 

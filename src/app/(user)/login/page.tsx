@@ -1,7 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
@@ -12,13 +11,13 @@ import {
   DEFAULT_USER_REDIRECT,
   isSafeRedirectPath,
 } from '@/lib/route-access';
+import { getProfileByUserId, isAdminRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 const INITIAL_TEMP_PASSWORD = 'bad123!';
 
-function LoginPageContent() {
-  const searchParams = useSearchParams();
+export default function LoginPage() {
   const supabase = getSupabaseClient();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -213,17 +212,15 @@ function LoginPageContent() {
       let nextPath = mustChangePassword ? '/change-password' : DEFAULT_USER_REDIRECT;
 
       if (userId && !mustChangePassword) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        const role = (profile as { role?: string | null } | null)?.role;
-        nextPath = role === 'admin' ? DEFAULT_ADMIN_REDIRECT : DEFAULT_USER_REDIRECT;
+        const profile = await getProfileByUserId(supabase, userId);
+        nextPath = isAdminRole(profile?.role) ? DEFAULT_ADMIN_REDIRECT : DEFAULT_USER_REDIRECT;
       }
 
-      const redirectTo = searchParams.get('redirectTo');
+      const redirectTo =
+        typeof window === 'undefined'
+          ? null
+          : new URLSearchParams(window.location.search).get('redirectTo');
+
       if (redirectTo && isSafeRedirectPath(redirectTo)) {
         nextPath = redirectTo;
       }
@@ -366,21 +363,5 @@ function LoginPageContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="max-w-md w-full rounded-lg bg-white p-8 text-center shadow-md">
-            <p className="text-sm text-gray-600">로그인 화면을 불러오는 중입니다...</p>
-          </div>
-        </div>
-      }
-    >
-      <LoginPageContent />
-    </Suspense>
   );
 }

@@ -342,6 +342,9 @@ export default function RecurringMatchPage() {
               선택된 정기모임 생성 실행
             </Button>
           </div>
+          <p className="mb-6 text-sm text-gray-500">
+            선택 실행은 각 템플릿의 가장 가까운 다음 일정을 1건씩 우선 생성합니다.
+          </p>
 
           {generationResult && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">

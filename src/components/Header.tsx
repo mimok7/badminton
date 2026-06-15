@@ -6,6 +6,7 @@ import { useUser } from '@/hooks/useUser';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useCallback, useMemo, useState } from 'react';
 import { Menu, X } from 'lucide-react';
+import { getAdminLevelDisplay, getUserLevelDisplay } from '@/lib/level-display';
 
 const USER_NAV_ITEMS = [
   { href: '/dashboard', label: '대시보드', mobileLabel: '📈 대시보드' },
@@ -103,7 +104,7 @@ export default function Header() {
                         {profile?.full_name || profile?.username || '사용자'}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {isAdmin ? '관리자' : '회원'} | {profile?.skill_level?.toUpperCase() || 'N'}
+                        {isAdmin ? '관리자' : '회원'} | {isAdmin ? getAdminLevelDisplay(profile?.skill_level) : getUserLevelDisplay(profile?.skill_level)}
                       </div>
                     </div>
                     
@@ -179,7 +180,7 @@ export default function Header() {
                     {profile?.full_name || profile?.username || '사용자'}님
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
-                    {isAdmin ? '관리자' : '일반 회원'} • 등급: {profile?.skill_level?.toUpperCase() || 'E2'}
+                    {isAdmin ? '관리자' : '일반 회원'} • 등급: {isAdmin ? getAdminLevelDisplay(profile?.skill_level) : getUserLevelDisplay(profile?.skill_level)}
                   </div>
                 </div>
               </>

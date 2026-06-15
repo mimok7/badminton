@@ -5,6 +5,7 @@ import { useUser } from '@/hooks/useUser';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { getUserLevelDisplay } from '@/lib/level-display';
 
 interface MatchHistory {
   id: string | number;
@@ -339,7 +340,7 @@ export default function DashboardPage() {
             {profile?.full_name || profile?.username || '회원'}님
           </span>
           <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
-            레벨: {profile?.skill_level}급
+            레벨: {getUserLevelDisplay(profile?.skill_level)}
           </span>
         </div>
         <p className="text-blue-100">
@@ -435,15 +436,15 @@ export default function DashboardPage() {
                               </div>
                               <div className="space-y-1">
                                 {match.my_team === 'team1' && (
-                                  <div className="font-semibold">나 ({profile?.skill_level}급)</div>
+                                  <div className="font-semibold">나 ({getUserLevelDisplay(profile?.skill_level)})</div>
                                 )}
                                 {(match.my_team === 'team1' ? match.teammates : match.opponents).map((player, idx) => (
                                   <div key={idx} className={match.my_team === 'team1' ? 'text-blue-700' : 'text-gray-600'}>
-                                    {player.name} ({player.skill_level}급)
+                                    {player.name} ({getUserLevelDisplay(player.skill_level)})
                                   </div>
                                 ))}
                                 {match.my_team !== 'team1' && (
-                                  <div className="font-semibold">나 ({profile?.skill_level}급)</div>
+                                  <div className="font-semibold">나 ({getUserLevelDisplay(profile?.skill_level)})</div>
                                 )}
                               </div>
                             </div>
@@ -456,15 +457,15 @@ export default function DashboardPage() {
                               </div>
                               <div className="space-y-1">
                                 {match.my_team === 'team2' && (
-                                  <div className="font-semibold">나 ({profile?.skill_level}급)</div>
+                                  <div className="font-semibold">나 ({getUserLevelDisplay(profile?.skill_level)})</div>
                                 )}
                                 {(match.my_team === 'team2' ? match.teammates : match.opponents).map((player, idx) => (
                                   <div key={idx} className={match.my_team === 'team2' ? 'text-red-700' : 'text-gray-600'}>
-                                    {player.name} ({player.skill_level}급)
+                                    {player.name} ({getUserLevelDisplay(player.skill_level)})
                                   </div>
                                 ))}
                                 {match.my_team !== 'team2' && (
-                                  <div className="font-semibold">나 ({profile?.skill_level}급)</div>
+                                  <div className="font-semibold">나 ({getUserLevelDisplay(profile?.skill_level)})</div>
                                 )}
                               </div>
                             </div>
@@ -574,7 +575,7 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-3 mb-2">
                             <h4 className="text-lg font-semibold text-gray-900">{opponent.opponentName}</h4>
                             <span className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded">
-                              {opponent.skill_level}급
+                              {getUserLevelDisplay(opponent.skill_level)}
                             </span>
                           </div>
                           <div className="text-sm text-gray-600">

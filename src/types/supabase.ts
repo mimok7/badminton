@@ -225,6 +225,7 @@ export type Database = {
     id: number;
   code: string;
   name: string;
+  score: number | null;
   description: string | null;
   created_at: string;
   };
@@ -232,6 +233,7 @@ export type Database = {
     id?: number;
   code: string;
   name: string;
+  score?: number | null;
   description?: string | null;
   created_at?: string;
   };
@@ -239,6 +241,7 @@ export type Database = {
     id?: number | null;
   code?: string | null;
   name?: string | null;
+  score?: number | null;
   description?: string | null;
   created_at?: string | null;
   };
@@ -329,6 +332,7 @@ export type Database = {
   Row: {
     id: string;
   generated_match_id: number | null;
+  schedule_source: string;
   match_date: string | null;
   scheduled_date: string | null;
   start_time: string | null;
@@ -349,6 +353,7 @@ export type Database = {
   Insert: {
     id?: string;
   generated_match_id?: number | null;
+  schedule_source?: string;
   match_date?: string | null;
   scheduled_date?: string | null;
   start_time?: string | null;
@@ -369,6 +374,7 @@ export type Database = {
   Update: {
     id?: string | null;
   generated_match_id?: number | null;
+  schedule_source?: string | null;
   match_date?: string | null;
   scheduled_date?: string | null;
   start_time?: string | null;

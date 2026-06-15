@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
+import { getUserLevelDisplay } from '@/lib/level-display';
 
 export default function UnauthorizedPage() {
   const { user, profile, isAdmin } = useUser();
@@ -28,7 +29,7 @@ export default function UnauthorizedPage() {
             <div className="text-sm text-gray-600 space-y-1">
               <p><span className="font-medium">사용자:</span> {profile.full_name || profile.username || '이름 없음'}</p>
               <p><span className="font-medium">권한:</span> {isAdmin ? '관리자' : '일반 사용자'}</p>
-              <p><span className="font-medium">레벨:</span> {profile.skill_level?.toUpperCase() || 'N'}</p>
+              <p><span className="font-medium">레벨:</span> {getUserLevelDisplay(profile.skill_level)}</p>
             </div>
           </div>
         )}

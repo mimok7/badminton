@@ -5,6 +5,7 @@ import { RequireAdmin } from '@/components/AuthGuard';
 import { Match } from '@/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { getKoreaDate } from '@/lib/date';
 
 import { 
   ExtendedPlayer, 
@@ -86,7 +87,7 @@ function PlayersPage() {
   // 경기 세션 조회 함수
   const fetchMatchSessions = async (dateOverride?: string) => {
     try {
-      const base = (dateOverride || selectedGenDate || new Date().toISOString().split('T')[0]);
+      const base = dateOverride || selectedGenDate || getKoreaDate();
       const { data: sessions, error } = await supabase
         .from('match_sessions')
         .select('*')

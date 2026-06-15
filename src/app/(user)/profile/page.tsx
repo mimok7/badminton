@@ -25,10 +25,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import Link from 'next/link';
+import { SKILL_LEVEL_CODES, SKILL_LEVEL_SELECT_OPTIONS, type SkillLevelCode } from '@/lib/skill-levels';
+import { getUserLevelDisplay } from '@/lib/level-display';
 
 const formSchema = z.object({
   username: z.string().min(2, { message: '닉네임은 2자 이상이어야 합니다.' }),
-  skill_level: z.enum(['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2', 'E1', 'E2']),
+  skill_level: z.enum(SKILL_LEVEL_CODES),
 });
 
 export default function ProfilePage() {
@@ -52,9 +54,10 @@ export default function ProfilePage() {
     }
     
     if (profile) {
-      const level = (profile.skill_level as
-        | 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'D1' | 'D2' | 'E1' | 'E2'
-        | undefined) ?? 'D1';
+      const normalizedLevel = String(profile.skill_level || '').toUpperCase();
+      const level = (SKILL_LEVEL_CODES.includes(normalizedLevel as SkillLevelCode)
+        ? normalizedLevel
+        : 'D1') as SkillLevelCode;
       form.reset({
         username: profile.username || '',
         skill_level: level,
@@ -150,7 +153,7 @@ export default function ProfilePage() {
               <div className="flex items-center">
                 <span className="font-medium text-gray-600 w-16">현재급수:</span>
                 <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-medium">
-                  {profile?.skill_level ? `${profile.skill_level}급` : 'D1급'}
+                  {getUserLevelDisplay(profile?.skill_level)}
                 </span>
               </div>
             </div>
@@ -171,16 +174,11 @@ export default function ProfilePage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="A1">A1급 (최상급)</SelectItem>
-                        <SelectItem value="A2">A2급 (최상급)</SelectItem>
-                        <SelectItem value="B1">B1급 (상급)</SelectItem>
-                        <SelectItem value="B2">B2급 (상급)</SelectItem>
-                        <SelectItem value="C1">C1급 (중상급)</SelectItem>
-                        <SelectItem value="C2">C2급 (중상급)</SelectItem>
-                        <SelectItem value="D1">D1급 (중급)</SelectItem>
-                        <SelectItem value="D2">D2급 (중급)</SelectItem>
-                        <SelectItem value="E1">E1급 (초급)</SelectItem>
-                        <SelectItem value="E2">E2급 (초급)</SelectItem>
+                        {SKILL_LEVEL_SELECT_OPTIONS.map((option) => (
+                          <SelectItem key={option.code} value={option.code}>
+                            {option.code} - {option.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />

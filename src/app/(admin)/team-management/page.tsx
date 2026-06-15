@@ -1,8 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
-import { fetchRegisteredPlayersForDate } from '@/app/(admin)/players/utils';
+import { getKoreaDate } from '@/lib/date';
+import {
+  fetchLevelInfoMap,
+  getLevelNameFromCode,
+  getLevelScoreFromCode,
+  type LevelInfoMap,
+} from '@/lib/level-info';
+import { getScheduleSourceLabel, inferScheduleSource, normalizeScheduleSource, type MatchScheduleSource } from '@/lib/match-schedule-source';
 
 interface TeamAssignment {
   id: string;
@@ -46,12 +53,33 @@ interface FourTeamsAssignment {
   team4: string[];
 }
 
+interface MemberOption {
+  id: string;
+  fullName: string;
+  levelName: string;
+  skillCode: string;
+  score: number;
+  assignmentLabel: string;
+}
+
 export default function TeamManagementPage() {
   const supabase = getSupabaseClient();
   const [rounds, setRounds] = useState<RoundSummary[]>([]);
   const [currentRound, setCurrentRound] = useState<number>(1);
   const [todayPlayers, setTodayPlayers] = useState<string[]>([]);
-  const [schedules, setSchedules] = useState<Array<{id: string; start_time: string | null; end_time: string | null; location: string | null; match_date: string | null}>>([]);
+  const [memberPlayers, setMemberPlayers] = useState<MemberOption[]>([]);
+  const [levelInfoMap, setLevelInfoMap] = useState<LevelInfoMap>({});
+  const [manualIncludedPlayers, setManualIncludedPlayers] = useState<string[]>([]);
+  const [schedules, setSchedules] = useState<Array<{
+    id: string;
+    start_time: string | null;
+    end_time: string | null;
+    location: string | null;
+    match_date: string | null;
+    schedule_source?: MatchScheduleSource | null;
+    description?: string | null;
+    generated_match_id?: number | null;
+  }>>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<Record<string, TeamName>>({});
   const [loading, setLoading] = useState(true);
@@ -61,23 +89,107 @@ export default function TeamManagementPage() {
   const [selectedRoundForModal, setSelectedRoundForModal] = useState<RoundSummary | null>(null);
   const [pairGroups, setPairGroups] = useState<{groupName: string; players: string[]}[]>([]);
   const [showGroupPlayers, setShowGroupPlayers] = useState(false);
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const playerPool = useMemo(
+    () => Array.from(new Set(selectedScheduleId ? [...todayPlayers, ...manualIncludedPlayers] : todayPlayers)),
+    [manualIncludedPlayers, selectedScheduleId, todayPlayers]
+  );
+  const availableMembersToAdd = useMemo(
+    () => memberPlayers
+      .filter((player) => !todayPlayers.includes(player.assignmentLabel) && !manualIncludedPlayers.includes(player.assignmentLabel))
+      .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ko-KR')),
+    [manualIncludedPlayers, memberPlayers, todayPlayers]
+  );
+
+  // 레벨 표시는 level_info.code -> name 규칙을 따라야 한다.
+  const formatAssignmentLabel = (profile: {
+    id: string;
+    username: string | null;
+    full_name: string | null;
+    skill_level: string | null;
+  }) => {
+    const playerName = profile.full_name || profile.username || `선수-${profile.id.substring(0, 4)}`;
+    const levelCode = String(profile.skill_level || '').toUpperCase();
+    return `${playerName}(${levelCode})`;
+  };
+
+  const fetchMemberPlayers = async () => {
+    try {
+      const [profilesResult, levelInfoResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, username, full_name, skill_level')
+          .order('username', { ascending: true }),
+        fetchLevelInfoMap(supabase),
+      ]);
+
+      const { data: profilesData, error } = profilesResult;
+
+      if (error) {
+        console.error('회원 목록 조회 오류:', error);
+        setMemberPlayers([]);
+        return;
+      }
+
+      setLevelInfoMap(levelInfoResult);
+      setMemberPlayers((profilesData || []).map((profile) => ({
+        id: profile.id,
+        fullName: profile.full_name || profile.username || `선수-${profile.id.substring(0, 4)}`,
+        levelName: getLevelNameFromCode(levelInfoResult, profile.skill_level, '미지정'),
+        skillCode: String(profile.skill_level || '').toUpperCase(),
+        score: getLevelScoreFromCode(levelInfoResult, profile.skill_level, getLegacyLevelScore(profile.skill_level || '')),
+        assignmentLabel: formatAssignmentLabel(profile),
+      })));
+    } catch (error) {
+      console.error('회원 목록 조회 실패:', error);
+      setMemberPlayers([]);
+    }
+  };
 
   // 오늘 출석한 선수들 조회
   const fetchTodayPlayers = async () => {
     try {
-      // 우선: 선택된 스케줄이 있으면 해당 스케줄의 등록자(registered)를 사용
+      // 우선: 선택된 스케줄이 있으면 해당 스케줄의 등록자만 사용
       if (selectedScheduleId) {
-        // 스케줄에서 match_date를 가져와서 날짜 기반 등록자 조회
-        const { data: schedule } = await supabase.from('match_schedules').select('match_date').eq('id', selectedScheduleId).single();
-        const date = schedule?.match_date || new Date().toISOString().slice(0,10);
-        const regs = await fetchRegisteredPlayersForDate(date);
-        const names = regs.map(r => `${r.name}(${(r.skill_level || '').toUpperCase()})`);
+        const { data: participants, error: participantsError } = await supabase
+          .from('match_participants')
+          .select('user_id')
+          .eq('match_schedule_id', selectedScheduleId)
+          .eq('status', 'registered');
+
+        if (participantsError) {
+          console.error('선택 경기 참가자 조회 오류:', participantsError);
+          setTodayPlayers([]);
+          return;
+        }
+
+        const userIds = Array.from(new Set((participants || []).map((row) => row.user_id).filter(Boolean)));
+
+        if (userIds.length === 0) {
+          setTodayPlayers([]);
+          return;
+        }
+
+        const { data: profilesData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, skill_level')
+          .in('id', userIds);
+
+        if (profileError) {
+          console.error('선택 경기 프로필 조회 오류:', profileError);
+          setTodayPlayers([]);
+          return;
+        }
+
+        const names = (profilesData || []).map(formatAssignmentLabel);
+
         setTodayPlayers(names);
         return;
       }
 
       // 선택된 스케줄이 없으면 기존 출석 데이터를 사용
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getKoreaDate();
       const { data: attendanceData, error } = await supabase
         .from('attendances')
         .select('user_id, status')
@@ -108,12 +220,7 @@ export default function TeamManagementPage() {
         return;
       }
 
-      const playerNamesWithLevel = profilesData?.map(p => {
-        const playerName = p.username || p.full_name || `선수-${p.id.substring(0, 4)}`;
-        const skillLevel = p.skill_level ? String(p.skill_level).toLowerCase() : 'n';
-        const levelCode = skillLevel.toUpperCase();
-        return `${playerName}(${levelCode})`;
-      }) || [];
+      const playerNamesWithLevel = profilesData?.map(formatAssignmentLabel) || [];
 
       setTodayPlayers(playerNamesWithLevel);
     } catch (error) {
@@ -125,24 +232,68 @@ export default function TeamManagementPage() {
   // 스케줄 목록을 불러와 선택할 수 있게 함
   const fetchSchedulesList = async () => {
     try {
-      const today = new Date().toISOString().slice(0,10);
+      const today = getKoreaDate();
+      const response = await fetch('/api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      if (response.ok) {
+        const payload = (await response.json()) as {
+          schedules?: Array<{
+            id: string;
+            match_date: string | null;
+            start_time: string | null;
+            end_time: string | null;
+            location: string | null;
+            schedule_source?: MatchScheduleSource | null;
+            description?: string | null;
+            generated_match_id?: number | null;
+          }>;
+        };
+        const nextSchedules = (payload.schedules || []).map((schedule) => ({
+          ...schedule,
+          schedule_source: normalizeScheduleSource(schedule.schedule_source),
+        }));
+        setSchedules(nextSchedules);
+        if (nextSchedules.length === 0) {
+          setSelectedScheduleId(null);
+        } else if (!selectedScheduleId) {
+          setSelectedScheduleId(nextSchedules[0].id);
+        }
+        return;
+      }
+
+      const payload = await response.json().catch(() => null);
+      console.warn('team-management 일정 API fallback 실행:', payload);
+
       const { data, error } = await supabase
         .from('match_schedules')
-        .select('id, match_date, start_time, end_time, location')
+        .select('id, match_date, start_time, end_time, location, description, generated_match_id')
         .gte('match_date', today)
         .order('match_date', { ascending: true });
 
       if (error) {
         console.error('일정 목록 조회 오류:', error);
+        setSchedules([]);
         return;
       }
 
-      setSchedules(data || []);
-      if (data && data.length > 0 && !selectedScheduleId) {
-        setSelectedScheduleId(data[0].id);
+      const nextSchedules = (data || []).map((schedule) => ({
+        ...schedule,
+        schedule_source: inferScheduleSource(schedule),
+      }))
+        .filter((schedule) => schedule.schedule_source === 'tournament');
+
+      setSchedules(nextSchedules);
+      if (nextSchedules.length === 0) {
+        setSelectedScheduleId(null);
+      } else if (!selectedScheduleId) {
+        setSelectedScheduleId(nextSchedules[0].id);
       }
     } catch (e) {
       console.error('일정 조회 실패:', e);
+      setSchedules([]);
     }
   };
 
@@ -238,7 +389,7 @@ export default function TeamManagementPage() {
       }
       
       // 날짜 결정
-      let titleDate = new Date().toISOString().slice(0,10);
+      let titleDate = getKoreaDate();
       if (selectedScheduleId) {
         const { data: schedule } = await supabase.from('match_schedules').select('match_date').eq('id', selectedScheduleId).single();
         if (schedule?.match_date) titleDate = schedule.match_date;
@@ -528,7 +679,7 @@ export default function TeamManagementPage() {
 
   // 자동 팀 배정 (설정된 타입에 따라)
   const autoAssignTeams = () => {
-    if (todayPlayers.length === 0) {
+    if (playerPool.length === 0) {
       alert('출석한 선수가 없습니다.');
       return;
     }
@@ -538,7 +689,7 @@ export default function TeamManagementPage() {
     switch (teamConfig.type) {
       case '2teams':
         // 2팀 균등 배정 (점수 기반)
-        const sortedPlayers2 = [...todayPlayers].sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
+        const sortedPlayers2 = [...playerPool].sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
         sortedPlayers2.forEach((player, index) => {
           // 지그재그 배정: 강한 선수부터 번갈아가며 배정
           newAssignments[player] = index % 2 === 0 ? 'racket' : 'shuttle';
@@ -547,7 +698,7 @@ export default function TeamManagementPage() {
         
       case '3teams':
         // 3팀 균등 배정 (점수 기반)
-        const sortedPlayers3 = [...todayPlayers].sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
+        const sortedPlayers3 = [...playerPool].sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
         const teams3: string[][] = [[], [], []];
         const teamScores3 = [0, 0, 0];
         
@@ -573,7 +724,7 @@ export default function TeamManagementPage() {
         
       case '4teams':
         // 4팀 균등 배정 (점수 기반)
-        const sortedPlayers4 = [...todayPlayers].sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
+        const sortedPlayers4 = [...playerPool].sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
         const teams4: string[][] = [[], [], [], []];
         const teamScores4 = [0, 0, 0, 0];
         
@@ -601,7 +752,7 @@ export default function TeamManagementPage() {
         
       case 'pairs':
         // 1단계: 전체 선수를 점수 기준으로 정렬 (높은 점수부터)
-        const sortedByScore = [...todayPlayers].sort((a, b) => {
+        const sortedByScore = [...playerPool].sort((a, b) => {
           return getPlayerScore(b) - getPlayerScore(a);
         });
         
@@ -827,29 +978,92 @@ export default function TeamManagementPage() {
     }));
   };
 
+  const toggleManualPlayer = (playerName: string) => {
+    setManualIncludedPlayers((prev) => {
+      if (prev.includes(playerName)) {
+        setAssignments((current) => {
+          const next = { ...current };
+          delete next[playerName];
+          return next;
+        });
+        return prev.filter((player) => player !== playerName);
+      }
+
+      return [...prev, playerName];
+    });
+  };
+
+  const toggleMemberSelection = (memberId: string) => {
+    setSelectedMemberIds((prev) =>
+      prev.includes(memberId)
+        ? prev.filter((id) => id !== memberId)
+        : [...prev, memberId]
+    );
+  };
+
+  const toggleSelectAllMembers = () => {
+    if (selectedMemberIds.length === availableMembersToAdd.length) {
+      setSelectedMemberIds([]);
+      return;
+    }
+
+    setSelectedMemberIds(availableMembersToAdd.map((member) => member.id));
+  };
+
+  const addSelectedMembersToPool = () => {
+    if (selectedMemberIds.length === 0) {
+      return;
+    }
+
+    const selectedLabels = availableMembersToAdd
+      .filter((member) => selectedMemberIds.includes(member.id))
+      .map((member) => member.assignmentLabel);
+
+    if (selectedLabels.length > 0) {
+      setManualIncludedPlayers((prev) => Array.from(new Set([...prev, ...selectedLabels])));
+    }
+
+    setSelectedMemberIds([]);
+    setShowMemberModal(false);
+  };
+
+  const getLegacyLevelScore = (skillCode: string): number => {
+    const normalized = String(skillCode || '').trim().toUpperCase();
+    const match = normalized.match(/^([A-Z])(\d+)?$/);
+
+    if (!match) {
+      return 0;
+    }
+
+      const [, level, step] = match;
+      const baseScores: Record<string, number> = {
+        A: 92,
+        B: 83,
+        C: 74,
+        D: 65,
+        E: 56,
+        N: 47,
+      };
+
+      const base = baseScores[level] ?? 0;
+      const tier = Number(step || 2);
+      const offset = tier === 1 ? -3 : tier === 3 ? 3 : 0;
+      return base + offset;
+    };
+
   // 선수 이름에서 레벨 점수 추출
   const getPlayerScore = (playerName: string): number => {
-    // 선수명(A1) 형식에서 레벨 추출
-    const match = playerName.match(/\(([A-Za-z])(\d+)\)/);
+    const match = playerName.match(/\(([^)]+)\)/);
     if (!match) return 0;
-    
-    const level = match[1].toUpperCase();
-    const number = parseInt(match[2]);
-    
-    // 레벨별 기본 점수
-    const levelScores: Record<string, number> = {
-      'S': 10,
-      'A': 8,
-      'B': 6,
-      'C': 4,
-      'D': 2,
-      'N': 0
-    };
-    
-    const baseScore = levelScores[level] || 0;
-    // 숫자가 작을수록 높은 실력 (A1 > A2 > A3)
-    const adjustedScore = baseScore + (4 - Math.min(number, 3)) * 0.3;
-    return Math.round(adjustedScore * 10) / 10;
+
+    const levelCode = String(match[1] || '').trim();
+    const mappedScore = getLevelScoreFromCode(levelInfoMap, levelCode, Number.NaN);
+
+    if (!Number.isNaN(mappedScore)) {
+      return mappedScore;
+    }
+
+    return getLegacyLevelScore(levelCode);
   };
 
   // 팀 점수 합계 계산
@@ -890,6 +1104,7 @@ export default function TeamManagementPage() {
   useEffect(() => {
     const initializeData = async () => {
       await fetchSchedulesList();
+      await fetchMemberPlayers();
       await fetchTodayPlayers();
       await fetchRoundsData();
       // DB에서 실패한 경우 로컬 스토리지에서 불러오기
@@ -902,6 +1117,14 @@ export default function TeamManagementPage() {
   // 선택된 스케줄 변경 시 선수 목록 갱신
   useEffect(() => {
     fetchTodayPlayers();
+  }, [selectedScheduleId]);
+
+  useEffect(() => {
+    setManualIncludedPlayers([]);
+    setSelectedMemberIds([]);
+    setShowMemberModal(false);
+    setAssignments({});
+    setPairGroups([]);
   }, [selectedScheduleId]);
 
   if (loading) {
@@ -925,6 +1148,7 @@ export default function TeamManagementPage() {
           {/* 왼쪽: 스케줄 선택 */}
           <div>
             <label className="block text-sm font-semibold mb-2 text-gray-700">📅 경기 일정</label>
+            <p className="text-xs text-gray-500 mb-2">대회 경기만 표시됩니다.</p>
             <select 
               value={selectedScheduleId || ''} 
               onChange={(e) => setSelectedScheduleId(e.target.value || null)}
@@ -932,7 +1156,9 @@ export default function TeamManagementPage() {
             >
               <option value="">(출석 기준)</option>
               {schedules.map(s => (
-                <option key={s.id} value={s.id}>{s.match_date} {s.start_time} · {s.location}</option>
+                <option key={s.id} value={s.id}>
+                  {s.match_date} {s.start_time} · {s.location} [{getScheduleSourceLabel(s.schedule_source)}]
+                </option>
               ))}
             </select>
           </div>
@@ -1034,8 +1260,8 @@ export default function TeamManagementPage() {
                     onClick={() => {
                       setTeamConfig({ ...teamConfig, numLevelGroups: num });
                       // 그룹 수 변경 시 선수 목록 미리 표시 (각 그룹을 짝수로 조정)
-                      if (todayPlayers.length > 0) {
-                        const sortedByScore = [...todayPlayers].sort((a, b) => 
+                      if (playerPool.length > 0) {
+                        const sortedByScore = [...playerPool].sort((a, b) => 
                           getPlayerScore(b) - getPlayerScore(a)
                         );
                         const totalPlayers = sortedByScore.length;
@@ -1122,14 +1348,59 @@ export default function TeamManagementPage() {
         <h2 className="text-xl font-semibold mb-4">
           {currentRound}회차 팀 배정 
           <span className="text-sm text-gray-600 ml-2">
-            (출석자: {todayPlayers.length}명)
+            (배정 대상: {playerPool.length}명)
           </span>
         </h2>
         
-        {todayPlayers.length === 0 ? (
-          <p className="text-gray-500">선택된 일정에 참가자가 없습니다.</p>
+        {selectedScheduleId && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="font-semibold text-amber-900">관리자 수동 배정용 회원 추가</h3>
+                <p className="text-sm text-amber-800">
+                  선택한 대회 일정 신청자 외에 전체 회원 중 원하는 선수를 팀 배정 대상에 직접 추가할 수 있습니다.
+                </p>
+              </div>
+              <div className="text-sm text-amber-900">추가됨 {manualIncludedPlayers.length}명</div>
+            </div>
+
+            <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
+              <button
+                type="button"
+                onClick={() => setShowMemberModal(true)}
+                className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+              >
+                회원추가
+              </button>
+              <span className="text-sm text-amber-800">모든 회원을 풀네임으로 보고 여러 명을 한 번에 추가할 수 있습니다.</span>
+            </div>
+
+            {availableMembersToAdd.length === 0 && (
+              <p className="mt-3 text-sm text-amber-700">추가 가능한 회원이 없습니다.</p>
+            )}
+
+            {manualIncludedPlayers.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {manualIncludedPlayers.map((player) => (
+                  <button
+                    key={player}
+                    type="button"
+                    onClick={() => toggleManualPlayer(player)}
+                    className="rounded-full border border-amber-500 bg-amber-500 px-3 py-1 text-sm text-white transition-colors hover:bg-amber-600"
+                  >
+                    제거 · {player}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {playerPool.length === 0 ? (
+          <p className="text-gray-500">선택된 일정에 참가자가 없습니다. 위에서 회원을 추가해 배정을 시작할 수 있습니다.</p>
         ) : (
           <>
+
             <div className="flex gap-4 mb-4">
               <button
                 onClick={autoAssignTeams}
@@ -1167,7 +1438,7 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team1').toFixed(1)}</span>
                   </h3>
                   <div className="space-y-2">
-                    {sortPlayers(todayPlayers).map(player => (
+                    {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
                         className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
@@ -1192,7 +1463,7 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team2').toFixed(1)}</span>
                   </h3>
                   <div className="space-y-2">
-                    {sortPlayers(todayPlayers).map(player => (
+                    {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
                         className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
@@ -1217,7 +1488,7 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team3').toFixed(1)}</span>
                   </h3>
                   <div className="space-y-2">
-                    {sortPlayers(todayPlayers).map(player => (
+                    {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
                         className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
@@ -1241,7 +1512,7 @@ export default function TeamManagementPage() {
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <p className="text-sm text-gray-700 mb-2">
                     💡 <strong>2명 팀 모드:</strong> 2명씩 자동으로 페어를 구성합니다. 
-                    (출석자 {todayPlayers.length}명 → {Math.ceil(todayPlayers.length / 2)}개 페어)
+                    (배정 대상 {playerPool.length}명 → {Math.ceil(playerPool.length / 2)}개 페어)
                   </p>
                 </div>
                 
@@ -1391,13 +1662,13 @@ export default function TeamManagementPage() {
                 })()}
                 
                 {/* 미배정 선수 목록 */}
-                {todayPlayers.filter(p => !assignments[p]).length > 0 && (
+                {playerPool.filter(p => !assignments[p]).length > 0 && (
                   <div className="border rounded-lg p-4 bg-gray-50">
                     <h3 className="text-lg font-semibold mb-3 text-gray-700">
-                      미배정 선수 ({todayPlayers.filter(p => !assignments[p]).length}명)
+                      미배정 선수 ({playerPool.filter(p => !assignments[p]).length}명)
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                      {todayPlayers.filter(p => !assignments[p]).map(player => (
+                      {playerPool.filter(p => !assignments[p]).map(player => (
                         <div 
                           key={player}
                           className="p-2 rounded border bg-white text-sm text-center"
@@ -1419,7 +1690,7 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team1').toFixed(1)}</span>
                   </h3>
                   <div className="space-y-2">
-                    {sortPlayers(todayPlayers).map(player => (
+                    {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
                         className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
@@ -1444,7 +1715,7 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team2').toFixed(1)}</span>
                   </h3>
                   <div className="space-y-2">
-                    {sortPlayers(todayPlayers).map(player => (
+                    {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
                         className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
@@ -1469,7 +1740,7 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team3').toFixed(1)}</span>
                   </h3>
                   <div className="space-y-2">
-                    {sortPlayers(todayPlayers).map(player => (
+                    {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
                         className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
@@ -1494,7 +1765,7 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team4').toFixed(1)}</span>
                   </h3>
                   <div className="space-y-2">
-                    {sortPlayers(todayPlayers).map(player => (
+                    {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
                         className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
@@ -1522,7 +1793,7 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('racket').toFixed(1)}</span>
                   </h3>
                   <div className="space-y-2">
-                    {sortPlayers(todayPlayers).map(player => (
+                    {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
                         className={`p-2 rounded border cursor-pointer transition-colors ${
@@ -1547,7 +1818,7 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('shuttle').toFixed(1)}</span>
                   </h3>
                   <div className="space-y-2">
-                    {sortPlayers(todayPlayers).map(player => (
+                    {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
                         className={`p-2 rounded border cursor-pointer transition-colors ${
@@ -1629,7 +1900,7 @@ export default function TeamManagementPage() {
                         👥 참여자
                       </button>
                       <button
-                        onClick={() => deleteTeamAssignment(round.round, round.assignment_date || new Date().toISOString().slice(0,10))}
+                        onClick={() => deleteTeamAssignment(round.round, round.assignment_date || getKoreaDate())}
                         className="text-red-600 hover:text-red-900 hover:bg-red-50 px-3 py-1 rounded transition-colors"
                         title="삭제"
                       >
@@ -1643,6 +1914,104 @@ export default function TeamManagementPage() {
           </div>
         )}
       </div>
+
+      {showMemberModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-4xl rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">회원 추가</h3>
+                <p className="text-sm text-gray-600">추가할 회원을 여러 명 선택한 뒤 확인을 누르세요.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMemberModal(false);
+                  setSelectedMemberIds([]);
+                }}
+                className="text-2xl leading-none text-gray-400 hover:text-gray-700"
+                aria-label="close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+              {availableMembersToAdd.length === 0 ? (
+                <p className="text-sm text-gray-500">추가 가능한 회원이 없습니다.</p>
+              ) : (
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllMembers}
+                    className="rounded-lg border border-amber-300 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50"
+                  >
+                    {selectedMemberIds.length === availableMembersToAdd.length ? '전체해제' : '전체선택'}
+                  </button>
+                  <div className="text-sm text-gray-500">
+                    {selectedMemberIds.length} / {availableMembersToAdd.length}
+                  </div>
+                </div>
+              )}
+
+              {availableMembersToAdd.length > 0 && (
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-3 lg:grid-cols-5">
+                  {availableMembersToAdd.map((member) => {
+                    const checked = selectedMemberIds.includes(member.id);
+                    return (
+                      <label
+                        key={member.id}
+                        className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${
+                          checked ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleMemberSelection(member.id)}
+                          className="h-4 w-4"
+                        />
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900 truncate" title={member.fullName}>
+                            {member.fullName}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {member.skillCode || 'N1'} · {member.score.toFixed(0)}점
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between border-t px-6 py-4">
+              <div className="text-sm text-gray-600">선택됨 {selectedMemberIds.length}명</div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMemberModal(false);
+                    setSelectedMemberIds([]);
+                  }}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={addSelectedMembersToPool}
+                  disabled={selectedMemberIds.length === 0}
+                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-200"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 참여자 모달 */}
       {selectedRoundForModal && (

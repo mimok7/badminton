@@ -1,7 +1,7 @@
  'use client';
 
 import React, { useState } from 'react';
-import { ExtendedPlayer, LEVEL_LABELS } from '../types';
+import { ExtendedPlayer } from '../types';
 
 interface AttendanceStatusProps {
   todayPlayers: ExtendedPlayer[] | null;
@@ -65,8 +65,8 @@ export default function AttendanceStatus({ todayPlayers }: AttendanceStatusProps
   }
   
   activePlayers.forEach(player => {
-    const level = player.skill_level || 'n';
-    const levelLabel = player.skill_label || LEVEL_LABELS[level] || 'E2 (초급)';
+    const level = (player.skill_label || player.skill_level || 'N1').toUpperCase();
+    const levelLabel = level;
     levelCounts[levelLabel] = (levelCounts[levelLabel] || 0) + 1;
   });
 
@@ -101,8 +101,7 @@ export default function AttendanceStatus({ todayPlayers }: AttendanceStatusProps
         <div className="flex flex-wrap gap-2 text-xs">
           {Object.entries(levelCounts)
             .sort(([a], [b]) => {
-              // 정렬 순서: 랍스터, 소갈비, 돼지갈비, 양갈비, 닭갈비, N
-              const order = ['랍스터', '소갈비', '돼지갈비', '양갈비', '닭갈비', 'N (미지정)'];
+              const order = ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3', 'E1', 'E2', 'E3', 'N1', 'N2', 'N3'];
               const indexA = order.indexOf(a);
               const indexB = order.indexOf(b);
               // 순서에 없는 항목은 맨 뒤로
@@ -148,7 +147,7 @@ export default function AttendanceStatus({ todayPlayers }: AttendanceStatusProps
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{player.name}</div>
-                    <div className="text-xs text-gray-500 truncate">{player.skill_label}</div>
+                    <div className="text-xs text-gray-500 truncate">{(player.skill_label || player.skill_level || 'N1').toUpperCase()}</div>
                   </div>
                   <div>
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${

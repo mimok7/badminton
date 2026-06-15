@@ -1,8 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { RequireAdmin } from '@/components/AuthGuard';
+import {
+  decorateDescriptionForScheduleSource,
+  getScheduleSourceLabel,
+  inferScheduleSource,
+  normalizeScheduleSource,
+  type MatchScheduleSource,
+} from '@/lib/match-schedule-source';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import { Button } from '@/components/ui/button';
@@ -15,6 +22,7 @@ interface MatchSchedule {
   location: string;
   max_participants: number;
   current_participants: number;
+  schedule_source: MatchScheduleSource;
   status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   description: string | null;
   created_at: string;
@@ -101,6 +109,7 @@ export default function MatchSchedulePage() {
     end_time: string;
     location: string;
     max_participants: number;
+    schedule_source: MatchScheduleSource;
     description: string | null;
   } | null>(null);
   const router = useRouter();
@@ -114,134 +123,87 @@ export default function MatchSchedulePage() {
     end_time: '',
     location: '',
     max_participants: 20,
+    schedule_source: 'recurring' as MatchScheduleSource,
     description: ''
   });
 
   // 경기 일정 목록 조회 (배치 조회: 일정 -> 참가자 -> 프로필)
-  const fetchSchedules = async () => {
+  const fetchSchedules = useCallback(async () => {
     try {
       setLoading(true);
-      const today = new Date();
-      today.setHours(0,0,0,0);
+      const response = await fetch('/api/admin/match-schedules', {
+        method: 'GET',
+        cache: 'no-store',
+      });
 
-      // 오늘 이후 일정만 조회하도록 필터링을 서버에서 처리
-      const { data: schedulesData, error: schedulesError } = await supabase
-        .from('match_schedules')
-        .select('*')
-        .gte('match_date', today.toISOString().split('T')[0])
-        .order('match_date', { ascending: true })
-        .order('start_time', { ascending: true });
-
-      if (schedulesError) {
-        console.error('경기 일정 조회 오류:', schedulesError);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        console.error('경기 일정 조회 오류:', payload);
+        setSchedules([]);
         return;
       }
+
+      const payload = (await response.json()) as { schedules?: ScheduleWithParticipants[] };
+      const schedulesData = (payload.schedules || []).map((schedule) => ({
+        ...schedule,
+        schedule_source: inferScheduleSource(schedule),
+      }));
 
       if (!schedulesData || schedulesData.length === 0) {
         setSchedules([]);
         return;
       }
 
-      // 1) 모든 일정의 ID 수집
-      const scheduleIds = schedulesData.map(s => s.id);
-
-      // 2) 해당 일정들의 참가자 일괄 조회 (참가자로 인정되는 상태: registered, attended)
-      const { data: participantsAll, error: participantsError } = await supabase
-        .from('match_participants')
-        .select('*')
-        .in('match_schedule_id', scheduleIds)
-        .in('status', ['registered', 'attended']);
-
-      if (participantsError) {
-        console.error('참가자 조회 오류:', participantsError);
-      }
-
-      const participantsBySchedule: Record<string, MatchParticipant[]> = {};
-      const userIdSet = new Set<string>();
-      (participantsAll || []).forEach((p) => {
-        if (!participantsBySchedule[p.match_schedule_id as unknown as string]) {
-          participantsBySchedule[p.match_schedule_id as unknown as string] = [] as any;
-        }
-        participantsBySchedule[p.match_schedule_id as unknown as string].push(p as any);
-        if (p.user_id) userIdSet.add(p.user_id as unknown as string);
-      });
-
-      // 3) 참가자 프로필 일괄 조회 (이름/닉네임 표시용)
-      let profilesMap: Record<string, { username: string | null; full_name: string | null }> = {};
-    if (userIdSet.size > 0) {
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-      .select('id, username, full_name')
-      .in('id', Array.from(userIdSet));
-
-        if (profilesError) {
-          console.warn('프로필 조회 오류 (이름 표시 건너뜀):', profilesError);
-        } else if (profilesData) {
-          profilesMap = profilesData.reduce((acc: any, cur: any) => {
-            // map by profiles.id to match match_participants.user_id
-            acc[cur.id] = { username: cur.username ?? null, full_name: cur.full_name ?? null };
-            return acc;
-          }, {} as Record<string, { username: string | null; full_name: string | null }>);
-        }
-      }
-
-      // 4) 스케줄과 참가자 + 프로필 매핑
-      const schedulesWithParticipants = schedulesData.map((schedule) => {
-        const list = (participantsBySchedule[schedule.id] || []).map((p: any) => ({
-          id: p.id,
-          user_id: p.user_id,
-          registered_at: p.registered_at,
-          status: p.status,
-          profiles: profilesMap[p.user_id] ? {
-            username: profilesMap[p.user_id].username ?? undefined,
-            full_name: profilesMap[p.user_id].full_name ?? undefined,
-          } : undefined,
-        })) as MatchParticipant[];
-
-        return {
-          ...schedule,
-          participants: list,
-          current_participants: list.length,
-        } as ScheduleWithParticipants;
-      });
-
-      setSchedules(schedulesWithParticipants);
+      setSchedules(schedulesData);
 
     } catch (error) {
       console.error('경기 일정 조회 중 오류:', error);
+      setSchedules([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchSchedules();
-  }, []);
+  }, [fetchSchedules]);
+
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      fetchSchedules();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchSchedules();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchSchedules]);
 
   // 참가자 변화 실시간 반영: Realtime 구독으로 자동 새로고침
   useEffect(() => {
     const channel = supabase
       .channel('match_participants_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_participants' }, (payload) => {
-        const changedScheduleId = (payload.new as any)?.match_schedule_id || (payload.old as any)?.match_schedule_id;
-        // 현재 목록에 있는 일정의 변경일 때만 갱신 (간단히 전체 갱신)
-        if (changedScheduleId && schedules.some(s => s.id === changedScheduleId)) {
-          fetchSchedules();
-        }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_participants' }, () => {
+        fetchSchedules();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_schedules' }, (payload) => {
-        const changedScheduleId = (payload.new as any)?.id || (payload.old as any)?.id;
-        // 현재 목록에 있는 일정의 변경일 때만 갱신
-        if (changedScheduleId && schedules.some(s => s.id === changedScheduleId)) {
-          fetchSchedules();
-        }
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_schedules' }, () => {
+        fetchSchedules();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [schedules]);
+  }, [fetchSchedules, supabase]);
 
   // 새 경기 생성
   const handleCreateSchedule = async (e: React.FormEvent) => {
@@ -263,13 +225,27 @@ export default function MatchSchedulePage() {
         return;
       }
 
-      const { error } = await supabase
+      const scheduleSource = normalizeScheduleSource(newSchedule.schedule_source);
+      const basePayload = {
+        ...newSchedule,
+        description: decorateDescriptionForScheduleSource(newSchedule.description, scheduleSource),
+        created_by: user.id,
+        updated_by: user.id
+      };
+
+      let { error } = await supabase
         .from('match_schedules')
         .insert({
-          ...newSchedule,
-          created_by: user.id,
-          updated_by: user.id
+          ...basePayload,
+          schedule_source: scheduleSource,
         });
+
+      if (error?.code === '42703') {
+        const retry = await supabase
+          .from('match_schedules')
+          .insert(basePayload);
+        error = retry.error;
+      }
 
       if (error) {
         console.error('경기 생성 오류:', error);
@@ -292,6 +268,7 @@ export default function MatchSchedulePage() {
         end_time: '',
         location: '',
         max_participants: 20,
+        schedule_source: 'recurring',
         description: ''
       });
       setShowCreateForm(false);
@@ -315,6 +292,7 @@ export default function MatchSchedulePage() {
       end_time: schedule.end_time || '',
       location: schedule.location || '',
       max_participants: schedule.max_participants ?? 20,
+      schedule_source: inferScheduleSource(schedule),
       description: schedule.description ?? ''
     });
   };
@@ -325,23 +303,31 @@ export default function MatchSchedulePage() {
     if (!editingSchedule || !editForm) return;
 
     const payload = {
+      id: editingSchedule.id,
       match_date: editForm.match_date,
       start_time: editForm.start_time,
       end_time: editForm.end_time,
       location: editForm.location,
       max_participants: editForm.max_participants,
-      description: editForm.description,
+      description: decorateDescriptionForScheduleSource(editForm.description, normalizeScheduleSource(editForm.schedule_source)),
       updated_by: user?.id
     } as any;
 
     try {
-      const { error } = await supabase
-        .from('match_schedules')
-        .update(payload)
-        .eq('id', editingSchedule.id);
+      const response = await fetch('/api/admin/match-schedules', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...payload,
+          schedule_source: normalizeScheduleSource(editForm.schedule_source),
+        }),
+      });
 
-      if (error) {
-        console.error('경기 수정 오류:', error);
+      if (!response.ok) {
+        const responseBody = await response.json().catch(() => null);
+        console.error('경기 수정 API 오류:', responseBody);
         alert('경기 수정 중 오류가 발생했습니다.');
         return;
       }
@@ -737,6 +723,24 @@ export default function MatchSchedulePage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  경기 유형
+                </label>
+                <select
+                  value={newSchedule.schedule_source}
+                  onChange={(e) => setNewSchedule({
+                    ...newSchedule,
+                    schedule_source: normalizeScheduleSource(e.target.value),
+                  })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="recurring">정기모임</option>
+                  <option value="tournament">대회 경기</option>
+                  <option value="generated">일반 경기</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   경기 설명
                 </label>
                 <textarea
@@ -800,6 +804,9 @@ export default function MatchSchedulePage() {
                                 weekday: 'long'
                               })}
                             </h3>
+                            <span className="px-3 py-1 rounded text-sm bg-purple-100 text-purple-800">
+                              {getScheduleSourceLabel(schedule.schedule_source)}
+                            </span>
                             <span className={`px-3 py-1 rounded text-sm ${getStatusColor(schedule.status)}`}>
                               {getStatusText(schedule.status)}
                             </span>
@@ -818,7 +825,7 @@ export default function MatchSchedulePage() {
                           
                           {schedule.description && (
                             <p className="text-gray-600 mt-2 text-sm">
-                              💬 {schedule.description}
+                              💬 {schedule.description.replace(/^\[(정기모임|대회 경기|일반 경기)\]\s*/u, '')}
                             </p>
                           )}
                         </div>
@@ -1026,6 +1033,21 @@ export default function MatchSchedulePage() {
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">경기 유형</label>
+                <select
+                  value={editForm.schedule_source}
+                  onChange={(e) => setEditForm({
+                    ...editForm,
+                    schedule_source: normalizeScheduleSource(e.target.value),
+                  })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="recurring">정기모임</option>
+                  <option value="tournament">대회 경기</option>
+                  <option value="generated">일반 경기</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">경기 설명</label>

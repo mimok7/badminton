@@ -7,6 +7,7 @@ import MatchSessionStatus from '@/app/(admin)/players/components/MatchSessionSta
 import { ExtendedPlayer, MatchSession, AvailableDate } from '@/app/(admin)/players/types';
 import { supabase, fetchRegisteredPlayersForDate, calculatePlayerGameCounts, normalizeLevel } from '@/app/(admin)/players/utils';
 import { Match } from '@/types';
+import { getKoreaDate } from '@/lib/date';
 
 export default function PlayersScheduledPage() {
   const [availableDates, setAvailableDates] = useState<AvailableDate[]>([]);
@@ -23,6 +24,12 @@ export default function PlayersScheduledPage() {
   }, []);
 
   useEffect(() => {
+    if (!selectedDate && availableDates.length > 0) {
+      setSelectedDate(availableDates[0].date);
+    }
+  }, [availableDates, selectedDate]);
+
+  useEffect(() => {
     const load = async () => {
       if (!selectedDate) { setPlayers([]); setMatchSessions([]); return; }
       const p = await fetchRegisteredPlayersForDate(selectedDate);
@@ -33,17 +40,70 @@ export default function PlayersScheduledPage() {
   }, [selectedDate]);
 
   const fetchAvailableDates = async () => {
-    try {
-      const { data: schedules, error } = await supabase
+    const fetchAvailableDatesDirectly = async () => {
+      const { data, error } = await supabase
         .from('match_schedules')
         .select('match_date, location, start_time, end_time, max_participants, current_participants, status')
-        .gte('match_date', new Date().toISOString().split('T')[0])
+        .gte('match_date', getKoreaDate())
         .eq('status', 'scheduled')
         .order('match_date', { ascending: true });
-      if (error) throw error;
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    };
+
+    try {
+      const response = await fetch('/api/admin/match-schedules?from_date=today&status=scheduled', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        console.warn('관리자 예정 일정 API fallback 실행:', payload);
+        const directSchedules = await fetchAvailableDatesDirectly();
+        const groups: Record<string, any[]> = {};
+        directSchedules.forEach((s) => {
+          if (!s.match_date) {
+            return;
+          }
+          (groups[s.match_date] ||= []).push(s);
+        });
+        const list: AvailableDate[] = Object.entries(groups).map(([date, arr]) => {
+          const totalCapacity = arr.reduce((a: number, s: any) => a + s.max_participants, 0);
+          const currentParticipants = arr.reduce((a: number, s: any) => a + s.current_participants, 0);
+          return {
+            date,
+            schedules: arr,
+            totalCapacity,
+            currentParticipants,
+            availableSlots: totalCapacity - currentParticipants,
+            location: arr[0]?.location || '장소 미정',
+            timeRange: `${arr[0]?.start_time || '시간'} - ${arr[arr.length - 1]?.end_time || '미정'}`,
+          } as AvailableDate;
+        });
+        setAvailableDates(list);
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        schedules?: Array<{
+          match_date: string | null;
+          location: string | null;
+          start_time: string | null;
+          end_time: string | null;
+          max_participants: number | null;
+          current_participants: number | null;
+          status: string;
+        }>;
+      };
+      const schedules = payload.schedules || [];
 
       const groups: Record<string, any[]> = {};
-      (schedules || []).forEach((s) => {
+      schedules.forEach((s) => {
         if (!s.match_date) {
           return;
         }
@@ -65,9 +125,37 @@ export default function PlayersScheduledPage() {
       setAvailableDates(list);
     } catch (e) {
       console.error('일정 로드 오류:', e);
-      setAvailableDates([]);
+      try {
+        const directSchedules = await fetchAvailableDatesDirectly();
+        const groups: Record<string, any[]> = {};
+        directSchedules.forEach((s) => {
+          if (!s.match_date) {
+            return;
+          }
+          (groups[s.match_date] ||= []).push(s);
+        });
+        const list: AvailableDate[] = Object.entries(groups).map(([date, arr]) => {
+          const totalCapacity = arr.reduce((a: number, s: any) => a + s.max_participants, 0);
+          const currentParticipants = arr.reduce((a: number, s: any) => a + s.current_participants, 0);
+          return {
+            date,
+            schedules: arr,
+            totalCapacity,
+            currentParticipants,
+            availableSlots: totalCapacity - currentParticipants,
+            location: arr[0]?.location || '장소 미정',
+            timeRange: `${arr[0]?.start_time || '시간'} - ${arr[arr.length - 1]?.end_time || '미정'}`,
+          } as AvailableDate;
+        });
+        setAvailableDates(list);
+      } catch (fallbackError) {
+        console.error('예정 경기 일정 직접 조회 오류:', fallbackError);
+        setAvailableDates([]);
+      }
     }
   };
+
+  const selectedDateInfo = availableDates.find((dateInfo) => dateInfo.date === selectedDate) || null;
 
   const fetchMatchSessions = async (date: string) => {
     try {
@@ -165,7 +253,20 @@ export default function PlayersScheduledPage() {
           </select>
         </div>
 
-        <MatchSessionStatus matchSessions={matchSessions} />
+        <MatchSessionStatus
+          title={selectedDate ? '📅 선택한 날짜의 경기 일정' : '📅 예정 경기 일정'}
+          matchSessions={matchSessions}
+          registeredSchedules={(selectedDateInfo?.schedules || []).map((schedule) => ({
+            id: `${schedule.match_date}-${schedule.start_time}-${schedule.location || 'location'}`,
+            match_date: schedule.match_date,
+            start_time: schedule.start_time,
+            end_time: schedule.end_time,
+            location: schedule.location,
+            status: schedule.status,
+            current_participants: schedule.current_participants,
+            max_participants: schedule.max_participants,
+          }))}
+        />
 
         <div className="flex gap-2">
           <button className="px-3 py-2 border rounded" onClick={() => generateBy('level')}>레벨별 생성</button>

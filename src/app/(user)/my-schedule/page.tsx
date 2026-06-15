@@ -6,6 +6,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { NotificationService } from '@/utils/notification-service';
+import { getUserLevelDisplay } from '@/lib/level-display';
 
 // 경기 결과 표시 컴포넌트
 function MatchResultDisplay({ selectedMatch, user, supabase }: {
@@ -314,14 +315,14 @@ export default function MySchedulePage() {
                 username: '미정', 
                 full_name: '미정', 
                 skill_level: 'E2',
-                skill_level_name: 'E2급'
+                skill_level_name: getUserLevelDisplay('E2')
               };
               return {
                 id: playerData.user_id,
                 username: playerData.full_name || playerData.username || '미정',
                 full_name: playerData.full_name || playerData.username || '미정',
                 skill_level: playerData.skill_level || 'E2',
-                skill_level_name: playerData.level_info?.name || `${playerData.skill_level || 'E2'}급`
+                skill_level_name: playerData.level_info?.name || getUserLevelDisplay(playerData.skill_level || 'E2')
               };
             };
 
@@ -485,20 +486,7 @@ export default function MySchedulePage() {
     if (player?.skill_level_name) {
       return player.skill_level_name;
     }
-    // 없으면 기본값 매핑 사용 (fallback)
-    const levelMap: Record<string, string> = {
-      'A1': 'A1급',
-      'A2': 'A2급', 
-      'B1': 'B1급',
-      'B2': 'B2급',
-      'C1': 'C1급',
-      'C2': 'C2급',
-      'D1': 'D1급',
-      'D2': 'D2급',
-      'E1': 'E1급',
-      'E2': 'E2급'
-    };
-    return levelMap[player?.skill_level] || 'E2급';
+    return getUserLevelDisplay(player?.skill_level);
   };
 
   // 경기 상태 색상
@@ -968,7 +956,7 @@ export default function MySchedulePage() {
             {profile?.full_name || profile?.username || '회원'}님
           </span>
           <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
-            레벨: {profile?.skill_level ? `${profile.skill_level}급` : 'E2급'}
+            레벨: {getUserLevelDisplay(profile?.skill_level)}
           </span>
         </div>
         <p className="text-blue-100">

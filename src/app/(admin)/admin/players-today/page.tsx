@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RequireAdmin } from '@/components/AuthGuard';
 import { LEVEL_LABELS } from '@/app/(admin)/players/types';
 import AttendanceStatus from '@/app/(admin)/players/components/AttendanceStatus';
@@ -12,10 +12,11 @@ import { ExtendedPlayer, MatchSession } from '@/app/(admin)/players/types';
 import { getSupabaseClient } from '@/lib/supabase';
 import { fetchTodayPlayers, fetchRegisteredPlayersForDate, calculatePlayerGameCounts, normalizeLevel } from '@/app/(admin)/players/utils';
 import { Match } from '@/types';
-
-const supabase = getSupabaseClient();
+import { getKoreaDate } from '@/lib/date';
+import { getAdminLevelDisplay } from '@/lib/level-display';
 
 export default function PlayersTodayPage() {
+  const supabase = useMemo(() => getSupabaseClient(), []);
   const [todayPlayers, setTodayPlayers] = useState<ExtendedPlayer[] | null>(null);
   const [matchSessions, setMatchSessions] = useState<MatchSession[]>([]);
   const [todaySchedules, setTodaySchedules] = useState<Array<{
@@ -40,12 +41,7 @@ export default function PlayersTodayPage() {
 
   // 로컬(KST) 기준 YYYY-MM-DD 반환 (타임존 문제 해결)
   const getTodayLocal = () => {
-    const now = new Date();
-    // 로컬 타임존의 오늘 날짜를 정확히 계산
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return getKoreaDate();
   };
 
   // 출석 데이터 갱신 함수
@@ -103,16 +99,11 @@ export default function PlayersTodayPage() {
           .from('level_info')
           .select('code, name');
 
-        const levelMap: Record<string, string> = {};
-        (levelData || []).forEach((lvl: any) => {
-          if (lvl.code) levelMap[String(lvl.code).toLowerCase()] = lvl.name || '';
-        });
-
         // 출석 데이터를 참가자 데이터로 변환
         const playersFromAttendance: ExtendedPlayer[] = (profiles || []).map((profile: any) => {
           const raw = (profile.skill_level || '').toString().toLowerCase();
           const normalized = normalizeLevel('', raw);
-          const label = levelMap[normalized] || LEVEL_LABELS[normalized] || 'E2 (초급)';
+          const label = getAdminLevelDisplay(normalized);
           const name = profile.full_name || profile.username || `선수-${String(profile.id).slice(0, 4)}`;
           return {
             id: profile.id,
@@ -293,7 +284,7 @@ export default function PlayersTodayPage() {
             const todayAssignments = allAssignments.filter((assignment: any) => {
               const assignmentDate = assignment.assignment_date || 
                                      assignment.created_at?.slice(0, 10) || 
-                                     new Date(assignment.created_at).toISOString().slice(0, 10);
+                                     getKoreaDate(new Date(assignment.created_at));
               return assignmentDate === today;
             });
             
@@ -346,54 +337,56 @@ export default function PlayersTodayPage() {
   };
 
   const fetchTodaySchedules = async () => {
-    try {
-      const today = getTodayLocal();
+    const fetchTodaySchedulesDirectly = async (today: string) => {
       const { data, error } = await supabase
         .from('match_schedules')
         .select('id, match_date, start_time, end_time, location, status, current_participants, max_participants')
         .eq('match_date', today)
         .order('start_time', { ascending: true });
 
-      if (error) throw error;
-
-      // 실제 참가자 수로 current_participants 업데이트
-      if (data && data.length > 0) {
-        for (const schedule of data) {
-          // 해당 일정의 실제 참가자 수 조회
-          const { count: actualCount, error: countError } = await supabase
-            .from('match_participants')
-            .select('*', { count: 'exact', head: true })
-            .eq('match_schedule_id', schedule.id)
-            .eq('status', 'registered');
-
-          if (!countError && actualCount !== schedule.current_participants) {
-            // current_participants가 실제 참가자 수와 다르면 업데이트
-            await supabase
-              .from('match_schedules')
-              .update({ current_participants: actualCount || 0 })
-              .eq('id', schedule.id);
-
-            console.log(`경기 일정 ${schedule.id} 참가자 수 업데이트: ${schedule.current_participants} → ${actualCount || 0}`);
-          }
-        }
-
-        // 업데이트된 데이터 다시 조회
-        const { data: updatedData, error: refetchError } = await supabase
-          .from('match_schedules')
-          .select('id, match_date, start_time, end_time, location, status, current_participants, max_participants')
-          .eq('match_date', today)
-          .order('start_time', { ascending: true });
-
-        if (!refetchError) {
-          setTodaySchedules(updatedData || []);
-        } else {
-          setTodaySchedules(data || []);
-        }
-      } else {
-        setTodaySchedules(data || []);
+      if (error) {
+        throw error;
       }
+
+      setTodaySchedules(data || []);
+    };
+
+    try {
+      const today = getTodayLocal();
+      const response = await fetch('/api/admin/match-schedules?date=today', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        console.warn('관리자 일정 API fallback 실행:', payload);
+        await fetchTodaySchedulesDirectly(today);
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        schedules?: Array<{
+          id: string;
+          match_date: string | null;
+          start_time: string | null;
+          end_time: string | null;
+          location: string | null;
+          status: string;
+          current_participants: number | null;
+          max_participants: number | null;
+        }>;
+      };
+
+      setTodaySchedules(payload.schedules || []);
     } catch (e) {
       console.error('오늘 경기 일정 조회 오류:', e);
+      try {
+        await fetchTodaySchedulesDirectly(getTodayLocal());
+      } catch (fallbackError) {
+        console.error('오늘 경기 일정 직접 조회 오류:', fallbackError);
+        setTodaySchedules([]);
+      }
     }
   };
 
@@ -648,7 +641,7 @@ export default function PlayersTodayPage() {
                 id: presentPlayer.id || `racket-${idx}-${Date.now()}`,
                 name: presentPlayer.name, // 출석 데이터의 원래 이름 사용
                 skill_level: normalizeLevel(presentPlayer.skill_level || parsed.level),
-                skill_label: presentPlayer.skill_label || `${parsed.level.toUpperCase()} 레벨`,
+                skill_label: presentPlayer.skill_label || getAdminLevelDisplay(parsed.level),
                 gender: presentPlayer.gender || '',
                 skill_code: presentPlayer.skill_code || '',
                 status: 'present' as const
@@ -679,7 +672,7 @@ export default function PlayersTodayPage() {
                 id: presentPlayer.id || `shuttle-${idx}-${Date.now()}`,
                 name: presentPlayer.name, // 출석 데이터의 원래 이름 사용
                 skill_level: normalizeLevel(presentPlayer.skill_level || parsed.level),
-                skill_label: presentPlayer.skill_label || `${parsed.level.toUpperCase()} 레벨`,
+                skill_label: presentPlayer.skill_label || getAdminLevelDisplay(parsed.level),
                 gender: presentPlayer.gender || '',
                 skill_code: presentPlayer.skill_code || '',
                 status: 'present' as const
@@ -858,7 +851,10 @@ export default function PlayersTodayPage() {
           </button>
         </div>
         
-        <MatchSessionStatus matchSessions={matchSessions} />
+        <MatchSessionStatus
+          matchSessions={matchSessions}
+          registeredSchedules={todaySchedules}
+        />
         
         {/* 팀 구성 기반 경기 생성 */}
         <TeamBasedMatchGeneration

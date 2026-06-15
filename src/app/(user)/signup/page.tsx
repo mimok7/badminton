@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase';
+import { getUserLevelDisplay } from '@/lib/level-display';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +40,7 @@ export default function SignupPage() {
             .map((row: any) => ({
               username: row.username,
               skill_level: row.skill_level || 'E2',
-              skill_label: row.skill_level || 'E2급'
+              skill_label: getUserLevelDisplay(row.skill_level)
             }))
           );
         }

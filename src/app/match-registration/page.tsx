@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { RequireAuth } from '@/components/AuthGuard';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
+import { getUserLevelDisplay } from '@/lib/level-display';
 
 interface MatchSchedule {
   id: string;
@@ -54,7 +55,7 @@ export default function MatchRegistrationPage() {
     value ? new Date(value).toLocaleDateString('ko-KR', options) : '날짜 미정';
 
   // 경기 일정과 사용자 참가 정보 조회 (고속화: 일괄 조회 + 조인)
-  const fetchSchedulesAndParticipation = async () => {
+  const fetchSchedulesAndParticipation = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -182,7 +183,7 @@ export default function MatchRegistrationPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase, user]);
 
   // 경기 참가 신청
   const registerForMatch = async (scheduleId: string) => {
@@ -362,18 +363,43 @@ export default function MatchRegistrationPage() {
 
   useEffect(() => {
     fetchSchedulesAndParticipation();
-  }, [user]);
+  }, [fetchSchedulesAndParticipation]);
+
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      fetchSchedulesAndParticipation();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchSchedulesAndParticipation();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchSchedulesAndParticipation]);
 
   // 실시간 참가자 변화 감지(다른 회원의 신청/취소도 자동 반영)
   useEffect(() => {
-    // Realtime: match_participants 테이블의 INSERT/UPDATE/DELETE 변경 구독
     const channel = supabase
-      .channel('realtime-match-participants')
+      .channel('realtime-match-registration')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'match_participants' },
         () => {
-          // 변경 발생 시 최신 데이터로 동기화
+          fetchSchedulesAndParticipation();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'match_schedules' },
+        () => {
           fetchSchedulesAndParticipation();
         }
       )
@@ -386,7 +412,7 @@ export default function MatchRegistrationPage() {
         // noop
       }
     };
-  }, []);
+  }, [fetchSchedulesAndParticipation, supabase]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -426,7 +452,7 @@ export default function MatchRegistrationPage() {
               {profile?.full_name || profile?.username || '회원'}님
             </span>
             <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
-              레벨: {(profile?.skill_level ? `${profile.skill_level}급` : 'E2급')}
+              레벨: {getUserLevelDisplay(profile?.skill_level)}
             </span>
           </div>
           <p className="text-blue-100">

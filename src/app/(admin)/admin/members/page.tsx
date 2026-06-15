@@ -3,6 +3,7 @@ import type { AdminUser } from '@/types'
 import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { isUserAdmin } from '@/lib/auth'
 import UserManagementClient from './UserManagementClient'
+import type { Database } from '@/types/supabase'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,10 +63,24 @@ export default async function AdminMembersPage() {
     users.sort((a, b) => ('' + (a.username || a.full_name || a.email)).localeCompare('' + (b.username || b.full_name || b.email)));
   }
 
+  const { data: levelInfoRows } = await supabase
+    .from('level_info')
+    .select('code, name, description, score')
+    .order('score', { ascending: false, nullsFirst: false })
+
+  const levelOptions = ((levelInfoRows || []) as Array<Pick<Database['public']['Tables']['level_info']['Row'], 'code' | 'name' | 'description' | 'score'>>)
+    .filter((row) => Boolean(row.code))
+    .map((row) => ({
+      code: row.code,
+      name: row.name,
+      description: row.description,
+      score: row.score,
+    }))
+
   // 4) 렌더
   return (
     <div className="w-full mt-10 p-6">
-      <UserManagementClient users={users} myUserId={user.id} />
+      <UserManagementClient users={users} myUserId={user.id} levelOptions={levelOptions} />
     </div>
   )
 }

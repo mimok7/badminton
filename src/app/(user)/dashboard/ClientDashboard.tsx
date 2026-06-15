@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
 import MatchNotifications from '@/components/MatchNotifications';
 import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
+import { getUserLevelDisplay } from '@/lib/level-display';
 
 interface MenuItem {
   id: string;
@@ -286,7 +287,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
               {profile?.full_name || profile?.username || '회원'}님
             </span>
             <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
-              레벨: {profile?.skill_level || 'E2급'}
+              레벨: {getUserLevelDisplay(profile?.skill_level)}
             </span>
             {userIsAdmin && (
               <span className="bg-red-200 text-red-800 px-3 py-1 rounded-full">

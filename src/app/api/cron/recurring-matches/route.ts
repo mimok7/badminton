@@ -27,6 +27,8 @@ type RecurringTemplateRow = Pick<
   | 'is_active'
 >;
 
+type AdminSupabaseClient = ReturnType<typeof getSupabaseAdminClient>;
+
 const DAY_LABELS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
 
 function toDateOnly(value: Date) {
@@ -42,15 +44,74 @@ function addDays(base: Date, days: number) {
   return next;
 }
 
+function findNextMatchingDate(base: Date, dayOfWeek: number) {
+  const dayOffset = (dayOfWeek - base.getDay() + 7) % 7;
+  return addDays(base, dayOffset);
+}
+
+async function hasExistingSchedule(
+  supabase: AdminSupabaseClient,
+  matchDate: string,
+  template: Pick<RecurringTemplateRow, 'start_time' | 'end_time' | 'location'>
+) {
+  const { data: existingSchedule, error } = await supabase
+    .from('match_schedules')
+    .select('id')
+    .eq('match_date', matchDate)
+    .eq('start_time', template.start_time)
+    .eq('end_time', template.end_time)
+    .eq('location', template.location)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(existingSchedule);
+}
+
+async function createScheduleFromTemplate(
+  supabase: AdminSupabaseClient,
+  matchDate: string,
+  template: Pick<
+    RecurringTemplateRow,
+    'name' | 'description' | 'day_of_week' | 'start_time' | 'end_time' | 'location' | 'max_participants'
+  >,
+  executedBy?: string | null
+) {
+  const recurringSuffix = `정기모임 (${DAY_LABELS[template.day_of_week] || `${template.day_of_week}`})`;
+  const description = [template.description?.trim() || template.name.trim(), recurringSuffix].join(' - ');
+
+  const { error } = await supabase
+    .from('match_schedules')
+    .insert({
+      match_date: matchDate,
+      start_time: template.start_time,
+      end_time: template.end_time,
+      location: template.location,
+      max_participants: template.max_participants ?? 20,
+      current_participants: 0,
+      status: 'scheduled',
+      description,
+      created_by: executedBy ?? null,
+      updated_by: executedBy ?? null,
+    });
+
+  if (error) {
+    throw error;
+  }
+}
+
 async function generateRecurringMatchesFallback(
   executedBy?: string | null,
   selectedTemplateIds?: string[]
 ): Promise<GenerationResult> {
-  const supabase = getSupabaseAdminClient();
   const today = new Date();
   const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const executionTime = new Date().toISOString();
   const templateIds = selectedTemplateIds?.filter(Boolean) ?? [];
+  const isManualSelectedGeneration = templateIds.length > 0;
+  const supabase = getSupabaseAdminClient();
 
   let query = supabase
     .from('recurring_match_templates')
@@ -80,9 +141,27 @@ async function generateRecurringMatchesFallback(
       continue;
     }
 
+    if (isManualSelectedGeneration) {
+      const nextMatchingDate = findNextMatchingDate(todayDate, template.day_of_week);
+
+      for (let weekOffset = 0; weekOffset < 52; weekOffset += 1) {
+        const targetDate = addDays(nextMatchingDate, weekOffset * 7);
+        const matchDate = toDateOnly(targetDate);
+        const alreadyExists = await hasExistingSchedule(supabase, matchDate, template);
+
+        if (alreadyExists) {
+          continue;
+        }
+
+        await createScheduleFromTemplate(supabase, matchDate, template, executedBy);
+        createdMatches += 1;
+        break;
+      }
+
+      continue;
+    }
+
     const advanceDays = Math.max(0, template.advance_days ?? 7);
-    const recurringSuffix = `정기모임 (${DAY_LABELS[template.day_of_week] || `${template.day_of_week}`})`;
-    const description = [template.description?.trim() || template.name.trim(), recurringSuffix].join(' - ');
 
     for (let offset = 0; offset <= advanceDays; offset += 1) {
       const targetDate = addDays(todayDate, offset);
@@ -92,43 +171,13 @@ async function generateRecurringMatchesFallback(
       }
 
       const matchDate = toDateOnly(targetDate);
+      const alreadyExists = await hasExistingSchedule(supabase, matchDate, template);
 
-      const { data: existingSchedule, error: existingError } = await supabase
-        .from('match_schedules')
-        .select('id')
-        .eq('match_date', matchDate)
-        .eq('start_time', template.start_time)
-        .eq('end_time', template.end_time)
-        .eq('location', template.location)
-        .maybeSingle();
-
-      if (existingError) {
-        throw existingError;
-      }
-
-      if (existingSchedule) {
+      if (alreadyExists) {
         continue;
       }
 
-      const { error: insertError } = await supabase
-        .from('match_schedules')
-        .insert({
-          match_date: matchDate,
-          start_time: template.start_time,
-          end_time: template.end_time,
-          location: template.location,
-          max_participants: template.max_participants ?? 20,
-          current_participants: 0,
-          status: 'scheduled',
-          description,
-          created_by: executedBy ?? null,
-          updated_by: executedBy ?? null,
-        });
-
-      if (insertError) {
-        throw insertError;
-      }
-
+      await createScheduleFromTemplate(supabase, matchDate, template, executedBy);
       createdMatches += 1;
     }
   }
@@ -137,8 +186,12 @@ async function generateRecurringMatchesFallback(
     created_matches: createdMatches,
     message:
       createdMatches > 0
-        ? `${createdMatches}개의 정기모임 일정이 생성되었습니다.`
-        : '생성 조건에 맞는 새로운 정기모임 일정이 없습니다.',
+        ? `${
+            isManualSelectedGeneration ? '선택한 템플릿 기준으로 ' : ''
+          }${createdMatches}개의 정기모임 일정이 생성되었습니다.`
+        : isManualSelectedGeneration
+          ? '선택한 템플릿의 다음 일정이 이미 생성되어 있어 추가로 만들 일정이 없습니다.'
+          : '생성 조건에 맞는 새로운 정기모임 일정이 없습니다.',
     execution_time: executionTime,
   };
 }

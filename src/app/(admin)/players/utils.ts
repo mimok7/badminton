@@ -1,8 +1,10 @@
-import { getSupabaseClient } from '@/lib/supabase';
+export { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
+import { getKoreaDate } from '@/lib/date';
 import { AvailableDate, ExtendedPlayer, GeneratedMatch, LEVEL_LABELS } from './types';
 import type { Database } from '@/types/supabase';
+import { getAdminLevelDisplay } from '@/lib/level-display';
 
-export const supabase = getSupabaseClient();
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 type GeneratedMatchRow = Database['public']['Tables']['generated_matches']['Row'];
 type MatchScheduleRow = Database['public']['Tables']['match_schedules']['Row'];
@@ -87,7 +89,7 @@ export const fetchAvailableScheduleDates = async (): Promise<AvailableDate[]> =>
   const { data: schedules, error } = await supabase
     .from('match_schedules')
     .select('match_date, location, start_time, end_time, max_participants, current_participants, status')
-    .gte('match_date', new Date().toISOString().split('T')[0])
+    .gte('match_date', getKoreaDate())
     .eq('status', 'scheduled')
     .order('match_date', { ascending: true });
 
@@ -246,7 +248,7 @@ export const calculatePlayerGameCounts = (matches: any[]) => {
 // 오늘 출석자 데이터 조회 함수
 export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
   try {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getKoreaDate();
     
     // 출석 데이터 조회
     const { data: attendanceData, error } = await supabase
@@ -297,17 +299,8 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
           // 기본 skill_level 설정
           let skill_level = profile.skill_level ? String(profile.skill_level).toLowerCase() : 'n';
           
-          // levelMap에서 해당 스킬 레벨에 맞는 레이블 찾기
-          let skill_label = '';
-          if (levelMap[skill_level]) {
-            skill_label = levelMap[skill_level];
-          }
-          
-          // skill_label이 없으면 LEVEL_LABELS에서 가져옴
-          if (!skill_label) {
-            const normalizedLevel = normalizeLevel('', skill_level);
-            skill_label = LEVEL_LABELS[normalizedLevel] || 'E2 (초급)';
-          }
+          const normalizedLevel = normalizeLevel('', skill_level);
+          const skill_label = getAdminLevelDisplay(normalizedLevel);
           
           // 이름 설정
           const playerName = profile.full_name || profile.username || `선수-${profile.id.substring(0, 4)}`;
@@ -319,7 +312,7 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
           return {
             id: profile.id,
             name: playerName,
-            skill_level,
+            skill_level: normalizedLevel,
             skill_label,
             gender: profile.gender || '',
             skill_code: '',
@@ -340,7 +333,7 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
           id: userId,
           name: `선수-${userId.substring(0, 8)}`,
           skill_level: 'e2',
-          skill_label: 'E2 (초급)',
+          skill_label: getAdminLevelDisplay('e2'),
           gender: '',
           skill_code: '',
           status,
@@ -356,7 +349,7 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
           id: attendance.user_id,
           name: `선수-${attendance.user_id.substring(0, 8)}`,
           skill_level: 'e2',
-          skill_label: 'E2 (초급)',
+          skill_label: getAdminLevelDisplay('e2'),
           gender: '',
           skill_code: '',
           status: attendance_status,
@@ -434,21 +427,11 @@ export const fetchRegisteredPlayersForDate = async (date: string): Promise<Exten
       return [];
     }
 
-    // 4) 레벨 라벨 매핑용 level_info 조회
-    const { data: levelData } = await supabase
-      .from('level_info')
-      .select('code, name');
-
-    const levelMap: Record<string, string> = {};
-    (levelData || []).forEach((lvl: any) => {
-      if (lvl.code) levelMap[String(lvl.code).toLowerCase()] = lvl.name || '';
-    });
-
     // 5) ExtendedPlayer 배열로 변환 (status는 absent로 초기화 - 실제 출석 데이터로 업데이트됨)
     const players: ExtendedPlayer[] = (profiles || []).map((profile: any) => {
       const raw = (profile.skill_level || '').toString().toLowerCase();
       const normalized = normalizeLevel('', raw);
-      const label = levelMap[normalized] || LEVEL_LABELS[normalized] || 'E2 (초급)';
+      const label = getAdminLevelDisplay(normalized);
       const name = profile.full_name || profile.username || `선수-${String(profile.id).slice(0, 4)}`;
       return {
         id: profile.id,

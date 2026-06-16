@@ -218,7 +218,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.14),_transparent_30%),linear-gradient(180deg,#f8fbff_0%,#f8fafc_48%,#f1f5f9_100%)]">
       {/* 경기 배정 알림 */}
       <MatchNotifications />
       
@@ -271,63 +271,65 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
       </nav>
 
       {/* 메인 컨텐츠 */}
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="mx-auto max-w-5xl px-3 py-4 sm:px-4 sm:py-6">
         {/* 상단 인사말 섹션 */}
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-md p-6 mb-8 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
+        <div className="mb-5 overflow-hidden rounded-[28px] bg-slate-950 text-white shadow-[0_30px_80px_-35px_rgba(15,23,42,0.65)]">
+          <div className="bg-[radial-gradient(circle_at_top_left,_rgba(96,165,250,0.38),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(168,85,247,0.22),_transparent_28%),linear-gradient(135deg,#0f172a_0%,#1d4ed8_52%,#312e81_100%)] p-5 sm:p-6">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <h1 className="text-2xl font-semibold flex items-center gap-2 tracking-tight">
               📊 대시보드
             </h1>
-            <Link href="/" className="text-white hover:text-blue-100 transition-colors">
-              🏠 홈
+            <Link href="/" className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm text-white transition-colors hover:bg-white/15">
+              홈
             </Link>
           </div>
-          <div className="flex items-center gap-4 text-sm mb-4">
-            <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full">
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded-full bg-white/15 px-3 py-1 text-white">
               {profile?.full_name || profile?.username || '회원'}님
             </span>
-            <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
+            <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-emerald-50">
               레벨: {getUserLevelDisplay(profile?.skill_level)}
             </span>
             {userIsAdmin && (
-              <span className="bg-red-200 text-red-800 px-3 py-1 rounded-full">
+              <span className="rounded-full bg-red-300/20 px-3 py-1 text-red-50">
                 관리자
               </span>
             )}
           </div>
-          <p className="text-blue-100">
+          <p className="text-sm text-blue-100/85 sm:text-[15px]">
             출석 현황과 개인 통계를 확인하고 관리하세요! 📈
           </p>
+          </div>
         </div>
 
       {/* 오늘의 요약 */}
-      <div className="grid grid-cols-3 gap-2 md:gap-4 mb-8">
-        <div className="bg-blue-50 p-2 md:p-4 rounded-lg">
-          <h3 className="text-sm md:text-lg font-semibold text-blue-800">오늘 출석자</h3>
-          <p className="text-lg md:text-2xl font-bold text-blue-600">{todayPlayersCount}명</p>
+      <div className="mb-5 grid grid-cols-3 gap-2 md:gap-4">
+        <div className="rounded-[20px] border border-blue-100 bg-blue-50/90 p-3">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-700 md:text-sm">오늘 출석자</h3>
+          <p className="mt-2 text-xl font-bold text-blue-600 md:text-2xl">{todayPlayersCount}명</p>
         </div>
-        <div className="bg-green-50 p-2 md:p-4 rounded-lg">
-          <h3 className="text-sm md:text-lg font-semibold text-green-800">오늘 경기</h3>
-          <div className="flex items-center justify-between">
-            <p className="text-lg md:text-2xl font-bold text-green-600">{todayMatchesCount}회</p>
+        <div className="rounded-[20px] border border-green-100 bg-green-50/90 p-3">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-green-700 md:text-sm">오늘 경기</h3>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <p className="text-xl font-bold text-green-600 md:text-2xl">{todayMatchesCount}회</p>
             {todayMatchesCount > 0 && (
               <Link href="/today-matches">
-                <button className="px-2 md:px-3 py-1 bg-green-500 text-white rounded text-xs md:text-sm hover:bg-green-600 transition-colors">
+                <button className="rounded-full bg-green-500 px-2.5 py-1 text-xs text-white transition-colors hover:bg-green-600 md:px-3">
                   보기
                 </button>
               </Link>
             )}
           </div>
         </div>
-        <div className="bg-purple-50 p-2 md:p-4 rounded-lg">
-          <h3 className="text-sm md:text-lg font-semibold text-purple-800">나의 참여</h3>
-          <p className="text-lg md:text-2xl font-bold text-purple-600">{todayAssignedMatches.length}경기</p>
+        <div className="rounded-[20px] border border-purple-100 bg-purple-50/90 p-3">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-purple-700 md:text-sm">나의 참여</h3>
+          <p className="mt-2 text-xl font-bold text-purple-600 md:text-2xl">{todayAssignedMatches.length}경기</p>
         </div>
       </div>
 
       {/* 출석 상태는 홈화면으로 이동되었습니다 */}
-      <div className="bg-blue-50 p-4 rounded-lg mb-8 border border-blue-200">
-        <div className="flex items-center justify-between">
+      <div className="mb-5 rounded-[24px] border border-blue-200 bg-blue-50/90 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-lg font-semibold text-blue-800 mb-1">📊 출석 현황</h3>
             <p className="text-sm text-blue-600">
@@ -335,7 +337,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
             </p>
           </div>
           {myAttendanceStatus && (
-            <div className="bg-white px-4 py-2 rounded-lg shadow-sm">
+            <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
               <span className="text-sm text-gray-600">오늘 상태:</span>
               <span className={`ml-2 px-2 py-1 rounded text-sm font-medium ${
                 myAttendanceStatus === 'present' ? 'bg-green-100 text-green-800' :
@@ -352,34 +354,34 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
 
       {/* 오늘의 배정된 경기 */}
       {todayAssignedMatches.length > 0 && (
-        <div className="bg-yellow-50 p-4 rounded-lg mb-8">
+        <div className="mb-5 rounded-[24px] border border-yellow-200 bg-yellow-50/90 p-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-yellow-800">🏆 오늘의 나의 경기</h3>
             <Link href="/today-matches">
-              <button className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium">
+              <button className="rounded-full bg-yellow-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-yellow-600">
                 전체 경기 보기
               </button>
             </Link>
           </div>
           <div className="space-y-3">
             {todayAssignedMatches.map((match, index) => (
-              <div key={match.id} className="bg-white p-4 rounded-lg border border-yellow-200">
-                <div className="flex justify-between items-start mb-2">
+              <div key={match.id} className="rounded-[20px] border border-yellow-200 bg-white p-4">
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                   <div className="font-semibold text-yellow-900">
                     경기 #{index + 1} - 코트 {match.court_number || '미정'}
                   </div>
-                  <div className="text-sm text-yellow-700">
+                  <div className="rounded-full bg-yellow-100 px-2.5 py-1 text-xs font-medium text-yellow-700">
                     {match.match_time || '시간 미정'}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-blue-50 p-3 rounded">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="rounded-2xl bg-blue-50 p-3">
                     <div className="text-sm font-medium text-blue-800 mb-1">팀 1</div>
                     <div className="text-blue-700">
                       {match.team1_player1_name} + {match.team1_player2_name}
                     </div>
                   </div>
-                  <div className="bg-red-50 p-3 rounded">
+                  <div className="rounded-2xl bg-red-50 p-3">
                     <div className="text-sm font-medium text-red-800 mb-1">팀 2</div>
                     <div className="text-red-700">
                       {match.team2_player1_name} + {match.team2_player2_name}
@@ -403,11 +405,11 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
 
       {/* 오늘 경기가 없을 때도 전체 경기 확인 버튼 표시 */}
       {todayAssignedMatches.length === 0 && todayMatchesCount > 0 && (
-        <div className="bg-gray-50 p-4 rounded-lg mb-8 text-center">
+        <div className="mb-5 rounded-[24px] border border-slate-200 bg-white/80 p-4 text-center">
           <h3 className="text-lg font-semibold text-gray-700 mb-2">📋 오늘의 경기 일정</h3>
           <p className="text-gray-600 mb-4">오늘 총 {todayMatchesCount}개의 경기가 배정되어 있습니다.</p>
           <Link href="/today-matches">
-            <button className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium">
+            <button className="rounded-full bg-blue-500 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-600">
               오늘의 전체 경기 확인하기
             </button>
           </Link>
@@ -418,10 +420,10 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
       <div className="space-y-6">
         {/* 새로운 경기 관리 메뉴 */}
         <div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">🎯 경기 관련</h3>
+          <h3 className="mb-4 text-xl font-semibold text-gray-900">🎯 경기 관련</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Link href="/today-matches">
-              <div className="bg-yellow-50 border-2 border-yellow-200 p-6 rounded-lg hover:bg-yellow-100 transition-colors">
+              <div className="rounded-[24px] border-2 border-yellow-200 bg-yellow-50 p-5 transition-colors hover:bg-yellow-100">
                 <div className="flex items-start justify-between mb-3">
                   <div className="text-3xl">🏆</div>
                 </div>
@@ -431,7 +433,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
             </Link>
             
             <Link href="/match-registration">
-              <div className="bg-blue-50 border-2 border-blue-200 p-6 rounded-lg hover:bg-blue-100 transition-colors">
+              <div className="rounded-[24px] border-2 border-blue-200 bg-blue-50 p-5 transition-colors hover:bg-blue-100">
                 <div className="flex items-start justify-between mb-3">
                   <div className="text-3xl">🎯</div>
                 </div>
@@ -441,7 +443,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
             </Link>
             
             <Link href="/my-schedule">
-              <div className="bg-green-50 border-2 border-green-200 p-6 rounded-lg hover:bg-green-100 transition-colors">
+              <div className="rounded-[24px] border-2 border-green-200 bg-green-50 p-5 transition-colors hover:bg-green-100">
                 <div className="flex items-start justify-between mb-3">
                   <div className="text-3xl">📋</div>
                 </div>
@@ -451,7 +453,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
             </Link>
             
             <Link href="/profile">
-              <div className="bg-purple-50 border-2 border-purple-200 p-6 rounded-lg hover:bg-purple-100 transition-colors">
+              <div className="rounded-[24px] border-2 border-purple-200 bg-purple-50 p-5 transition-colors hover:bg-purple-100">
                 <div className="flex items-start justify-between mb-3">
                   <div className="text-3xl">👤</div>
                 </div>

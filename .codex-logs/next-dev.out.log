@@ -1685,3 +1685,47 @@
  ✓ Compiled in 979ms (567 modules)
  GET /dashboard 200 in 129ms
  GET /manifest.webmanifest 200 in 70ms
+ ✓ Compiled in 9.8s (567 modules)
+ GET /dashboard 200 in 829ms
+ GET /dashboard 200 in 1249ms
+ ✓ Compiled in 2.7s (567 modules)
+ GET /dashboard 200 in 140ms
+ GET /manifest.webmanifest 200 in 101ms
+ ○ Compiling /today-matches ...
+ ✓ Compiled /today-matches in 6s (569 modules)
+ GET /today-matches 200 in 6806ms
+ GET /my-schedule 200 in 987ms
+ GET /manifest.webmanifest 200 in 78ms
+ ✓ Compiled in 3.1s (567 modules)
+ GET /my-schedule 200 in 87ms
+ GET /manifest.webmanifest 200 in 45ms
+ ✓ Compiled in 8s (1131 modules)
+ GET /my-schedule 200 in 236ms
+ GET /manifest.webmanifest 200 in 55ms
+ ✓ Compiled in 4.9s (1112 modules)
+ GET /my-schedule 200 in 388ms
+ ✓ Compiled /manifest.webmanifest in 365ms (564 modules)
+ GET /manifest.webmanifest 200 in 573ms
+ ○ Compiling /_error ...
+ GET /my-schedule 500 in 10079ms
+ GET /my-schedule 500 in 54ms
+ GET /my-schedule 500 in 43ms
+ GET /my-schedule 500 in 82ms
+ ✓ Compiled /_error in 3.2s (716 modules)
+ GET /my-schedule 500 in 127ms
+ GET /my-schedule 200 in 113ms
+ ○ Compiling /_error ...
+ GET /my-schedule 500 in 4644ms
+ ✓ Compiled /_error in 22.8s (1363 modules)
+ GET /my-schedule 200 in 1242ms
+ ✓ Compiled in 1258ms (1363 modules)
+ GET /my-schedule 200 in 173ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 3s (663 modules)
+ GET /manifest.webmanifest 200 in 3436ms
+ ✓ Compiled in 784ms (719 modules)
+ GET /my-schedule 200 in 132ms
+ GET /manifest.webmanifest 200 in 42ms
+ ✓ Compiled in 717ms (719 modules)
+ GET /my-schedule 200 in 123ms
+ GET /manifest.webmanifest 200 in 57ms

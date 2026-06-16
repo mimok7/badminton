@@ -592,6 +592,50 @@ export default function MySchedulePage() {
     router.replace(`/my-schedule?tab=${tab}`, { scroll: false });
   };
 
+  const upcomingMatches = myMatches.filter((match) => match.status !== 'completed');
+
+  const formatCompactDate = (value?: string | null) =>
+    value
+      ? new Date(value).toLocaleDateString('ko-KR', {
+          month: 'short',
+          day: 'numeric',
+          weekday: 'short',
+        })
+      : '날짜 미정';
+
+  const formatTimeRange = (start?: string | null, end?: string | null) =>
+    start && end ? `${start} - ${end}` : start || end || '시간 미정';
+
+  const formatMatchBadge = (match: MatchSchedule) =>
+    match.generated_match ? `#${match.generated_match.match_number}` : '등록 경기';
+
+  const summaryCards = [
+    {
+      label: '승률',
+      value: `${stats.winRate}%`,
+      tone: 'from-slate-900 via-blue-900 to-indigo-900',
+      sub: `${stats.wins + stats.losses}경기 완료`,
+    },
+    {
+      label: '예정 경기',
+      value: `${stats.upcomingMatches}`,
+      tone: 'from-emerald-500 to-teal-500',
+      sub: '참여 예정',
+    },
+    {
+      label: '완료 기록',
+      value: `${matchRecords.length}`,
+      tone: 'from-violet-500 to-fuchsia-500',
+      sub: '결과 확인',
+    },
+    {
+      label: '대회 경기',
+      value: `${tournamentMatches.length}`,
+      tone: 'from-amber-500 to-orange-500',
+      sub: allTournamentMatchCount > 0 ? '대회 데이터 연결' : '대회 대기',
+    },
+  ];
+
   // 경기 결과 보기/일정 상세 보기 핸들러 (통합)
   const handleScheduleDetails = (match: MatchSchedule) => {
     setSelectedMatch(match);
@@ -1021,801 +1065,736 @@ export default function MySchedulePage() {
   }
 
   return (
-    <div className="container mx-auto p-6 min-h-screen">
-      {/* 상단 인사말 섹션 */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-md p-6 mb-8 text-white">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            🏸 내 경기 센터
-          </h1>
-          <Link href="/" className="text-white hover:text-blue-100 transition-colors">
-            🏠 홈
-          </Link>
-        </div>
-        <div className="flex items-center gap-4 text-sm mb-4">
-          <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full">
-            {profile?.full_name || profile?.username || '회원'}님
-          </span>
-          <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
-            레벨: {getUserLevelDisplay(profile?.skill_level)}
-          </span>
-        </div>
-        <p className="text-blue-100">
-          예정 경기, 완료 기록, 대회 경기를 한 곳에서 확인하고 관리하세요! 📅
-        </p>
-      </div>
-
-      {/* 승률 통계 섹션 */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-          📊 승률 통계
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-blue-900">{stats.winRate}%</div>
-            <div className="text-sm text-blue-600">승률</div>
-          </div>
-          <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-green-900">{stats.wins}</div>
-            <div className="text-sm text-green-600">승</div>
-          </div>
-          <div className="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-red-900">{stats.losses}</div>
-            <div className="text-sm text-red-600">패</div>
-          </div>
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold text-purple-900">{stats.wins + stats.losses}</div>
-            <div className="text-sm text-purple-600">총 완료 경기</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 통계 섹션 */}
-      <div className="grid grid-cols-3 gap-3 md:gap-6 mb-8">
-        <div className="bg-blue-50 p-3 md:p-6 rounded-lg">
-          <div className="flex items-center justify-between mb-1 md:mb-2">
-            <div className="text-lg md:text-2xl font-bold text-blue-900">{stats.totalMatches}</div>
-            <div className="text-lg md:text-2xl">🏸</div>
-          </div>
-          <div className="text-xs md:text-base text-blue-600">전체 경기</div>
-        </div>
-        <div className="bg-green-50 p-3 md:p-6 rounded-lg">
-          <div className="flex items-center justify-between mb-1 md:mb-2">
-            <div className="text-lg md:text-2xl font-bold text-green-900">{stats.upcomingMatches}</div>
-            <div className="text-lg md:text-2xl">🏸</div>
-          </div>
-          <div className="text-xs md:text-base text-green-600">예정된 경기</div>
-        </div>
-        <div className="bg-purple-50 p-3 md:p-6 rounded-lg">
-          <div className="flex items-center justify-between mb-1 md:mb-2">
-            <div className="text-lg md:text-2xl font-bold text-purple-900">{stats.completedMatches}</div>
-            <div className="text-lg md:text-2xl">🏆</div>
-          </div>
-          <div className="text-xs md:text-base text-purple-600">완료된 경기</div>
-        </div>
-      </div>
-
-      <div className="mb-8 rounded-lg bg-white shadow">
-        <div className="border-b border-gray-200 px-4 py-3 sm:px-6">
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => selectTab('upcoming')}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'upcoming'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              예정 경기 {stats.upcomingMatches}
-            </button>
-            <button
-              type="button"
-              onClick={() => selectTab('results')}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'results'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              완료 기록 {matchRecords.length}
-            </button>
-            <button
-              type="button"
-              onClick={() => selectTab('tournaments')}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'tournaments'
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              대회 경기 {tournamentMatches.length}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {activeTab === 'upcoming' && (
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">예정된 경기 목록</h2>
-        </div>
-
-        {loading ? (
-          <div className="p-12 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p>경기 일정을 불러오는 중...</p>
-          </div>
-        ) : myMatches.filter(m => m.status !== 'completed').length === 0 ? (
-          <div className="p-12 text-center">
-            <div className="text-6xl mb-4">🏸</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">예정된 경기가 없습니다</h3>
-            <p className="text-gray-600 mb-4">새로운 경기에 등록하거나 관리자의 배정을 기다려주세요.</p>
-            <Link href="/match-registration">
-              <Button>경기 등록하기</Button>
-            </Link>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {myMatches.filter(m => m.status !== 'completed').map((match) => (
-              <div key={match.id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex flex-col md:flex-row md:items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {match.generated_match ? 
-                          `경기 #${match.generated_match.match_number}` : 
-                          `일정 ${match.match_date}`
-                        }
-                      </h3>
-                      <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(match.status)}`}>
-                        {getStatusText(match.status)}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 text-sm text-gray-600 mb-4">
-                      <div className="flex items-center gap-2">
-                        <span>📅</span>
-                        <span>{match.match_date} {match.start_time} ~ {match.end_time}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>📍</span>
-                        <span>{match.location}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>📝</span>
-                        <span>{match.description}</span>
-                      </div>
-                    </div>
-                      
-                    {match.generated_match && (
-                      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                        <div className="text-sm font-medium text-gray-700 mb-3">
-                          경기 구성 ({match.generated_match.session_name})
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 md:gap-3">
-                          <div className="bg-blue-100 p-2 md:p-3 rounded-lg">
-                            <div className="font-medium text-blue-900 mb-1 md:mb-2 text-sm md:text-base">팀 A</div>
-                            <div className="space-y-1 text-xs md:text-sm">
-                              <div className={`${match.generated_match.team1_player1.id === user?.id ? 'font-bold text-blue-900' : 'text-blue-700'}`}>
-                                👤 {getPlayerName(match.generated_match.team1_player1)} ({getLevelName(match.generated_match.team1_player1)})
-                              </div>
-                              <div className={`${match.generated_match.team1_player2.id === user?.id ? 'font-bold text-blue-900' : 'text-blue-700'}`}>
-                                👤 {getPlayerName(match.generated_match.team1_player2)} ({getLevelName(match.generated_match.team1_player2)})
-                              </div>
-                            </div>
-                          </div>
-                          <div className="bg-red-100 p-2 md:p-3 rounded-lg">
-                            <div className="font-medium text-red-900 mb-1 md:mb-2 text-sm md:text-base">팀 B</div>
-                            <div className="space-y-1 text-xs md:text-sm">
-                              <div className={`${match.generated_match.team2_player1.id === user?.id ? 'font-bold text-red-900' : 'text-red-700'}`}>
-                                👤 {getPlayerName(match.generated_match.team2_player1)} ({getLevelName(match.generated_match.team2_player1)})
-                              </div>
-                              <div className={`${match.generated_match.team2_player2.id === user?.id ? 'font-bold text-red-900' : 'text-red-700'}`}>
-                                👤 {getPlayerName(match.generated_match.team2_player2)} ({getLevelName(match.generated_match.team2_player2)})
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 버튼은 실제 경기(generated_match)가 있는 경우에만 표시 */}
-                  {match.generated_match && (
-                    <div className="mt-4 md:mt-0 md:ml-6 flex flex-col gap-2">
-                      {match.status === 'scheduled' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleScheduleDetails(match)}
-                        >
-                          🏸 일정 확인
-                        </Button>
-                      )}
-                      {match.status === 'in_progress' && (
-                        <>
-                          {/* 결과 상태에 따라 버튼 표시 */}
-                          {(() => {
-                            const hasResult = matchResultStates[match.id];
-                            
-                            if (hasResult === null) {
-                              return (
-                                <Button variant="outline" size="sm" disabled>
-                                  확인 중...
-                                </Button>
-                              );
-                            }
-                            
-                            return hasResult ? (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleScheduleDetails(match)}
-                                className="border-green-300 text-green-700 hover:bg-green-50"
-                              >
-                                🏆 결과 보기
-                              </Button>
-                            ) : (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleCompleteInput(match)}
-                                className="border-yellow-300 text-yellow-700 hover:bg-yellow-50"
-                              >
-                                ✅ 완료 입력
-                              </Button>
-                            );
-                          })()}
-                        </>
-                      )}
-                      {match.status === 'completed' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleScheduleDetails(match)}
-                          className="border-green-300 text-green-700 hover:bg-green-50"
-                        >
-                          🏆 결과 보기
-                        </Button>
-                      )}
-                      {match.status === 'cancelled' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          disabled
-                          className="border-gray-300 text-gray-500"
-                        >
-                          취소됨
-                        </Button>
-                      )}
-                    </div>
-                  )}
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_35%),linear-gradient(180deg,#f8fbff_0%,#eef4ff_45%,#f8fafc_100%)]">
+      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+        <div className="overflow-hidden rounded-[28px] bg-slate-950 text-white shadow-[0_30px_80px_-35px_rgba(15,23,42,0.65)]">
+          <div className="bg-[radial-gradient(circle_at_top_left,_rgba(96,165,250,0.38),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(168,85,247,0.28),_transparent_28%),linear-gradient(135deg,#0f172a_0%,#1e3a8a_48%,#312e81_100%)] px-4 py-5 sm:px-6 sm:py-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100/80">
+                  <span>Match Hub</span>
+                  <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] tracking-[0.12em] text-white/90">
+                    {profile?.full_name || profile?.username || '회원'}
+                  </span>
+                  <span className="rounded-full bg-emerald-400/15 px-2 py-1 text-[10px] tracking-[0.12em] text-emerald-100">
+                    {getUserLevelDisplay(profile?.skill_level)}
+                  </span>
                 </div>
+                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">🏸 내 경기 센터</h1>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-blue-100/85 sm:text-[15px]">
+                  경기 일정, 완료 기록, 대회 결과를 모바일에서도 빠르게 훑어볼 수 있게 더 압축된 카드형으로 정리했습니다.
+                </p>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-      )}
-
-      {activeTab === 'results' && (
-        <div className="rounded-lg bg-white shadow">
-          <div className="flex flex-col gap-4 border-b border-gray-200 p-6 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">완료된 경기 기록</h2>
-              <p className="mt-1 text-sm text-gray-500">완료된 배정 경기의 승패와 점수를 확인합니다.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <label htmlFor="record-date-filter" className="text-sm font-medium text-gray-600">
-                날짜 필터
-              </label>
-              <select
-                id="record-date-filter"
-                value={selectedDate}
-                onChange={(e) => handleDateFilter(e.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+              <Link
+                href="/"
+                className="shrink-0 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/15"
               >
-                <option value="">전체</option>
-                {uniqueRecordDates.map((date) => (
-                  <option key={date} value={date}>
-                    {date}
-                  </option>
-                ))}
-              </select>
+                홈
+              </Link>
             </div>
-          </div>
 
-          {filteredRecords.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
-              <div className="mb-4 text-6xl">🏆</div>
-              <h3 className="mb-2 text-lg font-medium text-gray-900">완료된 경기 기록이 없습니다</h3>
-              <p>경기가 완료되면 여기에서 결과를 확인할 수 있습니다.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {filteredRecords.map((record) => (
-                <div key={record.id} className="p-6">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <span className="text-lg font-semibold text-gray-900">경기 #{record.matchNumber}</span>
-                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          record.result === 'win'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {record.result === 'win' ? '승리' : '패배'}
-                        </span>
-                        <span className="text-sm text-gray-500">{record.date}</span>
-                      </div>
-                      <div className="text-sm text-gray-600">점수: {record.score || '기록 없음'}</div>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <div>팀원: {record.teammates.length > 0 ? record.teammates.join(', ') : '없음'}</div>
-                      <div>상대: {record.opponents.length > 0 ? record.opponents.join(', ') : '없음'}</div>
-                    </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+              {summaryCards.map((card) => (
+                <div
+                  key={card.label}
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-sm"
+                >
+                  <div className={`inline-flex rounded-full bg-gradient-to-r px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm ${card.tone}`}>
+                    {card.label}
                   </div>
+                  <div className="mt-3 text-2xl font-bold tracking-tight sm:text-[28px]">{card.value}</div>
+                  <div className="mt-1 text-xs text-blue-100/75">{card.sub}</div>
                 </div>
               ))}
             </div>
-          )}
+          </div>
         </div>
-      )}
 
-      {activeTab === 'tournaments' && (
-        <div className="rounded-lg bg-white shadow">
-          <div className="flex flex-col gap-4 border-b border-gray-200 p-6 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">대회 경기</h2>
-              <p className="mt-1 text-sm text-gray-500">토너먼트 경기와 결과를 이곳에서 함께 확인합니다.</p>
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="rounded-lg bg-amber-50 px-4 py-3">
-                <div className="text-lg font-bold text-amber-900">{tournamentStats.total}</div>
-                <div className="text-xs text-amber-700">총 경기</div>
-              </div>
-              <div className="rounded-lg bg-green-50 px-4 py-3">
-                <div className="text-lg font-bold text-green-900">{tournamentStats.wins}</div>
-                <div className="text-xs text-green-700">승리</div>
-              </div>
-              <div className="rounded-lg bg-blue-50 px-4 py-3">
-                <div className="text-lg font-bold text-blue-900">{tournamentStats.pending}</div>
-                <div className="text-xs text-blue-700">대기</div>
-              </div>
+        <div className="rounded-[24px] border border-slate-200/70 bg-white/90 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.22)] backdrop-blur">
+          <div className="overflow-x-auto px-3 py-3 sm:px-4">
+            <div className="flex min-w-max gap-2">
+              <button
+                type="button"
+                onClick={() => selectTab('upcoming')}
+                className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === 'upcoming'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                예정 경기 {stats.upcomingMatches}
+              </button>
+              <button
+                type="button"
+                onClick={() => selectTab('results')}
+                className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === 'results'
+                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/25'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                완료 기록 {matchRecords.length}
+              </button>
+              <button
+                type="button"
+                onClick={() => selectTab('tournaments')}
+                className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === 'tournaments'
+                    ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                대회 경기 {tournamentMatches.length}
+              </button>
             </div>
           </div>
+        </div>
 
-          {tournamentMatches.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
-              <div className="mb-4 text-6xl">🎾</div>
-              <h3 className="mb-2 text-lg font-medium text-gray-900">
-                {allTournamentMatchCount === 0 ? '등록된 대회 경기가 아직 없습니다' : '참가한 대회 경기가 없습니다'}
-              </h3>
-              <p>대회가 생성되면 이 탭에서 일반 경기와 분리해서 확인할 수 있습니다.</p>
+        {activeTab === 'upcoming' && (
+          <div className="rounded-[24px] border border-slate-200/70 bg-white/95 shadow-[0_24px_60px_-35px_rgba(15,23,42,0.3)]">
+            <div className="border-b border-slate-200/80 px-4 py-4 sm:px-6">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">예정 경기</h2>
+                  <p className="text-sm text-slate-500">시간, 장소, 팀 구성을 더 촘촘하게 확인할 수 있습니다.</p>
+                </div>
+                <div className="text-sm font-medium text-slate-500">총 {upcomingMatches.length}건</div>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-4 p-6">
-              {tournamentMatches.map((match) => {
-                const myTeam = getMyTournamentTeam(match);
-                const didIWin = match.status === 'completed' && match.winner === myTeam;
-                const didILose =
-                  match.status === 'completed' &&
-                  match.winner &&
-                  match.winner !== myTeam &&
-                  match.winner !== 'draw';
 
-                return (
-                  <div
-                    key={match.id}
-                    className={`rounded-lg border-2 p-4 ${
-                      didIWin
-                        ? 'border-green-300 bg-green-50'
-                        : didILose
-                        ? 'border-red-300 bg-red-50'
-                        : match.status === 'pending'
-                        ? 'border-blue-300 bg-blue-50'
-                        : 'border-gray-300 bg-gray-50'
-                    }`}
-                  >
-                    <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                      <div>
-                        <div className="text-lg font-bold text-gray-900">{match.tournament_title}</div>
-                        <div className="text-sm text-gray-600">
-                          📅 {match.tournament_date ? new Date(match.tournament_date).toLocaleDateString('ko-KR') : '날짜 미정'} |
-                          경기 {match.match_number} | 🏟️ {match.court}
+            {loading ? (
+              <div className="p-12 text-center">
+                <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500"></div>
+                <p>경기 일정을 불러오는 중...</p>
+              </div>
+            ) : upcomingMatches.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className="mb-4 text-6xl">🏸</div>
+                <h3 className="mb-2 text-lg font-medium text-gray-900">예정된 경기가 없습니다</h3>
+                <p className="mb-4 text-gray-600">새로운 경기에 등록하거나 관리자의 배정을 기다려주세요.</p>
+                <Link href="/match-registration">
+                  <Button>경기 등록하기</Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200/80">
+                {upcomingMatches.map((match) => (
+                  <div key={match.id} className="p-4 sm:p-5">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-3 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
+                            {formatMatchBadge(match)}
+                          </span>
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(match.status)}`}>
+                            {getStatusText(match.status)}
+                          </span>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                            {formatCompactDate(match.match_date)}
+                          </span>
                         </div>
-                      </div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        match.status === 'completed'
-                          ? didIWin
-                            ? 'bg-green-200 text-green-800'
-                            : didILose
-                            ? 'bg-red-200 text-red-800'
-                            : 'bg-gray-200 text-gray-800'
-                          : match.status === 'pending'
-                          ? 'bg-blue-200 text-blue-700'
-                          : 'bg-yellow-200 text-yellow-800'
-                      }`}>
-                        {match.status === 'completed'
-                          ? didIWin
-                            ? '✓ 승리'
-                            : didILose
-                            ? '✗ 패배'
-                            : '= 무승부'
-                          : match.status === 'pending'
-                          ? '⏳ 대기중'
-                          : '⚡ 진행중'}
-                      </span>
-                    </div>
 
-                    <div className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center">
-                      <div className={`rounded-lg p-3 text-center ${myTeam === 'team1' ? 'border-2 border-blue-400 bg-blue-100' : 'bg-white'}`}>
-                        <div className="mb-2 font-semibold text-blue-700">{myTeam === 'team1' ? '🌟 내 팀' : '상대 팀'}</div>
-                        {match.team1.map((player, index) => (
-                          <div key={`${match.id}-team1-${index}`} className="text-sm text-gray-800">
-                            {player}
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">일정</div>
+                            <div className="mt-1 text-sm font-medium text-slate-800">{formatCompactDate(match.match_date)}</div>
+                            <div className="text-xs text-slate-500">{formatTimeRange(match.start_time, match.end_time)}</div>
                           </div>
-                        ))}
-                        {match.status === 'completed' && (
-                          <div className="mt-2 text-2xl font-bold text-blue-600">{match.score_team1}</div>
+                          <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">장소</div>
+                            <div className="mt-1 text-sm font-medium text-slate-800">{match.location}</div>
+                            <div className="text-xs text-slate-500">{match.description}</div>
+                          </div>
+                          <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">세션</div>
+                            <div className="mt-1 text-sm font-medium text-slate-800">
+                              {match.generated_match?.session_name || '일반 등록 경기'}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {match.generated_match ? '관리자 배정 경기' : '참가 신청 일정'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {match.generated_match && (
+                          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                            <div className="rounded-[20px] border border-blue-100 bg-blue-50/80 p-3">
+                              <div className="mb-2 flex items-center justify-between">
+                                <div className="text-sm font-semibold text-blue-900">팀 A</div>
+                                <div className="text-[11px] font-medium text-blue-500">라켓팀</div>
+                              </div>
+                              <div className="space-y-1.5 text-sm">
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team1_player1.id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
+                                  {getPlayerName(match.generated_match.team1_player1)}
+                                  <span className="ml-1 text-xs text-blue-500">· {getLevelName(match.generated_match.team1_player1)}</span>
+                                </div>
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team1_player2.id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
+                                  {getPlayerName(match.generated_match.team1_player2)}
+                                  <span className="ml-1 text-xs text-blue-500">· {getLevelName(match.generated_match.team1_player2)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="rounded-[20px] border border-rose-100 bg-rose-50/80 p-3">
+                              <div className="mb-2 flex items-center justify-between">
+                                <div className="text-sm font-semibold text-rose-900">팀 B</div>
+                                <div className="text-[11px] font-medium text-rose-500">셔틀팀</div>
+                              </div>
+                              <div className="space-y-1.5 text-sm">
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team2_player1.id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
+                                  {getPlayerName(match.generated_match.team2_player1)}
+                                  <span className="ml-1 text-xs text-rose-500">· {getLevelName(match.generated_match.team2_player1)}</span>
+                                </div>
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team2_player2.id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
+                                  {getPlayerName(match.generated_match.team2_player2)}
+                                  <span className="ml-1 text-xs text-rose-500">· {getLevelName(match.generated_match.team2_player2)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
 
-                      <div className="text-2xl font-bold text-gray-400">VS</div>
+                      {match.generated_match && (
+                        <div className="flex shrink-0 flex-col gap-2 xl:w-36">
+                          {match.status === 'scheduled' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-10 rounded-xl border-slate-300 bg-white text-slate-700"
+                              onClick={() => handleScheduleDetails(match)}
+                            >
+                              일정 확인
+                            </Button>
+                          )}
+                          {match.status === 'in_progress' && (
+                            <>
+                              {(() => {
+                                const hasResult = matchResultStates[match.id];
 
-                      <div className={`rounded-lg p-3 text-center ${myTeam === 'team2' ? 'border-2 border-blue-400 bg-blue-100' : 'bg-white'}`}>
-                        <div className="mb-2 font-semibold text-red-700">{myTeam === 'team2' ? '🌟 내 팀' : '상대 팀'}</div>
-                        {match.team2.map((player, index) => (
-                          <div key={`${match.id}-team2-${index}`} className="text-sm text-gray-800">
-                            {player}
-                          </div>
-                        ))}
-                        {match.status === 'completed' && (
-                          <div className="mt-2 text-2xl font-bold text-red-600">{match.score_team2}</div>
-                        )}
-                      </div>
+                                if (hasResult === null) {
+                                  return (
+                                    <Button variant="outline" size="sm" disabled>
+                                      확인 중...
+                                    </Button>
+                                  );
+                                }
+
+                                return hasResult ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleScheduleDetails(match)}
+                                    className="h-10 rounded-xl border-green-300 text-green-700 hover:bg-green-50"
+                                  >
+                                    결과 보기
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleCompleteInput(match)}
+                                    className="h-10 rounded-xl border-yellow-300 text-yellow-700 hover:bg-yellow-50"
+                                  >
+                                    완료 입력
+                                  </Button>
+                                );
+                              })()}
+                            </>
+                          )}
+                          {match.status === 'completed' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleScheduleDetails(match)}
+                              className="h-10 rounded-xl border-green-300 text-green-700 hover:bg-green-50"
+                            >
+                              결과 보기
+                            </Button>
+                          )}
+                          {match.status === 'cancelled' && (
+                            <Button variant="outline" size="sm" disabled className="border-gray-300 text-gray-500">
+                              취소됨
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 새로고침 및 알림 테스트 버튼 */}
-      <div className="mt-8 text-center space-y-4">
-        <Button 
-          onClick={fetchMySchedule} 
-          disabled={loading}
-          variant="outline"
-        >
-          {loading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-              새로고침 중...
-            </>
-          ) : (
-            '🔄 새로고침'
-          )}
-        </Button>
-        
-        {/* 알림 테스트 버튼 (관리자만 표시) */}
-        {isAdmin && (
-          <div className="flex gap-2 justify-center">
-            <Button 
-              onClick={async () => {
-                await NotificationService.sendNotification(
-                  '🏸 경기 준비 테스트',
-                  '이것은 알림 시스템 테스트입니다.\n브라우저 알림과 소리가 정상적으로 작동하는지 확인해주세요.',
-                  { playSound: true, showBrowserNotification: true }
-                );
-              }}
-              variant="outline"
-              size="sm"
-              className="text-xs"
-            >
-              🔔 알림 테스트
-            </Button>
-            <Button 
-              onClick={async () => {
-                await NotificationService.sendMatchPreparationNotification(999, ['테스트 선수1', '테스트 선수2']);
-              }}
-              variant="outline"
-              size="sm"
-              className="text-xs"
-            >
-              🏸 경기 알림 테스트
-            </Button>
+                ))}
+              </div>
+            )}
           </div>
         )}
-      </div>
 
-      {/* 경기 상세 정보 모달 */}
-      {showDetailsModal && selectedMatch && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              {/* 모달 헤더 */}
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  🏸 경기 상세 정보
-                </h2>
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
-                >
-                  ×
-                </button>
+        {activeTab === 'results' && (
+          <div className="rounded-[24px] border border-slate-200/70 bg-white/95 shadow-[0_24px_60px_-35px_rgba(15,23,42,0.3)]">
+            <div className="flex flex-col gap-4 border-b border-slate-200/80 p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">완료된 경기 기록</h2>
+                <p className="mt-1 text-sm text-slate-500">승패와 점수를 압축해서 빠르게 훑어볼 수 있습니다.</p>
               </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="record-date-filter" className="text-sm font-medium text-gray-600">
+                  날짜 필터
+                </label>
+                <select
+                  id="record-date-filter"
+                  value={selectedDate}
+                  onChange={(e) => handleDateFilter(e.target.value)}
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="">전체</option>
+                  {uniqueRecordDates.map((date) => (
+                    <option key={date} value={date}>
+                      {date}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-              {/* 경기 기본 정보 */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-3 text-blue-700">📅 일정 정보</h3>
-                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                  <div className="flex justify-between">
-                    <span className="font-medium">날짜:</span>
-                    <span>{new Date(selectedMatch.match_date).toLocaleDateString('ko-KR', { 
-                      year: 'numeric', 
-                      month: 'long', 
+            {filteredRecords.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <div className="mb-4 text-6xl">🏆</div>
+                <h3 className="mb-2 text-lg font-medium text-gray-900">완료된 경기 기록이 없습니다</h3>
+                <p>경기가 완료되면 여기에서 결과를 확인할 수 있습니다.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200/80">
+                {filteredRecords.map((record) => (
+                  <div key={record.id} className="p-4 sm:p-5">
+                    <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
+                      <div className="rounded-[20px] bg-slate-50 px-4 py-3">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
+                            #{record.matchNumber}
+                          </span>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-medium ${
+                              record.result === 'win' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {record.result === 'win' ? '승리' : '패배'}
+                          </span>
+                          <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-500 shadow-sm">
+                            {formatCompactDate(record.date)}
+                          </span>
+                        </div>
+                        <div className="text-lg font-semibold text-slate-900">{record.score || '점수 기록 없음'}</div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {record.isUserTeam1 ? '라켓팀 기준 기록' : '셔틀팀 기준 기록'}
+                        </div>
+                      </div>
+                      <div className="grid gap-2 text-sm">
+                        <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-3">
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">팀원</div>
+                          <div className="mt-1 font-medium text-slate-700">
+                            {record.teammates.length > 0 ? record.teammates.join(', ') : '없음'}
+                          </div>
+                        </div>
+                        <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-3">
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">상대</div>
+                          <div className="mt-1 font-medium text-slate-700">
+                            {record.opponents.length > 0 ? record.opponents.join(', ') : '없음'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'tournaments' && (
+          <div className="rounded-[24px] border border-slate-200/70 bg-white/95 shadow-[0_24px_60px_-35px_rgba(15,23,42,0.3)]">
+            <div className="flex flex-col gap-4 border-b border-slate-200/80 p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">대회 경기</h2>
+                <p className="mt-1 text-sm text-slate-500">대회 결과도 일반 경기와 같은 밀도로 볼 수 있습니다.</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-2xl bg-amber-50 px-3 py-3">
+                  <div className="text-lg font-bold text-amber-900">{tournamentStats.total}</div>
+                  <div className="text-xs text-amber-700">총 경기</div>
+                </div>
+                <div className="rounded-2xl bg-green-50 px-3 py-3">
+                  <div className="text-lg font-bold text-green-900">{tournamentStats.wins}</div>
+                  <div className="text-xs text-green-700">승리</div>
+                </div>
+                <div className="rounded-2xl bg-blue-50 px-3 py-3">
+                  <div className="text-lg font-bold text-blue-900">{tournamentStats.pending}</div>
+                  <div className="text-xs text-blue-700">대기</div>
+                </div>
+              </div>
+            </div>
+
+            {tournamentMatches.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <div className="mb-4 text-6xl">🎾</div>
+                <h3 className="mb-2 text-lg font-medium text-gray-900">
+                  {allTournamentMatchCount === 0 ? '등록된 대회 경기가 아직 없습니다' : '참가한 대회 경기가 없습니다'}
+                </h3>
+                <p>대회가 생성되면 이 탭에서 일반 경기와 분리해서 확인할 수 있습니다.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 p-4 sm:p-6">
+                {tournamentMatches.map((match) => {
+                  const myTeam = getMyTournamentTeam(match);
+                  const didIWin = match.status === 'completed' && match.winner === myTeam;
+                  const didILose =
+                    match.status === 'completed' &&
+                    match.winner &&
+                    match.winner !== myTeam &&
+                    match.winner !== 'draw';
+
+                  return (
+                    <div
+                      key={match.id}
+                      className={`rounded-[22px] border p-4 ${
+                        didIWin
+                          ? 'border-green-200 bg-green-50/80'
+                          : didILose
+                          ? 'border-red-200 bg-red-50/80'
+                          : match.status === 'pending'
+                          ? 'border-blue-200 bg-blue-50/80'
+                          : 'border-slate-200 bg-slate-50/80'
+                      }`}
+                    >
+                      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
+                              대회 #{match.match_number}
+                            </span>
+                            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-500">
+                              {formatCompactDate(match.tournament_date)}
+                            </span>
+                          </div>
+                          <div className="mt-2 text-base font-semibold text-slate-900">{match.tournament_title}</div>
+                          <div className="text-sm text-slate-500">
+                            코트 {match.court} · {match.match_type || '대회 경기'}
+                          </div>
+                        </div>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-medium ${
+                            match.status === 'completed'
+                              ? didIWin
+                                ? 'bg-green-200 text-green-800'
+                                : didILose
+                                ? 'bg-red-200 text-red-800'
+                                : 'bg-gray-200 text-gray-800'
+                              : match.status === 'pending'
+                              ? 'bg-blue-200 text-blue-700'
+                              : 'bg-yellow-200 text-yellow-800'
+                          }`}
+                        >
+                          {match.status === 'completed'
+                            ? didIWin
+                              ? '✓ 승리'
+                              : didILose
+                              ? '✗ 패배'
+                              : '= 무승부'
+                            : match.status === 'pending'
+                            ? '⏳ 대기중'
+                            : '⚡ 진행중'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+                        <div className={`rounded-[20px] p-3 text-center ${myTeam === 'team1' ? 'border border-blue-300 bg-blue-100' : 'bg-white'}`}>
+                          <div className="mb-2 font-semibold text-blue-700">{myTeam === 'team1' ? '내 팀' : '상대 팀'}</div>
+                          {match.team1.map((player, index) => (
+                            <div key={`${match.id}-team1-${index}`} className="text-sm text-gray-800">
+                              {player}
+                            </div>
+                          ))}
+                          {match.status === 'completed' && (
+                            <div className="mt-2 text-2xl font-bold text-blue-600">{match.score_team1}</div>
+                          )}
+                        </div>
+
+                        <div className="text-center text-xl font-bold text-gray-400">VS</div>
+
+                        <div className={`rounded-[20px] p-3 text-center ${myTeam === 'team2' ? 'border border-blue-300 bg-blue-100' : 'bg-white'}`}>
+                          <div className="mb-2 font-semibold text-red-700">{myTeam === 'team2' ? '내 팀' : '상대 팀'}</div>
+                          {match.team2.map((player, index) => (
+                            <div key={`${match.id}-team2-${index}`} className="text-sm text-gray-800">
+                              {player}
+                            </div>
+                          ))}
+                          {match.status === 'completed' && (
+                            <div className="mt-2 text-2xl font-bold text-red-600">{match.score_team2}</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-4 rounded-[24px] border border-slate-200/70 bg-white/80 p-4 text-center shadow-[0_20px_50px_-35px_rgba(15,23,42,0.22)]">
+          <Button onClick={fetchMySchedule} disabled={loading} variant="outline" className="rounded-xl">
+            {loading ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-current"></div>
+                새로고침 중...
+              </>
+            ) : (
+              '🔄 새로고침'
+            )}
+          </Button>
+
+          {isAdmin && (
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button
+                onClick={async () => {
+                  await NotificationService.sendNotification(
+                    '🏸 경기 준비 테스트',
+                    '이것은 알림 시스템 테스트입니다.\n브라우저 알림과 소리가 정상적으로 작동하는지 확인해주세요.',
+                    { playSound: true, showBrowserNotification: true }
+                  );
+                }}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                🔔 알림 테스트
+              </Button>
+              <Button
+                onClick={async () => {
+                  await NotificationService.sendMatchPreparationNotification(999, ['테스트 선수1', '테스트 선수2']);
+                }}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                🏸 경기 알림 테스트
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {showDetailsModal && selectedMatch && (
+          <div className="rounded-[28px] border border-slate-200/80 bg-white/95 shadow-[0_30px_80px_-45px_rgba(15,23,42,0.45)]">
+            <div className="border-b border-slate-200/80 px-4 py-4 sm:px-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Match Detail</div>
+                  <h2 className="mt-1 text-xl font-semibold text-slate-900">🏸 경기 상세 정보</h2>
+                  <p className="mt-1 text-sm text-slate-500">팝업 대신 페이지 하단에서 바로 상태 확인과 결과 입력을 할 수 있습니다.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setModalMode('schedule');
+                    setMatchResult({ winner: '', score: '' });
+                  }}
+                >
+                  닫기
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-6 p-4 sm:p-6">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">날짜</div>
+                  <div className="mt-1 text-sm font-medium text-slate-800">
+                    {new Date(selectedMatch.match_date).toLocaleDateString('ko-KR', {
+                      year: 'numeric',
+                      month: 'long',
                       day: 'numeric',
-                      weekday: 'short'
-                    })}</span>
+                      weekday: 'short',
+                    })}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">시간:</span>
-                    <span>{selectedMatch.start_time} - {selectedMatch.end_time}</span>
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">시간</div>
+                  <div className="mt-1 text-sm font-medium text-slate-800">
+                    {selectedMatch.start_time} - {selectedMatch.end_time}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">장소:</span>
-                    <span>{selectedMatch.location}</span>
-                  </div>
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">장소</div>
+                  <div className="mt-1 text-sm font-medium text-slate-800">{selectedMatch.location}</div>
                 </div>
               </div>
 
-              {/* 상태 변경 섹션 - 일정 확인 모드에서만 표시 */}
               {modalMode === 'schedule' && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3 text-purple-700">⚙️ 경기 상태</h3>
-                  <div className="bg-purple-50 p-4 rounded-lg">
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2"> {/* 완료 버튼 제거로 3열로 변경 */}
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">상태 변경</h3>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
                       <button
                         onClick={() => handleStatusChange('scheduled')}
-                        className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                          matchStatus === 'scheduled' 
-                            ? 'bg-blue-500 text-white' 
-                            : 'bg-white text-blue-600 border border-blue-300 hover:bg-blue-50'
+                        className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                          matchStatus === 'scheduled'
+                            ? 'bg-blue-500 text-white'
+                            : 'border border-blue-200 bg-white text-blue-700 hover:bg-blue-50'
                         }`}
                       >
                         예정
                       </button>
                       <button
                         onClick={() => handleStatusChange('in_progress')}
-                        className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                          matchStatus === 'in_progress' 
-                            ? 'bg-yellow-500 text-white' 
-                            : 'bg-white text-yellow-600 border border-yellow-300 hover:bg-yellow-50'
+                        className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                          matchStatus === 'in_progress'
+                            ? 'bg-yellow-500 text-white'
+                            : 'border border-yellow-200 bg-white text-yellow-700 hover:bg-yellow-50'
                         }`}
                       >
                         진행중
                       </button>
                       <button
                         onClick={() => handleStatusChange('cancelled')}
-                        className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                          matchStatus === 'cancelled' 
-                            ? 'bg-red-500 text-white' 
-                            : 'bg-white text-red-600 border border-red-300 hover:bg-red-50'
+                        className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                          matchStatus === 'cancelled'
+                            ? 'bg-red-500 text-white'
+                            : 'border border-red-200 bg-white text-red-700 hover:bg-red-50'
                         }`}
                       >
                         취소
                       </button>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* 매치 정보 - 일정 확인 모드에서만 표시 */}
-              {modalMode === 'schedule' && selectedMatch.generated_match && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3 text-green-700">🏸 매치 정보</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">경기 번호:</span>
-                      <span className="text-lg font-bold text-blue-600">#{selectedMatch.generated_match.match_number}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium">세션:</span>
-                      <span>{selectedMatch.generated_match.session_name}</span>
-                    </div>
+                  {selectedMatch.generated_match && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-semibold text-slate-800">
+                          경기 #{selectedMatch.generated_match.match_number}
+                        </div>
+                        <div className="text-sm text-slate-500">{selectedMatch.generated_match.session_name}</div>
+                      </div>
 
-                    {/* 팀 구성 */}
-                    <div className="mt-4">
-                      <h4 className="font-semibold mb-2 text-purple-700">👥 팀 구성</h4>
-                      <div className="grid grid-cols-2 gap-2 md:gap-4">
-                        {/* 라켓팀 */}
-                        <div className="bg-blue-50 p-2 md:p-3 rounded-lg border-l-4 border-blue-400">
-                          <h5 className="font-semibold text-blue-700 mb-1 md:mb-2 text-sm md:text-base">라켓팀</h5>
-                          <div className="space-y-1 text-xs md:text-sm">
-                            <div className="flex justify-between">
-                              <span className="truncate pr-1">{getPlayerName(selectedMatch.generated_match.team1_player1)}</span>
-                              <span className="text-blue-600 font-medium text-xs md:text-sm">
-                                {getLevelName(selectedMatch.generated_match.team1_player1)}
-                              </span>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-[20px] border border-blue-100 bg-blue-50/80 p-4">
+                          <div className="mb-2 text-sm font-semibold text-blue-900">라켓팀</div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                              <span>{getPlayerName(selectedMatch.generated_match.team1_player1)}</span>
+                              <span className="text-xs text-blue-600">{getLevelName(selectedMatch.generated_match.team1_player1)}</span>
                             </div>
-                            <div className="flex justify-between">
-                              <span className="truncate pr-1">{getPlayerName(selectedMatch.generated_match.team1_player2)}</span>
-                              <span className="text-blue-600 font-medium">
-                                {getLevelName(selectedMatch.generated_match.team1_player2)}
-                              </span>
+                            <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                              <span>{getPlayerName(selectedMatch.generated_match.team1_player2)}</span>
+                              <span className="text-xs text-blue-600">{getLevelName(selectedMatch.generated_match.team1_player2)}</span>
                             </div>
                           </div>
                         </div>
-
-                        {/* 셔틀팀 */}
-                        <div className="bg-red-50 p-2 md:p-3 rounded-lg border-l-4 border-red-400">
-                          <h5 className="font-semibold text-red-700 mb-1 md:mb-2 text-sm md:text-base">셔틀팀</h5>
-                          <div className="space-y-1 text-xs md:text-sm">
-                            <div className="flex justify-between">
-                              <span className="truncate pr-1">{getPlayerName(selectedMatch.generated_match.team2_player1)}</span>
-                              <span className="text-red-600 font-medium text-xs md:text-sm">
-                                {getLevelName(selectedMatch.generated_match.team2_player1)}
-                              </span>
+                        <div className="rounded-[20px] border border-rose-100 bg-rose-50/80 p-4">
+                          <div className="mb-2 text-sm font-semibold text-rose-900">셔틀팀</div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                              <span>{getPlayerName(selectedMatch.generated_match.team2_player1)}</span>
+                              <span className="text-xs text-rose-600">{getLevelName(selectedMatch.generated_match.team2_player1)}</span>
                             </div>
-                            <div className="flex justify-between">
-                              <span className="truncate pr-1">{getPlayerName(selectedMatch.generated_match.team2_player2)}</span>
-                              <span className="text-red-600 font-medium text-xs md:text-sm">
-                                {getLevelName(selectedMatch.generated_match.team2_player2)}
-                              </span>
+                            <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                              <span>{getPlayerName(selectedMatch.generated_match.team2_player2)}</span>
+                              <span className="text-xs text-rose-600">{getLevelName(selectedMatch.generated_match.team2_player2)}</span>
                             </div>
                           </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* 경기 결과 표시 (완료된 경기인 경우) */}
-                    {matchStatus === 'completed' && selectedMatch.generated_match && (
-                      <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                        <h4 className="font-semibold text-green-800 mb-2">🏆 경기 결과</h4>
-                        <MatchResultDisplay selectedMatch={selectedMatch} user={user} supabase={supabase} />
-                      </div>
-                    )}
-                  </div>
+                      {matchStatus === 'completed' && (
+                        <div className="rounded-[20px] border border-green-200 bg-green-50/80 p-4">
+                          <h4 className="mb-3 font-semibold text-green-800">🏆 경기 결과</h4>
+                          <MatchResultDisplay selectedMatch={selectedMatch} user={user} supabase={supabase} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {matchStatus === 'in_progress' && (
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => setModalMode('complete')}
+                        className="rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-600"
+                      >
+                        📝 완료 입력
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* 완료 입력 모드 - 결과 입력에 집중된 UI */}
               {modalMode === 'complete' && selectedMatch.generated_match && (
-                <div className="space-y-6">
-                  <div className="text-center mb-6">
-                    <h3 className="text-xl font-bold text-purple-700 mb-2">🏆 경기 결과 입력</h3>
-                    <p className="text-gray-600">승리 팀과 점수를 기록해주세요</p>
+                <div className="space-y-5">
+                  <div className="text-center">
+                    <h3 className="text-xl font-bold text-purple-700">🏆 경기 결과 입력</h3>
+                    <p className="mt-1 text-sm text-slate-500">승리 팀과 점수를 기록해주세요.</p>
                   </div>
 
-                  {/* 팀 간단 정보 */}
-                  <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="text-center">
-                        <div className="font-semibold text-blue-700 mb-1">라켓팀</div>
-                        <div className="text-gray-600">
-                          {getPlayerName(selectedMatch.generated_match.team1_player1)}, {getPlayerName(selectedMatch.generated_match.team1_player2)}
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-semibold text-red-700 mb-1">셔틀팀</div>
-                        <div className="text-gray-600">
-                          {getPlayerName(selectedMatch.generated_match.team2_player1)}, {getPlayerName(selectedMatch.generated_match.team2_player2)}
-                        </div>
-                      </div>
-                    </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <button
+                      onClick={() => setMatchResult((prev) => ({ ...prev, winner: 'team1' }))}
+                      className={`rounded-[20px] border-2 p-4 text-center transition-all ${
+                        matchResult.winner === 'team1'
+                          ? 'border-blue-500 bg-blue-100 text-blue-800 shadow-lg'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="mb-2 text-lg font-bold text-blue-700">라켓팀</div>
+                      <div className="text-sm">{getPlayerName(selectedMatch.generated_match.team1_player1)}</div>
+                      <div className="text-sm">{getPlayerName(selectedMatch.generated_match.team1_player2)}</div>
+                    </button>
+                    <button
+                      onClick={() => setMatchResult((prev) => ({ ...prev, winner: 'team2' }))}
+                      className={`rounded-[20px] border-2 p-4 text-center transition-all ${
+                        matchResult.winner === 'team2'
+                          ? 'border-red-500 bg-red-100 text-red-800 shadow-lg'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-red-300'
+                      }`}
+                    >
+                      <div className="mb-2 text-lg font-bold text-red-700">셔틀팀</div>
+                      <div className="text-sm">{getPlayerName(selectedMatch.generated_match.team2_player1)}</div>
+                      <div className="text-sm">{getPlayerName(selectedMatch.generated_match.team2_player2)}</div>
+                    </button>
                   </div>
 
-                  {/* 승리 팀 선택 */}
-                  <div className="mb-6">
-                    <h4 className="text-lg font-semibold mb-3 text-green-700">🏆 승리 팀</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => setMatchResult(prev => ({ ...prev, winner: 'team1' }))}
-                        className={`p-4 rounded-lg border-2 text-center font-medium transition-all ${
-                          matchResult.winner === 'team1'
-                            ? 'border-blue-500 bg-blue-100 text-blue-800 shadow-lg'
-                            : 'border-gray-300 bg-white hover:border-blue-300 text-gray-700'
-                        }`}
-                      >
-                        <div className="text-2xl mb-1">🏆</div>
-                        <div className="font-bold text-blue-700">라켓팀</div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          {getPlayerName(selectedMatch.generated_match.team1_player1)}<br/>
-                          {getPlayerName(selectedMatch.generated_match.team1_player2)}
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => setMatchResult(prev => ({ ...prev, winner: 'team2' }))}
-                        className={`p-4 rounded-lg border-2 text-center font-medium transition-all ${
-                          matchResult.winner === 'team2'
-                            ? 'border-red-500 bg-red-100 text-red-800 shadow-lg'
-                            : 'border-gray-300 bg-white hover:border-red-300 text-gray-700'
-                        }`}
-                      >
-                        <div className="text-2xl mb-1">🏆</div>
-                        <div className="font-bold text-red-700">셔틀팀</div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          {getPlayerName(selectedMatch.generated_match.team2_player1)}<br/>
-                          {getPlayerName(selectedMatch.generated_match.team2_player2)}
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 점수 입력 */}
-                  <div className="mb-6">
-                    <h4 className="text-lg font-semibold mb-3 text-purple-700">📊 점수 기록</h4>
+                  <div>
                     <input
                       type="text"
-                      placeholder="점수를 입력하세요 (예: 21-18, 21-19)"
+                      placeholder="예: 21-18, 21-19"
                       value={matchResult.score}
-                      onChange={(e) => setMatchResult(prev => ({ ...prev, score: e.target.value }))}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-center text-lg font-mono"
+                      onChange={(e) => setMatchResult((prev) => ({ ...prev, score: e.target.value }))}
+                      className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 text-center text-lg font-mono focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                     />
-                    <div className="text-sm text-gray-500 mt-2 text-center">
-                      💡 점수 입력 예시: 21-18, 21-19 또는 21-15, 15-21, 21-17
+                    <div className="mt-2 text-center text-xs text-slate-500">
+                      점수 입력 예시: 21-18, 21-19 또는 21-15, 15-21, 21-17
                     </div>
                   </div>
 
-                  {/* 저장 버튼 */}
-                  <div className="flex gap-3">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <button
                       onClick={() => {
                         setModalMode('schedule');
-                        setMatchResult({ winner: '', score: '' }); // 입력 초기화
+                        setMatchResult({ winner: '', score: '' });
                       }}
-                      className="flex-1 px-4 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-semibold transition-colors"
+                      className="flex-1 rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-700 transition-colors hover:bg-slate-300"
                     >
                       ← 뒤로가기
                     </button>
                     <button
                       onClick={handleSaveResult}
                       disabled={!matchResult.winner || !matchResult.score}
-                      className="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors shadow-lg"
+                      className="flex-1 rounded-xl bg-green-500 px-4 py-3 font-semibold text-white transition-colors hover:bg-green-600 disabled:bg-slate-400"
                     >
                       💾 결과 저장
                     </button>
                   </div>
                 </div>
               )}
-
-              {/* 모달 푸터 - 일정 확인 모드에서만 표시 */}
-              {modalMode === 'schedule' && (
-                <div className="flex justify-between pt-4 border-t border-gray-200">
-                  {/* 왼쪽: 완료 입력 버튼 (진행중 상태일 때만 표시) */}
-                  {matchStatus === 'in_progress' && (
-                    <button
-                      onClick={() => setModalMode('complete')}
-                      className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors"
-                    >
-                      📝 완료 입력
-                    </button>
-                  )}
-                  
-                  {/* 오른쪽: 닫기 버튼 */}
-                  <div className="ml-auto">
-                    <Button 
-                      onClick={() => {
-                        setShowDetailsModal(false);
-                        setModalMode('schedule');
-                        setMatchResult({ winner: '', score: '' });
-                      }} 
-                      variant="outline"
-                    >
-                      닫기
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

@@ -7,17 +7,32 @@ import AttendanceStatus from '@/app/(admin)/players/components/AttendanceStatus'
 import MatchSessionStatus from '@/app/(admin)/players/components/MatchSessionStatus';
 import MatchGenerationControls from '@/app/(admin)/players/components/MatchGenerationControls';
 import GeneratedMatchesList from '@/app/(admin)/players/components/GeneratedMatchesList';
-import TeamBasedMatchGeneration from '@/app/(admin)/players/components/TeamBasedMatchGeneration';
 import { ExtendedPlayer, MatchSession } from '@/app/(admin)/players/types';
 import { getSupabaseClient } from '@/lib/supabase';
 import { fetchTodayPlayers, fetchRegisteredPlayersForDate, calculatePlayerGameCounts, normalizeLevel } from '@/app/(admin)/players/utils';
 import { Match } from '@/types';
 import { getKoreaDate } from '@/lib/date';
 import { getAdminLevelDisplay } from '@/lib/level-display';
+import { fetchLevelInfoMap, getLevelScoreFromCode, type LevelInfoMap } from '@/lib/level-info';
+import { getLevelScore } from '@/utils/match-helpers';
+
+interface MemberOption {
+  id: string;
+  name: string;
+  skill_level: string;
+  skill_label: string;
+  score?: number;
+  gender: string;
+  skill_code: string;
+}
 
 export default function PlayersTodayPage() {
   const supabase = useMemo(() => getSupabaseClient(), []);
   const [todayPlayers, setTodayPlayers] = useState<ExtendedPlayer[] | null>(null);
+  const [memberPlayers, setMemberPlayers] = useState<MemberOption[]>([]);
+  const [manualPlayers, setManualPlayers] = useState<ExtendedPlayer[]>([]);
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [matchSessions, setMatchSessions] = useState<MatchSession[]>([]);
   const [todaySchedules, setTodaySchedules] = useState<Array<{
     id: string;
@@ -29,6 +44,7 @@ export default function PlayersTodayPage() {
     current_participants: number | null;
     max_participants: number | null;
   }>>([]);
+  const [levelInfoMap, setLevelInfoMap] = useState<LevelInfoMap>({});
   const [matches, setMatches] = useState<Match[]>([]);
   const [playerGameCounts, setPlayerGameCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
@@ -36,12 +52,98 @@ export default function PlayersTodayPage() {
   const [sessionMode, setSessionMode] = useState<'레벨' | '랜덤' | '혼복' | '수동'>('레벨');
   const [perPlayerMinGames, setPerPlayerMinGames] = useState<number>(1);
   const [isManualEditing, setIsManualEditing] = useState(false);
-  const [availableTeams, setAvailableTeams] = useState<Array<{round: number; title?: string; racket: string[]; shuttle: string[]}>>([]);
-  const [selectedTeamRound, setSelectedTeamRound] = useState<number | null>(null);
+  const effectiveTodayPlayers = useMemo(() => {
+    if (todayPlayers === null) {
+      return null;
+    }
+
+    const merged = new Map<string, ExtendedPlayer>();
+    [...todayPlayers, ...manualPlayers].forEach((player) => {
+      merged.set(player.id, player);
+    });
+
+    return Array.from(merged.values());
+  }, [manualPlayers, todayPlayers]);
+  const availableMembersToAdd = useMemo(() => {
+    const existingIds = new Set((effectiveTodayPlayers || []).map((player) => player.id));
+    return memberPlayers
+      .filter((member) => !existingIds.has(member.id))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko', { sensitivity: 'base' }));
+  }, [effectiveTodayPlayers, memberPlayers]);
 
   // 로컬(KST) 기준 YYYY-MM-DD 반환 (타임존 문제 해결)
   const getTodayLocal = () => {
     return getKoreaDate();
+  };
+
+  const getAccurateScore = (skillLevel?: string | null) => {
+    const mappedScore = getLevelScoreFromCode(levelInfoMap, skillLevel, Number.NaN);
+    if (!Number.isNaN(mappedScore)) {
+      return mappedScore;
+    }
+    return getLevelScore(skillLevel || 'E2');
+  };
+
+  const attachScores = <T extends ExtendedPlayer | MemberOption>(players: T[]) =>
+    players.map((player) => ({
+      ...player,
+      score: getAccurateScore(player.skill_level),
+    }));
+
+  const attachScoresWithMap = <T extends ExtendedPlayer | MemberOption>(
+    players: T[],
+    map: LevelInfoMap
+  ) =>
+    players.map((player) => ({
+      ...player,
+      score: getLevelScoreFromCode(map, player.skill_level, getLevelScore(player.skill_level || 'E2')),
+    }));
+
+  const ensureLevelInfoMap = async () => {
+    if (Object.keys(levelInfoMap).length > 0) {
+      return levelInfoMap;
+    }
+
+    const nextLevelInfoMap = await fetchLevelInfoMap(supabase);
+    setLevelInfoMap(nextLevelInfoMap);
+    return nextLevelInfoMap;
+  };
+
+  const fetchMemberPlayers = async () => {
+    try {
+      const [{ data, error }, nextLevelInfoMap] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, username, full_name, skill_level, gender')
+          .order('full_name', { ascending: true }),
+        fetchLevelInfoMap(supabase),
+      ]);
+
+      if (error) {
+        throw error;
+      }
+
+      setLevelInfoMap(nextLevelInfoMap);
+
+      const normalizedMembers = (data || []).map((profile: any) => {
+        const normalizedLevel = normalizeLevel('', profile.skill_level || 'e2');
+        const name = profile.full_name || profile.username || `선수-${String(profile.id).slice(0, 4)}`;
+        return {
+          id: profile.id,
+          name,
+          skill_level: normalizedLevel,
+          skill_label: getAdminLevelDisplay(normalizedLevel),
+          score: getLevelScoreFromCode(nextLevelInfoMap, normalizedLevel, getLevelScore(normalizedLevel)),
+          gender: profile.gender || '',
+          skill_code: '',
+        } as MemberOption;
+      });
+
+      setMemberPlayers(normalizedMembers);
+    } catch (error) {
+      console.error('회원 목록 조회 오류:', error);
+      setMemberPlayers([]);
+    }
   };
 
   // 출석 데이터 갱신 함수
@@ -50,6 +152,8 @@ export default function PlayersTodayPage() {
     console.log('출석 데이터 갱신 시작 - 날짜:', today);
 
     try {
+      const currentLevelInfoMap = await ensureLevelInfoMap();
+
       // 오늘 경기 참가자 조회
       const participants = await fetchRegisteredPlayersForDate(today);
       console.log('참가자 데이터 조회 결과:', participants);
@@ -70,7 +174,11 @@ export default function PlayersTodayPage() {
       if (attErr) {
         console.error('출석 조회 오류:', attErr);
         // 출석 조회 실패해도 참가자는 absent 상태로 표시
-        const absentPlayers = participants.map(p => ({ ...p, status: 'absent' as const }));
+        const absentPlayers = participants.map((p) => ({
+          ...p,
+          score: getLevelScoreFromCode(currentLevelInfoMap, p.skill_level, getLevelScore(p.skill_level)),
+          status: 'absent' as const,
+        }));
         setTodayPlayers(absentPlayers);
         return;
       }
@@ -110,6 +218,7 @@ export default function PlayersTodayPage() {
             name,
             skill_level: normalized,
             skill_label: label,
+            score: getLevelScoreFromCode(currentLevelInfoMap, normalized, getLevelScore(normalized)),
             gender: profile.gender || '',
             skill_code: '',
             status: 'present', // 출석 데이터이므로 present로 설정
@@ -125,6 +234,7 @@ export default function PlayersTodayPage() {
       const attendanceMap = new Map(attendancePresent?.map((a: any) => [a.user_id, true]) || []);
       const combinedPlayers = participants.map(p => ({
         ...p,
+        score: getLevelScoreFromCode(currentLevelInfoMap, p.skill_level, getLevelScore(p.skill_level)),
         status: attendanceMap.has(p.id) ? 'present' : 'absent'
       })) as ExtendedPlayer[];
 
@@ -135,8 +245,13 @@ export default function PlayersTodayPage() {
       console.error('출석 데이터 갱신 오류:', error);
       // 오류 발생 시에도 참가자 데이터는 absent 상태로 표시
       try {
+        const currentLevelInfoMap = await ensureLevelInfoMap();
         const participants = await fetchRegisteredPlayersForDate(today);
-        const absentPlayers = participants.map(p => ({ ...p, status: 'absent' as const }));
+        const absentPlayers = participants.map(p => ({
+          ...p,
+          score: getLevelScoreFromCode(currentLevelInfoMap, p.skill_level, getLevelScore(p.skill_level)),
+          status: 'absent' as const,
+        }));
         setTodayPlayers(absentPlayers);
       } catch (fallbackError) {
         console.error('참가자 데이터 조회 실패:', fallbackError);
@@ -148,14 +263,46 @@ export default function PlayersTodayPage() {
   useEffect(() => {
     const init = async () => {
       console.log('페이지 초기 로딩 시작');
+      await fetchMemberPlayers();
       await refreshAttendanceData();
       await fetchMatchSessions();
       await fetchTodaySchedules();
-      await fetchTodayTeams();
       console.log('페이지 초기 로딩 완료');
     };
     init();
   }, []);
+
+  useEffect(() => {
+    if (matches.length === 0 || Object.keys(levelInfoMap).length === 0) {
+      return;
+    }
+
+    setMatches((prevMatches) =>
+      prevMatches.map((match) => ({
+        ...match,
+        team1: {
+          player1: {
+            ...match.team1.player1,
+            score: getLevelScoreFromCode(levelInfoMap, match.team1.player1.skill_level, getLevelScore(match.team1.player1.skill_level)),
+          },
+          player2: {
+            ...match.team1.player2,
+            score: getLevelScoreFromCode(levelInfoMap, match.team1.player2.skill_level, getLevelScore(match.team1.player2.skill_level)),
+          },
+        },
+        team2: {
+          player1: {
+            ...match.team2.player1,
+            score: getLevelScoreFromCode(levelInfoMap, match.team2.player1.skill_level, getLevelScore(match.team2.player1.skill_level)),
+          },
+          player2: {
+            ...match.team2.player2,
+            score: getLevelScoreFromCode(levelInfoMap, match.team2.player2.skill_level, getLevelScore(match.team2.player2.skill_level)),
+          },
+        },
+      }))
+    );
+  }, [levelInfoMap]);
 
   // 포커스 시 갱신: 오늘 세션/일정/팀 구성 재조회
   useEffect(() => {
@@ -164,7 +311,6 @@ export default function PlayersTodayPage() {
       refreshAttendanceData().catch(err => console.error('포커스 갱신 오류:', err));
       fetchMatchSessions();
       fetchTodaySchedules();
-      fetchTodayTeams();
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -190,19 +336,6 @@ export default function PlayersTodayPage() {
       })
       .subscribe();
 
-    const participantChannel = supabase
-      .channel('participant_changes')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'match_participants'
-      }, (payload) => {
-        console.log('참가자 데이터 변경 감지:', payload);
-        // 비동기 함수를 즉시 실행하여 상태 업데이트 보장
-        refreshAttendanceData().catch(err => console.error('실시간 갱신 오류:', err));
-      })
-      .subscribe();
-
     const scheduleChannel = supabase
       .channel('schedule_changes')
       .on('postgres_changes', { 
@@ -220,119 +353,27 @@ export default function PlayersTodayPage() {
     return () => {
       console.log('실시간 구독 해제');
       supabase.removeChannel(attendanceChannel);
-      supabase.removeChannel(participantChannel);
       supabase.removeChannel(scheduleChannel);
     };
   }, []);
 
   const fetchMatchSessions = async () => {
     try {
-  const today = getTodayLocal();
-      const { data, error } = await supabase
-        .from('match_sessions')
-        .select('*')
-        .eq('session_date', today)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setMatchSessions(data || []);
+      const response = await fetch('/api/admin/match-sessions?date=today', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || '세션 조회 실패');
+      }
+
+      const payload = (await response.json()) as { sessions?: MatchSession[] };
+      setMatchSessions(payload.sessions || []);
     } catch (e) {
       console.error('세션 조회 오류:', e);
-    }
-  };
-
-  const fetchTodayTeams = async () => {
-    try {
-      const today = getTodayLocal();
-      console.log('🔍 팀 구성 조회 시작 - 날짜:', today);
-      
-      // 1. 먼저 DB에서 조회 시도 (새로운 JSONB 구조)
-      const { data, error } = await supabase
-        .from('team_assignments')
-        .select('*')
-        .eq('assignment_date', today)
-        .order('round_number', { ascending: true });
-
-      let teamsData: any[] = [];
-
-      if (error) {
-        console.log('⚠️ DB 조회 오류:', error.message);
-        console.log('📦 로컬 스토리지에서 조회 시도...');
-      } else if (data && data.length > 0) {
-        console.log('✅ DB에서', data.length, '건 조회됨 (JSONB 구조)');
-        
-        // JSONB 구조를 배열로 변환
-        teamsData = data.map(row => ({
-          round: row.round_number,
-          title: row.title,
-          racket: Array.isArray(row.racket_team) ? row.racket_team : [],
-          shuttle: Array.isArray(row.shuttle_team) ? row.shuttle_team : [],
-          team_type: row.team_type
-        }));
-      } else {
-        console.log('📦 DB에 데이터 없음. 로컬 스토리지에서 조회 시도...');
-      }
-
-      // 2. DB에서 데이터가 없으면 로컬 스토리지에서 조회 (구 방식)
-      if (teamsData.length === 0) {
-        const localData = localStorage.getItem('badminton_team_assignments');
-        if (localData) {
-          try {
-            const allAssignments = JSON.parse(localData);
-            console.log('📦 로컬 스토리지 전체 데이터:', allAssignments.length, '건');
-            
-            // 오늘 날짜 데이터만 필터링
-            const todayAssignments = allAssignments.filter((assignment: any) => {
-              const assignmentDate = assignment.assignment_date || 
-                                     assignment.created_at?.slice(0, 10) || 
-                                     getKoreaDate(new Date(assignment.created_at));
-              return assignmentDate === today;
-            });
-            
-            console.log('📦 오늘 날짜 데이터:', todayAssignments.length, '건 필터링됨');
-            
-            // 회차별로 그룹화 (구 방식)
-            const teamsMap: Record<number, {round: number; title?: string; racket: string[]; shuttle: string[]}> = {};
-            
-            todayAssignments.forEach((assignment: any) => {
-              if (!teamsMap[assignment.round_number]) {
-                teamsMap[assignment.round_number] = {
-                  round: assignment.round_number,
-                  title: assignment.round_title,
-                  racket: [],
-                  shuttle: []
-                };
-              }
-              
-              if (assignment.team_type === 'racket') {
-                teamsMap[assignment.round_number].racket.push(assignment.player_name);
-              } else if (assignment.team_type === 'shuttle') {
-                teamsMap[assignment.round_number].shuttle.push(assignment.player_name);
-              }
-            });
-            
-            teamsData = Object.values(teamsMap);
-          } catch (parseError) {
-            console.error('로컬 스토리지 파싱 오류:', parseError);
-          }
-        } else {
-          console.log('📦 로컬 스토리지에도 데이터 없음');
-        }
-      }
-
-      // 3. 최종 데이터 설정
-      if (teamsData.length > 0) {
-        setAvailableTeams(teamsData);
-        console.log('✅ 최종 팀 구성:', teamsData.length, '개 회차');
-        teamsData.forEach(team => {
-          console.log(`  - ${team.round}회차 (${team.title}): 라켓팀 ${team.racket.length}명, 셔틀팀 ${team.shuttle.length}명`);
-        });
-      } else {
-        console.log('❌ 오늘 날짜의 팀 구성이 없습니다.');
-        setAvailableTeams([]);
-      }
-    } catch (e) {
-      console.error('팀 구성 조회 실패:', e);
-      setAvailableTeams([]);
+      setMatchSessions([]);
     }
   };
 
@@ -340,20 +381,30 @@ export default function PlayersTodayPage() {
     const fetchTodaySchedulesDirectly = async (today: string) => {
       const { data, error } = await supabase
         .from('match_schedules')
-        .select('id, match_date, start_time, end_time, location, status, current_participants, max_participants')
+        .select('id, match_date, start_time, end_time, location, status, current_participants, max_participants, generated_match_id')
         .eq('match_date', today)
+        .is('generated_match_id', null)
         .order('start_time', { ascending: true });
 
       if (error) {
         throw error;
       }
 
-      setTodaySchedules(data || []);
+      setTodaySchedules((data || []).map((schedule) => ({
+        id: schedule.id,
+        match_date: schedule.match_date,
+        start_time: schedule.start_time,
+        end_time: schedule.end_time,
+        location: schedule.location,
+        status: schedule.status,
+        current_participants: schedule.current_participants,
+        max_participants: schedule.max_participants,
+      })));
     };
 
     try {
       const today = getTodayLocal();
-      const response = await fetch('/api/admin/match-schedules?date=today', {
+      const response = await fetch('/api/admin/match-schedules?date=today&schedule_source=recurring', {
         method: 'GET',
         cache: 'no-store',
       });
@@ -391,15 +442,20 @@ export default function PlayersTodayPage() {
   };
 
   const handleAssignByLevel = async () => {
-    if (!todayPlayers) return;
+    if (!effectiveTodayPlayers) return;
     setLoading(true);
     try {
-      const present = todayPlayers.filter(p => p.status === 'present');
+      const currentLevelInfoMap = await ensureLevelInfoMap();
+      const present = effectiveTodayPlayers.filter(p => p.status === 'present');
       if (present.length < 4) {
         alert('최소 4명의 출석자가 필요합니다.');
         return;
       }
-      const playersForMatch = present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }));
+      const playersForMatch = attachScoresWithMap(
+        present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }))
+        ,
+        currentLevelInfoMap
+      );
       const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
       
       // 목표 경기수 계산
@@ -462,13 +518,18 @@ export default function PlayersTodayPage() {
   };
 
   const handleAssignRandom = async () => {
-    if (!todayPlayers) return;
+    if (!effectiveTodayPlayers) return;
     setLoading(true);
     try {
-      const present = todayPlayers.filter(p => p.status === 'present');
+      const currentLevelInfoMap = await ensureLevelInfoMap();
+      const present = effectiveTodayPlayers.filter(p => p.status === 'present');
       if (present.length < 4) { alert('최소 4명의 출석자가 필요합니다.'); return; }
       // normalize levels for scoring
-      const playersForMatch = present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }));
+      const playersForMatch = attachScoresWithMap(
+        present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }))
+        ,
+        currentLevelInfoMap
+      );
       const { createRandomBalancedDoublesMatches } = await import('@/utils/match-utils');
       const targetMatches = Math.ceil((playersForMatch.length * perPlayerMinGames) / 4);
       let generated: any[] = [];
@@ -497,12 +558,17 @@ export default function PlayersTodayPage() {
   };
 
   const handleAssignMixed = async () => {
-    if (!todayPlayers) return;
+    if (!effectiveTodayPlayers) return;
     setLoading(true);
     try {
-      const present = todayPlayers.filter(p => p.status === 'present');
+      const currentLevelInfoMap = await ensureLevelInfoMap();
+      const present = effectiveTodayPlayers.filter(p => p.status === 'present');
       if (present.length < 4) { alert('최소 4명의 출석자가 필요합니다.'); return; }
-      const playersForMatch = present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }));
+      const playersForMatch = attachScoresWithMap(
+        present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }))
+        ,
+        currentLevelInfoMap
+      );
       const { createMixedAndSameSexDoublesMatches } = await import('@/utils/match-utils');
       // target matches = ceil((players * perPlayerMinGames) / 4)
       const targetMatches = Math.ceil((playersForMatch.length * perPlayerMinGames) / 4);
@@ -533,8 +599,8 @@ export default function PlayersTodayPage() {
   };
 
   const handleManualAssign = () => {
-    if (!todayPlayers) return;
-    const present = todayPlayers.filter(p => p.status === 'present');
+    if (!effectiveTodayPlayers) return;
+    const present = effectiveTodayPlayers.filter(p => p.status === 'present');
     if (present.length < 4) { alert('최소 4명의 출석자가 필요합니다.'); return; }
 
     // target matches 계산 및 빈 슬롯 생성
@@ -561,190 +627,6 @@ export default function PlayersTodayPage() {
     setPlayerGameCounts(counts);
   };
 
-  const handleTeamBasedGeneration = async () => {
-    setLoading(true);
-    try {
-      let allPlayers: any[] = [];
-
-      if (!selectedTeamRound) {
-        // 팀 구성을 선택하지 않은 경우: 출석한 선수 전체로 생성
-        if (!todayPlayers) {
-          alert('출석 데이터를 불러오는 중입니다.');
-          return;
-        }
-        
-        const present = todayPlayers.filter(p => p.status === 'present');
-        if (present.length < 4) {
-          alert('최소 4명의 출석자가 필요합니다.');
-          return;
-        }
-
-        allPlayers = present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }));
-        console.log('📊 팀 구분 없이 출석자 전체로 경기 생성:', allPlayers.length, '명');
-      } else {
-        // 팀 구성을 선택한 경우: 해당 팀의 출석한 선수들로만 생성
-        const selectedTeam = availableTeams.find(t => t.round === selectedTeamRound);
-        if (!selectedTeam) {
-          alert('선택한 팀 구성을 찾을 수 없습니다.');
-          return;
-        }
-
-        if (!todayPlayers) {
-          alert('출석 데이터를 불러오는 중입니다.');
-          return;
-        }
-
-        // 출석한 선수 목록
-        const presentPlayers = todayPlayers.filter(p => p.status === 'present');
-        if (presentPlayers.length < 4) {
-          alert('최소 4명의 출석자가 필요합니다.');
-          return;
-        }
-
-        // 팀 구성에서 선수 이름을 파싱 (이름과 레벨 분리)
-        const parsePlayerName = (nameWithLevel: string) => {
-          const match = nameWithLevel.match(/^(.+?)\(([A-Z0-9]+)\)$/);
-          if (match) {
-            return { name: match[1].trim(), level: match[2].toLowerCase() };
-          }
-          // 레벨 정보가 없는 경우
-          return { name: nameWithLevel.trim(), level: 'e2' };
-        };
-
-        // 출석한 선수들의 정보를 맵으로 생성 (이름 → 선수 정보)
-        const presentPlayersMap = new Map<string, any>();
-        presentPlayers.forEach(p => {
-          const normalizedName = p.name.trim().toLowerCase();
-          presentPlayersMap.set(normalizedName, p);
-        });
-
-        // 이미 배정된 선수들을 추적
-        const assignedPlayers = new Set<string>();
-
-        console.log('📋 출석한 선수 목록:', Array.from(presentPlayersMap.keys()));
-        console.log('📋 라켓팀 구성:', selectedTeam.racket);
-        console.log('📋 셔틀팀 구성:', selectedTeam.shuttle);
-
-        // 라켓팀에서 출석한 선수만 필터링하여 ExtendedPlayer로 변환
-        const racketPlayers: any[] = [];
-        selectedTeam.racket.forEach((nameWithLevel, idx) => {
-          const parsed = parsePlayerName(nameWithLevel);
-          const normalizedName = parsed.name.toLowerCase();
-          
-          // 출석한 선수 중에서 이름이 일치하는 선수 찾기
-          const presentPlayer = presentPlayersMap.get(normalizedName);
-          
-          if (presentPlayer) {
-            // 아직 배정되지 않은 선수인지 확인
-            if (!assignedPlayers.has(normalizedName)) {
-              racketPlayers.push({
-                id: presentPlayer.id || `racket-${idx}-${Date.now()}`,
-                name: presentPlayer.name, // 출석 데이터의 원래 이름 사용
-                skill_level: normalizeLevel(presentPlayer.skill_level || parsed.level),
-                skill_label: presentPlayer.skill_label || getAdminLevelDisplay(parsed.level),
-                gender: presentPlayer.gender || '',
-                skill_code: presentPlayer.skill_code || '',
-                status: 'present' as const
-              });
-              assignedPlayers.add(normalizedName); // 배정 표시
-              console.log(`✅ 라켓팀 배정: ${nameWithLevel} → ${presentPlayer.name}`);
-            } else {
-              console.log(`⚠️ 라켓팀 중복: ${nameWithLevel} (이미 배정됨)`);
-            }
-          } else {
-            console.log(`❌ 라켓팀 불참: ${nameWithLevel}`);
-          }
-        });
-
-        // 셔틀팀에서 출석한 선수만 필터링하여 ExtendedPlayer로 변환
-        const shuttlePlayers: any[] = [];
-        selectedTeam.shuttle.forEach((nameWithLevel, idx) => {
-          const parsed = parsePlayerName(nameWithLevel);
-          const normalizedName = parsed.name.toLowerCase();
-          
-          // 출석한 선수 중에서 이름이 일치하는 선수 찾기
-          const presentPlayer = presentPlayersMap.get(normalizedName);
-          
-          if (presentPlayer) {
-            // 아직 배정되지 않은 선수인지 확인
-            if (!assignedPlayers.has(normalizedName)) {
-              shuttlePlayers.push({
-                id: presentPlayer.id || `shuttle-${idx}-${Date.now()}`,
-                name: presentPlayer.name, // 출석 데이터의 원래 이름 사용
-                skill_level: normalizeLevel(presentPlayer.skill_level || parsed.level),
-                skill_label: presentPlayer.skill_label || getAdminLevelDisplay(parsed.level),
-                gender: presentPlayer.gender || '',
-                skill_code: presentPlayer.skill_code || '',
-                status: 'present' as const
-              });
-              assignedPlayers.add(normalizedName); // 배정 표시
-              console.log(`✅ 셔틀팀 배정: ${nameWithLevel} → ${presentPlayer.name}`);
-            } else {
-              console.log(`⚠️ 셔틀팀 중복: ${nameWithLevel} (이미 라켓팀에 배정됨)`);
-            }
-          } else {
-            console.log(`❌ 셔틀팀 불참: ${nameWithLevel}`);
-          }
-        });
-
-        allPlayers = [...racketPlayers, ...shuttlePlayers];
-        
-        console.log('📊 선택한 팀 구성으로 경기 생성:');
-        console.log(`  - 회차: ${selectedTeam.round}회차`);
-        console.log(`  - 팀 구성 전체: ${selectedTeam.racket.length + selectedTeam.shuttle.length}명`);
-        console.log(`  - 출석한 선수: ${allPlayers.length}명`);
-        console.log(`  - 라켓팀 출석: ${racketPlayers.length}명 / ${selectedTeam.racket.length}명`);
-        console.log(`  - 셔틀팀 출석: ${shuttlePlayers.length}명 / ${selectedTeam.shuttle.length}명`);
-        console.log(`  - 최종 선수 목록:`, allPlayers.map(p => `${p.name}(${p.skill_level})`).join(', '));
-      }
-
-      if (allPlayers.length < 4) {
-        alert('최소 4명의 선수가 필요합니다.');
-        return;
-      }
-
-      const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
-      const targetMatches = Math.ceil((allPlayers.length * perPlayerMinGames) / 4);
-      
-      let generated: any[] = [];
-      
-      // 기존 방식: 모든 선수 혼합
-      let attempts = 0;
-      let maxCourts = Math.max(4, Math.ceil(allPlayers.length / 4));
-      
-      while (attempts < 4) {
-        generated = createBalancedDoublesMatches(allPlayers, maxCourts, perPlayerMinGames)
-          .map((m: any, i: number) => ({ ...m, court: i + 1 }));
-        
-        const counts = calculatePlayerGameCounts(generated);
-        const missing = allPlayers.filter(p => (counts[p.id] || 0) < perPlayerMinGames);
-        
-        if (generated.length >= targetMatches && missing.length === 0) {
-          break;
-        }
-        
-        attempts += 1;
-        maxCourts = Math.min(allPlayers.length, maxCourts + 2);
-      }
-      
-      const finalCounts = calculatePlayerGameCounts(generated);
-      
-      console.log('✅ 경기 생성 완료:');
-      console.log(`- 총 선수: ${allPlayers.length}명`);
-      console.log(`- 생성된 경기: ${generated.length}개`);
-      console.log(`- 목표 경기수: ${targetMatches}개`);
-      
-      setMatches(generated);
-      setSessionMode(selectedTeamRound ? '팀구성' as any : '레벨');
-      setPlayerGameCounts(finalCounts);
-    } catch (e) {
-      console.error('팀 기반 경기 생성 중 오류:', e);
-      alert('팀 기반 경기 생성 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleManualMatchesCreate = (manualMatches: Match[]) => {
     setMatches(manualMatches);
     setSessionMode('수동');
@@ -752,54 +634,85 @@ export default function PlayersTodayPage() {
     console.log(`✅ 수동 배정: ${manualMatches.length}개 경기 생성 완료`);
   };
 
+  const toggleMemberSelection = (memberId: string) => {
+    setSelectedMemberIds((prev) =>
+      prev.includes(memberId)
+        ? prev.filter((id) => id !== memberId)
+        : [...prev, memberId]
+    );
+  };
+
+  const toggleSelectAllMembers = () => {
+    if (selectedMemberIds.length === availableMembersToAdd.length) {
+      setSelectedMemberIds([]);
+      return;
+    }
+
+    setSelectedMemberIds(availableMembersToAdd.map((member) => member.id));
+  };
+
+  const addSelectedMembersToAttendance = () => {
+    if (selectedMemberIds.length === 0) {
+      return;
+    }
+
+    const selectedMembers = availableMembersToAdd
+      .filter((member) => selectedMemberIds.includes(member.id))
+      .map((member) => ({
+        ...member,
+        status: 'present' as const,
+      }));
+
+    setManualPlayers((prev) => {
+      const merged = new Map(prev.map((player) => [player.id, player]));
+      selectedMembers.forEach((member) => {
+        merged.set(member.id, member);
+      });
+      return Array.from(merged.values());
+    });
+    setSelectedMemberIds([]);
+    setShowMemberModal(false);
+  };
+
+  const removeManualPlayer = (playerId: string) => {
+    setManualPlayers((prev) => prev.filter((player) => player.id !== playerId));
+  };
+
   const handleDirectAssign = async () => {
     if (matches.length === 0) { alert('배정할 경기가 없습니다.'); return; }
-  const today = getTodayLocal();
-  const mode = sessionMode; // use generation mode (레벨/랜덤/혼복)
-  const makeSessionName = async () => {
-      // count today sessions to generate sequence
-      const { data, error } = await supabase
-        .from('match_sessions')
-        .select('id', { count: 'exact', head: true })
-        .eq('session_date', today);
-      const seq = (data as any)?.length ? (data as any).length + 1 : 1; // fallback if head returns no length
-      // safer: do a separate count query
-      const { count } = await supabase
-        .from('match_sessions')
-        .select('*', { count: 'exact', head: true })
-        .eq('session_date', today);
-  const n = (count ?? seq) + 1;
-  return `${today}_${mode}_${n}번째`;
-    };
-    const sessionName = await makeSessionName();
+    const today = getTodayLocal();
     setLoading(true);
     try {
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('match_sessions')
-        .insert({ session_name: sessionName, total_matches: matches.length, assigned_matches: matches.length, session_date: today })
-        .select()
-        .single();
-      if (sessionError) throw sessionError;
+      const response = await fetch('/api/admin/match-sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_date: today,
+          mode: sessionMode,
+          matches,
+        }),
+      });
 
-      const payload = matches.map((match, idx) => ({
-        session_id: sessionData.id,
-        match_number: idx + 1,
-        team1_player1_id: match.team1.player1.id,
-        team1_player2_id: match.team1.player2.id,
-        team2_player1_id: match.team2.player1.id,
-        team2_player2_id: match.team2.player2.id,
-        status: 'scheduled',
-        created_at: new Date().toISOString()
-      }));
-      const { error: insErr } = await supabase.from('generated_matches').insert(payload);
-      if (insErr) throw insErr;
-  alert(`✅ ${matches.length}개 경기가 오늘 순서대로 배정되었습니다. (세션: ${sessionName})`);
-  setMatches([]); setPlayerGameCounts({});
-  await fetchMatchSessions();
-  await fetchTodaySchedules();
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || '배정 저장 실패');
+      }
+
+      alert(
+        `✅ ${matches.length}개 경기가 오늘 경기로 배정되었습니다.\n` +
+        `세션: ${payload?.session_name || '생성 완료'}\n` +
+        `사용자 화면 노출용 일정 연결: ${payload?.scheduled_count ?? 0}건`
+      );
+      setMatches([]);
+      setPlayerGameCounts({});
+      await fetchMatchSessions();
+      await fetchTodaySchedules();
     } catch (e) {
       console.error('배정 오류:', e);
-      alert('배정 중 오류가 발생했습니다.');
+      alert(`배정 중 오류가 발생했습니다: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
     } finally { setLoading(false); }
   };
 
@@ -807,66 +720,53 @@ export default function PlayersTodayPage() {
     <RequireAdmin>
       <div className="p-6">
         <h1 className="text-xl font-bold mb-4">오늘 경기 생성/배정</h1>
-        {/* 오늘의 등록된 경기 - 최상단으로 이동 */}
-        <div className="mb-6 p-4 border border-purple-300 rounded bg-purple-50">
-          <h3 className="text-lg font-semibold mb-3">🗓️ 오늘의 등록된 경기</h3>
-          {todaySchedules.length === 0 ? (
-            <div className="text-gray-600 text-sm">오늘 등록된 경기가 없습니다.</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {todaySchedules.map((s) => (
-                <div key={s.id} className="bg-white rounded border p-3 text-sm">
-                  <div className="font-medium text-gray-800">{s.start_time} - {s.end_time} · {s.location}</div>
-                  <div className="text-gray-600 mt-1">
-                    인원: {s.current_participants ?? 0} / {s.max_participants ?? 0}명
-                  </div>
-                  <div className="text-xs mt-1">
-                    상태: <span className="font-medium">{s.status}</span>
-                  </div>
-                </div>
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          오늘 경기에서 생성 후 배정하면 사용자 대시보드와 나의 일정에 바로 보이도록 자동 처리됩니다.
+        </div>
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-amber-900">관리자 수동 출석자 추가</h3>
+              <p className="text-sm text-amber-800">
+                오늘 참가 신청자 외에도 관리자가 원하는 회원을 출석자에 직접 추가해 경기 생성에 포함할 수 있습니다.
+              </p>
+            </div>
+            <div className="text-sm text-amber-900">추가됨 {manualPlayers.length}명</div>
+          </div>
+          <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
+            <button
+              type="button"
+              onClick={() => setShowMemberModal(true)}
+              className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+            >
+              회원추가
+            </button>
+            <span className="text-sm text-amber-800">추가한 회원은 출석 상태로 즉시 반영되고 경기 생성 대상에 포함됩니다.</span>
+          </div>
+          {manualPlayers.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {manualPlayers.map((player) => (
+                <button
+                  key={player.id}
+                  type="button"
+                  onClick={() => removeManualPlayer(player.id)}
+                  className="rounded-full border border-amber-500 bg-amber-500 px-3 py-1 text-sm text-white transition-colors hover:bg-amber-600"
+                >
+                  제거 · {player.name} ({player.skill_label || player.skill_level})
+                </button>
               ))}
             </div>
           )}
         </div>
-        <AttendanceStatus todayPlayers={todayPlayers} />
-        
-        {/* 수동 갱신 버튼 */}
-        <div className="mb-6 flex gap-4">
-          <button
-            onClick={() => refreshAttendanceData().catch(err => console.error('수동 갱신 오류:', err))}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-            disabled={loading}
-          >
-            🔄 데이터 수동 갱신
-          </button>
-          <button
-            onClick={() => {
-              fetchMatchSessions();
-              fetchTodaySchedules();
-            }}
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-            disabled={loading}
-          >
-            📅 경기 일정 갱신
-          </button>
-        </div>
+        <AttendanceStatus todayPlayers={effectiveTodayPlayers} />
         
         <MatchSessionStatus
           matchSessions={matchSessions}
           registeredSchedules={todaySchedules}
         />
-        
-        {/* 팀 구성 기반 경기 생성 */}
-        <TeamBasedMatchGeneration
-          availableTeams={availableTeams}
-          selectedTeamRound={selectedTeamRound}
-          onTeamSelect={setSelectedTeamRound}
-          onGenerateMatches={handleTeamBasedGeneration}
-          perPlayerMinGames={perPlayerMinGames}
-        />
-        
+
         <MatchGenerationControls
-          todayPlayers={todayPlayers}
+          todayPlayers={effectiveTodayPlayers}
           perPlayerMinGames={perPlayerMinGames}
           setPerPlayerMinGames={setPerPlayerMinGames}
           onGenerateByLevel={handleAssignByLevel}
@@ -879,6 +779,7 @@ export default function PlayersTodayPage() {
         <GeneratedMatchesList
           matches={matches}
           playerGameCounts={playerGameCounts}
+          levelInfoMap={levelInfoMap}
           assignType={assignType}
           setAssignType={setAssignType}
           loading={loading}
@@ -889,10 +790,96 @@ export default function PlayersTodayPage() {
           }}
           onAssignMatches={handleDirectAssign}
           isManualMode={isManualEditing}
-          presentPlayers={todayPlayers?.filter(p => p.status === 'present') || []}
+          presentPlayers={effectiveTodayPlayers?.filter(p => p.status === 'present') || []}
           onManualMatchChange={handleManualMatchChange}
         />
       </div>
+      {showMemberModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">출석자에 회원 추가</h2>
+                <p className="text-sm text-gray-500">추가할 회원을 여러 명 선택한 뒤 확인을 누르세요.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMemberModal(false);
+                  setSelectedMemberIds([]);
+                }}
+                className="rounded-md px-3 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              >
+                닫기
+              </button>
+            </div>
+            <div className="flex items-center justify-between border-b bg-gray-50 px-6 py-3 text-sm">
+              <span className="text-gray-600">추가 가능 회원 {availableMembersToAdd.length}명</span>
+              <button
+                type="button"
+                onClick={toggleSelectAllMembers}
+                className="rounded-md border px-3 py-1 text-xs font-medium text-gray-700 hover:bg-white"
+              >
+                {selectedMemberIds.length === availableMembersToAdd.length ? '전체 해제' : '전체 선택'}
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+              {availableMembersToAdd.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
+                  추가 가능한 회원이 없습니다.
+                </div>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-4">
+                  {availableMembersToAdd.map((member) => {
+                    const checked = selectedMemberIds.includes(member.id);
+                    return (
+                      <label
+                        key={member.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                          checked ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-white hover:border-amber-200'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleMemberSelection(member.id)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium text-gray-900">{member.name}</div>
+                          <div className="mt-1 text-sm text-gray-500">
+                            {member.skill_label || member.skill_level} · {member.gender || '성별 미지정'}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t px-6 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMemberModal(false);
+                  setSelectedMemberIds([]);
+                }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={addSelectedMembersToAttendance}
+                disabled={selectedMemberIds.length === 0}
+                className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-200"
+              >
+                선택한 회원 추가
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </RequireAdmin>
   );
 }

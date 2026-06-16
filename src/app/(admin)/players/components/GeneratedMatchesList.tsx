@@ -3,10 +3,12 @@
 import React from 'react';
 import { getTeamScore } from '@/utils/match-utils';
 import { Match } from '@/types';
+import { getLevelScoreFromCode, type LevelInfoMap } from '@/lib/level-info';
 
 interface GeneratedMatchesListProps {
   matches: Match[];
   playerGameCounts: Record<string, number>;
+  levelInfoMap?: LevelInfoMap;
   assignType: 'today' | 'scheduled';
   setAssignType: (type: 'today' | 'scheduled') => void;
   loading: boolean;
@@ -20,6 +22,7 @@ interface GeneratedMatchesListProps {
 export default function GeneratedMatchesList({
   matches,
   playerGameCounts,
+  levelInfoMap = {},
   assignType,
   setAssignType,
   loading,
@@ -37,10 +40,56 @@ export default function GeneratedMatchesList({
     if (!player) return '미지정';
     if (typeof player === 'object' && player.name) {
       const level = player.skill_level || 'E2';
-      return `${player.name}(${level.toUpperCase()})`;
+      return `${player.name}(${level.toUpperCase()}) ${getAccuratePlayerScore(player).toFixed(1)}점`;
     }
     return String(player);
   };
+
+  const getAccuratePlayerScore = (player: any) => {
+    if (!player || typeof player !== 'object') {
+      return 0;
+    }
+
+    if (typeof player.score === 'number' && Number.isFinite(player.score)) {
+      return player.score;
+    }
+
+    const skillLevel = String(player.skill_level || 'E2');
+    const mappedScore = getLevelScoreFromCode(levelInfoMap, skillLevel, Number.NaN);
+
+    if (!Number.isNaN(mappedScore)) {
+      return mappedScore;
+    }
+
+    return getTeamScore({ player1: player, player2: { ...player, id: `${player.id || 'fallback'}-pair` } }) / 2;
+  };
+
+  const getAccurateTeamScore = (team: any) => {
+    if (!team?.player1 || !team?.player2) {
+      return 0;
+    }
+
+    return getAccuratePlayerScore(team.player1) + getAccuratePlayerScore(team.player2);
+  };
+
+  const matchScoreDiffs = matches.map((match) => {
+    const team1Score = getAccurateTeamScore(match.team1);
+    const team2Score = getAccurateTeamScore(match.team2);
+    return {
+      matchId: match.id || '',
+      team1Score,
+      team2Score,
+      diff: Math.abs(team1Score - team2Score),
+    };
+  });
+
+  const maxScoreDiff = matchScoreDiffs.length > 0
+    ? Math.max(...matchScoreDiffs.map((item) => item.diff))
+    : 0;
+
+  const averageScoreDiff = matchScoreDiffs.length > 0
+    ? matchScoreDiffs.reduce((sum, item) => sum + item.diff, 0) / matchScoreDiffs.length
+    : 0;
 
   const handlePlayerSelect = (matchIdx: number, team: 'team1' | 'team2', slot: 'player1' | 'player2', playerId: string) => {
     if (!onManualMatchChange) return;
@@ -79,6 +128,14 @@ export default function GeneratedMatchesList({
       <h3 className="text-lg font-semibold mb-3">
         {isManualMode ? '✋ 수동 배정 - 선수 선택' : '생성된 경기'} ({matches.length}경기)
       </h3>
+      <div className="mb-4 flex flex-wrap gap-2 text-sm">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-800">
+          평균 팀 점수 차이: <span className="font-bold">{averageScoreDiff.toFixed(1)}점</span>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+          최대 팀 점수 차이: <span className="font-bold">{maxScoreDiff.toFixed(1)}점</span>
+        </div>
+      </div>
       <div className="overflow-x-auto mb-6">
         <table className="w-full border-collapse border border-gray-300 bg-white">
           <thead>
@@ -86,11 +143,19 @@ export default function GeneratedMatchesList({
               <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-sm">회차</th>
               <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-sm">라켓팀</th>
               <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-sm">셔틀팀</th>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-sm">점수 차이</th>
             </tr>
           </thead>
           <tbody>
-            {matches.map((match, index) => (
-              <tr key={match.id || `match-${index}`} className="hover:bg-gray-50">
+            {matches.map((match, index) => {
+              const scoreDiffEntry = matchScoreDiffs[index];
+              const isWorstMatch = scoreDiffEntry && scoreDiffEntry.diff === maxScoreDiff && maxScoreDiff > 0;
+
+              return (
+              <tr
+                key={match.id || `match-${index}`}
+                className={`${isWorstMatch ? 'bg-rose-50 hover:bg-rose-100' : 'hover:bg-gray-50'}`}
+              >
                 <td className="border border-gray-300 px-2 py-2 text-center font-medium text-sm">
                   {index + 1}
                 </td>
@@ -107,12 +172,12 @@ export default function GeneratedMatchesList({
                             <option value="">선수 선택</option>
                             {match.team1?.player1 && (
                               <option key={match.team1.player1.id} value={match.team1.player1.id}>
-                                {match.team1.player1.name} ({(match.team1.player1.skill_level || '').toUpperCase()})
+                                {match.team1.player1.name} ({(match.team1.player1.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(match.team1.player1).toFixed(1)}점
                               </option>
                             )}
                             {getAvailablePlayers(match).map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({(p.skill_level || '').toUpperCase()})
+                                {p.name} ({(p.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(p).toFixed(1)}점
                               </option>
                             ))}
                           </select>
@@ -124,19 +189,19 @@ export default function GeneratedMatchesList({
                             <option value="">선수 선택</option>
                             {match.team1?.player2 && (
                               <option key={match.team1.player2.id} value={match.team1.player2.id}>
-                                {match.team1.player2.name} ({(match.team1.player2.skill_level || '').toUpperCase()})
+                                {match.team1.player2.name} ({(match.team1.player2.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(match.team1.player2).toFixed(1)}점
                               </option>
                             )}
                             {getAvailablePlayers(match).map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({(p.skill_level || '').toUpperCase()})
+                                {p.name} ({(p.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(p).toFixed(1)}점
                               </option>
                             ))}
                           </select>
                         </div>
                         {(match.team1?.player1 || match.team1?.player2) && (
                           <div className="text-xs font-bold text-blue-600 whitespace-nowrap px-2">
-                            ({getTeamScore(match.team1)})
+                            ({getAccurateTeamScore(match.team1).toFixed(1)})
                           </div>
                         )}
                       </div>
@@ -152,12 +217,12 @@ export default function GeneratedMatchesList({
                             <option value="">선수 선택</option>
                             {match.team2?.player1 && (
                               <option key={match.team2.player1.id} value={match.team2.player1.id}>
-                                {match.team2.player1.name} ({(match.team2.player1.skill_level || '').toUpperCase()})
+                                {match.team2.player1.name} ({(match.team2.player1.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(match.team2.player1).toFixed(1)}점
                               </option>
                             )}
                             {getAvailablePlayers(match).map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({(p.skill_level || '').toUpperCase()})
+                                {p.name} ({(p.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(p).toFixed(1)}점
                               </option>
                             ))}
                           </select>
@@ -169,38 +234,50 @@ export default function GeneratedMatchesList({
                             <option value="">선수 선택</option>
                             {match.team2?.player2 && (
                               <option key={match.team2.player2.id} value={match.team2.player2.id}>
-                                {match.team2.player2.name} ({(match.team2.player2.skill_level || '').toUpperCase()})
+                                {match.team2.player2.name} ({(match.team2.player2.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(match.team2.player2).toFixed(1)}점
                               </option>
                             )}
                             {getAvailablePlayers(match).map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({(p.skill_level || '').toUpperCase()})
+                                {p.name} ({(p.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(p).toFixed(1)}점
                               </option>
                             ))}
                           </select>
                         </div>
                         {(match.team2?.player1 || match.team2?.player2) && (
                           <div className="text-xs font-bold text-red-600 whitespace-nowrap px-2">
-                            ({getTeamScore(match.team2)})
+                            ({getAccurateTeamScore(match.team2).toFixed(1)})
                           </div>
                         )}
                       </div>
+                    </td>
+                    <td className={`border border-gray-300 px-2 py-2 text-center text-xs font-semibold ${isWorstMatch ? 'text-rose-700' : 'text-gray-700'}`}>
+                      {scoreDiffEntry.diff.toFixed(1)}점
+                      {isWorstMatch && (
+                        <div className="mt-1 text-[11px] font-medium text-rose-600">최대 편차</div>
+                      )}
                     </td>
                   </>
                 ) : (
                   <>
                     <td className="border border-gray-300 px-2 py-2 text-center text-blue-600 text-xs">
                       {getPlayerName(match.team1.player1)}, {getPlayerName(match.team1.player2)}
-                      <span className="text-xs text-gray-500 ml-2">({getTeamScore(match.team1)})</span>
+                      <span className="text-xs text-gray-500 ml-2">({getAccurateTeamScore(match.team1).toFixed(1)})</span>
                     </td>
                     <td className="border border-gray-300 px-2 py-2 text-center text-red-600 text-xs">
                       {getPlayerName(match.team2.player1)}, {getPlayerName(match.team2.player2)}
-                      <span className="text-xs text-gray-500 ml-2">({getTeamScore(match.team2)})</span>
+                      <span className="text-xs text-gray-500 ml-2">({getAccurateTeamScore(match.team2).toFixed(1)})</span>
+                    </td>
+                    <td className={`border border-gray-300 px-2 py-2 text-center text-xs font-semibold ${isWorstMatch ? 'bg-rose-100 text-rose-700' : 'text-gray-700'}`}>
+                      {scoreDiffEntry.diff.toFixed(1)}점
+                      {isWorstMatch && (
+                        <div className="mt-1 text-[11px] font-medium text-rose-600">최대 편차</div>
+                      )}
                     </td>
                   </>
                 )}
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>

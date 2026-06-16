@@ -34,6 +34,10 @@ interface RoundSummary {
   title?: string;
   assignment_date?: string;
   team_type?: string;
+  pair_group_data?: Array<{
+    groupName: string;
+    pairNames: string[];
+  }>;
 }
 
 type TeamConfigType = '2teams' | '3teams' | '4teams' | 'pairs' | 'custom';
@@ -58,8 +62,162 @@ interface MemberOption {
   fullName: string;
   levelName: string;
   skillCode: string;
+  gender: string;
   score: number;
   assignmentLabel: string;
+}
+
+const TEAM_TYPES = new Set(['2teams', '3teams', '4teams', 'pairs']);
+
+function normalizePlayerList(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => String(item || '').trim())
+      .filter((item) => item.length > 0);
+  }
+
+  if (typeof raw === 'string') {
+    const value = raw.trim();
+    return value ? [value] : [];
+  }
+
+  if (raw && typeof raw === 'object') {
+    const maybePlayers = (raw as { players?: unknown }).players;
+    if (Array.isArray(maybePlayers) || typeof maybePlayers === 'string') {
+      return normalizePlayerList(maybePlayers);
+    }
+
+    return Object.values(raw as Record<string, unknown>)
+      .flatMap((value) => normalizePlayerList(value));
+  }
+
+  return [];
+}
+
+function normalizePairsData(raw: unknown): Record<string, string[]> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+
+  return Object.entries(raw as Record<string, unknown>).reduce<Record<string, string[]>>((acc, [key, value]) => {
+    const players = normalizePlayerList(value);
+    if (players.length > 0) {
+      acc[key] = players;
+    }
+    return acc;
+  }, {});
+}
+
+function normalizePairGroupData(raw: unknown): Array<{ groupName: string; pairNames: string[] }> {
+  if (!raw) {
+    return [];
+  }
+
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => {
+        if (!item || typeof item !== 'object') {
+          return null;
+        }
+
+        const row = item as { groupName?: unknown; pairNames?: unknown };
+        const groupName = String(row.groupName || '').trim();
+        const pairNames = normalizePlayerList(row.pairNames)
+          .map((name) => name.trim())
+          .filter((name) => /^pair\d+$/i.test(name));
+
+        if (!groupName || pairNames.length === 0) {
+          return null;
+        }
+
+        return {
+          groupName,
+          pairNames: Array.from(new Set(pairNames)),
+        };
+      })
+      .filter((item): item is { groupName: string; pairNames: string[] } => Boolean(item));
+  }
+
+  if (typeof raw === 'object') {
+    return Object.entries(raw as Record<string, unknown>)
+      .map(([groupName, pairNamesRaw]) => {
+        const pairNames = normalizePlayerList(pairNamesRaw)
+          .map((name) => name.trim())
+          .filter((name) => /^pair\d+$/i.test(name));
+
+        if (!groupName || pairNames.length === 0) {
+          return null;
+        }
+
+        return {
+          groupName,
+          pairNames: Array.from(new Set(pairNames)),
+        };
+      })
+      .filter((item): item is { groupName: string; pairNames: string[] } => Boolean(item));
+  }
+
+  return [];
+}
+
+function parsePairsPayload(raw: unknown): {
+  pairsData: Record<string, string[]>;
+  pairGroupData: Array<{ groupName: string; pairNames: string[] }>;
+} {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {
+      pairsData: normalizePairsData(raw),
+      pairGroupData: [],
+    };
+  }
+
+  const obj = raw as Record<string, unknown>;
+  const hasStructuredPairs = typeof obj.pairs === 'object' && obj.pairs !== null;
+
+  const pairsData = hasStructuredPairs
+    ? normalizePairsData(obj.pairs)
+    : normalizePairsData(obj);
+
+  const pairGroupData = normalizePairGroupData(obj.groups);
+
+  return { pairsData, pairGroupData };
+}
+
+function inferRoundTeamType(row: any, normalized: {
+  racketTeam: string[];
+  shuttleTeam: string[];
+  team1: string[];
+  team2: string[];
+  team3: string[];
+  team4: string[];
+  pairsData: Record<string, string[]>;
+}): TeamConfigType {
+  const declared = String(row?.team_type || '').trim();
+  if (TEAM_TYPES.has(declared)) {
+    return declared as TeamConfigType;
+  }
+
+  if (Object.keys(normalized.pairsData).length > 0) {
+    return 'pairs';
+  }
+
+  if (normalized.team4.length > 0) {
+    return '4teams';
+  }
+
+  if (normalized.team3.length > 0) {
+    return '3teams';
+  }
+
+  if (normalized.racketTeam.length > 0 || normalized.shuttleTeam.length > 0) {
+    return '2teams';
+  }
+
+  if (normalized.team1.length > 0 || normalized.team2.length > 0) {
+    return '2teams';
+  }
+
+  return '2teams';
 }
 
 export default function TeamManagementPage() {
@@ -88,9 +246,12 @@ export default function TeamManagementPage() {
   const [showCustomEditor, setShowCustomEditor] = useState(false);
   const [selectedRoundForModal, setSelectedRoundForModal] = useState<RoundSummary | null>(null);
   const [pairGroups, setPairGroups] = useState<{groupName: string; players: string[]}[]>([]);
-  const [showGroupPlayers, setShowGroupPlayers] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const playerMetaByLabel = useMemo(
+    () => new Map(memberPlayers.map((player) => [player.assignmentLabel, player])),
+    [memberPlayers]
+  );
   const playerPool = useMemo(
     () => Array.from(new Set(selectedScheduleId ? [...todayPlayers, ...manualIncludedPlayers] : todayPlayers)),
     [manualIncludedPlayers, selectedScheduleId, todayPlayers]
@@ -114,12 +275,34 @@ export default function TeamManagementPage() {
     return `${playerName}(${levelCode})`;
   };
 
+  const normalizeGender = (value?: string | null): 'M' | 'F' | 'O' | '' => {
+    const normalized = String(value || '').trim().toLowerCase();
+
+    if (['m', 'male', 'man', '남', '남성'].includes(normalized)) {
+      return 'M';
+    }
+
+    if (['f', 'female', 'woman', 'w', '여', '여성'].includes(normalized)) {
+      return 'F';
+    }
+
+    if (['o', 'other'].includes(normalized)) {
+      return 'O';
+    }
+
+    return '';
+  };
+
+  const getPlayerGender = (playerName: string): 'M' | 'F' | 'O' | '' => {
+    return normalizeGender(playerMetaByLabel.get(playerName)?.gender);
+  };
+
   const fetchMemberPlayers = async () => {
     try {
       const [profilesResult, levelInfoResult] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, username, full_name, skill_level')
+          .select('id, username, full_name, skill_level, gender')
           .order('username', { ascending: true }),
         fetchLevelInfoMap(supabase),
       ]);
@@ -138,6 +321,7 @@ export default function TeamManagementPage() {
         fullName: profile.full_name || profile.username || `선수-${profile.id.substring(0, 4)}`,
         levelName: getLevelNameFromCode(levelInfoResult, profile.skill_level, '미지정'),
         skillCode: String(profile.skill_level || '').toUpperCase(),
+        gender: String(profile.gender || ''),
         score: getLevelScoreFromCode(levelInfoResult, profile.skill_level, getLegacyLevelScore(profile.skill_level || '')),
         assignmentLabel: formatAssignmentLabel(profile),
       })));
@@ -313,10 +497,10 @@ export default function TeamManagementPage() {
         console.error('❌ 회차 데이터 조회 오류:', error.message || error.code || '알 수 없는 오류');
         if (error.code === '42P01' || error.message?.includes('relation') || error.message?.includes('does not exist')) {
           console.log('team_assignments 테이블이 없습니다.');
-          setRounds([]);
+          loadFromLocalStorage();
           return;
         }
-        setRounds([]);
+        loadFromLocalStorage();
         return;
       }
       
@@ -326,35 +510,53 @@ export default function TeamManagementPage() {
       if (data && data.length > 0) {
         // 새로운 구조: 각 row가 하나의 회차
         const roundsArray: RoundSummary[] = data.map((row: any) => {
+          const parsedPairsPayload = parsePairsPayload(row.pairs_data);
+
+          const normalized = {
+            racketTeam: normalizePlayerList(row.racket_team),
+            shuttleTeam: normalizePlayerList(row.shuttle_team),
+            team1: normalizePlayerList(row.team1),
+            team2: normalizePlayerList(row.team2),
+            team3: normalizePlayerList(row.team3),
+            team4: normalizePlayerList(row.team4),
+            pairsData: parsedPairsPayload.pairsData,
+          };
+
+          const normalizedType = inferRoundTeamType(row, normalized);
+          const racketTeamForView = normalized.racketTeam.length > 0 ? normalized.racketTeam : normalized.team1;
+          const shuttleTeamForView = normalized.shuttleTeam.length > 0 ? normalized.shuttleTeam : normalized.team2;
+
           const roundSummary: RoundSummary = {
             round: row.round_number,
-            racket_team: row.racket_team || [],
-            shuttle_team: row.shuttle_team || [],
-            team1: row.team1 || [],
-            team2: row.team2 || [],
-            team3: row.team3 || [],
-            team4: row.team4 || [],
-            pairs_data: row.pairs_data || {},
+            racket_team: racketTeamForView,
+            shuttle_team: shuttleTeamForView,
+            team1: normalized.team1,
+            team2: normalized.team2,
+            team3: normalized.team3,
+            team4: normalized.team4,
+            pairs_data: normalized.pairsData,
+            pair_group_data: parsedPairsPayload.pairGroupData,
             total_players: 0,
             title: row.title,
             assignment_date: row.assignment_date,
-            team_type: row.team_type
+            team_type: normalizedType
           };
 
           // 총 인원 계산
-          if (row.team_type === '2teams') {
-            roundSummary.total_players = (row.racket_team?.length || 0) + (row.shuttle_team?.length || 0);
-          } else if (row.team_type === '3teams') {
-            roundSummary.total_players = (row.team1?.length || 0) + (row.team2?.length || 0) + (row.team3?.length || 0);
-          } else if (row.team_type === '4teams') {
-            roundSummary.total_players = (row.team1?.length || 0) + (row.team2?.length || 0) + (row.team3?.length || 0) + (row.team4?.length || 0);
-          } else if (row.team_type === 'pairs' && row.pairs_data) {
-            roundSummary.total_players = Object.values(row.pairs_data).reduce((sum: number, pair: any) => sum + (pair?.length || 0), 0);
-          }
+          const allPlayers = new Set<string>([
+            ...roundSummary.racket_team,
+            ...roundSummary.shuttle_team,
+            ...(roundSummary.team1 || []),
+            ...(roundSummary.team2 || []),
+            ...(roundSummary.team3 || []),
+            ...(roundSummary.team4 || []),
+            ...Object.values(roundSummary.pairs_data || {}).flat(),
+          ]);
+          roundSummary.total_players = allPlayers.size;
 
           console.log(`🏆 회차 ${row.round_number}:`, {
             title: row.title,
-            type: row.team_type,
+            type: normalizedType,
             date: row.assignment_date,
             totalPlayers: roundSummary.total_players
           });
@@ -370,7 +572,7 @@ export default function TeamManagementPage() {
         console.log(`✅ ${roundsArray.length}개 회차 로드 완료`);
       } else {
         console.log('⚠️ 회차 데이터가 없습니다.');
-        setRounds([]);
+        loadFromLocalStorage();
       }
     } catch (error) {
       console.error('데이터 조회 중 오류:', error instanceof Error ? error.message : String(error));
@@ -391,7 +593,14 @@ export default function TeamManagementPage() {
       // 날짜 결정
       let titleDate = getKoreaDate();
       if (selectedScheduleId) {
-        const { data: schedule } = await supabase.from('match_schedules').select('match_date').eq('id', selectedScheduleId).single();
+        const { data: schedule, error: scheduleError } = await supabase
+          .from('match_schedules')
+          .select('match_date')
+          .eq('id', selectedScheduleId)
+          .maybeSingle();
+        if (scheduleError) {
+          console.warn('⚠️ 일정 날짜 조회 실패, 오늘 날짜를 사용합니다:', scheduleError);
+        }
         if (schedule?.match_date) titleDate = schedule.match_date;
       }
 
@@ -408,6 +617,7 @@ export default function TeamManagementPage() {
       };
 
       const roundTitle = `라뚱대회 ${titleDate} ${getTeamTypeLabel(teamConfig.type)}`;
+      let dbSaveSucceeded = false;
 
       // 팀별로 분리
       let racketPlayers: string[] = [];
@@ -416,6 +626,7 @@ export default function TeamManagementPage() {
       let team2Players: string[] = [];
       let team3Players: string[] = [];
       let team4Players: string[] = [];
+      let pairGroupDataForSave: Array<{ groupName: string; pairNames: string[] }> = [];
 
       if (teamConfig.type === '3teams' || teamConfig.type === '4teams') {
         // 3팀, 4팀 모드 - team1, team2, team3, team4 사용
@@ -472,7 +683,29 @@ export default function TeamManagementPage() {
             if (!pairsData[team]) pairsData[team] = [];
             pairsData[team].push(player);
           });
-          insertData.pairs_data = pairsData;
+
+          pairGroupDataForSave = pairGroups
+            .map((group) => {
+              const pairNames = Object.entries(pairsData)
+                .filter(([_, players]) => players.some((player) => group.players.includes(player)))
+                .map(([pairName]) => pairName)
+                .filter((pairName) => /^pair\d+$/i.test(pairName));
+
+              if (pairNames.length === 0) {
+                return null;
+              }
+
+              return {
+                groupName: group.groupName,
+                pairNames: Array.from(new Set(pairNames)),
+              };
+            })
+            .filter((row): row is { groupName: string; pairNames: string[] } => Boolean(row));
+
+          insertData.pairs_data = {
+            pairs: pairsData,
+            groups: pairGroupDataForSave,
+          };
         } else if (teamConfig.type === '3teams') {
           insertData.team1 = team1Players;
           insertData.team2 = team2Players;
@@ -490,23 +723,22 @@ export default function TeamManagementPage() {
 
         console.log('📥 DB에 저장할 데이터:', insertData);
         
-        // 먼저 select 없이 insert만 시도
-        const { error: insertError } = await supabase
-          .from('team_assignments')
-          .insert([insertData]);
+        const response = await fetch('/api/admin/team-assignments', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(insertData),
+        });
 
-        if (insertError) {
-          console.error('❌ DB 저장 오류 - 상세:', {
-            message: insertError.message,
-            code: insertError.code,
-            details: insertError.details,
-            hint: insertError.hint,
-            fullError: JSON.stringify(insertError)
-          });
-          throw insertError;
+        if (!response.ok) {
+          const errorPayload = await response.json().catch(() => ({}));
+          console.error('❌ DB 저장 오류 - 상세:', errorPayload);
+          throw new Error(errorPayload?.error || '팀 배정 저장에 실패했습니다.');
         }
         
         console.log('✅ DB에 저장 성공');
+        dbSaveSucceeded = true;
         
         // 저장 확인을 위해 데이터 다시 조회
         const { data, error: selectError } = await supabase
@@ -567,6 +799,7 @@ export default function TeamManagementPage() {
           pairsData[team].push(player);
         });
         newRound.pairs_data = pairsData;
+        newRound.pair_group_data = pairGroupDataForSave;
       }
       
       setRounds([...rounds, newRound]);
@@ -575,7 +808,11 @@ export default function TeamManagementPage() {
       
       // 저장 후 데이터 다시 로드
       console.log('📊 저장 후 데이터 재로드...');
-      await fetchRoundsData();
+      if (dbSaveSucceeded) {
+        await fetchRoundsData();
+      } else {
+        loadFromLocalStorage();
+      }
       
       alert(`${roundTitle} 팀 배정이 저장되었습니다.`);
     } catch (error) {
@@ -653,20 +890,84 @@ export default function TeamManagementPage() {
             round: assignment.round_number,
             racket_team: [],
             shuttle_team: [],
+            team1: [],
+            team2: [],
+            team3: [],
+            team4: [],
+            pairs_data: {},
             total_players: 0
           };
         }
-        
-        if (assignment.team_type === 'racket') {
+
+        const round = roundsMap[assignment.round_number];
+        const teamKey = String(assignment.team_type || '').trim();
+
+        if (teamKey === 'racket') {
           roundsMap[assignment.round_number].racket_team.push(assignment.player_name);
-        } else {
+        } else if (teamKey === 'shuttle') {
           roundsMap[assignment.round_number].shuttle_team.push(assignment.player_name);
+        } else if (teamKey === 'team1') {
+          round.team1!.push(assignment.player_name);
+        } else if (teamKey === 'team2') {
+          round.team2!.push(assignment.player_name);
+        } else if (teamKey === 'team3') {
+          round.team3!.push(assignment.player_name);
+        } else if (teamKey === 'team4') {
+          round.team4!.push(assignment.player_name);
+        } else if (teamKey.startsWith('pair')) {
+          if (!round.pairs_data) {
+            round.pairs_data = {};
+          }
+          if (!round.pairs_data[teamKey]) {
+            round.pairs_data[teamKey] = [];
+          }
+          round.pairs_data[teamKey].push(assignment.player_name);
         }
-        roundsMap[assignment.round_number].total_players++;
-        if (assignment.round_title) roundsMap[assignment.round_number].title = assignment.round_title;
+
+        if (assignment.round_title) {
+          round.title = assignment.round_title;
+        }
+        if (assignment.assignment_date) {
+          round.assignment_date = assignment.assignment_date;
+        }
       });
-      
-      const roundsArray = Object.values(roundsMap);
+
+      const roundsArray = Object.values(roundsMap).map((round) => {
+        const allPlayers = new Set<string>([
+          ...round.racket_team,
+          ...round.shuttle_team,
+          ...(round.team1 || []),
+          ...(round.team2 || []),
+          ...(round.team3 || []),
+          ...(round.team4 || []),
+          ...Object.values(round.pairs_data || {}).flat(),
+        ]);
+
+        const hasPairs = Object.keys(round.pairs_data || {}).length > 0;
+        const has4Teams = (round.team4?.length || 0) > 0;
+        const has3Teams = (round.team3?.length || 0) > 0;
+
+        if (!round.team_type) {
+          if (hasPairs) {
+            round.team_type = 'pairs';
+          } else if (has4Teams) {
+            round.team_type = '4teams';
+          } else if (has3Teams) {
+            round.team_type = '3teams';
+          } else {
+            round.team_type = '2teams';
+          }
+        }
+
+        if ((round.racket_team.length === 0 && round.shuttle_team.length === 0) && ((round.team1?.length || 0) > 0 || (round.team2?.length || 0) > 0)) {
+          round.racket_team = [...(round.team1 || [])];
+          round.shuttle_team = [...(round.team2 || [])];
+        }
+
+        round.total_players = allPlayers.size;
+        return round;
+      });
+
       setRounds(roundsArray);
       
       const maxRound = Math.max(...roundsArray.map(r => r.round), 0);
@@ -683,78 +984,423 @@ export default function TeamManagementPage() {
       alert('출석한 선수가 없습니다.');
       return;
     }
+
+    const shufflePlayers = (players: string[]) => {
+      const shuffled = [...players];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    const areAssignmentsEqual = (left: Record<string, TeamName>, right: Record<string, TeamName>) => {
+      const leftKeys = Object.keys(left);
+      const rightKeys = Object.keys(right);
+
+      if (leftKeys.length !== rightKeys.length) {
+        return false;
+      }
+
+      return leftKeys.every((key) => left[key] === right[key]);
+    };
+
+    const distributeByWeight = (total: number, weights: number[]) => {
+      if (weights.length === 0) {
+        return [];
+      }
+
+      if (total <= 0) {
+        return weights.map(() => 0);
+      }
+
+      const weightSum = weights.reduce((sum, weight) => sum + weight, 0) || 1;
+      const rawValues = weights.map((weight) => (total * weight) / weightSum);
+      const allocated = rawValues.map((value) => Math.floor(value));
+      let remaining = total - allocated.reduce((sum, value) => sum + value, 0);
+
+      const remainders = rawValues
+        .map((value, index) => ({ index, remainder: value - allocated[index] }))
+        .sort((a, b) => b.remainder - a.remainder);
+
+      for (let i = 0; i < remaining; i++) {
+        allocated[remainders[i % remainders.length].index] += 1;
+      }
+
+      return allocated;
+    };
+
+    const buildBalancedAssignments = (teamNames: TeamName[]) => {
+      const players = shufflePlayers(playerPool)
+        .map((player) => ({
+          name: player,
+          score: getPlayerScore(player),
+          gender: getPlayerGender(player),
+        }))
+        .sort((a, b) => {
+          if (b.score !== a.score) {
+            return b.score - a.score;
+          }
+          return a.name.localeCompare(b.name, 'ko');
+        });
+
+      const totalScore = players.reduce((sum, player) => sum + player.score, 0);
+      const totalMale = players.filter((player) => player.gender === 'M').length;
+      const totalFemale = players.filter((player) => player.gender === 'F').length;
+      const totalUnknownGender = players.length - totalMale - totalFemale;
+      const targetSizes = distributeByWeight(players.length, teamNames.map(() => 1));
+      const targetMaleCounts = distributeByWeight(totalMale, targetSizes);
+      const targetFemaleCounts = distributeByWeight(totalFemale, targetSizes);
+      const targetUnknownCounts = distributeByWeight(totalUnknownGender, targetSizes);
+      const averageScorePerPlayer = players.length > 0 ? totalScore / players.length : 0;
+      const targetScores = targetSizes.map((size) => averageScorePerPlayer * size);
+
+      type BalancedTeamState = {
+        name: TeamName;
+        players: string[];
+        score: number;
+        maleCount: number;
+        femaleCount: number;
+        unknownCount: number;
+        targetSize: number;
+        targetMale: number;
+        targetFemale: number;
+        targetUnknown: number;
+        targetScore: number;
+      };
+
+      const teams: BalancedTeamState[] = teamNames.map((name, index) => ({
+        name,
+        players: [],
+        score: 0,
+        maleCount: 0,
+        femaleCount: 0,
+        unknownCount: 0,
+        targetSize: targetSizes[index] || 0,
+        targetMale: targetMaleCounts[index] || 0,
+        targetFemale: targetFemaleCounts[index] || 0,
+        targetUnknown: targetUnknownCounts[index] || 0,
+        targetScore: targetScores[index] || 0,
+      }));
+
+      const evaluateTeams = (candidateTeams: BalancedTeamState[]) => {
+        const scores = candidateTeams.map((team) => team.score);
+        const sizes = candidateTeams.map((team) => team.players.length);
+        const males = candidateTeams.map((team) => team.maleCount);
+        const females = candidateTeams.map((team) => team.femaleCount);
+        const unknowns = candidateTeams.map((team) => team.unknownCount);
+
+        const scoreRange = scores.length > 0 ? Math.max(...scores) - Math.min(...scores) : 0;
+        const sizeRange = sizes.length > 0 ? Math.max(...sizes) - Math.min(...sizes) : 0;
+        const maleRange = males.length > 0 ? Math.max(...males) - Math.min(...males) : 0;
+        const femaleRange = females.length > 0 ? Math.max(...females) - Math.min(...females) : 0;
+        const unknownRange = unknowns.length > 0 ? Math.max(...unknowns) - Math.min(...unknowns) : 0;
+
+        return candidateTeams.reduce((sum, team) => {
+          const scoreDiff = team.score - team.targetScore;
+          const maleDiff = team.maleCount - team.targetMale;
+          const femaleDiff = team.femaleCount - team.targetFemale;
+          const unknownDiff = team.unknownCount - team.targetUnknown;
+          const sizeDiff = team.players.length - team.targetSize;
+
+          return sum
+            + (sizeDiff * sizeDiff * 300000)
+            + (maleDiff * maleDiff * 30000)
+            + (femaleDiff * femaleDiff * 30000)
+            + (unknownDiff * unknownDiff * 8000)
+            + (scoreDiff * scoreDiff * 40);
+        }, 0)
+          + (sizeRange * 500000)
+          + (maleRange * 100000)
+          + (femaleRange * 100000)
+          + (unknownRange * 15000)
+          + (scoreRange * scoreRange * 250);
+      };
+
+      const cloneTeams = (sourceTeams: BalancedTeamState[]) =>
+        sourceTeams.map((team) => ({
+          ...team,
+          players: [...team.players],
+        }));
+
+      const applyPlayerToTeam = (
+        sourceTeams: BalancedTeamState[],
+        teamIndex: number,
+        player: { name: string; score: number; gender: 'M' | 'F' | 'O' | '' }
+      ) => {
+        const nextTeams = cloneTeams(sourceTeams);
+        const team = nextTeams[teamIndex];
+
+        team.players.push(player.name);
+        team.score += player.score;
+        if (player.gender === 'M') {
+          team.maleCount += 1;
+        } else if (player.gender === 'F') {
+          team.femaleCount += 1;
+        } else {
+          team.unknownCount += 1;
+        }
+
+        return nextTeams;
+      };
+
+      const removePlayerFromTeam = (
+        sourceTeams: BalancedTeamState[],
+        teamIndex: number,
+        player: { name: string; score: number; gender: 'M' | 'F' | 'O' | '' }
+      ) => {
+        const nextTeams = cloneTeams(sourceTeams);
+        const team = nextTeams[teamIndex];
+
+        team.players = team.players.filter((name) => name !== player.name);
+        team.score -= player.score;
+        if (player.gender === 'M') {
+          team.maleCount -= 1;
+        } else if (player.gender === 'F') {
+          team.femaleCount -= 1;
+        } else {
+          team.unknownCount -= 1;
+        }
+
+        return nextTeams;
+      };
+
+      const playerMap = new Map(players.map((player) => [player.name, player]));
+
+      players.forEach((player) => {
+        let bestTeamIndex = -1;
+        let bestPenalty = Number.POSITIVE_INFINITY;
+
+        teams.forEach((team, index) => {
+          if (team.players.length >= team.targetSize) {
+            return;
+          }
+
+          const nextTeams = applyPlayerToTeam(teams, index, player);
+          const totalPenalty = evaluateTeams(nextTeams);
+
+          if (totalPenalty < bestPenalty - 0.0001) {
+            bestPenalty = totalPenalty;
+            bestTeamIndex = index;
+          }
+        });
+
+        if (bestTeamIndex < 0) {
+          bestTeamIndex = teams.findIndex((team) => team.players.length < team.targetSize);
+        }
+
+        if (bestTeamIndex < 0) {
+          bestTeamIndex = 0;
+        }
+
+        const targetTeam = teams[bestTeamIndex];
+        targetTeam.players.push(player.name);
+        targetTeam.score += player.score;
+        if (player.gender === 'M') {
+          targetTeam.maleCount += 1;
+        } else if (player.gender === 'F') {
+          targetTeam.femaleCount += 1;
+        } else {
+          targetTeam.unknownCount += 1;
+        }
+      });
+
+      for (let iteration = 0; iteration < 8; iteration++) {
+        const currentScore = evaluateTeams(teams);
+        let bestChange:
+          | {
+              kind: 'move' | 'swap';
+              fromTeamIndex: number;
+              toTeamIndex: number;
+              playerA: string;
+              playerB?: string;
+              score: number;
+            }
+          | null = null;
+
+        for (let fromTeamIndex = 0; fromTeamIndex < teams.length; fromTeamIndex++) {
+          const fromTeam = teams[fromTeamIndex];
+
+          for (let toTeamIndex = 0; toTeamIndex < teams.length; toTeamIndex++) {
+            if (fromTeamIndex === toTeamIndex) {
+              continue;
+            }
+
+            const toTeam = teams[toTeamIndex];
+
+            for (const playerAName of fromTeam.players) {
+              const playerA = playerMap.get(playerAName);
+              if (!playerA) {
+                continue;
+              }
+
+              if (fromTeam.players.length > fromTeam.targetSize && toTeam.players.length < toTeam.targetSize) {
+                const movedTeams = applyPlayerToTeam(
+                  removePlayerFromTeam(teams, fromTeamIndex, playerA),
+                  toTeamIndex,
+                  playerA
+                );
+                const movedScore = evaluateTeams(movedTeams);
+                if (movedScore + 0.0001 < currentScore && (!bestChange || movedScore < bestChange.score)) {
+                  bestChange = {
+                    kind: 'move',
+                    fromTeamIndex,
+                    toTeamIndex,
+                    playerA: playerA.name,
+                    score: movedScore,
+                  };
+                }
+              }
+
+              for (const playerBName of toTeam.players) {
+                const playerB = playerMap.get(playerBName);
+                if (!playerB) {
+                  continue;
+                }
+
+                let swappedTeams = removePlayerFromTeam(teams, fromTeamIndex, playerA);
+                swappedTeams = removePlayerFromTeam(swappedTeams, toTeamIndex, playerB);
+                swappedTeams = applyPlayerToTeam(swappedTeams, fromTeamIndex, playerB);
+                swappedTeams = applyPlayerToTeam(swappedTeams, toTeamIndex, playerA);
+
+                const swappedScore = evaluateTeams(swappedTeams);
+                if (swappedScore + 0.0001 < currentScore && (!bestChange || swappedScore < bestChange.score)) {
+                  bestChange = {
+                    kind: 'swap',
+                    fromTeamIndex,
+                    toTeamIndex,
+                    playerA: playerA.name,
+                    playerB: playerB.name,
+                    score: swappedScore,
+                  };
+                }
+              }
+            }
+          }
+        }
+
+        if (!bestChange) {
+          break;
+        }
+
+        const playerA = playerMap.get(bestChange.playerA);
+        if (!playerA) {
+          break;
+        }
+
+        let optimizedTeams = removePlayerFromTeam(teams, bestChange.fromTeamIndex, playerA);
+
+        if (bestChange.kind === 'swap' && bestChange.playerB) {
+          const playerB = playerMap.get(bestChange.playerB);
+          if (!playerB) {
+            break;
+          }
+          optimizedTeams = removePlayerFromTeam(optimizedTeams, bestChange.toTeamIndex, playerB);
+          optimizedTeams = applyPlayerToTeam(optimizedTeams, bestChange.fromTeamIndex, playerB);
+          optimizedTeams = applyPlayerToTeam(optimizedTeams, bestChange.toTeamIndex, playerA);
+        } else {
+          optimizedTeams = applyPlayerToTeam(optimizedTeams, bestChange.toTeamIndex, playerA);
+        }
+
+        optimizedTeams.forEach((optimizedTeam, index) => {
+          teams[index] = optimizedTeam;
+        });
+      }
+
+      return teams;
+    };
+
+    const assignBalancedTeamNames = (teamNames: TeamName[]) => {
+      const balancedTeams = buildBalancedAssignments(teamNames);
+      const result: Record<string, TeamName> = {};
+
+      balancedTeams.forEach((team) => {
+        team.players.forEach((player) => {
+          result[player] = team.name;
+        });
+      });
+
+      return result;
+    };
+
+    const forceDifferentAssignments = (source: Record<string, TeamName>) => {
+      const next = { ...source };
+      const players = Object.keys(next);
+
+      if (players.length <= 1) {
+        return next;
+      }
+
+      const teamBuckets = Object.entries(next).reduce<Record<string, string[]>>((acc, [player, team]) => {
+        const key = String(team);
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(player);
+        return acc;
+      }, {});
+
+      const bucketKeys = Object.keys(teamBuckets);
+
+      if (teamConfig.type === 'pairs') {
+        if (bucketKeys.length >= 2) {
+          const firstTeam = bucketKeys[0];
+          const secondTeam = bucketKeys[1];
+          const firstPlayer = teamBuckets[firstTeam][0];
+          const secondPlayer = teamBuckets[secondTeam][0];
+          next[firstPlayer] = secondTeam as TeamName;
+          next[secondPlayer] = firstTeam as TeamName;
+          return next;
+        }
+
+        const onlyTeam = bucketKeys[0] || 'pair1';
+        const onlyTeamNumber = Number(String(onlyTeam).replace(/\D/g, '')) || 1;
+        const fallbackTeam = `pair${onlyTeamNumber + 1}` as TeamName;
+        next[players[0]] = fallbackTeam;
+        return next;
+      }
+
+      if (bucketKeys.length >= 2) {
+        const firstTeam = bucketKeys[0];
+        const secondTeam = bucketKeys[1];
+        const firstPlayer = teamBuckets[firstTeam][0];
+        const secondPlayer = teamBuckets[secondTeam][0];
+        next[firstPlayer] = secondTeam as TeamName;
+        next[secondPlayer] = firstTeam as TeamName;
+        return next;
+      }
+
+      const defaultTeams: TeamName[] =
+        teamConfig.type === '4teams'
+          ? ['team1', 'team2', 'team3', 'team4']
+          : teamConfig.type === '3teams'
+          ? ['team1', 'team2', 'team3']
+          : ['racket', 'shuttle'];
+
+      const onlyTeam = bucketKeys[0] as TeamName | undefined;
+      const nextTeam = defaultTeams.find((team) => team !== onlyTeam) || defaultTeams[0];
+      next[players[0]] = nextTeam;
+      return next;
+    };
     
     const newAssignments: Record<string, TeamName> = {};
     
     switch (teamConfig.type) {
       case '2teams':
-        // 2팀 균등 배정 (점수 기반)
-        const sortedPlayers2 = [...playerPool].sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
-        sortedPlayers2.forEach((player, index) => {
-          // 지그재그 배정: 강한 선수부터 번갈아가며 배정
-          newAssignments[player] = index % 2 === 0 ? 'racket' : 'shuttle';
-        });
+        Object.assign(newAssignments, assignBalancedTeamNames(['racket', 'shuttle']));
         break;
         
       case '3teams':
-        // 3팀 균등 배정 (점수 기반)
-        const sortedPlayers3 = [...playerPool].sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
-        const teams3: string[][] = [[], [], []];
-        const teamScores3 = [0, 0, 0];
-        
-        // 각 선수를 현재 점수가 가장 낮은 팀에 배정
-        sortedPlayers3.forEach(player => {
-          const playerScore = getPlayerScore(player);
-          const minScoreIndex = teamScores3.indexOf(Math.min(...teamScores3));
-          teams3[minScoreIndex].push(player);
-          teamScores3[minScoreIndex] += playerScore;
-        });
-        
-        teams3[0].forEach(player => newAssignments[player] = 'team1');
-        teams3[1].forEach(player => newAssignments[player] = 'team2');
-        teams3[2].forEach(player => newAssignments[player] = 'team3');
-        
-        console.log('3팀 배정 결과:', {
-          team1: `${teams3[0].length}명, ${teamScores3[0].toFixed(1)}점`,
-          team2: `${teams3[1].length}명, ${teamScores3[1].toFixed(1)}점`,
-          team3: `${teams3[2].length}명, ${teamScores3[2].toFixed(1)}점`,
-          차이: `${(Math.max(...teamScores3) - Math.min(...teamScores3)).toFixed(1)}점`
-        });
+        Object.assign(newAssignments, assignBalancedTeamNames(['team1', 'team2', 'team3']));
         break;
         
       case '4teams':
-        // 4팀 균등 배정 (점수 기반)
-        const sortedPlayers4 = [...playerPool].sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
-        const teams4: string[][] = [[], [], [], []];
-        const teamScores4 = [0, 0, 0, 0];
-        
-        // 각 선수를 현재 점수가 가장 낮은 팀에 배정
-        sortedPlayers4.forEach(player => {
-          const playerScore = getPlayerScore(player);
-          const minScoreIndex = teamScores4.indexOf(Math.min(...teamScores4));
-          teams4[minScoreIndex].push(player);
-          teamScores4[minScoreIndex] += playerScore;
-        });
-        
-        teams4[0].forEach(player => newAssignments[player] = 'team1');
-        teams4[1].forEach(player => newAssignments[player] = 'team2');
-        teams4[2].forEach(player => newAssignments[player] = 'team3');
-        teams4[3].forEach(player => newAssignments[player] = 'team4');
-        
-        console.log('4팀 배정 결과:', {
-          team1: `${teams4[0].length}명, ${teamScores4[0].toFixed(1)}점`,
-          team2: `${teams4[1].length}명, ${teamScores4[1].toFixed(1)}점`,
-          team3: `${teams4[2].length}명, ${teamScores4[2].toFixed(1)}점`,
-          team4: `${teams4[3].length}명, ${teamScores4[3].toFixed(1)}점`,
-          차이: `${(Math.max(...teamScores4) - Math.min(...teamScores4)).toFixed(1)}점`
-        });
+        Object.assign(newAssignments, assignBalancedTeamNames(['team1', 'team2', 'team3', 'team4']));
         break;
         
       case 'pairs':
         // 1단계: 전체 선수를 점수 기준으로 정렬 (높은 점수부터)
-        const sortedByScore = [...playerPool].sort((a, b) => {
-          return getPlayerScore(b) - getPlayerScore(a);
-        });
+        const sortedByScore = shufflePlayers(playerPool).sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
         
         // 2단계: 선택한 그룹 수에 따라 범위 분할 (각 그룹은 짝수 인원)
         const numGroups = teamConfig.numLevelGroups || 2;
@@ -847,11 +1493,9 @@ export default function TeamManagementPage() {
           // 랜덤하게 섞되, 전체 점수 분포는 유지
           const shuffleWithBalance = (arr: typeof players) => {
             const shuffled = [...arr];
-            // 작은 범위 내에서만 섞기 (인접한 2-3명 범위)
-            for (let i = 0; i < shuffled.length - 1; i += 2) {
-              if (Math.random() > 0.5 && i + 1 < shuffled.length) {
-                [shuffled[i], shuffled[i + 1]] = [shuffled[i + 1], shuffled[i]];
-              }
+            for (let i = shuffled.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
             return shuffled;
           };
@@ -934,7 +1578,11 @@ export default function TeamManagementPage() {
         });
     }
     
-    setAssignments(newAssignments);
+    const resolvedAssignments = areAssignmentsEqual(newAssignments, assignments)
+      ? forceDifferentAssignments(newAssignments)
+      : newAssignments;
+
+    setAssignments(resolvedAssignments);
     setShowCustomEditor(false);
   };
 
@@ -976,6 +1624,29 @@ export default function TeamManagementPage() {
       ...prev,
       [playerName]: team
     }));
+  };
+
+  const movePairPlayerToGroup = (playerName: string, targetGroupIndex: number) => {
+    setPairGroups((prev) => {
+      if (targetGroupIndex < 0 || targetGroupIndex >= prev.length) {
+        return prev;
+      }
+
+      const movedPlayers = prev.map((group) => ({
+        ...group,
+        players: group.players.filter((player) => player !== playerName),
+      }));
+
+      movedPlayers[targetGroupIndex] = {
+        ...movedPlayers[targetGroupIndex],
+        players: sortPlayers(Array.from(new Set([
+          ...movedPlayers[targetGroupIndex].players,
+          playerName,
+        ]))),
+      };
+
+      return movedPlayers;
+    });
   };
 
   const toggleManualPlayer = (playerName: string) => {
@@ -1075,6 +1746,54 @@ export default function TeamManagementPage() {
     return teamPlayers.reduce((sum, player) => sum + getPlayerScore(player), 0);
   };
 
+  const getPlayersTotalScore = (players: string[] | undefined): number => {
+    return (players || []).reduce((sum, player) => sum + getPlayerScore(player), 0);
+  };
+
+  const getTeamGenderSummary = (teamName: TeamName) => {
+    const teamPlayers = Object.entries(assignments)
+      .filter(([_, team]) => team === teamName)
+      .map(([player]) => player);
+
+    return teamPlayers.reduce(
+      (summary, player) => {
+        const gender = getPlayerGender(player);
+        if (gender === 'M') {
+          summary.male += 1;
+        } else if (gender === 'F') {
+          summary.female += 1;
+        } else {
+          summary.unknown += 1;
+        }
+        return summary;
+      },
+      { male: 0, female: 0, unknown: 0 }
+    );
+  };
+
+  const getPairDisplayLabel = (pairName: string, groupName?: string): string => {
+    const pairNumberMatch = String(pairName).match(/(\d+)/);
+    const pairNumber = pairNumberMatch ? pairNumberMatch[1] : String(pairName);
+    const normalizedGroupName = String(groupName || '').trim();
+
+    let groupPrefix = '';
+    if (normalizedGroupName.includes('중상')) {
+      groupPrefix = '중상';
+    } else if (normalizedGroupName.includes('중하')) {
+      groupPrefix = '중하';
+    } else if (normalizedGroupName.includes('중위')) {
+      groupPrefix = '중';
+    } else if (normalizedGroupName.includes('상위')) {
+      groupPrefix = '상';
+    } else if (normalizedGroupName.includes('하위')) {
+      groupPrefix = '하';
+    } else if (normalizedGroupName.includes('기타')) {
+      groupPrefix = '기타';
+    }
+
+    return groupPrefix ? `${groupPrefix}-페어-${pairNumber}` : `페어-${pairNumber}`;
+  };
+
   // 선수 정렬 함수: 점수 높은 순 → 같으면 가나다순
   const sortPlayers = (players: string[]): string[] => {
     return [...players].sort((a, b) => {
@@ -1107,8 +1826,6 @@ export default function TeamManagementPage() {
       await fetchMemberPlayers();
       await fetchTodayPlayers();
       await fetchRoundsData();
-      // DB에서 실패한 경우 로컬 스토리지에서 불러오기
-      loadFromLocalStorage();
     };
     
     initializeData();
@@ -1261,9 +1978,8 @@ export default function TeamManagementPage() {
                       setTeamConfig({ ...teamConfig, numLevelGroups: num });
                       // 그룹 수 변경 시 선수 목록 미리 표시 (각 그룹을 짝수로 조정)
                       if (playerPool.length > 0) {
-                        const sortedByScore = [...playerPool].sort((a, b) => 
-                          getPlayerScore(b) - getPlayerScore(a)
-                        );
+                        const sortedByScore = [...playerPool]
+                          .sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
                         const totalPlayers = sortedByScore.length;
                         const groups: string[][] = [];
                         const groupNames: string[] = [];
@@ -1436,6 +2152,7 @@ export default function TeamManagementPage() {
                   <h3 className="text-lg font-semibold mb-3 text-blue-700">
                     팀 1 ({Object.values(assignments).filter(t => t === 'team1').length}명)
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team1').toFixed(1)}</span>
+                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team1').male} · 여 {getTeamGenderSummary('team1').female}</span>
                   </h3>
                   <div className="space-y-2">
                     {sortPlayers(playerPool).map(player => (
@@ -1461,6 +2178,7 @@ export default function TeamManagementPage() {
                   <h3 className="text-lg font-semibold mb-3 text-green-700">
                     팀 2 ({Object.values(assignments).filter(t => t === 'team2').length}명)
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team2').toFixed(1)}</span>
+                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team2').male} · 여 {getTeamGenderSummary('team2').female}</span>
                   </h3>
                   <div className="space-y-2">
                     {sortPlayers(playerPool).map(player => (
@@ -1486,6 +2204,7 @@ export default function TeamManagementPage() {
                   <h3 className="text-lg font-semibold mb-3 text-purple-700">
                     팀 3 ({Object.values(assignments).filter(t => t === 'team3').length}명)
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team3').toFixed(1)}</span>
+                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team3').male} · 여 {getTeamGenderSummary('team3').female}</span>
                   </h3>
                   <div className="space-y-2">
                     {sortPlayers(playerPool).map(player => (
@@ -1521,52 +2240,61 @@ export default function TeamManagementPage() {
                   <div className="space-y-4 mb-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-gray-800">📊 그룹별 참가자</h3>
-                      <button
-                        onClick={() => setShowGroupPlayers(!showGroupPlayers)}
-                        className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors flex items-center gap-2"
-                      >
-                        {showGroupPlayers ? (
-                          <>
-                            <span>👁️</span>
-                            <span>숨기기</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>👁️‍🗨️</span>
-                            <span>보기</span>
-                          </>
-                        )}
-                      </button>
+                      <span className="text-sm text-gray-500">항상 표시됨</span>
                     </div>
                     
-                    {showGroupPlayers && (
-                      <div className={`grid grid-cols-1 ${pairGroups.length === 2 ? 'md:grid-cols-2' : pairGroups.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-4`}>
-                        {pairGroups.map((group, idx) => {
-                          const colorSchemes = [
-                            { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700', badge: 'bg-red-100' },
-                            { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', badge: 'bg-blue-100' },
-                            { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', badge: 'bg-green-100' },
-                            { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700', badge: 'bg-purple-100' }
-                          ];
-                          const colors = colorSchemes[idx % colorSchemes.length];
-                          
-                          return (
-                            <div key={idx} className={`border-2 ${colors.border} rounded-lg p-4 ${colors.bg}`}>
-                              <h4 className={`font-semibold mb-3 ${colors.text} text-base`}>
-                                {group.groupName} ({group.players.length}명)
-                              </h4>
-                              <div className="space-y-1.5">
-                                {group.players.map((player, playerIdx) => (
-                                  <div key={player} className={`p-2 rounded ${colors.badge} text-sm`}>
-                                    {playerIdx + 1}. {player}
+                    <div className={`grid grid-cols-1 ${pairGroups.length === 2 ? 'md:grid-cols-2' : pairGroups.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-4`}>
+                      {pairGroups.map((group, idx) => {
+                        const colorSchemes = [
+                          { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700', badge: 'bg-red-100', button: 'bg-red-200 hover:bg-red-300' },
+                          { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', badge: 'bg-blue-100', button: 'bg-blue-200 hover:bg-blue-300' },
+                          { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', badge: 'bg-green-100', button: 'bg-green-200 hover:bg-green-300' },
+                          { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-700', badge: 'bg-purple-100', button: 'bg-purple-200 hover:bg-purple-300' }
+                        ];
+                        const colors = colorSchemes[idx % colorSchemes.length];
+                        
+                        return (
+                          <div key={group.groupName} className={`border-2 ${colors.border} rounded-lg p-4 ${colors.bg}`}>
+                            <h4 className={`font-semibold mb-3 ${colors.text} text-base flex items-center justify-between`}>
+                              <span>{group.groupName}</span>
+                              <span className="text-xs font-normal">{group.players.length}명</span>
+                            </h4>
+                            <div className="space-y-2">
+                              {group.players.length === 0 ? (
+                                <div className="rounded border border-dashed border-gray-300 bg-white/70 p-3 text-center text-sm text-gray-500">
+                                  참가자 없음
+                                </div>
+                              ) : (
+                                sortPlayers(group.players).map((player, playerIdx) => (
+                                  <div key={player} className={`rounded-lg border ${colors.border} ${colors.badge} p-2`}>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="text-sm font-medium text-gray-900">
+                                        {playerIdx + 1}. {player}
+                                      </div>
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                      {pairGroups
+                                        .map((targetGroup, targetIdx) => ({ targetGroup, targetIdx }))
+                                        .filter(({ targetIdx }) => targetIdx !== idx)
+                                        .map(({ targetGroup, targetIdx }) => (
+                                          <button
+                                            key={targetGroup.groupName}
+                                            type="button"
+                                            onClick={() => movePairPlayerToGroup(player, targetIdx)}
+                                            className={`rounded-full px-2.5 py-1 text-[11px] font-medium text-gray-800 transition-colors ${colors.button}`}
+                                          >
+                                            {targetGroup.groupName}로 이동
+                                          </button>
+                                        ))}
+                                    </div>
                                   </div>
-                                ))}
-                              </div>
+                                ))
+                              )}
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
                 
@@ -1626,13 +2354,12 @@ export default function TeamManagementPage() {
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                               {groupPairs.map(([pairName, players]) => {
-                                const pairNumber = pairName.replace('pair', '');
                                 const pairScore = players.reduce((sum, player) => sum + getPlayerScore(player), 0);
                                 
                                 return (
                                   <div key={pairName} className={`border-2 ${colors.border} rounded-lg p-3 ${colors.highlight}`}>
                                     <h5 className={`text-sm font-semibold mb-2 ${colors.text}`}>
-                                      👥 페어 {pairNumber} ({players.length}명)
+                                      👥 {getPairDisplayLabel(pairName, pairGroups[groupIdx].groupName)} ({players.length}명)
                                       <span className="ml-1 text-xs font-normal">점수: {pairScore.toFixed(1)}</span>
                                     </h5>
                                     <div className="space-y-1">
@@ -1688,6 +2415,7 @@ export default function TeamManagementPage() {
                   <h3 className="text-lg font-semibold mb-3 text-blue-700">
                     팀 1 ({Object.values(assignments).filter(t => t === 'team1').length}명)
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team1').toFixed(1)}</span>
+                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team1').male} · 여 {getTeamGenderSummary('team1').female}</span>
                   </h3>
                   <div className="space-y-2">
                     {sortPlayers(playerPool).map(player => (
@@ -1713,6 +2441,7 @@ export default function TeamManagementPage() {
                   <h3 className="text-lg font-semibold mb-3 text-green-700">
                     팀 2 ({Object.values(assignments).filter(t => t === 'team2').length}명)
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team2').toFixed(1)}</span>
+                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team2').male} · 여 {getTeamGenderSummary('team2').female}</span>
                   </h3>
                   <div className="space-y-2">
                     {sortPlayers(playerPool).map(player => (
@@ -1738,6 +2467,7 @@ export default function TeamManagementPage() {
                   <h3 className="text-lg font-semibold mb-3 text-purple-700">
                     팀 3 ({Object.values(assignments).filter(t => t === 'team3').length}명)
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team3').toFixed(1)}</span>
+                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team3').male} · 여 {getTeamGenderSummary('team3').female}</span>
                   </h3>
                   <div className="space-y-2">
                     {sortPlayers(playerPool).map(player => (
@@ -1763,6 +2493,7 @@ export default function TeamManagementPage() {
                   <h3 className="text-lg font-semibold mb-3 text-orange-700">
                     팀 4 ({Object.values(assignments).filter(t => t === 'team4').length}명)
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team4').toFixed(1)}</span>
+                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team4').male} · 여 {getTeamGenderSummary('team4').female}</span>
                   </h3>
                   <div className="space-y-2">
                     {sortPlayers(playerPool).map(player => (
@@ -1791,6 +2522,7 @@ export default function TeamManagementPage() {
                   <h3 className="text-lg font-semibold mb-3 text-blue-600">
                     🏸 라켓팀 ({Object.values(assignments).filter(t => t === 'racket').length}명)
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('racket').toFixed(1)}</span>
+                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('racket').male} · 여 {getTeamGenderSummary('racket').female}</span>
                   </h3>
                   <div className="space-y-2">
                     {sortPlayers(playerPool).map(player => (
@@ -1816,6 +2548,7 @@ export default function TeamManagementPage() {
                   <h3 className="text-lg font-semibold mb-3 text-purple-600">
                     🏃‍♂️ 셔틀팀 ({Object.values(assignments).filter(t => t === 'shuttle').length}명)
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('shuttle').toFixed(1)}</span>
+                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('shuttle').male} · 여 {getTeamGenderSummary('shuttle').female}</span>
                   </h3>
                   <div className="space-y-2">
                     {sortPlayers(playerPool).map(player => (
@@ -2067,11 +2800,12 @@ export default function TeamManagementPage() {
                     <div className="font-semibold text-blue-900 mb-3 flex items-center gap-2 text-lg">
                       🏸 라켓팀 
                       <span className="text-sm font-normal">({selectedRoundForModal.racket_team?.length || 0}명)</span>
+                      <span className="text-sm font-normal">· 총점 {getPlayersTotalScore(selectedRoundForModal.racket_team).toFixed(1)}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedRoundForModal.racket_team?.map((player, idx) => (
                         <span key={idx} className="inline-block bg-blue-200 text-blue-900 text-sm px-3 py-1.5 rounded-lg font-medium">
-                          {player}
+                          {player} · {getPlayerScore(player).toFixed(1)}점
                         </span>
                       ))}
                     </div>
@@ -2080,11 +2814,12 @@ export default function TeamManagementPage() {
                     <div className="font-semibold text-purple-900 mb-3 flex items-center gap-2 text-lg">
                       🏃‍♂️ 셔틀팀 
                       <span className="text-sm font-normal">({selectedRoundForModal.shuttle_team?.length || 0}명)</span>
+                      <span className="text-sm font-normal">· 총점 {getPlayersTotalScore(selectedRoundForModal.shuttle_team).toFixed(1)}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedRoundForModal.shuttle_team?.map((player, idx) => (
                         <span key={idx} className="inline-block bg-purple-200 text-purple-900 text-sm px-3 py-1.5 rounded-lg font-medium">
-                          {player}
+                          {player} · {getPlayerScore(player).toFixed(1)}점
                         </span>
                       ))}
                     </div>
@@ -2097,30 +2832,33 @@ export default function TeamManagementPage() {
                   <div className="bg-blue-50 rounded-lg p-4 w-full">
                     <div className="font-semibold text-blue-900 mb-3 text-lg">
                       팀 1 ({selectedRoundForModal.team1?.length || 0}명)
+                      <span className="ml-2 text-sm font-normal">총점 {getPlayersTotalScore(selectedRoundForModal.team1).toFixed(1)}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedRoundForModal.team1?.map((player, idx) => (
-                        <span key={idx} className="inline-block bg-blue-200 text-blue-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                        <span key={idx} className="inline-block bg-blue-200 text-blue-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player} · {getPlayerScore(player).toFixed(1)}점</span>
                       ))}
                     </div>
                   </div>
                   <div className="bg-green-50 rounded-lg p-4 w-full">
                     <div className="font-semibold text-green-900 mb-3 text-lg">
                       팀 2 ({selectedRoundForModal.team2?.length || 0}명)
+                      <span className="ml-2 text-sm font-normal">총점 {getPlayersTotalScore(selectedRoundForModal.team2).toFixed(1)}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedRoundForModal.team2?.map((player, idx) => (
-                        <span key={idx} className="inline-block bg-green-200 text-green-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                        <span key={idx} className="inline-block bg-green-200 text-green-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player} · {getPlayerScore(player).toFixed(1)}점</span>
                       ))}
                     </div>
                   </div>
                   <div className="bg-purple-50 rounded-lg p-4 w-full">
                     <div className="font-semibold text-purple-900 mb-3 text-lg">
                       팀 3 ({selectedRoundForModal.team3?.length || 0}명)
+                      <span className="ml-2 text-sm font-normal">총점 {getPlayersTotalScore(selectedRoundForModal.team3).toFixed(1)}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedRoundForModal.team3?.map((player, idx) => (
-                        <span key={idx} className="inline-block bg-purple-200 text-purple-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                        <span key={idx} className="inline-block bg-purple-200 text-purple-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player} · {getPlayerScore(player).toFixed(1)}점</span>
                       ))}
                     </div>
                   </div>
@@ -2132,40 +2870,44 @@ export default function TeamManagementPage() {
                   <div className="bg-blue-50 rounded-lg p-4 w-full">
                     <div className="font-semibold text-blue-900 mb-3 text-lg">
                       팀 1 ({selectedRoundForModal.team1?.length || 0}명)
+                      <span className="ml-2 text-sm font-normal">총점 {getPlayersTotalScore(selectedRoundForModal.team1).toFixed(1)}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedRoundForModal.team1?.map((player, idx) => (
-                        <span key={idx} className="inline-block bg-blue-200 text-blue-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                        <span key={idx} className="inline-block bg-blue-200 text-blue-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player} · {getPlayerScore(player).toFixed(1)}점</span>
                       ))}
                     </div>
                   </div>
                   <div className="bg-green-50 rounded-lg p-4 w-full">
                     <div className="font-semibold text-green-900 mb-3 text-lg">
                       팀 2 ({selectedRoundForModal.team2?.length || 0}명)
+                      <span className="ml-2 text-sm font-normal">총점 {getPlayersTotalScore(selectedRoundForModal.team2).toFixed(1)}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedRoundForModal.team2?.map((player, idx) => (
-                        <span key={idx} className="inline-block bg-green-200 text-green-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                        <span key={idx} className="inline-block bg-green-200 text-green-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player} · {getPlayerScore(player).toFixed(1)}점</span>
                       ))}
                     </div>
                   </div>
                   <div className="bg-purple-50 rounded-lg p-4 w-full">
                     <div className="font-semibold text-purple-900 mb-3 text-lg">
                       팀 3 ({selectedRoundForModal.team3?.length || 0}명)
+                      <span className="ml-2 text-sm font-normal">총점 {getPlayersTotalScore(selectedRoundForModal.team3).toFixed(1)}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedRoundForModal.team3?.map((player, idx) => (
-                        <span key={idx} className="inline-block bg-purple-200 text-purple-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                        <span key={idx} className="inline-block bg-purple-200 text-purple-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player} · {getPlayerScore(player).toFixed(1)}점</span>
                       ))}
                     </div>
                   </div>
                   <div className="bg-orange-50 rounded-lg p-4 w-full">
                     <div className="font-semibold text-orange-900 mb-3 text-lg">
                       팀 4 ({selectedRoundForModal.team4?.length || 0}명)
+                      <span className="ml-2 text-sm font-normal">총점 {getPlayersTotalScore(selectedRoundForModal.team4).toFixed(1)}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedRoundForModal.team4?.map((player, idx) => (
-                        <span key={idx} className="inline-block bg-orange-200 text-orange-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                        <span key={idx} className="inline-block bg-orange-200 text-orange-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player} · {getPlayerScore(player).toFixed(1)}점</span>
                       ))}
                     </div>
                   </div>
@@ -2174,18 +2916,72 @@ export default function TeamManagementPage() {
 
               {selectedRoundForModal.team_type === 'pairs' && selectedRoundForModal.pairs_data && (
                 <>
-                  {Object.entries(selectedRoundForModal.pairs_data).map(([pairName, players]: [string, any]) => (
-                    <div key={pairName} className="bg-teal-50 rounded-lg p-4 w-full">
-                      <div className="font-semibold text-teal-900 mb-3 text-lg">
-                        👥 {pairName.replace('pair', '페어 ')} ({players?.length || 0}명)
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {players?.map((player: string, idx: number) => (
-                          <span key={idx} className="inline-block bg-teal-200 text-teal-900 text-sm px-3 py-1.5 rounded-lg font-medium">{player}</span>
+                  {(() => {
+                    const allPairs = Object.entries(selectedRoundForModal.pairs_data || {})
+                      .filter(([pairName]) => /^pair\d+$/i.test(pairName))
+                      .sort((a, b) => {
+                        const aNum = Number(String(a[0]).replace(/\D/g, ''));
+                        const bNum = Number(String(b[0]).replace(/\D/g, ''));
+                        return aNum - bNum;
+                      });
+
+                    const groups = (selectedRoundForModal.pair_group_data || [])
+                      .map((group) => ({
+                        groupName: group.groupName,
+                        pairs: group.pairNames
+                          .map((pairName) => [pairName, selectedRoundForModal.pairs_data?.[pairName] || []] as [string, string[]])
+                          .filter(([_, players]) => players.length > 0),
+                      }))
+                      .filter((group) => group.pairs.length > 0);
+
+                    const groupedPairNames = new Set(groups.flatMap((group) => group.pairs.map(([pairName]) => pairName)));
+                    const remainingPairs = allPairs.filter(([pairName]) => !groupedPairNames.has(pairName));
+
+                    const displayGroups = [...groups];
+                    if (remainingPairs.length > 0) {
+                      displayGroups.push({
+                        groupName: '기타 그룹',
+                        pairs: remainingPairs as Array<[string, string[]]>,
+                      });
+                    }
+
+                    if (displayGroups.length === 0) {
+                      return (
+                        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+                          저장된 페어 데이터가 없습니다.
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        {displayGroups.map((group) => (
+                          <div key={group.groupName} className="rounded-lg border border-teal-200 bg-teal-50 p-4">
+                            <div className="mb-3 text-base font-semibold text-teal-900">
+                              {group.groupName} ({group.pairs.length}개 페어)
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {group.pairs.map(([pairName, players]) => (
+                                <div key={pairName} className="rounded-lg border border-teal-300 bg-white p-3">
+                                  <div className="mb-2 text-sm font-semibold text-teal-900">
+                                    👥 {getPairDisplayLabel(pairName, group.groupName)} ({players?.length || 0}명)
+                                    <span className="ml-2 text-xs font-normal">총점 {getPlayersTotalScore(players).toFixed(1)}</span>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    {players?.map((player: string, idx: number) => (
+                                      <div key={`${pairName}-${idx}`} className="rounded bg-teal-100 px-2 py-1 text-xs font-medium text-teal-900">
+                                        {player} · {getPlayerScore(player).toFixed(1)}점
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })()}
                 </>
               )}
             </div>

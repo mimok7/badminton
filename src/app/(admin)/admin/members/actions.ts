@@ -68,7 +68,7 @@ export async function deleteUser(userId: string) {
 export type UpdateUserPayload = {
     username?: string | null;
     full_name?: string | null;
-    role?: 'admin' | 'user' | null;
+    role?: 'admin' | 'manager' | 'user' | null;
     skill_level?: string | null;
     gender?: 'M' | 'F' | 'O' | string | null;
 }
@@ -118,6 +118,63 @@ export async function updateUser(userId: string, updates: UpdateUserPayload) {
     return { success: true }
 }
 
+export async function updateUsersBulk(
+    items: Array<{ userId: string; updates: UpdateUserPayload }>
+) {
+    if (!(await isAdmin())) {
+        return { error: '수정 권한이 없습니다.' };
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+        return { success: true, updatedCount: 0 };
+    }
+
+    for (const item of items) {
+        const userId = item?.userId;
+        const updates = item?.updates;
+
+        if (!userId || !updates) {
+            return { error: '잘못된 전체 저장 요청입니다.' };
+        }
+
+        const payload: Record<string, any> = {};
+        if (updates.username !== undefined) payload.username = updates.username || null;
+        if (updates.full_name !== undefined) payload.full_name = updates.full_name || null;
+        if (updates.role !== undefined) payload.role = updates.role || 'user';
+        if (updates.skill_level !== undefined) payload.skill_level = updates.skill_level || null;
+        if (updates.gender !== undefined) payload.gender = updates.gender || null;
+
+        const first = await supabaseAdmin
+            .from('profiles')
+            .update(payload)
+            .eq('user_id', userId)
+            .select('id');
+
+        if (first.error) {
+            return { error: first.error.message };
+        }
+
+        if (!first.data || first.data.length === 0) {
+            const second = await supabaseAdmin
+                .from('profiles')
+                .update(payload)
+                .eq('id', userId)
+                .select('id');
+
+            if (second.error) {
+                return { error: second.error.message };
+            }
+
+            if (!second.data || second.data.length === 0) {
+                return { error: '대상 사용자 중 일부를 찾을 수 없습니다.' };
+            }
+        }
+    }
+
+    revalidatePath('/admin/members');
+    return { success: true, updatedCount: items.length };
+}
+
 function buildAutoEmail(fullName: string) {
     const normalized = fullName
         .trim()
@@ -134,7 +191,7 @@ export type CreateMemberPayload = {
     full_name: string;
     skill_level?: string | null;
     gender?: 'M' | 'F' | 'O' | string | null;
-    role?: 'admin' | 'user' | null;
+    role?: 'admin' | 'manager' | 'user' | null;
 };
 
 export async function createMember(payload: CreateMemberPayload) {

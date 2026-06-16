@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 import { RequireAdmin } from '@/components/AuthGuard';
 import { useUser } from '@/hooks/useUser';
 import { SECTIONS } from './menuConfig';
@@ -39,6 +40,7 @@ function getGroupColors(color: string) {
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { profile } = useUser();
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
 
   const isActive = (href: string) => {
     try {
@@ -50,8 +52,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   return (
     <RequireAdmin>
-      <div className="min-h-screen grid grid-cols-[13rem_minmax(0,1fr)] bg-gray-50">
-        <aside className="w-52 shrink-0 border-r border-gray-200 bg-white sticky top-0 h-screen overflow-y-auto z-30">
+      <div className={`min-h-screen bg-gray-50 ${isSidebarVisible ? 'grid grid-cols-[13rem_minmax(0,1fr)]' : 'grid grid-cols-1'}`}>
+        {isSidebarVisible && (
+          <aside className="w-52 shrink-0 border-r border-gray-200 bg-white sticky top-0 h-screen overflow-y-auto z-30">
           <div className="p-4 border-b border-gray-100">
             <Link href="/admin" className="block text-base font-bold text-gray-900 tracking-tight">⚙️ 관리자</Link>
             <div className="mt-1 text-xs text-gray-500">{profile?.full_name || profile?.username || '관리자'}님</div>
@@ -101,11 +104,21 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               </div>
             </div>
           </nav>
-        </aside>
+          </aside>
+        )}
 
         <div className="min-w-0 w-full">
           <header className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-10">
-            <div className="text-sm text-gray-500">관리자 영역</div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-gray-500">관리자 영역</div>
+              <button
+                type="button"
+                onClick={() => setIsSidebarVisible((prev) => !prev)}
+                className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                {isSidebarVisible ? '사이드바 숨기기' : '사이드바 표시'}
+              </button>
+            </div>
           </header>
           <main className="bg-gray-50 min-h-screen relative z-0 w-full px-6 py-6">{children}</main>
         </div>

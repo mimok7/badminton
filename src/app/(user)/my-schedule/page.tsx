@@ -1,12 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/hooks/useUser';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { NotificationService } from '@/utils/notification-service';
 import { getUserLevelDisplay } from '@/lib/level-display';
+import { getProfileByUserId } from '@/lib/auth';
+import {
+  fetchMyTournamentMatches,
+  normalizeTournamentPlayerName,
+  type MyTournamentMatchView,
+} from '@/lib/tournament-matches';
 
 // 경기 결과 표시 컴포넌트
 function MatchResultDisplay({ selectedMatch, user, supabase }: {
@@ -136,8 +143,12 @@ interface MatchRecord {
   isUserTeam1: boolean;
 }
 
+type MatchCenterTab = 'upcoming' | 'results' | 'tournaments';
+
 export default function MySchedulePage() {
   const { user, profile, loading: userLoading, isAdmin } = useUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = getSupabaseClient();
   
   // 모든 상태를 상단에 선언
@@ -146,6 +157,9 @@ export default function MySchedulePage() {
   const [matchRecords, setMatchRecords] = useState<MatchRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<MatchRecord[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<MatchCenterTab>('upcoming');
+  const [tournamentMatches, setTournamentMatches] = useState<MyTournamentMatchView[]>([]);
+  const [allTournamentMatchCount, setAllTournamentMatchCount] = useState(0);
   const [stats, setStats] = useState<MyScheduleStats>({ 
     totalMatches: 0, 
     upcomingMatches: 0, 
@@ -165,6 +179,13 @@ export default function MySchedulePage() {
   
   // 각 경기의 결과 입력 상태를 추적하는 state
   const [matchResultStates, setMatchResultStates] = useState<Record<string, boolean | null>>({});
+
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    if (requestedTab === 'upcoming' || requestedTab === 'results' || requestedTab === 'tournaments') {
+      setActiveTab(requestedTab);
+    }
+  }, [searchParams]);
 
   // 경기 결과 상태 확인 함수
   const checkMatchResult = async (matchId: string) => {
@@ -204,6 +225,12 @@ export default function MySchedulePage() {
       fetchMySchedule();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user && profile) {
+      fetchTournamentMatches();
+    }
+  }, [user, profile]);
 
   // 경기 목록이 변경될 때마다 결과 상태 업데이트
   useEffect(() => {
@@ -258,16 +285,11 @@ export default function MySchedulePage() {
       }
 
       // 2. 내가 배정받은 경기 조회 (generated_matches 기반)
-      // 먼저 내 프로필 정보를 조회
-      const { data: myProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, user_id')
-        .eq('user_id', user.id)
-        .single();
+      const myProfile = profile || await getProfileByUserId(supabase, user.id);
 
-      console.log('내 프로필 조회:', { myProfile, profileError, userId: user.id });
+      console.log('내 프로필 조회:', { myProfile, userId: user.id });
 
-      if (!profileError && myProfile) {
+      if (myProfile?.id) {
         const { data: assignedMatches, error: assignedError } = await supabase
           .from('generated_matches')
           .select(`
@@ -358,7 +380,7 @@ export default function MySchedulePage() {
       let wins = 0;
       let losses = 0;
 
-      if (!profileError && myProfile) {
+      if (myProfile?.id) {
         // 내가 참여한 완료된 경기들의 결과 조회
         const { data: completedMatches, error: completedError } = await supabase
           .from('generated_matches')
@@ -489,6 +511,18 @@ export default function MySchedulePage() {
     return getUserLevelDisplay(player?.skill_level);
   };
 
+  const fetchTournamentMatches = async () => {
+    try {
+      const result = await fetchMyTournamentMatches(supabase, profile);
+      setTournamentMatches(result.matches);
+      setAllTournamentMatchCount(result.allTournamentMatchCount);
+    } catch (error) {
+      console.error('대회 경기 조회 실패:', error);
+      setTournamentMatches([]);
+      setAllTournamentMatchCount(0);
+    }
+  };
+
   // 경기 상태 색상
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -509,6 +543,53 @@ export default function MySchedulePage() {
       case 'cancelled': return '취소';
       default: return status;
     }
+  };
+
+  const uniqueRecordDates = Array.from(new Set(matchRecords.map((record) => record.date))).sort((a, b) =>
+    new Date(b).getTime() - new Date(a).getTime()
+  );
+
+  const getMyTournamentTeam = (match: MyTournamentMatchView) => {
+    const searchNames = [profile?.username, profile?.full_name]
+      .map((value) => normalizeTournamentPlayerName(value))
+      .filter((value) => value.length > 0);
+
+    if (searchNames.length === 0) return null;
+
+    const team1Names = (match.team1 || []).map((name) => normalizeTournamentPlayerName(name));
+    const team2Names = (match.team2 || []).map((name) => normalizeTournamentPlayerName(name));
+
+    if (searchNames.some((name) => team1Names.includes(name))) return 'team1';
+    if (searchNames.some((name) => team2Names.includes(name))) return 'team2';
+    return null;
+  };
+
+  const tournamentStats = tournamentMatches.reduce(
+    (acc, match) => {
+      const myTeam = getMyTournamentTeam(match);
+      if (!myTeam) {
+        return acc;
+      }
+
+      acc.total += 1;
+
+      if (match.status === 'completed') {
+        acc.completed += 1;
+        if (match.winner === myTeam) acc.wins += 1;
+        else if (match.winner === 'draw') acc.draws += 1;
+        else acc.losses += 1;
+      } else {
+        acc.pending += 1;
+      }
+
+      return acc;
+    },
+    { total: 0, completed: 0, pending: 0, wins: 0, losses: 0, draws: 0 }
+  );
+
+  const selectTab = (tab: MatchCenterTab) => {
+    setActiveTab(tab);
+    router.replace(`/my-schedule?tab=${tab}`, { scroll: false });
   };
 
   // 경기 결과 보기/일정 상세 보기 핸들러 (통합)
@@ -945,7 +1026,7 @@ export default function MySchedulePage() {
       <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-md p-6 mb-8 text-white">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-semibold flex items-center gap-2">
-            🏸 나의 경기 일정
+            🏸 내 경기 센터
           </h1>
           <Link href="/" className="text-white hover:text-blue-100 transition-colors">
             🏠 홈
@@ -960,7 +1041,7 @@ export default function MySchedulePage() {
           </span>
         </div>
         <p className="text-blue-100">
-          개인 경기 일정과 참가 현황을 확인하고 관리하세요! 📅
+          예정 경기, 완료 기록, 대회 경기를 한 곳에서 확인하고 관리하세요! 📅
         </p>
       </div>
 
@@ -1014,7 +1095,47 @@ export default function MySchedulePage() {
         </div>
       </div>
 
-      {/* 경기 목록 */}
+      <div className="mb-8 rounded-lg bg-white shadow">
+        <div className="border-b border-gray-200 px-4 py-3 sm:px-6">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => selectTab('upcoming')}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'upcoming'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              예정 경기 {stats.upcomingMatches}
+            </button>
+            <button
+              type="button"
+              onClick={() => selectTab('results')}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'results'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              완료 기록 {matchRecords.length}
+            </button>
+            <button
+              type="button"
+              onClick={() => selectTab('tournaments')}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'tournaments'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              대회 경기 {tournamentMatches.length}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {activeTab === 'upcoming' && (
       <div className="bg-white rounded-lg shadow">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">예정된 경기 목록</h2>
@@ -1176,6 +1297,192 @@ export default function MySchedulePage() {
           </div>
         )}
       </div>
+      )}
+
+      {activeTab === 'results' && (
+        <div className="rounded-lg bg-white shadow">
+          <div className="flex flex-col gap-4 border-b border-gray-200 p-6 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">완료된 경기 기록</h2>
+              <p className="mt-1 text-sm text-gray-500">완료된 배정 경기의 승패와 점수를 확인합니다.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="record-date-filter" className="text-sm font-medium text-gray-600">
+                날짜 필터
+              </label>
+              <select
+                id="record-date-filter"
+                value={selectedDate}
+                onChange={(e) => handleDateFilter(e.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="">전체</option>
+                {uniqueRecordDates.map((date) => (
+                  <option key={date} value={date}>
+                    {date}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {filteredRecords.length === 0 ? (
+            <div className="p-12 text-center text-gray-500">
+              <div className="mb-4 text-6xl">🏆</div>
+              <h3 className="mb-2 text-lg font-medium text-gray-900">완료된 경기 기록이 없습니다</h3>
+              <p>경기가 완료되면 여기에서 결과를 확인할 수 있습니다.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {filteredRecords.map((record) => (
+                <div key={record.id} className="p-6">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <span className="text-lg font-semibold text-gray-900">경기 #{record.matchNumber}</span>
+                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          record.result === 'win'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {record.result === 'win' ? '승리' : '패배'}
+                        </span>
+                        <span className="text-sm text-gray-500">{record.date}</span>
+                      </div>
+                      <div className="text-sm text-gray-600">점수: {record.score || '기록 없음'}</div>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <div>팀원: {record.teammates.length > 0 ? record.teammates.join(', ') : '없음'}</div>
+                      <div>상대: {record.opponents.length > 0 ? record.opponents.join(', ') : '없음'}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'tournaments' && (
+        <div className="rounded-lg bg-white shadow">
+          <div className="flex flex-col gap-4 border-b border-gray-200 p-6 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">대회 경기</h2>
+              <p className="mt-1 text-sm text-gray-500">토너먼트 경기와 결과를 이곳에서 함께 확인합니다.</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-lg bg-amber-50 px-4 py-3">
+                <div className="text-lg font-bold text-amber-900">{tournamentStats.total}</div>
+                <div className="text-xs text-amber-700">총 경기</div>
+              </div>
+              <div className="rounded-lg bg-green-50 px-4 py-3">
+                <div className="text-lg font-bold text-green-900">{tournamentStats.wins}</div>
+                <div className="text-xs text-green-700">승리</div>
+              </div>
+              <div className="rounded-lg bg-blue-50 px-4 py-3">
+                <div className="text-lg font-bold text-blue-900">{tournamentStats.pending}</div>
+                <div className="text-xs text-blue-700">대기</div>
+              </div>
+            </div>
+          </div>
+
+          {tournamentMatches.length === 0 ? (
+            <div className="p-12 text-center text-gray-500">
+              <div className="mb-4 text-6xl">🎾</div>
+              <h3 className="mb-2 text-lg font-medium text-gray-900">
+                {allTournamentMatchCount === 0 ? '등록된 대회 경기가 아직 없습니다' : '참가한 대회 경기가 없습니다'}
+              </h3>
+              <p>대회가 생성되면 이 탭에서 일반 경기와 분리해서 확인할 수 있습니다.</p>
+            </div>
+          ) : (
+            <div className="space-y-4 p-6">
+              {tournamentMatches.map((match) => {
+                const myTeam = getMyTournamentTeam(match);
+                const didIWin = match.status === 'completed' && match.winner === myTeam;
+                const didILose =
+                  match.status === 'completed' &&
+                  match.winner &&
+                  match.winner !== myTeam &&
+                  match.winner !== 'draw';
+
+                return (
+                  <div
+                    key={match.id}
+                    className={`rounded-lg border-2 p-4 ${
+                      didIWin
+                        ? 'border-green-300 bg-green-50'
+                        : didILose
+                        ? 'border-red-300 bg-red-50'
+                        : match.status === 'pending'
+                        ? 'border-blue-300 bg-blue-50'
+                        : 'border-gray-300 bg-gray-50'
+                    }`}
+                  >
+                    <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">{match.tournament_title}</div>
+                        <div className="text-sm text-gray-600">
+                          📅 {match.tournament_date ? new Date(match.tournament_date).toLocaleDateString('ko-KR') : '날짜 미정'} |
+                          경기 {match.match_number} | 🏟️ {match.court}
+                        </div>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        match.status === 'completed'
+                          ? didIWin
+                            ? 'bg-green-200 text-green-800'
+                            : didILose
+                            ? 'bg-red-200 text-red-800'
+                            : 'bg-gray-200 text-gray-800'
+                          : match.status === 'pending'
+                          ? 'bg-blue-200 text-blue-700'
+                          : 'bg-yellow-200 text-yellow-800'
+                      }`}>
+                        {match.status === 'completed'
+                          ? didIWin
+                            ? '✓ 승리'
+                            : didILose
+                            ? '✗ 패배'
+                            : '= 무승부'
+                          : match.status === 'pending'
+                          ? '⏳ 대기중'
+                          : '⚡ 진행중'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center">
+                      <div className={`rounded-lg p-3 text-center ${myTeam === 'team1' ? 'border-2 border-blue-400 bg-blue-100' : 'bg-white'}`}>
+                        <div className="mb-2 font-semibold text-blue-700">{myTeam === 'team1' ? '🌟 내 팀' : '상대 팀'}</div>
+                        {match.team1.map((player, index) => (
+                          <div key={`${match.id}-team1-${index}`} className="text-sm text-gray-800">
+                            {player}
+                          </div>
+                        ))}
+                        {match.status === 'completed' && (
+                          <div className="mt-2 text-2xl font-bold text-blue-600">{match.score_team1}</div>
+                        )}
+                      </div>
+
+                      <div className="text-2xl font-bold text-gray-400">VS</div>
+
+                      <div className={`rounded-lg p-3 text-center ${myTeam === 'team2' ? 'border-2 border-blue-400 bg-blue-100' : 'bg-white'}`}>
+                        <div className="mb-2 font-semibold text-red-700">{myTeam === 'team2' ? '🌟 내 팀' : '상대 팀'}</div>
+                        {match.team2.map((player, index) => (
+                          <div key={`${match.id}-team2-${index}`} className="text-sm text-gray-800">
+                            {player}
+                          </div>
+                        ))}
+                        {match.status === 'completed' && (
+                          <div className="mt-2 text-2xl font-bold text-red-600">{match.score_team2}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 새로고침 및 알림 테스트 버튼 */}
       <div className="mt-8 text-center space-y-4">

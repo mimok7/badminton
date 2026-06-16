@@ -85,7 +85,24 @@ export async function fetchScheduledMatchesForDate(
     });
   }
 
-  const filteredSchedules = userId
+  let filterProfileId: string | null = null;
+
+  if (userId) {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, user_id')
+      .or(`user_id.eq.${userId},id.eq.${userId}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    filterProfileId = profile?.id || userId;
+  }
+
+  const filteredSchedules = filterProfileId
     ? validSchedules.filter((schedule) => {
         const match = typeof schedule.generated_match_id === 'number'
           ? generatedMatchesById.get(schedule.generated_match_id)
@@ -93,10 +110,10 @@ export async function fetchScheduledMatchesForDate(
 
         return Boolean(
           match &&
-            (match.team1_player1_id === userId ||
-              match.team1_player2_id === userId ||
-              match.team2_player1_id === userId ||
-              match.team2_player2_id === userId)
+            (match.team1_player1_id === filterProfileId ||
+              match.team1_player2_id === filterProfileId ||
+              match.team2_player1_id === filterProfileId ||
+              match.team2_player2_id === filterProfileId)
         );
       })
     : validSchedules;

@@ -79,6 +79,7 @@ export default function Header() {
               width={40} 
               height={40}
               sizes="40px"
+              priority
             />
             <span className="ml-2 font-semibold w-max">라켓 뚱보단</span>
           </Link>

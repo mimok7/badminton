@@ -1,11 +1,14 @@
 import { redirect } from 'next/navigation'
 import type { AdminUser } from '@/types'
-import { getSupabaseServerClient } from '@/lib/supabase-server'
+import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server'
 import { isUserAdmin } from '@/lib/auth'
 import UserManagementClient from './UserManagementClient'
 import type { Database } from '@/types/supabase'
+import { SKILL_LEVEL_SELECT_OPTIONS } from '@/lib/skill-levels'
 
 export const dynamic = 'force-dynamic'
+
+type ProfileRow = Database['public']['Tables']['profiles']['Row']
 
 export default async function AdminMembersPage() {
   const supabase = await getSupabaseServerClient()
@@ -37,7 +40,7 @@ export default async function AdminMembersPage() {
         </div>
       )
     }
-    users = (profiles || []).map((p: any) => ({
+    users = ((profiles || []) as ProfileRow[]).map((p) => ({
       id: p.user_id ?? p.id,
       email: (p.email ?? '') as string,
       username: p.username ?? undefined,
@@ -58,28 +61,46 @@ export default async function AdminMembersPage() {
       const bKey = (b.username || b.full_name || b.email || '').toString();
       return collator.compare(aKey, bKey);
     });
-  } catch (e) {
+  } catch {
     // Intl.Collator가 지원되지 않으면 기본 정렬
     users.sort((a, b) => ('' + (a.username || a.full_name || a.email)).localeCompare('' + (b.username || b.full_name || b.email)));
   }
 
-  const { data: levelInfoRows } = await supabase
+  const supabaseAdmin = getSupabaseAdminClient()
+  const { data: levelInfoRows } = await supabaseAdmin
     .from('level_info')
-    .select('code, name, description, score')
+    .select('id, code, name, description, score')
     .order('score', { ascending: false, nullsFirst: false })
 
-  const levelOptions = ((levelInfoRows || []) as Array<Pick<Database['public']['Tables']['level_info']['Row'], 'code' | 'name' | 'description' | 'score'>>)
+  const levelOptionsFromDb = ((levelInfoRows || []) as Array<Pick<Database['public']['Tables']['level_info']['Row'], 'id' | 'code' | 'name' | 'description' | 'score'>>)
     .filter((row) => Boolean(row.code))
     .map((row) => ({
-      code: row.code,
-      name: row.name,
-      description: row.description,
+      code: String(row.code).trim().toUpperCase(),
+      description: row.description?.trim() || row.name?.trim() || row.code?.trim() || `레벨 ${row.id}`,
       score: row.score,
     }))
 
+  const levelOptions = levelOptionsFromDb.length > 0
+    ? levelOptionsFromDb
+    : [
+      ...SKILL_LEVEL_SELECT_OPTIONS.map((option, index) => ({
+        code: option.code,
+        description: option.name,
+        score: SKILL_LEVEL_SELECT_OPTIONS.length - index,
+      })),
+      { code: 'O', description: '기타', score: null },
+    ]
+
+  const levelOptionByCode = new Map(levelOptions.map((option) => [option.code, option]))
+  users = users.map((user) => ({
+    ...user,
+    skill_level: String(user.skill_level ?? '').trim().toUpperCase() || 'E2',
+    skill_label: levelOptionByCode.get(String(user.skill_level ?? '').trim().toUpperCase())?.description ?? user.skill_label,
+  }))
+
   // 4) 렌더
   return (
-    <div className="w-full mt-10 p-6">
+    <div className="w-full p-6 pt-0">
       <UserManagementClient users={users} myUserId={user.id} levelOptions={levelOptions} />
     </div>
   )

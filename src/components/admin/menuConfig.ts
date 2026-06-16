@@ -9,7 +9,6 @@ export const SECTIONS: MenuSection[] = [
       { label: '오늘 경기', href: '/admin/players-today', icon: '⚡' },
       { label: '예정 경기', href: '/admin/players-scheduled', icon: '⏳' },
       { label: '경기 결과', href: '/match-results', icon: '🏆' },
-      { label: '경기 배정', href: '/match-assignment', icon: '🎯' },
     ],
     color: 'blue',
   },

@@ -2,7 +2,7 @@
 > badminton-matcher@0.1.0 dev
 > next dev
 
-   ▲ Next.js 15.4.1
+   ▲ Next.js 15.5.19
    - Local:        http://localhost:3000
    - Network:      http://192.168.1.10:3000
    - Environments: .env.local
@@ -10,50 +10,1400 @@
      · optimizePackageImports
 
  ✓ Starting...
- ✓ Ready in 2.7s
- ○ Compiling /middleware ...
- ✓ Compiled /middleware in 1368ms (177 modules)
- ○ Compiling / ...
- ✓ Compiled / in 6.6s (866 modules)
- GET / 200 in 7497ms
- ✓ Compiled in 925ms (347 modules)
- ✓ Compiled in 938ms (347 modules)
- GET / 200 in 309ms
- ✓ Compiled in 724ms (347 modules)
- GET / 200 in 1615ms
- ✓ Compiled in 1583ms (347 modules)
- ○ Compiling /manifest.webmanifest ...
- ✓ Compiled /manifest.webmanifest in 1175ms (862 modules)
- GET /manifest.webmanifest 200 in 2424ms
- GET / 200 in 2429ms
+ ✓ Ready in 2.9s
+ ✓ Compiled /middleware in 372ms (185 modules)
  ○ Compiling /login ...
- ✓ Compiled /login in 1017ms (875 modules)
- GET /login 200 in 1299ms
+ ✓ Compiled /login in 3.7s (858 modules)
+ HEAD /login 200 in 4491ms
+ ✓ Compiled in 1135ms (356 modules)
+ ✓ Compiled in 374ms (356 modules)
+ ✓ Compiled in 682ms (356 modules)
+ ✓ Compiled in 516ms (356 modules)
+ ○ Compiling /unauthorized ...
+ ✓ Compiled /unauthorized in 804ms (851 modules)
+ GET /unauthorized 200 in 1541ms
+ ○ Compiling / ...
+ ✓ Compiled / in 636ms (861 modules)
+ GET / 200 in 1034ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /admin in 1499ms (900 modules)
+ GET /manifest.webmanifest 200 in 1724ms
+ GET /admin 200 in 1334ms
+ GET /admin 200 in 62ms
+ GET /manifest.webmanifest 200 in 35ms
+ ○ Compiling /admin/members ...
+ ✓ Compiled /admin/members in 1992ms (1164 modules)
+ GET /admin/members 200 in 2614ms
+ GET /manifest.webmanifest 200 in 57ms
+ ✓ Compiled in 1281ms (369 modules)
+ GET /admin/members 200 in 235ms
+ GET /manifest.webmanifest 200 in 84ms
+ GET /login?redirectTo=%2Fadmin%2Fmembers 200 in 1053ms
+ ✓ Compiled in 7.3s (1176 modules)
+ GET /login?redirectTo=%2Fadmin%2Fmembers 200 in 993ms
  ○ Compiling /api/auth/profile-email ...
- ✓ Compiled /api/auth/profile-email in 1048ms (960 modules)
- GET /api/auth/profile-email?fullName=%EA%B9%80%EC%A7%84%ED%98%B8 200 in 1524ms
+ ✓ Compiled /api/auth/profile-email in 1408ms (1160 modules)
+ GET /api/auth/profile-email?fullName=%EA%B9%80%EC%A7%84%ED%98%B8 200 in 1997ms
+ GET /admin/members 200 in 850ms
+ GET /admin/members 200 in 285ms
+ ✓ Compiled in 737ms (369 modules)
+ GET /admin/members 200 in 247ms
+ ✓ Compiled in 1787ms (1158 modules)
+ GET /admin/members 200 in 664ms
+ GET /admin/members 200 in 881ms
+ POST /admin/members 200 in 737ms
+ GET /admin/members 200 in 497ms
+ POST /admin/members 200 in 532ms
+ GET /admin/members 200 in 329ms
+ ✓ Compiled in 1365ms (369 modules)
+ GET /admin/members 200 in 358ms
+ GET /admin/members 200 in 1871ms
+ ✓ Compiled in 3.1s (1158 modules)
+ GET /admin/members 200 in 997ms
+ GET /admin/members 200 in 1003ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 967ms (808 modules)
+ GET /manifest.webmanifest 200 in 1286ms
+ ✓ Compiled in 3s (1177 modules)
+ GET /admin/members 200 in 684ms
+ GET /admin/members 200 in 702ms
+ GET /manifest.webmanifest 200 in 141ms
+ GET /admin/members 200 in 714ms
+ POST /admin/members 200 in 816ms
+ GET /admin/members 200 in 352ms
+ GET /manifest.webmanifest 200 in 54ms
+ POST /admin/members 200 in 504ms
+ GET /admin/members 200 in 329ms
+ GET /manifest.webmanifest 200 in 43ms
+ GET /admin/members 200 in 583ms
+ POST /admin/members 200 in 539ms
+ GET /admin/members 200 in 356ms
+ GET /manifest.webmanifest 200 in 90ms
+ POST /admin/members 200 in 452ms
+ GET /admin/members 200 in 360ms
+ GET /manifest.webmanifest 200 in 39ms
+ POST /admin/members 200 in 392ms
+ GET /admin/members 200 in 322ms
+ GET /manifest.webmanifest 200 in 65ms
+ POST /admin/members 200 in 396ms
+ GET /admin/members 200 in 281ms
+ GET /manifest.webmanifest 200 in 32ms
+ POST /admin/members 200 in 406ms
+ GET /admin/members 200 in 273ms
+ GET /manifest.webmanifest 200 in 36ms
+ POST /admin/members 200 in 448ms
+ GET /admin/members 200 in 286ms
+ GET /manifest.webmanifest 200 in 40ms
+ POST /admin/members 200 in 574ms
+ GET /admin/members 200 in 358ms
+ GET /manifest.webmanifest 200 in 59ms
+ POST /admin/members 200 in 491ms
+ GET /admin/members 200 in 310ms
+ GET /manifest.webmanifest 200 in 34ms
+ POST /admin/members 200 in 613ms
+ GET /admin/members 200 in 324ms
+ GET /manifest.webmanifest 200 in 46ms
+ POST /admin/members 200 in 550ms
+ GET /admin/members 200 in 429ms
+ GET /manifest.webmanifest 200 in 39ms
+ POST /admin/members 200 in 507ms
+ GET /admin/members 200 in 313ms
+ GET /manifest.webmanifest 200 in 29ms
+ POST /admin/members 200 in 533ms
+ GET /admin/members 200 in 341ms
+ GET /manifest.webmanifest 200 in 32ms
+ POST /admin/members 200 in 450ms
+ GET /admin/members 200 in 279ms
+ GET /manifest.webmanifest 200 in 31ms
+ POST /admin/members 200 in 634ms
+ GET /admin/members 200 in 303ms
+ GET /manifest.webmanifest 200 in 53ms
+ POST /admin/members 200 in 432ms
+ GET /admin/members 200 in 280ms
+ GET /manifest.webmanifest 200 in 52ms
+ POST /admin/members 200 in 414ms
+ GET /admin/members 200 in 260ms
+ GET /manifest.webmanifest 200 in 33ms
+ POST /admin/members 200 in 369ms
+ GET /admin/members 200 in 255ms
+ GET /manifest.webmanifest 200 in 35ms
+ POST /admin/members 200 in 403ms
+ GET /admin/members 200 in 291ms
+ GET /manifest.webmanifest 200 in 31ms
+ POST /admin/members 200 in 398ms
+ GET /admin/members 200 in 589ms
+ GET /manifest.webmanifest 200 in 30ms
+ POST /admin/members 200 in 477ms
+ GET /admin/members 200 in 287ms
+ GET /manifest.webmanifest 200 in 34ms
+ POST /admin/members 200 in 445ms
+ GET /admin/members 200 in 284ms
+ GET /manifest.webmanifest 200 in 26ms
+ POST /admin/members 200 in 505ms
+ GET /admin/members 200 in 273ms
+ GET /manifest.webmanifest 200 in 33ms
+ POST /admin/members 200 in 469ms
+ GET /admin/members 200 in 339ms
+ GET /manifest.webmanifest 200 in 36ms
+ POST /admin/members 200 in 683ms
+ GET /admin/members 200 in 454ms
+ GET /manifest.webmanifest 200 in 51ms
+ POST /admin/members 200 in 463ms
+ GET /admin/members 200 in 315ms
+ GET /manifest.webmanifest 200 in 46ms
+ POST /admin/members 200 in 511ms
+ GET /admin/members 200 in 287ms
+ GET /manifest.webmanifest 200 in 29ms
+ POST /admin/members 200 in 415ms
+ GET /admin/members 200 in 295ms
+ GET /manifest.webmanifest 200 in 31ms
+ POST /admin/members 200 in 408ms
+ GET /admin/members 200 in 303ms
+ GET /manifest.webmanifest 200 in 28ms
+ POST /admin/members 200 in 481ms
+ GET /admin/members 200 in 536ms
+ GET /manifest.webmanifest 200 in 34ms
+ POST /admin/members 200 in 433ms
+ GET /admin/members 200 in 303ms
+ GET /manifest.webmanifest 200 in 36ms
+ POST /admin/members 200 in 472ms
+ GET /admin/members 200 in 300ms
+ GET /manifest.webmanifest 200 in 32ms
+ ○ Compiling /team-management ...
+ ✓ Compiled /team-management in 3.6s (1190 modules)
+ GET /team-management 200 in 3984ms
+ GET /admin/members 200 in 427ms
+ GET /team-management 200 in 212ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 2s (1180 modules)
+ GET /manifest.webmanifest 200 in 1794ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 2460ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 170ms
+ ○ Compiling /admin/tournament-matches ...
+ ✓ Compiled /admin/tournament-matches in 3.5s (1174 modules)
+ GET /admin/tournament-matches 200 in 3989ms
+ GET /admin/tournament-matches 200 in 68ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 559ms (826 modules)
+ GET /manifest.webmanifest 200 in 869ms
+ ○ Compiling /tournament-bracket ...
+ ✓ Compiled /tournament-bracket in 642ms (1195 modules)
+ GET /tournament-bracket 200 in 1030ms
+ GET /manifest.webmanifest 200 in 196ms
+ GET /manifest.webmanifest 200 in 53ms
+ ✓ Compiled /api/admin/match-schedules in 409ms (825 modules)
+ GET /manifest.webmanifest 200 in 1120ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1451ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 224ms
+ GET /admin/tournament-matches 200 in 168ms
+ GET /manifest.webmanifest 200 in 48ms
+ GET /team-management 200 in 90ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 199ms
+ GET /manifest.webmanifest 200 in 86ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 226ms
+ GET /admin/tournament-matches 200 in 99ms
+ GET /manifest.webmanifest 200 in 52ms
+ GET /team-management 200 in 68ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 186ms
+ GET /manifest.webmanifest 200 in 66ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 222ms
+ ✓ Compiled in 1803ms (383 modules)
+ GET /team-management 200 in 454ms
+ GET /admin/members 200 in 471ms
+ GET /manifest.webmanifest 200 in 95ms
+ ✓ Compiled in 5.1s (1185 modules)
+ GET /team-management 200 in 736ms
+ GET /admin/members 200 in 744ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 863ms (821 modules)
+ GET /manifest.webmanifest 200 in 1208ms
+ GET /team-management 200 in 644ms
+ GET /tournament-bracket 200 in 185ms
+ GET /manifest.webmanifest 200 in 138ms
+ ✓ Compiled /api/admin/match-schedules in 483ms (825 modules)
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 836ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 881ms
+ GET /manifest.webmanifest 200 in 58ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 236ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 221ms
+ GET /admin/tournament-matches 200 in 175ms
+ GET /manifest.webmanifest 200 in 88ms
+ GET /team-management 200 in 559ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 167ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 193ms
+ GET /team-management 200 in 134ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 250ms
+ GET /manifest.webmanifest 200 in 214ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 386ms
+ GET /team-management 200 in 232ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 192ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 219ms
+ GET /team-management 200 in 777ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 205ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 240ms
+ GET /team-management 200 in 312ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 162ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 235ms
+ ✓ Compiled in 1769ms (383 modules)
+ GET /team-management 200 in 187ms
+ GET /team-management 200 in 185ms
+ GET /manifest.webmanifest 200 in 192ms
+ ✓ Compiled in 3.2s (1204 modules)
+ GET /team-management 200 in 571ms
+ GET /team-management 200 in 593ms
+ GET /manifest.webmanifest 200 in 377ms
+ ✓ Compiled in 1050ms (383 modules)
+ ✓ Compiled in 882ms (383 modules)
+ GET /team-management 200 in 256ms
+ GET /team-management 200 in 207ms
+ GET /team-management 200 in 211ms
+ GET /team-management 200 in 209ms
+ GET /manifest.webmanifest 200 in 62ms
+ GET /team-management 200 in 473ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 512ms (825 modules)
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 952ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1010ms
+ GET /team-management 200 in 816ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 246ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 307ms
+ ✓ Compiled in 5.8s (1185 modules)
+ GET /team-management 200 in 548ms
+ GET /team-management 200 in 568ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 921ms (821 modules)
+ GET /manifest.webmanifest 200 in 1304ms
+ ✓ Compiled in 2.9s (1204 modules)
+ GET /team-management 200 in 853ms
+ GET /team-management 200 in 865ms
+ GET /manifest.webmanifest 200 in 211ms
+ GET /team-management 200 in 564ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 534ms (825 modules)
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 947ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1034ms
+ ✓ Compiled in 6.2s (1185 modules)
+ GET /team-management 200 in 485ms
+ GET /team-management 200 in 494ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 546ms (821 modules)
+ GET /manifest.webmanifest 200 in 1052ms
+ ✓ Compiled in 1899ms (1204 modules)
+ GET /team-management 200 in 398ms
+ GET /team-management 200 in 417ms
+ GET /manifest.webmanifest 200 in 98ms
+ GET /team-management 200 in 591ms
+ ✓ Compiled /api/admin/match-schedules in 434ms (825 modules)
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 947ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 975ms
+ ✓ Compiled in 2.7s (1208 modules)
+ GET /team-management 200 in 534ms
+ GET /team-management 200 in 539ms
+ GET /manifest.webmanifest 200 in 203ms
+ GET /team-management 200 in 373ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 300ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 338ms
+ ✓ Compiled in 5.1s (1185 modules)
+ GET /team-management 200 in 1706ms
+ GET /team-management 200 in 1938ms
+ GET /team-management 200 in 2963ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 544ms (821 modules)
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1026ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1111ms
+ ✓ Compiled in 1666ms (383 modules)
+ GET /team-management 200 in 369ms
+ GET /team-management 200 in 392ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 1654ms (821 modules)
+ GET /manifest.webmanifest 200 in 2145ms
+ ✓ Compiled in 2.2s (1204 modules)
+ GET /team-management 200 in 384ms
+ GET /team-management 200 in 399ms
+ GET /manifest.webmanifest 200 in 145ms
+ GET /team-management 200 in 523ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 910ms (825 modules)
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1388ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1449ms
+ ✓ Compiled in 2.4s (383 modules)
+ GET /team-management 200 in 558ms
+ GET /team-management 200 in 539ms
+ GET /manifest.webmanifest 200 in 65ms
+ ✓ Compiled in 5.1s (1204 modules)
+ GET /team-management 200 in 370ms
+ GET /team-management 200 in 407ms
+ GET /manifest.webmanifest 200 in 1099ms
+ GET /team-management 200 in 269ms
+ GET /team-management 200 in 218ms
+ ✓ Compiled in 5s (1389 modules)
+ GET /team-management 200 in 2366ms
+ ✓ Compiled /api/admin/match-schedules in 484ms (825 modules)
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 867ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 885ms
+ ✓ Compiled in 696ms (383 modules)
+ GET /team-management 200 in 218ms
+ GET /team-management 200 in 964ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 197ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 265ms
+ GET /admin/tournament-matches 200 in 118ms
+ GET /manifest.webmanifest 200 in 187ms
+ GET /admin/tournament-matches 200 in 683ms
+ GET /team-management 200 in 77ms
+ GET /manifest.webmanifest 200 in 50ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 263ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 329ms
+ ○ Compiling /api/admin/team-assignments ...
+ ✓ Compiled /api/admin/team-assignments in 2.5s (1196 modules)
+ POST /api/admin/team-assignments 200 in 3111ms
+ GET /team-management 200 in 1050ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 296ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 323ms
+ GET /admin/tournament-matches 200 in 117ms
+ GET /manifest.webmanifest 200 in 132ms
+ ✓ Compiled in 2.3s (383 modules)
+ GET /team-management 200 in 352ms
+ GET /admin/tournament-matches 200 in 384ms
+ GET /manifest.webmanifest 200 in 126ms
+ GET /admin/tournament-matches 200 in 601ms
+ ✓ Compiled in 3.6s (1208 modules)
+ GET /admin/tournament-matches 200 in 458ms
+ GET /admin/tournament-matches 200 in 475ms
+ GET /manifest.webmanifest 200 in 125ms
+ ✓ Compiled in 2.9s (1389 modules)
+ GET /admin/tournament-matches 200 in 1945ms
+ GET /admin/tournament-matches 200 in 1943ms
+ GET /admin/tournament-matches 200 in 246ms
+ GET /admin/tournament-matches 200 in 343ms
+ GET /manifest.webmanifest 200 in 113ms
+ GET /admin/tournament-matches 200 in 473ms
+ ○ Compiling /api/admin/tournaments ...
+ ✓ Compiled /api/admin/tournaments in 795ms (1192 modules)
+ GET /api/admin/tournaments 200 in 1214ms
+ GET /api/admin/tournaments 200 in 122ms
+ GET /api/admin/tournaments 200 in 125ms
+ ○ Compiling /attendance-all-test ...
+ ✓ Compiled /attendance-all-test in 5.1s (1199 modules)
+ GET /attendance-all-test 200 in 5781ms
+ GET /manifest.webmanifest 200 in 1589ms
+ ✓ Compiled in 1785ms (385 modules)
+ GET /admin/tournament-matches 200 in 246ms
+ GET /attendance-all-test 200 in 259ms
+ GET /manifest.webmanifest 200 in 74ms
+ ✓ Compiled in 2.2s (1028 modules)
+ GET /admin/tournament-matches 200 in 640ms
+ GET /attendance-all-test 200 in 674ms
+ GET /manifest.webmanifest 200 in 75ms
+ ○ Compiling /admin/attendance ...
+ ✓ Compiled /admin/attendance in 4.3s (1023 modules)
+ GET /admin/attendance 200 in 4625ms
+ GET /manifest.webmanifest 200 in 134ms
+ ✓ Compiled in 3.5s (944 modules)
+ GET /admin/attendance 200 in 586ms
+ GET /admin/tournament-matches 200 in 618ms
+ GET /manifest.webmanifest 200 in 171ms
+ GET /admin/tournament-matches 200 in 1026ms
+ ○ Compiling /api/admin/tournaments ...
+ ✓ Compiled /api/admin/tournaments in 1001ms (642 modules)
+ ✓ Compiled in 1ms (644 modules)
+ ✓ Compiled in 1ms (644 modules)
+ ✓ Compiled in 0ms (644 modules)
+ GET /api/admin/team-assignments 200 in 3669ms
+ ✓ Compiled in 1ms (644 modules)
+ GET /admin/tournament-matches 200 in 3393ms
+ GET /admin/attendance 200 in 3150ms
+ GET /api/admin/tournaments 200 in 4637ms
+ ✓ Compiled in 2ms (644 modules)
+ ✓ Compiled in 1ms (644 modules)
+ ✓ Compiled in 1ms (644 modules)
+ GET /manifest.webmanifest 200 in 1254ms
+ GET /api/admin/team-assignments 200 in 3181ms
+ ✓ Compiled in 1ms (644 modules)
+ GET /api/admin/tournaments 200 in 2599ms
+ GET /api/admin/team-assignments 200 in 1096ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 4.3s (1025 modules)
+ GET /dashboard 200 in 4851ms
+ GET /api/admin/tournaments 200 in 4280ms
+ GET /manifest.webmanifest 200 in 81ms
+ ✓ Compiled in 2.7s (1031 modules)
+ GET /dashboard 200 in 340ms
+ GET /admin/tournament-matches 200 in 353ms
+ GET /manifest.webmanifest 200 in 293ms
+ GET /admin/tournament-matches 200 in 1008ms
+ GET /api/admin/team-assignments 200 in 223ms
+ GET /api/admin/tournaments 200 in 262ms
+ GET /api/admin/team-assignments 200 in 117ms
+ GET /api/admin/tournaments 200 in 121ms
+ ○ Compiling /match-results ...
+ ✓ Compiled /match-results in 4.5s (1038 modules)
+ GET /match-results 200 in 5536ms
+ GET /admin/tournament-matches 200 in 3206ms
+ GET /match-results 200 in 244ms
+ GET /manifest.webmanifest 200 in 138ms
+ GET /api/admin/tournaments 200 in 318ms
+ GET /api/admin/team-assignments 200 in 347ms
+ GET /api/admin/tournaments 200 in 151ms
+ GET /api/admin/team-assignments 200 in 159ms
+ GET /admin/tournament-matches 200 in 175ms
+ GET /manifest.webmanifest 200 in 53ms
+ GET /api/admin/team-assignments 200 in 289ms
+ GET /api/admin/tournaments 200 in 326ms
+ GET /api/admin/team-assignments 200 in 157ms
+ GET /api/admin/tournaments 200 in 119ms
+ GET /api/admin/team-assignments 200 in 305ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 15.4s (541 modules)
+ GET /login?redirectTo=%2Fadmin%2Ftournament-matches 200 in 28352ms
+ GET /admin/tournament-matches 200 in 14071ms
+ ○ Compiling /api/admin/tournaments ...
+ ✓ Compiled /api/admin/tournaments in 1843ms (642 modules)
+ ✓ Compiled (644 modules)
+ GET /api/admin/tournaments 200 in 3110ms
+ GET /api/admin/team-assignments 200 in 3126ms
+ GET /api/admin/tournaments 200 in 125ms
+ GET /api/admin/team-assignments 200 in 133ms
+ ○ Compiling /team-management ...
+ ✓ Compiled /team-management in 2.2s (652 modules)
+ GET /team-management 200 in 2423ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 1123ms (656 modules)
+ ✓ Compiled (660 modules)
+ GET /manifest.webmanifest 200 in 1702ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 2017ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 169ms
+ GET /team-management 200 in 924ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 693ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1375ms
+ ○ Compiling /tournament-bracket ...
+ ✓ Compiled /tournament-bracket in 1932ms (645 modules)
+ GET /tournament-bracket 200 in 2512ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 557ms (649 modules)
+ GET /manifest.webmanifest 200 in 740ms
+ GET /manifest.webmanifest 200 in 35ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 353ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 165ms
+ GET /tournament-bracket 200 in 115ms
+ GET /manifest.webmanifest 200 in 124ms
+ GET /manifest.webmanifest 200 in 57ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 287ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 197ms
+ GET /admin/tournament-matches 200 in 86ms
+ ✓ Compiled /api/admin/tournaments in 356ms (645 modules)
+ ✓ Compiled (647 modules)
+ GET /manifest.webmanifest 200 in 815ms
+ GET /api/admin/team-assignments 200 in 977ms
+ GET /api/admin/tournaments 200 in 1022ms
+ GET /api/admin/team-assignments 200 in 161ms
+ GET /api/admin/tournaments 200 in 144ms
+ ✓ Compiled in 3.1s (392 modules)
+ GET /admin/tournament-matches 200 in 111ms
+ GET /manifest.webmanifest 200 in 34ms
+ GET /tournament-bracket 200 in 150ms
+ GET /manifest.webmanifest 200 in 59ms
+ GET /manifest.webmanifest 200 in 85ms
+ GET /api/admin/team-assignments 200 in 329ms
+ GET /api/admin/tournaments 200 in 346ms
+ GET /api/admin/team-assignments 200 in 180ms
+ GET /api/admin/tournaments 200 in 178ms
+ GET /admin/tournament-matches 200 in 97ms
+ GET /manifest.webmanifest 200 in 77ms
+ ✓ Compiled in 4.1s (1035 modules)
+ ✓ Compiled in 1ms (643 modules)
+ ✓ Compiled in 0ms (643 modules)
+ ✓ Compiled in 1ms (643 modules)
+ GET /api/admin/tournaments 200 in 3732ms
+ GET /api/admin/team-assignments 200 in 3839ms
+ GET /admin/tournament-matches 200 in 1682ms
+ GET /manifest.webmanifest 200 in 46ms
+ ✓ Compiled in 2.2s (1035 modules)
+ GET /admin/tournament-matches 200 in 244ms
+ GET /api/admin/tournaments 200 in 1711ms
+ GET /api/admin/team-assignments 200 in 1742ms
+ GET /manifest.webmanifest 200 in 32ms
+ ✓ Compiled in 1319ms (1035 modules)
+ GET /admin/tournament-matches 200 in 125ms
+ GET /manifest.webmanifest 200 in 30ms
+ GET /team-management 200 in 75ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 1750ms (647 modules)
+ GET /manifest.webmanifest 200 in 2190ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 2340ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 191ms
+ ✓ Compiled in 1296ms (1039 modules)
+ GET /team-management 200 in 146ms
+ GET /manifest.webmanifest 200 in 38ms
+ ✓ Compiled in 1094ms (1039 modules)
+ GET /team-management 200 in 143ms
+ GET /manifest.webmanifest 200 in 46ms
+ ✓ Compiled in 1303ms (1039 modules)
+ GET /team-management 200 in 572ms
+ GET /manifest.webmanifest 200 in 97ms
+ ✓ Compiled in 684ms (392 modules)
+ GET /team-management 200 in 93ms
+ GET /manifest.webmanifest 200 in 27ms
+ ○ Compiling /admin/members ...
+ ✓ Compiled /admin/members in 4.6s (824 modules)
+ GET /admin/members 200 in 5480ms
+ GET /manifest.webmanifest 200 in 114ms
+ ✓ Compiled in 1383ms (1216 modules)
+ GET /admin/members 200 in 330ms
+ GET /manifest.webmanifest 200 in 71ms
+ ✓ Compiled in 713ms (392 modules)
+ GET /admin/members 200 in 150ms
+ GET /manifest.webmanifest 200 in 44ms
+ ✓ Compiled in 642ms (392 modules)
+ GET /admin/members 200 in 177ms
+ GET /manifest.webmanifest 200 in 69ms
+ ✓ Compiled in 660ms (392 modules)
+ GET /admin/members 200 in 177ms
+ GET /manifest.webmanifest 200 in 82ms
+ ✓ Compiled in 1130ms (392 modules)
+ GET /admin/members 200 in 220ms
+ GET /manifest.webmanifest 200 in 122ms
+ ✓ Compiled in 1076ms (392 modules)
+ GET /admin/members 200 in 853ms
+ GET /manifest.webmanifest 200 in 63ms
+ ✓ Compiled in 3.9s (1211 modules)
+ GET /admin/members 200 in 468ms
+ GET /manifest.webmanifest 200 in 73ms
+ ✓ Compiled in 4.9s (1211 modules)
+ GET /admin/members 200 in 545ms
+ GET /manifest.webmanifest 200 in 51ms
+ ✓ Compiled in 683ms (392 modules)
+ GET /admin/members 200 in 150ms
+ GET /manifest.webmanifest 200 in 34ms
+ ✓ Compiled in 732ms (392 modules)
+ GET /admin/members 200 in 340ms
+ GET /manifest.webmanifest 200 in 233ms
+ ✓ Compiled in 3.7s (392 modules)
+ GET /admin/members 200 in 178ms
+ GET /manifest.webmanifest 200 in 40ms
+ ✓ Compiled in 2s (1211 modules)
+ GET /admin/members 200 in 379ms
+ GET /manifest.webmanifest 200 in 82ms
+ ✓ Compiled in 3.2s (1211 modules)
+ GET /admin/members 200 in 384ms
+ GET /manifest.webmanifest 200 in 75ms
+ ✓ Compiled in 629ms (392 modules)
+ GET /admin/members 200 in 140ms
+ GET /manifest.webmanifest 200 in 39ms
+ ✓ Compiled in 657ms (392 modules)
+ GET /admin/members 200 in 201ms
+ GET /manifest.webmanifest 200 in 68ms
+ ✓ Compiled in 757ms (392 modules)
+ GET /admin/members 200 in 252ms
+ GET /manifest.webmanifest 200 in 199ms
+ ✓ Compiled in 4.8s (1211 modules)
+ GET /admin/members 200 in 549ms
+ GET /manifest.webmanifest 200 in 85ms
+ ✓ Compiled in 2.7s (1211 modules)
+ GET /admin/members 200 in 386ms
+ GET /manifest.webmanifest 200 in 107ms
+ ✓ Compiled in 793ms (392 modules)
+ GET /admin/members 200 in 152ms
+ GET /manifest.webmanifest 200 in 33ms
+ ✓ Compiled in 915ms (392 modules)
+ GET /admin/members 200 in 271ms
+ GET /manifest.webmanifest 200 in 73ms
+ ✓ Compiled in 1225ms (392 modules)
+ GET /admin/members 200 in 547ms
+ GET /manifest.webmanifest 200 in 317ms
+ POST /admin/members 200 in 798ms
+ GET /admin/members 200 in 332ms
+ GET /manifest.webmanifest 200 in 38ms
+ POST /admin/members 200 in 420ms
+ GET /admin/members 200 in 257ms
+ GET /manifest.webmanifest 200 in 56ms
+ ✓ Compiled in 3.5s (1211 modules)
+ GET /admin/members 200 in 408ms
+ GET /manifest.webmanifest 200 in 72ms
+ POST /admin/members 200 in 878ms
+ GET /admin/members 200 in 460ms
+ GET /manifest.webmanifest 200 in 57ms
+ ✓ Compiled in 689ms (392 modules)
+ GET /admin/members 200 in 135ms
+ GET /manifest.webmanifest 200 in 28ms
+ ✓ Compiled in 682ms (392 modules)
+ GET /admin/members 200 in 186ms
+ GET /manifest.webmanifest 200 in 115ms
+ POST /admin/members 200 in 490ms
+ GET /admin/members 200 in 279ms
+ GET /manifest.webmanifest 200 in 25ms
+ POST /admin/members 200 in 646ms
+ GET /admin/members 200 in 261ms
+ GET /manifest.webmanifest 200 in 36ms
+ POST /admin/members 200 in 627ms
+ GET /admin/members 200 in 306ms
+ GET /manifest.webmanifest 200 in 55ms
+ POST /admin/members 200 in 1227ms
+ GET /admin/members 200 in 275ms
+ GET /manifest.webmanifest 200 in 61ms
+ POST /admin/members 200 in 873ms
+ GET /admin/members 200 in 253ms
+ GET /manifest.webmanifest 200 in 35ms
+ ✓ Compiled in 3.1s (392 modules)
+ GET /admin/members 200 in 337ms
+ GET /manifest.webmanifest 200 in 140ms
+ ✓ Compiled in 2.8s (1211 modules)
+ GET /admin/members 200 in 561ms
+ GET /manifest.webmanifest 200 in 96ms
+ ✓ Compiled in 738ms (392 modules)
+ GET /admin/members 200 in 167ms
+ GET /manifest.webmanifest 200 in 29ms
+ ✓ Compiled in 661ms (392 modules)
+ GET /admin/members 200 in 547ms
+ GET /manifest.webmanifest 200 in 168ms
+ ✓ Compiled in 828ms (392 modules)
+ GET /admin/members 200 in 281ms
+ GET /manifest.webmanifest 200 in 703ms
+ ✓ Compiled in 2.1s (1211 modules)
+ GET /admin/members 200 in 272ms
+ GET /manifest.webmanifest 200 in 64ms
+ GET /team-management 200 in 130ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 5.3s (1215 modules)
+ GET /manifest.webmanifest 200 in 5331ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 5660ms
+ GET /team-management 200 in 169ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 265ms
+ GET /manifest.webmanifest 200 in 238ms
+ ✓ Compiled in 641ms (392 modules)
+ GET /team-management 200 in 148ms
+ GET /manifest.webmanifest 200 in 70ms
+ ○ Compiling /match-schedule ...
+ ✓ Compiled /match-schedule in 3.1s (1208 modules)
+ GET /match-schedule 200 in 3260ms
+ GET /manifest.webmanifest 200 in 35ms
+ GET /api/admin/match-schedules 200 in 252ms
+ GET /api/admin/match-schedules 200 in 186ms
+ GET /api/admin/match-schedules 200 in 277ms
+ GET /api/admin/match-schedules 200 in 226ms
+ PATCH /api/admin/match-schedules 200 in 139ms
+ GET /api/admin/match-schedules 200 in 162ms
+ GET /api/admin/match-schedules 200 in 185ms
+ PATCH /api/admin/match-schedules 200 in 162ms
+ GET /api/admin/match-schedules 200 in 161ms
+ GET /api/admin/match-schedules 200 in 141ms
+ ✓ Compiled in 2.8s (394 modules)
+ GET /match-schedule 200 in 95ms
+ GET /manifest.webmanifest 200 in 63ms
+ GET /api/admin/match-schedules 200 in 452ms
+ GET /team-management 200 in 449ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 197ms
+ GET /manifest.webmanifest 200 in 289ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 537ms
+ ✓ Compiled in 3.4s (1217 modules)
+ GET /team-management 200 in 779ms
+ GET /manifest.webmanifest 200 in 154ms
+ ✓ Compiled in 752ms (394 modules)
+ GET /team-management 200 in 77ms
+ GET /manifest.webmanifest 200 in 33ms
+ ✓ Compiled in 909ms (394 modules)
+ GET /team-management 200 in 212ms
+ GET /manifest.webmanifest 200 in 98ms
+ ✓ Compiled in 3.4s (394 modules)
+ GET /team-management 200 in 67ms
+ GET /manifest.webmanifest 200 in 88ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 5.7s (1194 modules)
+ ✓ Compiled (1213 modules)
+ GET /team-management 200 in 610ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 3337ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 1754ms (1217 modules)
+ GET /manifest.webmanifest 200 in 1996ms
+ GET /team-management 200 in 150ms
+ GET /manifest.webmanifest 200 in 24ms
+ ✓ Compiled in 1600ms (1217 modules)
+ ✓ Compiled in 0ms (823 modules)
+ ✓ Compiled in 0ms (823 modules)
+ ✓ Compiled in 0ms (823 modules)
+ GET /manifest.webmanifest 200 in 1312ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1841ms
+ GET /team-management 200 in 2099ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 832ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1077ms
+ ✓ Compiled in 727ms (394 modules)
+ GET /team-management 200 in 77ms
+ GET /manifest.webmanifest 200 in 62ms
+ ✓ Compiled in 711ms (394 modules)
+ ✓ Compiled in 927ms (394 modules)
+ GET /team-management 200 in 206ms
+ GET /team-management 200 in 109ms
+ GET /manifest.webmanifest 200 in 69ms
+ ✓ Compiled in 4.2s (394 modules)
+ GET /team-management 200 in 256ms
+ GET /manifest.webmanifest 200 in 110ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 7.7s (1213 modules)
+ GET /team-management 200 in 162ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 4696ms
+ ✓ Compiled /manifest.webmanifest in 479ms (823 modules)
+ GET /manifest.webmanifest 200 in 761ms
+ ✓ Compiled in 3.5s (1194 modules)
+ GET /team-management 200 in 289ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 539ms (819 modules)
+ GET /manifest.webmanifest 200 in 783ms
+ ✓ Compiled in 731ms (394 modules)
+ GET /team-management 200 in 166ms
+ GET /manifest.webmanifest 200 in 44ms
+ ✓ Compiled in 867ms (394 modules)
+ GET /team-management 200 in 126ms
+ GET /manifest.webmanifest 200 in 119ms
+ GET /team-management 200 in 396ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 1351ms (819 modules)
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1864ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 1913ms
+ GET /team-management 200 in 583ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 195ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 310ms
+ ✓ Compiled in 3.8s (394 modules)
+ GET /team-management 200 in 664ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 1856ms (819 modules)
+ GET /manifest.webmanifest 200 in 2191ms
+ ✓ Compiled in 4s (1194 modules)
+ GET /team-management 200 in 381ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 573ms (819 modules)
+ GET /manifest.webmanifest 200 in 875ms
+ ✓ Compiled in 1313ms (1213 modules)
+ GET /team-management 200 in 170ms
+ GET /manifest.webmanifest 200 in 67ms
+ ✓ Compiled in 3.5s (1194 modules)
+ GET /team-management 200 in 322ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 551ms (819 modules)
+ GET /manifest.webmanifest 200 in 771ms
+ ✓ Compiled in 747ms (394 modules)
+ GET /team-management 200 in 171ms
+ GET /manifest.webmanifest 200 in 49ms
+ ✓ Compiled in 1099ms (1213 modules)
+ GET /team-management 200 in 169ms
+ GET /manifest.webmanifest 200 in 57ms
+ ✓ Compiled in 626ms (394 modules)
+ GET /team-management 200 in 71ms
+ GET /manifest.webmanifest 200 in 36ms
+ ✓ Compiled in 1038ms (1213 modules)
+ GET /team-management 200 in 176ms
+ GET /manifest.webmanifest 200 in 68ms
+ ✓ Compiled in 613ms (394 modules)
+ GET /team-management 200 in 78ms
+ GET /manifest.webmanifest 200 in 74ms
+ ✓ Compiled in 2.5s (394 modules)
+ GET /team-management 200 in 84ms
+ GET /manifest.webmanifest 200 in 70ms
+ GET /team-management 200 in 744ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 4.1s (819 modules)
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 4703ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 4687ms
+ GET /admin/members 200 in 645ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 1231ms (819 modules)
+ GET /manifest.webmanifest 200 in 1485ms
+ POST /admin/members 200 in 782ms
+ GET /admin/members 200 in 284ms
+ GET /manifest.webmanifest 200 in 31ms
+ POST /admin/members 200 in 482ms
+ GET /admin/members 200 in 500ms
+ GET /manifest.webmanifest 200 in 26ms
+ POST /admin/members 200 in 496ms
+ GET /admin/members 200 in 297ms
+ GET /manifest.webmanifest 200 in 27ms
+ POST /admin/members 200 in 441ms
+ GET /admin/members 200 in 263ms
+ GET /manifest.webmanifest 200 in 53ms
+ POST /admin/members 200 in 412ms
+ GET /admin/members 200 in 272ms
+ GET /manifest.webmanifest 200 in 22ms
+ POST /admin/members 200 in 457ms
+ GET /admin/members 200 in 280ms
+ GET /manifest.webmanifest 200 in 43ms
+ POST /admin/members 200 in 451ms
+ GET /admin/members 200 in 265ms
+ GET /manifest.webmanifest 200 in 38ms
+ POST /admin/members 200 in 367ms
+ GET /admin/members 200 in 272ms
+ GET /manifest.webmanifest 200 in 42ms
+ POST /admin/members 200 in 423ms
+ GET /admin/members 200 in 244ms
+ GET /manifest.webmanifest 200 in 40ms
+ GET /team-management 200 in 107ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 1428ms (823 modules)
+ GET /manifest.webmanifest 200 in 2028ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 2250ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 2256ms
+ ○ Compiling /match-assignment ...
+ ✓ Compiled /match-assignment in 5.3s (1212 modules)
+ GET /match-assignment 200 in 5491ms
+ GET /manifest.webmanifest 200 in 49ms
+ ✓ Compiled in 1065ms (397 modules)
+ GET /match-assignment 200 in 476ms
+ GET /manifest.webmanifest 200 in 51ms
+ ✓ Compiled in 2.7s (1217 modules)
+ GET /match-assignment 200 in 159ms
+ GET /manifest.webmanifest 200 in 37ms
+ ✓ Compiled in 666ms (397 modules)
+ GET /match-assignment 200 in 82ms
+ GET /manifest.webmanifest 200 in 27ms
+ ✓ Compiled in 647ms (397 modules)
+ GET /match-assignment 200 in 72ms
+ GET /manifest.webmanifest 200 in 95ms
+ GET /match-assignment 200 in 424ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 2.2s (827 modules)
+ GET /login?redirectTo=%2Fmatch-assignment 200 in 2781ms
+ ○ Compiling /api/auth/profile-email ...
+ ✓ Compiled /api/auth/profile-email in 1100ms (829 modules)
+ GET /api/auth/profile-email?fullName=%EA%B9%80%EC%A7%84%ED%98%B8 200 in 1363ms
+ GET /match-assignment 200 in 360ms
+ ○ Compiling /players ...
+ ✓ Compiled /players in 7.6s (1223 modules)
+ GET /players 200 in 8259ms
+ GET /match-schedule 200 in 179ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /manifest.webmanifest in 3.3s (828 modules)
+ ✓ Compiled (832 modules)
+ GET /manifest.webmanifest 200 in 3950ms
+ GET /api/admin/match-schedules 200 in 4279ms
+ GET /api/admin/match-schedules 200 in 4291ms
+ ○ Compiling /admin/players-today ...
+ ✓ Compiled /admin/players-today in 4.4s (1231 modules)
+ GET /admin/players-today 200 in 4686ms
+ GET /manifest.webmanifest 200 in 68ms
+ GET /api/admin/match-schedules?date=today 200 in 287ms
+ GET /api/admin/match-schedules?date=today 200 in 330ms
+ ✓ Compiled in 753ms (407 modules)
+ GET /admin/players-today 200 in 419ms
+ GET /manifest.webmanifest 200 in 72ms
+ GET /api/admin/match-schedules?date=today 200 in 168ms
+ GET /api/admin/match-schedules?date=today 200 in 174ms
+ ○ Compiling /team-management ...
+ ✓ Compiled /team-management in 4.3s (657 modules)
+ GET /team-management 200 in 4760ms
+ GET /manifest.webmanifest 200 in 61ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 588ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 615ms
+ GET /admin/players-today 200 in 92ms
+ GET /manifest.webmanifest 200 in 38ms
+ GET /api/admin/match-schedules?date=today 200 in 159ms
+ GET /api/admin/match-schedules?date=today 200 in 172ms
+ ○ Compiling /admin/players-scheduled ...
+ ✓ Compiled /admin/players-scheduled in 7.2s (1066 modules)
+ GET /admin/players-scheduled 200 in 7902ms
+ GET /api/admin/match-schedules?date=today 200 in 1035ms
+ GET /admin/players-scheduled 200 in 83ms
+ GET /manifest.webmanifest 200 in 132ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 1019ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 1033ms
+ ✓ Compiled in 1322ms (1066 modules)
+ GET /admin/players-scheduled 200 in 135ms
+ GET /manifest.webmanifest 200 in 57ms
+ ✓ Compiled in 1303ms (1061 modules)
+ GET /admin/players-scheduled 200 in 185ms
+ GET /manifest.webmanifest 200 in 40ms
+ ✓ Compiled in 1171ms (1061 modules)
+ GET /admin/players-scheduled 200 in 139ms
+ GET /manifest.webmanifest 200 in 31ms
+ GET /admin/players-today 200 in 79ms
+ GET /manifest.webmanifest 200 in 49ms
+ GET /api/admin/match-schedules?date=today 200 in 302ms
+ GET /api/admin/match-schedules?date=today 200 in 286ms
+ GET /admin/players-scheduled 200 in 64ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 250ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 412ms
+ GET /manifest.webmanifest 200 in 60ms
+ ○ Compiling /match-results ...
+ ✓ Compiled /match-results in 4.2s (657 modules)
+ GET /match-results 200 in 4425ms
+ GET /manifest.webmanifest 200 in 58ms
+ ✓ Compiled in 1878ms (1030 modules)
+ GET /match-results 200 in 255ms
+ GET /manifest.webmanifest 200 in 1074ms
+ ○ Compiling /admin/tournament-matches ...
+ ✓ Compiled /admin/tournament-matches in 3s (626 modules)
+ GET /admin/tournament-matches 200 in 3260ms
+ ○ Compiling /api/admin/tournaments ...
+ ✓ Compiled /api/admin/tournaments in 13.5s (1039 modules)
+ GET /manifest.webmanifest 200 in 13963ms
+ GET /api/admin/tournaments 200 in 14378ms
+ GET /api/admin/team-assignments 200 in 14390ms
+ GET /admin/tournament-matches 200 in 1069ms
+ GET /api/admin/team-assignments 200 in 130ms
+ GET /api/admin/tournaments 200 in 150ms
+ GET /api/admin/team-assignments 200 in 120ms
+ GET /api/admin/tournaments 200 in 116ms
+ GET /admin/players-today 200 in 108ms
+ GET /manifest.webmanifest 200 in 61ms
+ GET /api/admin/match-schedules?date=today 200 in 245ms
+ GET /api/admin/match-schedules?date=today 200 in 261ms
+ GET /admin/players-scheduled 200 in 96ms
+ GET /manifest.webmanifest 200 in 47ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 219ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 270ms
+ GET /admin/players-today 200 in 73ms
+ GET /api/admin/match-schedules?date=today 200 in 285ms
+ GET /manifest.webmanifest 200 in 94ms
+ GET /api/admin/match-schedules?date=today 200 in 323ms
+ GET /admin/players-scheduled 200 in 70ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 199ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 218ms
+ GET /manifest.webmanifest 200 in 42ms
+ GET /match-results 200 in 86ms
+ GET /manifest.webmanifest 200 in 41ms
+ ○ Compiling /match-assignment ...
+ ✓ Compiled /match-assignment in 4s (626 modules)
+ GET /match-assignment 200 in 4249ms
+ GET /manifest.webmanifest 200 in 67ms
+ GET /admin/players-today 200 in 74ms
+ GET /manifest.webmanifest 200 in 46ms
+ GET /api/admin/match-schedules?date=today 200 in 289ms
+ GET /api/admin/match-schedules?date=today 200 in 229ms
+ GET /api/admin/match-schedules?date=today 200 in 271ms
+ GET /manifest.webmanifest 200 in 95ms
+ ✓ Compiled in 4s (409 modules)
+ GET /admin/players-today 200 in 97ms
+ GET /manifest.webmanifest 200 in 35ms
+ ✓ Compiled in 4.6s (1126 modules)
+ GET /admin/players-today 200 in 1823ms
+ GET /admin/players-today 200 in 77ms
+ GET /manifest.webmanifest 200 in 168ms
+ ○ Compiling /tournament-bracket ...
+ ✓ Compiled /tournament-bracket in 739ms (620 modules)
+ ✓ Compiled (654 modules)
+ GET /tournament-bracket 200 in 6258ms
+ GET /api/admin/match-schedules?date=today 200 in 6505ms
+ GET /manifest.webmanifest 200 in 96ms
+ GET /tournament-bracket 200 in 70ms
+ GET /manifest.webmanifest 200 in 54ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 6.7s (1063 modules)
+ ✓ Compiled (1068 modules)
+ GET /dashboard 200 in 8547ms
+ GET /dashboard 200 in 226ms
+ GET /manifest.webmanifest 200 in 205ms
+ ✓ Compiled in 1085ms (409 modules)
+ GET /dashboard 200 in 84ms
+ GET /manifest.webmanifest 200 in 38ms
+ ✓ Compiled in 692ms (409 modules)
+ GET /dashboard 200 in 82ms
+ GET /manifest.webmanifest 200 in 28ms
+ ✓ Compiled in 702ms (409 modules)
+ GET /dashboard 200 in 73ms
+ GET /manifest.webmanifest 200 in 41ms
+ ✓ Compiled in 1014ms (409 modules)
+ GET /dashboard 200 in 91ms
+ GET /manifest.webmanifest 200 in 78ms
  ○ Compiling /admin ...
- ✓ Compiled /admin in 1025ms (978 modules)
- GET /admin 200 in 1589ms
- ✓ Compiled in 689ms (358 modules)
- ✓ Compiled in 642ms (358 modules)
- GET /admin 200 in 96ms
- GET /admin 200 in 57ms
- ✓ Compiled in 1813ms (358 modules)
- ✓ Compiled in 865ms (358 modules)
- ✓ Compiled in 1093ms (358 modules)
- ✓ Compiled in 1184ms (358 modules)
- ✓ Compiled in 747ms (358 modules)
- ✓ Compiled in 795ms (358 modules)
- ✓ Compiled in 654ms (358 modules)
- ✓ Compiled in 589ms (358 modules)
- ✓ Compiled in 532ms (358 modules)
-   ▲ Next.js 15.4.1
-   - Local:        http://localhost:3000
-   - Network:      http://192.168.1.10:3000
-   - Environments: .env.local
-   - Experiments (use with caution):
-     · optimizePackageImports
-
- ✓ Starting...
- ✓ Ready in 3.3s
+ ✓ Compiled /admin in 5.1s (561 modules)
+ GET /admin 200 in 5598ms
+ GET /manifest.webmanifest 200 in 436ms
+ GET /admin/players-scheduled 200 in 80ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 570ms (649 modules)
+ GET /manifest.webmanifest 200 in 653ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 1330ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 1368ms
+ ○ Compiling /admin/players-today ...
+ ✓ Compiled /admin/players-today in 1373ms (657 modules)
+ GET /admin/players-today 200 in 1623ms
+ GET /manifest.webmanifest 200 in 177ms
+ ○ Compiling /api/admin/match-sessions ...
+ ✓ Compiled /api/admin/match-sessions in 1043ms (1054 modules)
+ GET /admin/players-today 200 in 405ms
+ GET /api/admin/match-sessions?date=today 200 in 1743ms
+ GET /api/admin/match-sessions?date=today 200 in 1739ms
+ GET /api/admin/match-sessions?date=today 200 in 122ms
+ GET /api/admin/match-sessions?date=today 200 in 151ms
+ GET /api/admin/match-schedules?date=today 200 in 138ms
+ GET /api/admin/match-schedules?date=today 200 in 156ms
+ ✓ Compiled in 912ms (409 modules)
+ GET /admin/players-today 200 in 74ms
+ GET /manifest.webmanifest 200 in 114ms
+ ✓ Compiled in 3.6s (1058 modules)
+ GET /admin/players-today 200 in 175ms
+ GET /manifest.webmanifest 200 in 50ms
+ GET /api/admin/match-sessions?date=today 200 in 342ms
+ GET /api/admin/match-schedules?date=today 200 in 425ms
+ ✓ Compiled in 646ms (409 modules)
+ GET /admin/players-today 200 in 84ms
+ GET /manifest.webmanifest 200 in 35ms
+ ✓ Compiled in 738ms (409 modules)
+ GET /admin/players-today 200 in 93ms
+ GET /manifest.webmanifest 200 in 181ms
+ GET /api/admin/match-sessions?date=today 200 in 237ms
+ GET /api/admin/match-schedules?date=today 200 in 270ms
+ GET /api/admin/match-sessions?date=today 200 in 143ms
+ GET /api/admin/match-schedules?date=today 200 in 163ms
+ ✓ Compiled in 938ms (409 modules)
+ GET /admin/players-today 200 in 194ms
+ GET /manifest.webmanifest 200 in 67ms
+ ○ Compiling /api/admin/match-sessions ...
+ ✓ Compiled /api/admin/match-sessions in 3.6s (966 modules)
+ ✓ Compiled in 0ms (645 modules)
+ GET /admin/players-today 200 in 962ms
+ GET /api/admin/match-sessions?date=today 200 in 3715ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 1122ms (648 modules)
+ GET /manifest.webmanifest 200 in 1752ms
+ GET /api/admin/match-sessions?date=today 200 in 1469ms
+ GET /api/admin/match-schedules?date=today 200 in 1554ms
+ GET /api/admin/match-schedules?date=today 200 in 2075ms
+ ✓ Compiled in 657ms (408 modules)
+ GET /admin/players-today 200 in 123ms
+ GET /manifest.webmanifest 200 in 37ms
+ ✓ Compiled in 3.3s (1056 modules)
+ GET /admin/players-today 200 in 132ms
+ GET /manifest.webmanifest 200 in 64ms
+ ✓ Compiled in 645ms (408 modules)
+ GET /admin/players-today 200 in 85ms
+ GET /manifest.webmanifest 200 in 43ms
+ ✓ Compiled in 740ms (408 modules)
+ GET /admin/players-today 200 in 80ms
+ GET /manifest.webmanifest 200 in 89ms
+ ✓ Compiled in 3s (408 modules)
+ GET /admin/players-today 200 in 276ms
+ GET /manifest.webmanifest 200 in 72ms
+ ○ Compiling /api/admin/match-sessions ...
+ ✓ Compiled /api/admin/match-sessions in 5.5s (1054 modules)
+ GET /api/admin/match-sessions?date=today 200 in 4680ms
+ ✓ Compiled /api/admin/match-schedules in 341ms (649 modules)
+ GET /admin/players-today 200 in 1003ms
+ GET /api/admin/match-schedules?date=today 200 in 1148ms
+ GET /manifest.webmanifest 200 in 66ms
+ ✓ Compiled in 5.6s (1057 modules)
+ GET /admin/players-today 200 in 205ms
+ GET /manifest.webmanifest 200 in 158ms
+ ✓ Compiled in 718ms (408 modules)
+ GET /admin/players-today 200 in 71ms
+ GET /manifest.webmanifest 200 in 40ms
+ ✓ Compiled in 668ms (408 modules)
+ GET /admin/players-today 200 in 85ms
+ GET /manifest.webmanifest 200 in 112ms
+ ✓ Compiled in 680ms (408 modules)
+ GET /admin/players-today 200 in 87ms
+ GET /manifest.webmanifest 200 in 130ms
+ ✓ Compiled in 871ms (408 modules)
+ ✓ Compiled in 947ms (408 modules)
+ GET /admin/players-today 200 in 118ms
+ GET /admin/players-today 200 in 116ms
+ GET /manifest.webmanifest 200 in 97ms
+ ✓ Compiled in 8.8s (967 modules)
+ GET /admin/players-today 200 in 364ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 6.8s (1057 modules)
+ ✓ Compiled in 1119ms (1057 modules)
+ GET /manifest.webmanifest 200 in 5070ms
+ GET /admin/players-today 200 in 2081ms
+ GET /api/admin/match-sessions?date=today 200 in 9163ms
+ GET /api/admin/match-schedules?date=today 200 in 9189ms
+ GET /admin/players-today 200 in 80ms
+ GET /manifest.webmanifest 200 in 38ms
+ ✓ Compiled in 1036ms (1057 modules)
+ GET /admin/players-today 200 in 175ms
+ GET /manifest.webmanifest 200 in 55ms
+ ✓ Compiled in 1290ms (1057 modules)
+ GET /admin/players-today 200 in 149ms
+ GET /manifest.webmanifest 200 in 35ms
+ ✓ Compiled in 2.5s (1057 modules)
+ GET /admin/players-today 200 in 139ms
+ GET /manifest.webmanifest 200 in 32ms
+ ✓ Compiled in 712ms (408 modules)
+ GET /admin/players-today 200 in 74ms
+ GET /manifest.webmanifest 200 in 45ms
+ ✓ Compiled in 740ms (408 modules)
+ GET /admin/players-today 200 in 87ms
+ GET /manifest.webmanifest 200 in 105ms
+ ✓ Compiled in 926ms (408 modules)
+ GET /admin/players-today 200 in 135ms
+ GET /manifest.webmanifest 200 in 104ms
+ GET /api/admin/match-sessions?date=today 200 in 998ms
+ GET /api/admin/match-schedules?date=today 200 in 1009ms
+ GET /admin/players-today 200 in 624ms
+ GET /api/admin/match-sessions?date=today 200 in 275ms
+ GET /api/admin/match-sessions?date=today 200 in 243ms
+ GET /api/admin/match-schedules?date=today 200 in 285ms
+ GET /api/admin/match-schedules?date=today 200 in 293ms
+ ✓ Compiled in 2.9s (1057 modules)
+ GET /admin/players-today 200 in 166ms
+ GET /manifest.webmanifest 200 in 30ms
+ ✓ Compiled in 710ms (408 modules)
+ GET /admin/players-today 200 in 86ms
+ GET /manifest.webmanifest 200 in 35ms
+ ✓ Compiled in 662ms (408 modules)
+ GET /admin/players-today 200 in 82ms
+ GET /manifest.webmanifest 200 in 89ms
+ GET /api/admin/match-sessions?date=today 200 in 528ms
+ GET /api/admin/match-schedules?date=today 200 in 582ms
+ ✓ Compiled in 3.5s (408 modules)
+ GET /admin/players-today 200 in 68ms
+ GET /manifest.webmanifest 200 in 56ms
+ GET /api/admin/match-sessions?date=today 200 in 218ms
+ GET /api/admin/match-schedules?date=today 200 in 223ms
+ ✓ Compiled in 2.4s (1057 modules)
+ GET /admin/players-today 200 in 155ms
+ GET /manifest.webmanifest 200 in 67ms
+ ✓ Compiled in 2.5s (1057 modules)
+ GET /admin/players-today 200 in 160ms
+ GET /manifest.webmanifest 200 in 65ms
+ ✓ Compiled in 640ms (408 modules)
+ GET /admin/players-today 200 in 82ms
+ GET /manifest.webmanifest 200 in 28ms
+ ✓ Compiled in 1148ms (408 modules)
+ GET /admin/players-today 200 in 168ms
+ GET /manifest.webmanifest 200 in 80ms
+ GET /admin/players-today 200 in 458ms
+ GET /api/admin/match-sessions?date=today 200 in 224ms
+ GET /api/admin/match-sessions?date=today 200 in 191ms
+ GET /api/admin/match-schedules?date=today 200 in 228ms
+ GET /api/admin/match-schedules?date=today 200 in 248ms
+ GET /api/admin/match-sessions?date=today 401 in 183ms
+ GET /api/admin/match-schedules?date=today 401 in 219ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 2.9s (656 modules)
+ GET /login?redirectTo=%2Fadmin%2Fplayers-today 200 in 3408ms
+ ○ Compiling /api/auth/profile-email ...
+ ✓ Compiled /api/auth/profile-email in 1384ms (658 modules)
+ GET /api/auth/profile-email?fullName=%EA%B9%80%EC%A7%84%ED%98%B8 200 in 1580ms
+ GET /admin/players-today 200 in 617ms
+ GET /api/admin/match-sessions?date=today 200 in 143ms
+ GET /api/admin/match-sessions?date=today 200 in 166ms
+ GET /api/admin/match-schedules?date=today 200 in 179ms
+ GET /api/admin/match-schedules?date=today 200 in 145ms
+ ✓ Compiled in 3.6s (408 modules)
+ GET /admin/players-today 200 in 86ms
+ GET /api/admin/match-sessions?date=today 200 in 455ms
+ GET /manifest.webmanifest 200 in 127ms
+ GET /api/admin/match-schedules?date=today 200 in 509ms
+ POST /api/admin/match-sessions 200 in 247ms
+ GET /api/admin/match-sessions?date=today 200 in 241ms
+ GET /api/admin/match-sessions?date=today 200 in 252ms
+ GET /api/admin/match-schedules?date=today 200 in 277ms
+ GET /api/admin/match-schedules?date=today 200 in 130ms
+ ○ Compiling /match-assignment ...
+ ✓ Compiled /match-assignment in 5.6s (656 modules)
+ GET /match-assignment 200 in 5848ms
+ GET /manifest.webmanifest 200 in 102ms
+ GET /match-assignment 200 in 69ms
+ GET /manifest.webmanifest 200 in 26ms
+ GET /match-assignment 200 in 61ms
+ GET /manifest.webmanifest 200 in 56ms
+ ✓ Compiled in 4.2s (1059 modules)
+ GET /match-assignment 200 in 203ms
+ GET /manifest.webmanifest 200 in 54ms
+ ✓ Compiled in 652ms (408 modules)
+ ✓ Compiled in 476ms (408 modules)
+ GET /match-assignment 200 in 69ms
+ GET /match-assignment 200 in 77ms
+ GET /manifest.webmanifest 200 in 26ms
+ ✓ Compiled in 781ms (408 modules)
+ GET /match-assignment 200 in 158ms
+ GET /manifest.webmanifest 200 in 265ms
+ ✓ Compiled in 688ms (408 modules)
+ GET /match-assignment 200 in 146ms
+ GET /manifest.webmanifest 200 in 120ms
+ ✓ Compiled in 23.3s (950 modules)
+ GET /match-assignment 200 in 5301ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 9.3s (969 modules)
+ GET /manifest.webmanifest 200 in 4498ms
+ GET /match-assignment 200 in 561ms
+ GET /manifest.webmanifest 200 in 83ms
+ ✓ Compiled in 889ms (408 modules)
+ GET /match-assignment 200 in 104ms
+ GET /manifest.webmanifest 200 in 39ms
+ GET /login?redirectTo=%2Fadmin%2Fplayers-today 200 in 1153ms
+ ✓ Compiled in 6.4s (408 modules)
+ GET /admin/players-today 200 in 592ms
+ GET /match-assignment 200 in 801ms
+ ○ Compiling /api/admin/match-sessions ...
+ ✓ Compiled /api/admin/match-sessions in 1676ms (644 modules)
+ GET /api/admin/match-sessions?date=today 200 in 2291ms
+ GET /api/admin/match-sessions?date=today 200 in 2336ms
+ ✓ Compiled /api/admin/match-schedules in 451ms (647 modules)
+ GET /api/admin/match-schedules?date=today 200 in 745ms
+ GET /api/admin/match-schedules?date=today 200 in 766ms
+ GET /api/admin/match-sessions?date=today 401 in 223ms
+ GET /api/admin/match-schedules?date=today 401 in 489ms
+ GET /login?redirectTo=%2Fadmin%2Fplayers-today 200 in 681ms
+ ○ Compiling /api/auth/profile-email ...
+ ✓ Compiled /api/auth/profile-email in 2.5s (649 modules)
+ GET /api/auth/profile-email?fullName=%EA%B9%80%EC%A7%84%ED%98%B8 200 in 2661ms
+ GET /admin/players-today 200 in 590ms
+ GET /api/admin/match-sessions?date=today 200 in 118ms
+ GET /api/admin/match-sessions?date=today 200 in 160ms
+ GET /api/admin/match-schedules?date=today 200 in 152ms
+ GET /api/admin/match-schedules?date=today 200 in 165ms
+ GET /match-assignment 200 in 94ms
+ ✓ Compiled /manifest.webmanifest in 394ms (653 modules)
+ GET /manifest.webmanifest 200 in 604ms
+ GET /admin/players-today 200 in 220ms
+ GET /api/admin/match-sessions?date=today 200 in 243ms
+ GET /api/admin/match-sessions?date=today 200 in 354ms
+ GET /manifest.webmanifest 200 in 116ms
+ GET /api/admin/match-schedules?date=today 200 in 238ms
+ GET /api/admin/match-schedules?date=today 200 in 150ms
+ GET /api/admin/match-sessions?date=today 200 in 1227ms
+ GET /api/admin/match-schedules?date=today 200 in 1262ms
+ GET /match-assignment 200 in 242ms
+ GET /manifest.webmanifest 200 in 41ms
+ ✓ Compiled in 3s (408 modules)
+ GET /match-assignment 200 in 65ms
+ GET /manifest.webmanifest 200 in 28ms
+ GET /admin/players-today 200 in 115ms
+ GET /api/admin/match-sessions?date=today 200 in 694ms
+ GET /manifest.webmanifest 200 in 135ms
+ GET /api/admin/match-sessions?date=today 200 in 697ms
+ GET /api/admin/match-schedules?date=today 200 in 151ms
+ GET /api/admin/match-schedules?date=today 200 in 133ms
+ GET /match-assignment 200 in 288ms
+ GET /manifest.webmanifest 200 in 93ms
+ ○ Compiling /api/admin/match-sessions ...
+ ✓ Compiled /api/admin/match-sessions in 16.9s (1237 modules)
+ GET /api/admin/match-sessions?date=today 401 in 8597ms
+ GET /match-assignment 200 in 14542ms
+ GET /match-assignment 200 in 157ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 539ms (648 modules)
+ GET /manifest.webmanifest 200 in 874ms
+ ✓ Compiled in 644ms (408 modules)
+ GET /match-assignment 200 in 153ms
+ GET /manifest.webmanifest 200 in 30ms
+ ✓ Compiled in 718ms (408 modules)
+ ✓ Compiled in 1151ms (408 modules)
+ GET /match-assignment 200 in 234ms
+ GET /match-assignment 200 in 85ms
+ GET /manifest.webmanifest 200 in 36ms
+ GET /match-assignment 200 in 504ms
+ GET /api/admin/match-sessions?date=today 200 in 234ms
+ GET /api/admin/match-sessions?date=today 200 in 277ms
+ ○ Compiling /api/admin/match-sessions/[sessionId]/matches ...
+ ✓ Compiled /api/admin/match-sessions/[sessionId]/matches in 4.2s (1040 modules)
+ GET /api/admin/match-sessions/3c6d8781-38ef-41fb-88ce-4e05fd6d85a5/matches 200 in 5887ms
+ ○ Compiling /match-schedule ...
+ ✓ Compiled /match-schedule in 6.3s (652 modules)
+ GET /admin/players-today 200 in 127ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 566ms (656 modules)
+ GET /manifest.webmanifest 200 in 1241ms
+ GET /api/admin/match-sessions?date=today 200 in 1139ms
+ GET /api/admin/match-sessions?date=today 200 in 1229ms
+ ✓ Compiled /api/admin/match-schedules in 448ms (659 modules)
+ GET /api/admin/match-schedules?date=today 200 in 665ms
+ GET /api/admin/match-schedules?date=today 200 in 745ms
+ GET /match-assignment 200 in 138ms
+ GET /manifest.webmanifest 200 in 81ms
+ GET /api/admin/match-sessions?date=today 200 in 204ms
+ GET /api/admin/match-sessions?date=today 200 in 224ms
+ GET /api/admin/match-sessions/3c6d8781-38ef-41fb-88ce-4e05fd6d85a5/matches 200 in 202ms
+ GET /admin/players-today 200 in 103ms
+ GET /api/admin/match-sessions?date=today 200 in 200ms
+ GET /manifest.webmanifest 200 in 120ms
+ GET /api/admin/match-sessions?date=today 200 in 264ms
+ GET /api/admin/match-schedules?date=today 200 in 267ms
+ GET /api/admin/match-schedules?date=today 200 in 231ms
+ GET /match-assignment 200 in 70ms
+ GET /api/admin/match-sessions?date=today 200 in 135ms
+ GET /api/admin/match-sessions?date=today 200 in 171ms
+ GET /manifest.webmanifest 200 in 378ms
+ ✓ Compiled in 3.5s (408 modules)
+ GET /match-assignment 200 in 197ms
+ GET /manifest.webmanifest 200 in 95ms
+ ✓ Compiled in 901ms (408 modules)
+ GET /match-assignment 200 in 119ms
+ GET /manifest.webmanifest 200 in 186ms
+ GET /admin/players-today 200 in 85ms
+ GET /api/admin/match-sessions?date=today 200 in 214ms
+ GET /manifest.webmanifest 200 in 131ms
+ GET /api/admin/match-sessions?date=today 200 in 320ms
+ GET /api/admin/match-schedules?date=today 200 in 288ms
+ GET /api/admin/match-schedules?date=today 200 in 224ms
+ GET /match-assignment 200 in 69ms
+ GET /api/admin/match-sessions?date=today 200 in 1097ms
+ GET /api/admin/match-sessions?date=today 200 in 305ms
+ GET /api/admin/match-sessions?date=today 200 in 288ms
+ GET /api/admin/match-schedules?date=today 200 in 1212ms
+ GET /manifest.webmanifest 200 in 44ms
+ ✓ Compiled in 3.2s (408 modules)
+ GET /match-assignment 200 in 80ms
+ GET /manifest.webmanifest 200 in 33ms
+ GET /admin/players-scheduled 200 in 293ms
+ GET /manifest.webmanifest 200 in 46ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 392ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 458ms
+ ✓ Compiled in 12.7s (1060 modules)
+ GET /api/admin/match-schedules?from_date=today&status=scheduled 200 in 944ms
+ GET /admin/players-scheduled 200 in 272ms
+ GET /manifest.webmanifest 200 in 76ms
+ ✓ Compiled in 697ms (406 modules)
+ GET /admin/players-scheduled 200 in 100ms
+ GET /manifest.webmanifest 200 in 44ms
+ GET /admin/players-today 200 in 158ms
+ ○ Compiling /api/admin/match-sessions ...
+ ✓ Compiled /api/admin/match-sessions in 4s (656 modules)
+ ✓ Compiled in 1ms (656 modules)
+ ✓ Compiled /match-results in 1720ms (1062 modules)
+ ✓ Compiled in 1ms (661 modules)
+ GET /manifest.webmanifest 200 in 8563ms
+ GET /api/admin/match-sessions?date=today 200 in 9084ms
+ GET /api/admin/match-sessions?date=today 200 in 9064ms
+ ✓ Compiled in 1ms (661 modules)
+ GET /admin/players-today 200 in 4992ms
+ ✓ Compiled in 1ms (661 modules)
+ ✓ Compiled in 1ms (661 modules)
+ GET /match-results 200 in 3986ms
+ ✓ Compiled in 0ms (661 modules)
+ GET /api/admin/match-schedules?date=today 200 in 1979ms
+ GET /api/admin/match-schedules?date=today 200 in 1878ms
+ GET /admin/players-today 200 in 941ms
+ GET /manifest.webmanifest 200 in 37ms
+ POST /api/admin/match-sessions 200 in 625ms
+ GET /api/admin/match-sessions?date=today 200 in 2542ms
+ GET /api/admin/match-sessions?date=today 200 in 2369ms
+ GET /api/admin/match-schedules?date=today 200 in 2422ms
+ GET /api/admin/match-schedules?date=today 200 in 210ms
+ GET /api/admin/match-sessions?date=today 200 in 1157ms
+ GET /api/admin/match-schedules?date=today 200 in 1246ms
+ GET /admin/players-today 200 in 746ms
+ GET /api/admin/match-sessions?date=today 200 in 318ms
+ GET /api/admin/match-sessions?date=today 200 in 356ms
+ GET /api/admin/match-schedules?date=today 200 in 282ms
+ GET /api/admin/match-schedules?date=today 200 in 1348ms
+ ✓ Compiled in 4s (406 modules)
+ GET /admin/players-today 200 in 180ms
+ GET /manifest.webmanifest 200 in 103ms
+ ✓ Compiled in 3.9s (406 modules)
+ GET /admin/players-today 200 in 124ms
+ GET /manifest.webmanifest 200 in 112ms
+ GET /api/admin/match-sessions?date=today 200 in 237ms
+ GET /api/admin/match-schedules?date=today 200 in 295ms
+ ✓ Compiled in 2.2s (406 modules)
+ GET /admin/players-today 200 in 89ms
+ GET /manifest.webmanifest 200 in 84ms
+ GET /api/admin/match-sessions?date=today 200 in 309ms
+ GET /api/admin/match-schedules?date=today 200 in 321ms
+ ✓ Compiled in 14.1s (1062 modules)
+ GET /admin/players-today 200 in 878ms
+ ✓ Compiled in 1149ms (406 modules)
+ GET /manifest.webmanifest 200 in 209ms
+ GET /admin/players-today 200 in 130ms
+ GET /manifest.webmanifest 200 in 43ms
+ ✓ Compiled in 759ms (406 modules)
+ GET /admin/players-today 200 in 98ms
+ GET /manifest.webmanifest 200 in 348ms
+ GET /admin/players-today 200 in 623ms
+ GET /api/admin/match-sessions?date=today 200 in 195ms
+ GET /api/admin/match-sessions?date=today 200 in 153ms
+ GET /api/admin/match-schedules?date=today&schedule_source=recurring 200 in 139ms
+ GET /api/admin/match-schedules?date=today&schedule_source=recurring 200 in 172ms
+ ✓ Compiled in 4.3s (406 modules)
+ GET /admin/players-today 200 in 102ms
+ GET /manifest.webmanifest 200 in 95ms
+ ✓ Compiled in 4s (953 modules)
+ ✓ Compiled in 693ms (406 modules)

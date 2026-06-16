@@ -28,6 +28,9 @@ export function getLevelScore(level?: string): number {
 }
 
 export function getPlayerLevelScore(player: Player): number {
+  if (typeof player?.score === 'number' && Number.isFinite(player.score)) {
+    return player.score;
+  }
   return getLevelScore(player.skill_level);
 }
 

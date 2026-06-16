@@ -608,6 +608,18 @@ export default function MatchSchedulePage() {
     }
   };
 
+  const getScheduleSourceBadgeClass = (source: MatchScheduleSource) => {
+    switch (source) {
+      case 'tournament':
+        return 'bg-amber-100 text-amber-800 border border-amber-200';
+      case 'generated':
+        return 'bg-sky-100 text-sky-800 border border-sky-200';
+      case 'recurring':
+      default:
+        return 'bg-violet-100 text-violet-800 border border-violet-200';
+    }
+  };
+
   return (
     <RequireAdmin>
       <div className="w-full mt-10 p-6">
@@ -804,8 +816,8 @@ export default function MatchSchedulePage() {
                                 weekday: 'long'
                               })}
                             </h3>
-                            <span className="px-3 py-1 rounded text-sm bg-purple-100 text-purple-800">
-                              {getScheduleSourceLabel(schedule.schedule_source)}
+                            <span className={`px-3 py-1 rounded text-sm font-semibold ${getScheduleSourceBadgeClass(schedule.schedule_source)}`}>
+                              {schedule.schedule_source === 'tournament' ? '🏆 대회 경기' : `${getScheduleSourceLabel(schedule.schedule_source)}`}
                             </span>
                             <span className={`px-3 py-1 rounded text-sm ${getStatusColor(schedule.status)}`}>
                               {getStatusText(schedule.status)}

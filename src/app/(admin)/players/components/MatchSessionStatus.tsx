@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { getLevelScore } from '@/utils/match-helpers';
 import { GeneratedMatch, MatchSession } from '../types';
 
 interface RegisteredScheduleSummary {
@@ -30,19 +31,25 @@ export default function MatchSessionStatus({
   const [selectedSession, setSelectedSession] = useState<MatchSession | null>(null);
   const [sessionMatches, setSessionMatches] = useState<GeneratedMatch[]>([]);
   const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
-  const [modalError, setModalError] = useState<string>('');
+  const [detailError, setDetailError] = useState<string>('');
+  const detailsRef = useRef<HTMLDivElement | null>(null);
 
-  const closeModal = () => {
+  const closeDetails = () => {
     setSelectedSession(null);
     setSessionMatches([]);
-    setModalError('');
+    setDetailError('');
     setLoadingSessionId(null);
   };
 
   const openSessionMatches = async (session: MatchSession) => {
+    if (selectedSession?.id === session.id) {
+      closeDetails();
+      return;
+    }
+
     try {
       setLoadingSessionId(session.id);
-      setModalError('');
+      setDetailError('');
 
       const response = await fetch(`/api/admin/match-sessions/${session.id}/matches`, {
         method: 'GET',
@@ -59,13 +66,83 @@ export default function MatchSessionStatus({
       setSessionMatches(payload?.matches || []);
     } catch (error) {
       console.error('세션 경기 조회 오류:', error);
-      setModalError(error instanceof Error ? error.message : '배정내역을 불러오지 못했습니다.');
+      setDetailError(error instanceof Error ? error.message : '배정내역을 불러오지 못했습니다.');
       setSelectedSession(session);
       setSessionMatches([]);
     } finally {
       setLoadingSessionId(null);
     }
   };
+
+  useEffect(() => {
+    if (!selectedSession || !detailsRef.current) {
+      return;
+    }
+
+    detailsRef.current.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, [selectedSession, sessionMatches.length]);
+
+  const detailRows = useMemo(() => {
+    return sessionMatches.map((match) => {
+      const team1Player1Score = getLevelScore(match.team1_player1.skill_level);
+      const team1Player2Score = getLevelScore(match.team1_player2.skill_level);
+      const team2Player1Score = getLevelScore(match.team2_player1.skill_level);
+      const team2Player2Score = getLevelScore(match.team2_player2.skill_level);
+      const team1Score = team1Player1Score + team1Player2Score;
+      const team2Score = team2Player1Score + team2Player2Score;
+
+      return {
+        match,
+        team1Player1Score,
+        team1Player2Score,
+        team2Player1Score,
+        team2Player2Score,
+        team1Score,
+        team2Score,
+        diff: Math.abs(team1Score - team2Score),
+      };
+    });
+  }, [sessionMatches]);
+
+  const averageScoreDiff = detailRows.length > 0
+    ? detailRows.reduce((sum, row) => sum + row.diff, 0) / detailRows.length
+    : 0;
+
+  const maxScoreDiff = detailRows.length > 0
+    ? Math.max(...detailRows.map((row) => row.diff))
+    : 0;
+
+  const playerGameCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    detailRows.forEach(({ match }) => {
+      [
+        match.team1_player1,
+        match.team1_player2,
+        match.team2_player1,
+        match.team2_player2,
+      ].forEach((player) => {
+        const level = (player.skill_level || 'E2').toUpperCase();
+        const key = `${player.name}(${level})`;
+        counts[key] = (counts[key] || 0) + 1;
+      });
+    });
+
+    return counts;
+  }, [detailRows]);
+
+  const totalPlayerGames = Object.values(playerGameCounts).reduce((sum, count) => sum + count, 0);
+  const totalPlayers = Object.keys(playerGameCounts).length;
+
+  const renderPlayerLine = (name: string, skillLevel: string, score: number) => (
+    <div className="text-sm text-gray-800">
+      {name} <span className="font-medium">({(skillLevel || 'E2').toUpperCase()})</span>{' '}
+      <span className="text-gray-500">{score.toFixed(1)}점</span>
+    </div>
+  );
 
   return (
     <>
@@ -121,7 +198,11 @@ export default function MatchSessionStatus({
                           disabled={loadingSessionId === session.id}
                           className="rounded border border-blue-200 bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 transition-colors hover:bg-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {loadingSessionId === session.id ? '불러오는 중...' : '배정보기'}
+                          {loadingSessionId === session.id
+                            ? '불러오는 중...'
+                            : selectedSession?.id === session.id
+                            ? '배정닫기'
+                            : '배정보기'}
                         </button>
                         <span className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
                           session.assigned_matches === session.total_matches 
@@ -148,81 +229,141 @@ export default function MatchSessionStatus({
       </div>
 
       {selectedSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="max-h-[85vh] w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900">배정내역 보기</h4>
-                <p className="text-sm text-gray-600">{selectedSession.session_name}</p>
-              </div>
+        <div
+          ref={detailsRef}
+          className="mb-8 rounded-xl border border-slate-200 bg-white shadow-sm"
+        >
+          <div className="flex flex-col gap-3 border-b px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h4 className="text-lg font-semibold text-gray-900">배정내역 보기</h4>
+              <p className="text-sm text-gray-600">{selectedSession.session_name}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                총 {selectedSession.total_matches}경기
+              </span>
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                배정 완료 {selectedSession.assigned_matches}경기
+              </span>
               <button
                 type="button"
-                onClick={closeModal}
+                onClick={closeDetails}
                 className="rounded border border-gray-200 px-3 py-1 text-sm text-gray-600 transition-colors hover:bg-gray-100"
               >
                 닫기
               </button>
             </div>
+          </div>
 
-            <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
-              {modalError ? (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {modalError}
-                </div>
-              ) : sessionMatches.length === 0 ? (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-600">
-                  표시할 배정내역이 없습니다.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {sessionMatches.map((match) => (
-                    <div key={match.id} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <span className="rounded bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800">
-                          #{match.match_number}
-                        </span>
-                        <span className={`rounded px-2 py-1 text-xs font-semibold ${
-                          match.status === 'completed'
-                            ? 'bg-green-100 text-green-800'
-                            : match.status === 'in_progress'
-                            ? 'bg-amber-100 text-amber-800'
-                            : match.status === 'cancelled'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-gray-200 text-gray-700'
-                        }`}>
-                          {match.status}
-                        </span>
-                        {match.is_scheduled && (
-                          <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800">
-                            사용자 노출중
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div className="rounded border border-blue-100 bg-white px-3 py-3">
-                          <div className="mb-1 text-xs font-semibold text-blue-700">라켓팀</div>
-                          <div className="text-sm text-gray-800">
-                            {match.team1_player1.name} ({match.team1_player1.skill_level.toUpperCase()})
-                          </div>
-                          <div className="text-sm text-gray-800">
-                            {match.team1_player2.name} ({match.team1_player2.skill_level.toUpperCase()})
-                          </div>
-                        </div>
-                        <div className="rounded border border-rose-100 bg-white px-3 py-3">
-                          <div className="mb-1 text-xs font-semibold text-rose-700">셔틀팀</div>
-                          <div className="text-sm text-gray-800">
-                            {match.team2_player1.name} ({match.team2_player1.skill_level.toUpperCase()})
-                          </div>
-                          <div className="text-sm text-gray-800">
-                            {match.team2_player2.name} ({match.team2_player2.skill_level.toUpperCase()})
-                          </div>
-                        </div>
-                      </div>
+          <div className="px-6 py-5">
+            {detailError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {detailError}
+              </div>
+            ) : sessionMatches.length === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-600">
+                표시할 배정내역이 없습니다.
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div>
+                  <h5 className="text-lg font-semibold text-gray-900">
+                    ✋ 수동 배정 - 선수 선택 ({sessionMatches.length}경기)
+                  </h5>
+                  <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-800">
+                      평균 팀 점수 차이: <span className="font-bold">{averageScoreDiff.toFixed(1)}점</span>
                     </div>
-                  ))}
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+                      최대 팀 점수 차이: <span className="font-bold">{maxScoreDiff.toFixed(1)}점</span>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border-collapse border border-gray-300 bg-white">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="border border-gray-300 px-2 py-2 text-center text-sm font-semibold">회차</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center text-sm font-semibold">라켓팀</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center text-sm font-semibold">셔틀팀</th>
+                        <th className="border border-gray-300 px-2 py-2 text-center text-sm font-semibold">점수 차이</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailRows.map((row) => {
+                        const isWorstMatch = row.diff === maxScoreDiff && maxScoreDiff > 0;
+
+                        return (
+                          <tr
+                            key={row.match.id}
+                            className={isWorstMatch ? 'bg-rose-50' : 'hover:bg-gray-50'}
+                          >
+                            <td className="border border-gray-300 px-2 py-3 text-center text-sm font-medium">
+                              {row.match.match_number}
+                            </td>
+                            <td className="border border-gray-300 px-3 py-3">
+                              <div className="space-y-1">
+                                {renderPlayerLine(row.match.team1_player1.name, row.match.team1_player1.skill_level, row.team1Player1Score)}
+                                {renderPlayerLine(row.match.team1_player2.name, row.match.team1_player2.skill_level, row.team1Player2Score)}
+                                <div className="pt-1 text-sm font-semibold text-blue-700">
+                                  ({row.team1Score.toFixed(1)})
+                                </div>
+                              </div>
+                            </td>
+                            <td className="border border-gray-300 px-3 py-3">
+                              <div className="space-y-1">
+                                {renderPlayerLine(row.match.team2_player1.name, row.match.team2_player1.skill_level, row.team2Player1Score)}
+                                {renderPlayerLine(row.match.team2_player2.name, row.match.team2_player2.skill_level, row.team2Player2Score)}
+                                <div className="pt-1 text-sm font-semibold text-rose-700">
+                                  ({row.team2Score.toFixed(1)})
+                                </div>
+                              </div>
+                            </td>
+                            <td className={`border border-gray-300 px-2 py-3 text-center text-sm font-semibold ${isWorstMatch ? 'text-rose-700' : 'text-gray-700'}`}>
+                              <div>{row.diff.toFixed(1)}점</div>
+                              {isWorstMatch && (
+                                <div className="mt-1 text-xs font-medium text-rose-600">최대 편차</div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h5 className="mb-3 text-lg font-semibold text-gray-900">1인당 총 게임수</h5>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div
+                      className="grid gap-2 text-sm"
+                      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}
+                    >
+                      {Object.entries(playerGameCounts)
+                        .sort(([nameA], [nameB]) => nameA.localeCompare(nameB, 'ko', { sensitivity: 'base' }))
+                        .map(([playerName, gameCount]) => (
+                          <div
+                            key={playerName}
+                            className="flex justify-between rounded border bg-white p-2"
+                          >
+                            <span className="mr-2 truncate font-medium text-gray-800">{playerName}</span>
+                            <span className="font-bold text-blue-600">{gameCount}</span>
+                          </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-4 text-xs text-gray-600">
+                      <span>총 선수: {totalPlayers}명</span>
+                      <span>총 경기: {sessionMatches.length}경기</span>
+                      <span>
+                        평균 경기수: {totalPlayers > 0 ? (totalPlayerGames / totalPlayers).toFixed(1) : '0'}경기/인
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

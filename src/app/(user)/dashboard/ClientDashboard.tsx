@@ -73,7 +73,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         .select('status')
         .eq('user_id', userId)
         .eq('attended_at', today)
-        .single();
+        .maybeSingle();
         
       if (myAttErr && myAttErr.code !== 'PGRST116') {
         console.error('내 출석 상태 조회 오류:', myAttErr);
@@ -445,8 +445,8 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                 <div className="flex items-start justify-between mb-3">
                   <div className="text-3xl">📋</div>
                 </div>
-                <h4 className="text-lg font-semibold text-green-900 mb-2">일정관리</h4>
-                <p className="text-sm text-green-700">내 경기 일정과 참가 이력을 확인하세요</p>
+                <h4 className="text-lg font-semibold text-green-900 mb-2">내 경기 센터</h4>
+                <p className="text-sm text-green-700">예정 경기, 완료 기록, 대회 경기를 한 번에 확인하세요</p>
               </div>
             </Link>
             

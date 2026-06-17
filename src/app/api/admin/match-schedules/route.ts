@@ -5,6 +5,8 @@ import { getKoreaDate } from '@/lib/date';
 import { inferScheduleSource, normalizeScheduleSource } from '@/lib/match-schedule-source';
 
 type ParticipantProfile = {
+  id?: string | null;
+  user_id?: string | null;
   username?: string | null;
   full_name?: string | null;
 };
@@ -121,17 +123,25 @@ export async function GET(request: Request) {
     if (participantUserIds.length > 0) {
       const { data: profilesData, error: profilesError } = await adminSupabase
         .from('profiles')
-        .select('id, username, full_name')
-        .in('id', participantUserIds);
+        .select('id, user_id, username, full_name')
+        .or(
+          participantUserIds
+            .map((participantUserId) => `id.eq.${participantUserId},user_id.eq.${participantUserId}`)
+            .join(',')
+        );
 
       if (profilesError) {
         console.warn('Admin participant profiles query error:', profilesError);
       } else {
         profilesMap = (profilesData || []).reduce<Record<string, ParticipantProfile>>((acc, profile) => {
-          acc[profile.id] = {
+          const mappedProfile = {
+            id: profile.id,
+            user_id: profile.user_id,
             username: profile.username,
             full_name: profile.full_name,
           };
+          if (profile.id) acc[profile.id] = mappedProfile;
+          if (profile.user_id) acc[profile.user_id] = mappedProfile;
           return acc;
         }, {});
       }
@@ -224,6 +234,153 @@ export async function PATCH(request: Request) {
     });
   } catch (error) {
     console.error('Admin match schedule PATCH API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const adminContext = await requireAdmin();
+
+    if ('error' in adminContext) {
+      return adminContext.error;
+    }
+
+    const { adminSupabase, user } = adminContext;
+    const body = await request.json().catch(() => null);
+    const action = typeof body?.action === 'string' ? body.action : '';
+    const scheduleId = typeof body?.scheduleId === 'string' ? body.scheduleId : '';
+
+    if (action !== 'join' || !scheduleId) {
+      return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    }
+
+    const { data: existingParticipant, error: existingParticipantError } = await adminSupabase
+      .from('match_participants')
+      .select('id, status, registered_at')
+      .eq('match_schedule_id', scheduleId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existingParticipantError) {
+      console.error('Admin match participant lookup error:', existingParticipantError);
+      return NextResponse.json({ error: 'Failed to check participation' }, { status: 500 });
+    }
+
+    if (existingParticipant?.status === 'registered') {
+      return NextResponse.json({ error: 'Already registered' }, { status: 409 });
+    }
+
+    let participant;
+
+    if (existingParticipant) {
+      const { data, error } = await adminSupabase
+        .from('match_participants')
+        .update({
+          status: 'registered',
+          registered_at: new Date().toISOString(),
+        })
+        .eq('id', existingParticipant.id)
+        .select('id, match_schedule_id, user_id, registered_at, status')
+        .single();
+
+      if (error) {
+        console.error('Admin match participant re-register error:', error);
+        return NextResponse.json({ error: 'Failed to register for match' }, { status: 500 });
+      }
+
+      participant = data;
+    } else {
+      const { data, error } = await adminSupabase
+        .from('match_participants')
+        .insert({
+          match_schedule_id: scheduleId,
+          user_id: user.id,
+          status: 'registered',
+        })
+        .select('id, match_schedule_id, user_id, registered_at, status')
+        .single();
+
+      if (error) {
+        console.error('Admin match participant insert error:', error);
+        return NextResponse.json({ error: 'Failed to register for match' }, { status: 500 });
+      }
+
+      participant = data;
+    }
+
+    const { count, error: countError } = await adminSupabase
+      .from('match_participants')
+      .select('*', { count: 'exact', head: true })
+      .eq('match_schedule_id', scheduleId)
+      .in('status', ['registered', 'attended']);
+
+    if (countError) {
+      console.error('Admin match participant count error:', countError);
+      return NextResponse.json({ error: 'Failed to update participant count' }, { status: 500 });
+    }
+
+    await adminSupabase
+      .from('match_schedules')
+      .update({ current_participants: count || 0 })
+      .eq('id', scheduleId);
+
+    return NextResponse.json({
+      participant,
+      currentParticipants: count || 0,
+    });
+  } catch (error) {
+    console.error('Admin match schedules POST API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const adminContext = await requireAdmin();
+
+    if ('error' in adminContext) {
+      return adminContext.error;
+    }
+
+    const { adminSupabase, user } = adminContext;
+    const body = await request.json().catch(() => null);
+    const scheduleId = typeof body?.scheduleId === 'string' ? body.scheduleId : '';
+
+    if (!scheduleId) {
+      return NextResponse.json({ error: 'Schedule id is required' }, { status: 400 });
+    }
+
+    const { error } = await adminSupabase
+      .from('match_participants')
+      .update({ status: 'cancelled' })
+      .eq('match_schedule_id', scheduleId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Admin match participant cancel error:', error);
+      return NextResponse.json({ error: 'Failed to cancel participation' }, { status: 500 });
+    }
+
+    const { count, error: countError } = await adminSupabase
+      .from('match_participants')
+      .select('*', { count: 'exact', head: true })
+      .eq('match_schedule_id', scheduleId)
+      .in('status', ['registered', 'attended']);
+
+    if (countError) {
+      console.error('Admin match participant recount error:', countError);
+      return NextResponse.json({ error: 'Failed to update participant count' }, { status: 500 });
+    }
+
+    await adminSupabase
+      .from('match_schedules')
+      .update({ current_participants: count || 0 })
+      .eq('id', scheduleId);
+
+    return NextResponse.json({ currentParticipants: count || 0 });
+  } catch (error) {
+    console.error('Admin match schedules DELETE API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

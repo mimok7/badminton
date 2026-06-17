@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Form,
   FormControl,
@@ -24,13 +24,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import Link from 'next/link';
-import { SKILL_LEVEL_CODES, SKILL_LEVEL_SELECT_OPTIONS, type SkillLevelCode } from '@/lib/skill-levels';
+import {
+  SKILL_LEVEL_GROUP_SELECT_OPTIONS,
+  SKILL_LEVEL_GROUP_CODES,
+  getSkillLevelGroupCode,
+  type SkillLevelGroupCode,
+} from '@/lib/skill-levels';
 import { getUserLevelDisplay } from '@/lib/level-display';
 
 const formSchema = z.object({
   username: z.string().min(2, { message: '닉네임은 2자 이상이어야 합니다.' }),
-  skill_level: z.enum(SKILL_LEVEL_CODES),
+  skill_level: z.enum(SKILL_LEVEL_GROUP_CODES),
 });
 
 export default function ProfilePage() {
@@ -38,6 +42,15 @@ export default function ProfilePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const supabase = getSupabaseClient();
+  const displayName = profile?.full_name || profile?.username || '회원';
+  const levelLabel = getUserLevelDisplay(profile?.skill_level);
+  const roleLabel = profile?.role === 'admin' ? '관리자' : '일반 회원';
+  const genderLabel =
+    profile?.gender === 'male' || profile?.gender === 'M'
+      ? '남성'
+      : profile?.gender === 'female' || profile?.gender === 'F'
+        ? '여성'
+        : '미설정';
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,12 +65,9 @@ export default function ProfilePage() {
       router.push('/login');
       return;
     }
-    
+
     if (profile) {
-      const normalizedLevel = String(profile.skill_level || '').toUpperCase();
-      const level = (SKILL_LEVEL_CODES.includes(normalizedLevel as SkillLevelCode)
-        ? normalizedLevel
-        : 'D1') as SkillLevelCode;
+      const level = getSkillLevelGroupCode(profile.skill_level) as SkillLevelGroupCode;
       form.reset({
         username: profile.username || '',
         skill_level: level,
@@ -73,11 +83,8 @@ export default function ProfilePage() {
     }
 
     setIsSubmitting(true);
-    
-    const { error } = await supabase
-      .from('profiles')
-      .update(values)
-      .eq('user_id', user.id);
+
+    const { error } = await supabase.from('profiles').update(values).eq('user_id', user.id);
 
     setIsSubmitting(false);
     if (error) {
@@ -90,93 +97,76 @@ export default function ProfilePage() {
 
   if (userLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-            <span className="ml-2 text-gray-600">로딩 중...</span>
-          </div>
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb] px-4">
+        <div className="rounded-full bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+          프로필을 불러오는 중입니다
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* 상단 헤더 */}
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-md p-6 mb-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
-              👤 내 프로필
-            </h1>
-            <Link href="/" className="text-white hover:text-blue-100 transition-colors">
-              🏠 홈
+    <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
+        <section className="rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5 sm:py-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs text-slate-300">안녕하세요</p>
+              <h1 className="mt-1 text-2xl font-semibold">{displayName}</h1>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">레벨 {levelLabel}</span>
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">{roleLabel}</span>
+              </div>
+            </div>
+            <Link href="/dashboard" className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15">
+              홈
             </Link>
           </div>
-          <div className="flex items-center gap-4 text-sm mb-4">
-            <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full">
-              {profile?.full_name || profile?.username || '회원'}님
-            </span>
-            <span className="bg-white bg-opacity-20 text-white px-3 py-1 rounded-full">
-              프로필 수정
-            </span>
-          </div>
-          <p className="text-blue-100">
-            프로필 정보를 수정하고 관리하세요! ✏️
-          </p>
-        </div>
 
-        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
-          {/* 현재 역할 정보 표시 */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h2 className="font-semibold text-lg text-gray-800 mb-3">📋 현재 계정 정보</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center">
-                <span className="font-medium text-gray-600 w-16">역할:</span>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                  profile?.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {profile?.role === 'admin' ? '관리자' : '일반 회원'}
-                </span>
+          <div className="mt-5 rounded-[22px] bg-white/8 px-4 py-4">
+            <p className="text-sm text-slate-300">오늘의 상태</p>
+            <p className="mt-1 text-lg font-semibold text-white">{genderLabel} · {levelLabel}</p>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-center sm:grid-cols-3">
+              <div className="rounded-2xl bg-white/8 px-2 py-3">
+                <p className="text-[11px] text-slate-300">역할</p>
+                <p className="mt-1 text-sm font-semibold text-white">{roleLabel}</p>
               </div>
-              <div className="flex items-center">
-                <span className="font-medium text-gray-600 w-16">성별:</span>
-                <span className="text-gray-800">
-                  {profile?.gender === 'male' || profile?.gender === 'M'
-                    ? '남성'
-                    : profile?.gender === 'female' || profile?.gender === 'F'
-                    ? '여성'
-                    : '미설정'}
-                </span>
+              <div className="rounded-2xl bg-white/8 px-2 py-3">
+                <p className="text-[11px] text-slate-300">성별</p>
+                <p className="mt-1 text-sm font-semibold text-white">{genderLabel}</p>
               </div>
-              <div className="flex items-center">
-                <span className="font-medium text-gray-600 w-16">현재급수:</span>
-                <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-medium">
-                  {getUserLevelDisplay(profile?.skill_level)}
-                </span>
+              <div className="col-span-2 rounded-2xl bg-white/8 px-2 py-3 sm:col-span-1">
+                <p className="text-[11px] text-slate-300">급수</p>
+                <p className="mt-1 text-sm font-semibold text-white">{levelLabel}</p>
               </div>
             </div>
           </div>
-          
+        </section>
+
+        <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+          <div>
+            <p className="text-xs text-slate-500">프로필 수정</p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900">급수 변경</h2>
+          </div>
+
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField 
-                control={form.control} 
-                name="skill_level" 
+            <form onSubmit={form.handleSubmit(onSubmit)} className="mt-4 space-y-5">
+              <FormField
+                control={form.control}
+                name="skill_level"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-base font-medium">급수</FormLabel>
+                    <FormLabel className="text-sm font-medium text-slate-700">급수 선택</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger className="h-12">
+                        <SelectTrigger className="h-12 rounded-2xl border-slate-300 bg-white">
                           <SelectValue placeholder="급수를 선택하세요" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {SKILL_LEVEL_SELECT_OPTIONS.map((option) => (
+                        {SKILL_LEVEL_GROUP_SELECT_OPTIONS.map((option) => (
                           <SelectItem key={option.code} value={option.code}>
-                            {option.code} - {option.name}
+                            {option.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -185,19 +175,28 @@ export default function ProfilePage() {
                   </FormItem>
                 )}
               />
-              <div className="flex gap-4 pt-4">
-                <Button type="submit" disabled={isSubmitting} className="flex-1 h-12 text-base">
-                  {isSubmitting ? '업데이트 중...' : '✅ 프로필 업데이트'}
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="h-12 flex-1 rounded-2xl bg-[#0f172a] text-base font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {isSubmitting ? '업데이트 중...' : '프로필 업데이트'}
                 </Button>
-                <Link href="/" className="flex-1">
-                  <Button variant="outline" type="button" className="w-full h-12 text-base">
-                    🏠 홈으로
+                <Link href="/dashboard" className="flex-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 w-full rounded-2xl border-slate-300 text-base font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    대시보드로
                   </Button>
                 </Link>
               </div>
             </form>
           </Form>
-        </div>
+        </section>
       </div>
     </div>
   );

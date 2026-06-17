@@ -1,2 +1,99 @@
  ⚠ Fast Refresh had to perform a full reload due to a runtime error.
 <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (108kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+AuthApiError: Invalid Refresh Token: Refresh Token Not Found {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+AuthApiError: Invalid Refresh Token: Refresh Token Not Found {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+AuthApiError: Invalid Refresh Token: Refresh Token Not Found {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+AuthApiError: Invalid Refresh Token: Refresh Token Not Found {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+ ⨯ ./src/app/(user)/my-schedule/page.tsx
+Error:   [31mx[0m Expected ',', got '{'
+      ,-[[36;1;4mC:\SHT-DATA\badminton\src\app\(user)\my-schedule\page.tsx[0m:1595:1]
+ [2m1592[0m |       </div>
+ [2m1593[0m |       </div>
+ [2m1594[0m | 
+ [2m1595[0m |       {/* 경기 상세 정보 모달 */}
+      : [35;1m      ^[0m
+ [2m1596[0m |       {showDetailsModal && selectedMatch && (
+ [2m1597[0m |         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+ [2m1597[0m |           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/(user)/my-schedule/page.tsx
+ ⨯ ./src/app/(user)/my-schedule/page.tsx
+Error:   [31mx[0m Expected ',', got '{'
+      ,-[[36;1;4mC:\SHT-DATA\badminton\src\app\(user)\my-schedule\page.tsx[0m:1595:1]
+ [2m1592[0m |       </div>
+ [2m1593[0m |       </div>
+ [2m1594[0m | 
+ [2m1595[0m |       {/* 경기 상세 정보 모달 */}
+      : [35;1m      ^[0m
+ [2m1596[0m |       {showDetailsModal && selectedMatch && (
+ [2m1597[0m |         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+ [2m1597[0m |           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/(user)/my-schedule/page.tsx
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ⨯ ./src/app/(user)/my-schedule/page.tsx
+Error:   [31mx[0m Expected ',', got '{'
+      ,-[[36;1;4mC:\SHT-DATA\badminton\src\app\(user)\my-schedule\page.tsx[0m:1595:1]
+ [2m1592[0m |       </div>
+ [2m1593[0m |       </div>
+ [2m1594[0m | 
+ [2m1595[0m |       {/* 경기 상세 정보 모달 */}
+      : [35;1m      ^[0m
+ [2m1596[0m |       {showDetailsModal && selectedMatch && (
+ [2m1597[0m |         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+ [2m1597[0m |           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/(user)/my-schedule/page.tsx
+ ⨯ ./src/app/(user)/my-schedule/page.tsx
+Error:   [31mx[0m Expected ',', got '{'
+      ,-[[36;1;4mC:\SHT-DATA\badminton\src\app\(user)\my-schedule\page.tsx[0m:1595:1]
+ [2m1592[0m |       </div>
+ [2m1593[0m |       </div>
+ [2m1594[0m | 
+ [2m1595[0m |       {/* 경기 상세 정보 모달 */}
+      : [35;1m      ^[0m
+ [2m1596[0m |       {showDetailsModal && selectedMatch && (
+ [2m1597[0m |         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+ [2m1597[0m |           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/(user)/my-schedule/page.tsx
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload

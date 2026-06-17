@@ -10,7 +10,20 @@ export const dynamic = 'force-dynamic'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
 
-export default async function AdminMembersPage() {
+type AttendanceSummary = Record<
+  string,
+  {
+    total: number
+    last30: number
+    lastAttended: string | null
+  }
+>
+
+export default async function AdminMembersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ tab?: string }>
+}) {
   const supabase = await getSupabaseServerClient()
 
   // 1) 세션 확인
@@ -72,6 +85,15 @@ export default async function AdminMembersPage() {
     .select('id, code, name, description, score')
     .order('score', { ascending: false, nullsFirst: false })
 
+  const { data: profileLinkRows } = await supabaseAdmin
+    .from('profiles')
+    .select('id, user_id')
+
+  const { data: attendanceRows } = await supabaseAdmin
+    .from('attendances')
+    .select('user_id, attended_at, status')
+    .order('attended_at', { ascending: false })
+
   const levelOptionsFromDb = ((levelInfoRows || []) as Array<Pick<Database['public']['Tables']['level_info']['Row'], 'id' | 'code' | 'name' | 'description' | 'score'>>)
     .filter((row) => Boolean(row.code))
     .map((row) => ({
@@ -98,10 +120,53 @@ export default async function AdminMembersPage() {
     skill_label: levelOptionByCode.get(String(user.skill_level ?? '').trim().toUpperCase())?.description ?? user.skill_label,
   }))
 
+  const attendanceSummary: AttendanceSummary = {}
+  const profileIdToUserId = new Map(
+    (profileLinkRows || []).map((row) => [row.id, row.user_id || row.id])
+  )
+  const today = new Date()
+  const cutoff = new Date(today)
+  cutoff.setDate(today.getDate() - 30)
+  const cutoffDate = cutoff.toISOString().slice(0, 10)
+
+  for (const row of attendanceRows || []) {
+    const rawUserId = typeof row.user_id === 'string' ? row.user_id : null
+    const userId = rawUserId ? profileIdToUserId.get(rawUserId) || rawUserId : null
+    if (!userId) continue
+
+    if (!attendanceSummary[userId]) {
+      attendanceSummary[userId] = {
+        total: 0,
+        last30: 0,
+        lastAttended: null,
+      }
+    }
+
+    attendanceSummary[userId].total += 1
+
+    const attendedAt = typeof row.attended_at === 'string' ? row.attended_at : null
+    if (attendedAt && attendedAt.slice(0, 10) >= cutoffDate) {
+      attendanceSummary[userId].last30 += 1
+    }
+
+    if (attendedAt && (!attendanceSummary[userId].lastAttended || attendedAt > attendanceSummary[userId].lastAttended!)) {
+      attendanceSummary[userId].lastAttended = attendedAt
+    }
+  }
+
+  const resolvedSearchParams = (await searchParams) || {}
+  const initialTab = typeof resolvedSearchParams.tab === 'string' ? resolvedSearchParams.tab : 'overview'
+
   // 4) 렌더
   return (
     <div className="w-full p-6 pt-0">
-      <UserManagementClient users={users} myUserId={user.id} levelOptions={levelOptions} />
+      <UserManagementClient
+        users={users}
+        myUserId={user.id}
+        levelOptions={levelOptions}
+        attendanceSummary={attendanceSummary}
+        initialTab={initialTab}
+      />
     </div>
   )
 }

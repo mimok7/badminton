@@ -6,18 +6,16 @@ export const ADMIN_ROUTE_PREFIXES = [
   '/attendance-all-test',
   '/database-test',
   '/match-assignment',
-  '/match-registration',
   '/match-results',
   '/match-schedule',
   '/players',
   '/recurring-matches',
   '/team-management',
   '/test-attendance-all',
-  '/today-matches',
 ] as const;
 
 export const DEFAULT_USER_REDIRECT = '/dashboard';
-export const DEFAULT_ADMIN_REDIRECT = '/admin';
+export const DEFAULT_ADMIN_REDIRECT = '/dashboard';
 
 export function matchesRoutePrefix(
   pathname: string,

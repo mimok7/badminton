@@ -44,7 +44,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   const isActive = (href: string) => {
     try {
-      return pathname === href || pathname?.startsWith(href + '/');
+      const normalizedHref = href.split('?')[0];
+      return pathname === normalizedHref || pathname?.startsWith(normalizedHref + '/');
     } catch {
       return false;
     }

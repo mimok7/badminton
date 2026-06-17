@@ -5,12 +5,24 @@ import type { AdminUser } from '@/types';
 import { createMember, deleteUser, updateUser, updateUsersBulk } from './actions';
 import type { UpdateUserPayload } from './actions';
 import { useRouter } from 'next/navigation';
+import { Activity, Filter, Save, Search, Shield, Trash2, UserPlus, Users } from 'lucide-react';
 
 type LevelOption = {
     code: string;
     description: string | null;
     score: number | null;
 };
+
+type AttendanceSummary = Record<
+    string,
+    {
+        total: number;
+        last30: number;
+        lastAttended: string | null;
+    }
+>;
+
+type TabKey = 'overview' | 'members' | 'attendance' | 'create';
 
 function formatAdminLevelLabel(option?: LevelOption) {
     if (!option) {
@@ -37,15 +49,23 @@ export default function UserManagementClient({
     users,
     myUserId,
     levelOptions: levelOptionsFromDb,
+    attendanceSummary,
+    initialTab,
 }: {
     users: AdminUser[];
     myUserId: string;
     levelOptions: LevelOption[];
+    attendanceSummary: AttendanceSummary;
+    initialTab: string;
 }) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [draftsByUserId, setDraftsByUserId] = useState<Record<string, UpdateUserPayload & { email?: string | null }>>({});
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedTab, setSelectedTab] = useState<TabKey>('overview');
+    const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'manager' | 'user'>('all');
+    const [genderFilter, setGenderFilter] = useState<'all' | 'M' | 'F' | 'O' | 'unset'>('all');
+    const [levelFilter, setLevelFilter] = useState<string>('all');
     const [memberList, setMemberList] = useState<AdminUser[]>(users);
     const [newMember, setNewMember] = useState({
         full_name: '',
@@ -69,6 +89,12 @@ export default function UserManagementClient({
     useEffect(() => {
         setMemberList(users);
     }, [users]);
+
+    useEffect(() => {
+        if (initialTab === 'members' || initialTab === 'attendance' || initialTab === 'create' || initialTab === 'overview') {
+            setSelectedTab(initialTab);
+        }
+    }, [initialTab]);
 
     useEffect(() => {
         const nextDrafts = users.reduce<Record<string, UpdateUserPayload & { email?: string | null }>>((acc, user) => {
@@ -235,14 +261,35 @@ export default function UserManagementClient({
     const filteredUsers = useMemo(() => {
         const keyword = searchQuery.trim().toLowerCase();
 
-        if (!keyword) {
-            return memberList;
-        }
-
         return memberList.filter((user) => {
+            const normalizedRole = user.role === 'admin' ? 'admin' : normalizeEditableRole(user.role);
+            const normalizedLevel = normalizeSkillLevel(user.skill_level);
+            const normalizedGender = (user.gender || '').toUpperCase();
+
+            if (roleFilter !== 'all' && normalizedRole !== roleFilter) {
+                return false;
+            }
+
+            if (levelFilter !== 'all' && normalizedLevel !== levelFilter) {
+                return false;
+            }
+
+            if (genderFilter === 'unset' && normalizedGender) {
+                return false;
+            }
+
+            if (genderFilter !== 'all' && genderFilter !== 'unset' && normalizedGender !== genderFilter) {
+                return false;
+            }
+
+            if (!keyword) {
+                return true;
+            }
+
             const values = [
                 user.full_name,
                 user.email,
+                user.username,
                 user.skill_label,
                 normalizeSkillLevel(user.skill_level),
                 getLevelOptionMeta(normalizeSkillLevel(user.skill_level))?.description,
@@ -252,7 +299,7 @@ export default function UserManagementClient({
 
             return values.some((value) => (value || '').toString().toLowerCase().includes(keyword));
         });
-    }, [memberList, searchQuery, levelOptionsFromDb]);
+    }, [genderFilter, levelFilter, memberList, roleFilter, searchQuery, levelOptionsFromDb]);
 
     const dirtyUserIds = useMemo(
         () => memberList.filter((user) => hasPendingChanges(user)).map((user) => user.id),
@@ -336,267 +383,432 @@ export default function UserManagementClient({
         });
     };
 
-    const groupedUsers = useMemo(() => {
-        const groups = new Map<string, AdminUser[]>();
+    const attendanceRows = useMemo(() => {
+        return filteredUsers
+            .map((user) => ({
+                ...user,
+                attendance: attendanceSummary[user.id] || {
+                    total: 0,
+                    last30: 0,
+                    lastAttended: null,
+                },
+            }))
+            .sort((left, right) => {
+                if (right.attendance.total !== left.attendance.total) {
+                    return right.attendance.total - left.attendance.total;
+                }
 
-        for (const user of filteredUsers) {
-            const levelKey = normalizeLevelKey(normalizeSkillLevel(user.skill_level));
+                return (left.full_name || left.username || left.email).localeCompare(right.full_name || right.username || right.email);
+            });
+    }, [attendanceSummary, filteredUsers]);
 
-            if (!groups.has(levelKey)) {
-                groups.set(levelKey, []);
-            }
+    const overview = useMemo(() => {
+        const adminCount = memberList.filter((user) => user.role === 'admin').length;
+        const managerCount = memberList.filter((user) => user.role === 'manager').length;
+        const linkedCount = memberList.filter((user) => Boolean(user.email)).length;
+        const topAttendance = [...memberList]
+            .map((user) => ({
+                ...user,
+                attendance: attendanceSummary[user.id] || { total: 0, last30: 0, lastAttended: null },
+            }))
+            .sort((left, right) => right.attendance.total - left.attendance.total)
+            .slice(0, 5);
 
-            groups.get(levelKey)!.push(user);
-        }
+        return {
+            adminCount,
+            managerCount,
+            linkedCount,
+            topAttendance,
+        };
+    }, [attendanceSummary, memberList]);
 
-        const orderedLevelKeys = [
-            ...levelOptions.filter((level) => groups.has(level)),
-            ...Array.from(groups.keys())
-                .filter((level) => !levelOptions.includes(level))
-                .sort(sortLevelCodes),
-        ];
+    const tabButtonClass = (tab: TabKey) =>
+        `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+            selectedTab === tab
+                ? 'bg-slate-900 text-white'
+                : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        }`;
 
-        return orderedLevelKeys
-            .map((level) => ({
-                level,
-                users: groups.get(level)!,
-            }));
-    }, [filteredUsers, levelOptions]);
+    const renderMemberTable = () => (
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                    <thead className="bg-slate-100 text-slate-600">
+                        <tr>
+                            <th className="px-4 py-3 text-left font-semibold">회원</th>
+                            <th className="px-4 py-3 text-left font-semibold">역할</th>
+                            <th className="px-4 py-3 text-left font-semibold">급수</th>
+                            <th className="px-4 py-3 text-left font-semibold">성별</th>
+                            <th className="px-4 py-3 text-left font-semibold">이메일</th>
+                            <th className="px-4 py-3 text-right font-semibold">작업</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                        {filteredUsers.map((user) => {
+                            const draft = getDraft(user);
+                            const isDirty = hasPendingChanges(user);
+                            const normalizedRole = user.role === 'admin' ? 'admin' : normalizeEditableRole(user.role);
 
-    return (
-        <div>
-            {/* 회원 통계 */}
-            <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-                <div className="rounded-lg bg-blue-50 px-2.5 py-2">
-                    <h3 className="text-[11px] md:text-xs font-semibold text-blue-800">👥 총 회원수</h3>
-                    <p className="text-sm md:text-lg font-bold text-blue-600">{memberList.length}명</p>
-                </div>
-                <div className="rounded-lg bg-green-50 px-2.5 py-2">
-                    <h3 className="text-[11px] md:text-xs font-semibold text-green-800">🛡️ 관리자</h3>
-                    <p className="text-sm md:text-lg font-bold text-green-600">{memberList.filter((u) => u.role === 'admin').length}명</p>
-                </div>
-                <div className="rounded-lg bg-emerald-50 px-2.5 py-2">
-                    <h3 className="text-[11px] md:text-xs font-semibold text-emerald-800">📋 매니저</h3>
-                    <p className="text-sm md:text-lg font-bold text-emerald-600">{memberList.filter((u) => u.role === 'manager').length}명</p>
-                </div>
-                <div className="rounded-lg bg-purple-50 px-2.5 py-2">
-                    <h3 className="text-[11px] md:text-xs font-semibold text-purple-800">🙂 일반회원</h3>
-                    <p className="text-sm md:text-lg font-bold text-purple-600">{memberList.filter((u) => u.role === 'user').length}명</p>
-                </div>
-                <div className="rounded-lg bg-sky-50 px-2.5 py-2">
-                    <h3 className="text-[11px] md:text-xs font-semibold text-sky-800">👨 남성</h3>
-                    <p className="text-sm md:text-lg font-bold text-sky-600">{memberList.filter((u) => u.gender === 'M').length}명</p>
-                </div>
-                <div className="rounded-lg bg-rose-50 px-2.5 py-2">
-                    <h3 className="text-[11px] md:text-xs font-semibold text-rose-800">👩 여성</h3>
-                    <p className="text-sm md:text-lg font-bold text-rose-600">{memberList.filter((u) => u.gender === 'F').length}명</p>
-                </div>
-            </div>
-
-            <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
-                <div className="mb-3 text-sm font-semibold text-slate-700">🏷️ 급수별 통계</div>
-                <div className="flex flex-wrap gap-2.5">
-                    {levelSummary.map((item) => (
-                        <div
-                            key={item.level}
-                            className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm text-slate-700 shadow-sm"
-                        >
-                            <span className="font-semibold">{formatLevelGroupLabel(item.level)}</span>
-                            <span className="ml-1.5 text-slate-500">{item.count.total}명</span>
-                            <span className="ml-2 text-sky-600">남 {item.count.male}</span>
-                            <span className="ml-1.5 text-rose-600">여 {item.count.female}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <div className="mb-3">
-                    <h3 className="text-lg font-semibold text-amber-900">➕ 회원 추가</h3>
-                    <p className="text-sm text-amber-700">이메일은 자동 생성되며, 로그인 연결 전까지는 프로필 회원으로 등록됩니다.</p>
-                </div>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                    <input
-                        type="text"
-                        value={newMember.full_name}
-                        onChange={(e) => setNewMember((prev) => ({ ...prev, full_name: e.target.value }))}
-                        placeholder="회원 이름"
-                        className="rounded border border-amber-300 px-3 py-2"
-                    />
-                    <select
-                        value={newMember.skill_level}
-                        onChange={(e) => setNewMember((prev) => ({ ...prev, skill_level: e.target.value }))}
-                        className="rounded border border-amber-300 px-3 py-2"
-                    >
-                        {levelOptions.map((levelCode) => {
-                            const option = getLevelOptionMeta(levelCode);
                             return (
-                                <option key={levelCode} value={levelCode}>
-                                    {formatAdminLevelLabel(option) || levelCode}
-                                </option>
-                            );
-                        })}
-                    </select>
-                    <select
-                        value={newMember.gender}
-                        onChange={(e) => setNewMember((prev) => ({ ...prev, gender: e.target.value }))}
-                        className="rounded border border-amber-300 px-3 py-2"
-                    >
-                        <option value="">성별 미지정</option>
-                        <option value="M">남성</option>
-                        <option value="F">여성</option>
-                        <option value="O">기타</option>
-                    </select>
-                    <button
-                        type="button"
-                        onClick={handleCreateMember}
-                        disabled={isPending}
-                        className="rounded bg-amber-500 px-4 py-2 font-medium text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-300"
-                    >
-                        회원 추가
-                    </button>
-                </div>
-            </div>
-
-            <div className="mb-8">
-                <div className="rounded-lg border border-gray-200 bg-white p-4">
-                    <label htmlFor="member-search" className="mb-2 block text-sm font-medium text-gray-700">
-                        🔎 회원 검색
-                    </label>
-                    <input
-                        id="member-search"
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="이름, 이메일, 급수, 역할로 검색"
-                        className="w-full rounded border border-gray-300 px-3 py-2 outline-none focus:border-blue-500"
-                    />
-                    <div className="mt-2 flex items-center justify-between gap-3 text-sm text-gray-500">
-                        <span>
-                            {hasSearchQuery ? `검색 결과: ${filteredUsers.length}명` : `전체 회원: ${memberList.length}명`}
-                        </span>
-                        {hasSearchQuery && (
-                            <button
-                                type="button"
-                                onClick={() => setSearchQuery('')}
-                                className="text-blue-600 hover:text-blue-700"
-                            >
-                                검색 초기화
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            <div className="mb-6 flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <div className="text-sm font-semibold text-blue-900">💾 일괄 저장</div>
-                    <div className="text-sm text-blue-700">
-                        {dirtyCount > 0 ? `${dirtyCount}명의 수정 내용이 저장 대기 중입니다.` : '현재 저장 대기 중인 수정 내용이 없습니다.'}
-                    </div>
-                </div>
-                <button
-                    type="button"
-                    onClick={saveAllEdits}
-                    disabled={isPending || dirtyCount === 0}
-                    className="rounded bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-                >
-                    전체저장
-                </button>
-            </div>
-
-            <div className="space-y-8">
-                <div className="text-sm font-medium text-gray-600">
-                    {hasSearchQuery ? '검색된 회원만 표시 중입니다.' : '전체 회원을 급수별로 표시 중입니다.'}
-                </div>
-                {groupedUsers.map((group) => (
-                    <section key={group.level}>
-                        <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-2">
-                            <h3 className="text-lg font-semibold text-gray-900">
-                                🏷️ {formatLevelGroupLabel(group.level)}
-                            </h3>
-                            <span className="text-sm text-gray-500">{group.users.length}명</span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                            {group.users.map((user) => {
-                                const draft = getDraft(user);
-                                const isDirty = hasPendingChanges(user);
-                                return (
-                                    <div key={user.id} className="bg-white rounded shadow p-3 flex flex-col justify-between">
-                                        <div>
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="font-semibold text-gray-900 break-words">
-                                                        <input value={draft.full_name ?? ''} onChange={(e) => updateDraft(user.id, { full_name: e.target.value })} className="border rounded px-2 py-1 w-full" placeholder="풀네임" />
-                                                    </div>
-                                                </div>
-                                                {user.role === 'admin' ? (
-                                                    <span className="shrink-0 rounded bg-slate-800 px-2 py-1 text-xs text-white">
-                                                        admin
-                                                    </span>
-                                                ) : (
-                                                    <select
-                                                        value={normalizeEditableRole(draft.role)}
-                                                        onChange={(e) => updateDraft(user.id, { role: e.target.value as 'user' | 'manager' })}
-                                                        className="text-xs border rounded px-2 py-1 shrink-0"
-                                                    >
-                                                        <option value="user">user</option>
-                                                        <option value="manager">manager</option>
-                                                    </select>
-                                                )}
+                                <tr key={user.id} className={isDirty ? 'bg-amber-50/60' : 'bg-white'}>
+                                    <td className="px-4 py-3 align-top">
+                                        <div className="space-y-2">
+                                            <input
+                                                value={draft.full_name ?? ''}
+                                                onChange={(e) => updateDraft(user.id, { full_name: e.target.value })}
+                                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                                                placeholder="회원 이름"
+                                            />
+                                            <div className="text-xs text-slate-500">
+                                                {user.username || '-'}
                                             </div>
-
-                                            <div className="mt-2 text-sm text-gray-700">
-                                                <select
-                                                    value={normalizeSkillLevel(draft.skill_level) || levelOptionsFromDb[0]?.code || ''}
-                                                    onChange={(e) => updateDraft(user.id, { skill_level: e.target.value })}
-                                                    disabled={isPending}
-                                                    className="w-full rounded border border-gray-300 px-2 py-1"
-                                                >
-                                                    {levelOptions.map((levelCode) => {
-                                                        const option = getLevelOptionMeta(levelCode);
-                                                        return (
-                                                            <option key={levelCode} value={levelCode}>
-                                                                {formatAdminLevelLabel(option) || levelCode}
-                                                            </option>
-                                                        );
-                                                    })}
-                                                </select>
-                                            </div>
-                                            <div className="mt-2 text-sm text-gray-700">
-                                                <select value={draft.gender ?? ''} onChange={(e) => updateDraft(user.id, { gender: e.target.value })} className="border rounded px-2 py-1 w-full">
-                                                    <option value="">선택</option>
-                                                    <option value="M">남성</option>
-                                                    <option value="F">여성</option>
-                                                    <option value="O">기타</option>
-                                                </select>
-                                            </div>
-                                            <div className="mt-2 text-sm text-gray-500 break-all">{user.email}</div>
                                         </div>
-                                        <div className="mt-3 flex items-center justify-between gap-2">
+                                    </td>
+                                    <td className="px-4 py-3 align-top">
+                                        {normalizedRole === 'admin' ? (
+                                            <span className="inline-flex items-center rounded-md bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">
+                                                admin
+                                            </span>
+                                        ) : (
+                                            <select
+                                                value={normalizeEditableRole(draft.role)}
+                                                onChange={(e) => updateDraft(user.id, { role: e.target.value as 'user' | 'manager' })}
+                                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                                            >
+                                                <option value="user">user</option>
+                                                <option value="manager">manager</option>
+                                            </select>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3 align-top">
+                                        <select
+                                            value={normalizeSkillLevel(draft.skill_level) || levelOptionsFromDb[0]?.code || ''}
+                                            onChange={(e) => updateDraft(user.id, { skill_level: e.target.value })}
+                                            disabled={isPending}
+                                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                                        >
+                                            {levelOptions.map((levelCode) => {
+                                                const option = getLevelOptionMeta(levelCode);
+                                                return (
+                                                    <option key={levelCode} value={levelCode}>
+                                                        {formatAdminLevelLabel(option) || levelCode}
+                                                    </option>
+                                                );
+                                            })}
+                                        </select>
+                                    </td>
+                                    <td className="px-4 py-3 align-top">
+                                        <select
+                                            value={draft.gender ?? ''}
+                                            onChange={(e) => updateDraft(user.id, { gender: e.target.value })}
+                                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                                        >
+                                            <option value="">미지정</option>
+                                            <option value="M">남성</option>
+                                            <option value="F">여성</option>
+                                            <option value="O">기타</option>
+                                        </select>
+                                    </td>
+                                    <td className="px-4 py-3 align-top text-slate-500">
+                                        <div className="max-w-[240px] break-all">{user.email}</div>
+                                    </td>
+                                    <td className="px-4 py-3 align-top">
+                                        <div className="flex items-center justify-end gap-2">
                                             <button
+                                                type="button"
                                                 onClick={() => saveEdit(user)}
                                                 disabled={isPending || !isDirty}
-                                                className="text-green-600 disabled:text-gray-400"
+                                                className="inline-flex items-center gap-1 rounded-md border border-emerald-200 px-3 py-2 text-xs font-medium text-emerald-700 disabled:opacity-40"
                                             >
+                                                <Save className="size-3.5" />
                                                 저장
                                             </button>
-                                            <button onClick={() => handleDelete(user)} disabled={isPending || user.id === myUserId} className="text-red-500">삭제</button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDelete(user)}
+                                                disabled={isPending || user.id === myUserId}
+                                                className="inline-flex items-center gap-1 rounded-md border border-rose-200 px-3 py-2 text-xs font-medium text-rose-700 disabled:opacity-40"
+                                            >
+                                                <Trash2 className="size-3.5" />
+                                                삭제
+                                            </button>
                                         </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="space-y-6">
+            <section className="rounded-lg border border-slate-200 bg-white">
+                <div className="border-b border-slate-200 bg-[linear-gradient(135deg,#f7fafc_0%,#eef6ff_100%)] px-6 py-6">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                        <div>
+                            <div className="text-sm font-medium text-slate-500">Member Console</div>
+                            <h1 className="mt-1 text-3xl font-semibold text-slate-900">회원 운영 센터</h1>
+                            <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                                회원 정보, 권한, 급수, 출석 흐름을 한 화면에서 정리하도록 묶었습니다.
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                                <div className="text-xs uppercase tracking-wide text-slate-500">전체 회원</div>
+                                <div className="mt-1 text-2xl font-semibold text-slate-900">{memberList.length}</div>
+                            </div>
+                            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                                <div className="text-xs uppercase tracking-wide text-slate-500">관리자</div>
+                                <div className="mt-1 text-2xl font-semibold text-slate-900">{overview.adminCount}</div>
+                            </div>
+                            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                                <div className="text-xs uppercase tracking-wide text-slate-500">매니저</div>
+                                <div className="mt-1 text-2xl font-semibold text-slate-900">{overview.managerCount}</div>
+                            </div>
+                            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                                <div className="text-xs uppercase tracking-wide text-slate-500">연결 완료</div>
+                                <div className="mt-1 text-2xl font-semibold text-slate-900">{overview.linkedCount}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="border-b border-slate-200 px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={() => setSelectedTab('overview')} className={tabButtonClass('overview')}>
+                            <Users className="size-4" />
+                            개요
+                        </button>
+                        <button type="button" onClick={() => setSelectedTab('members')} className={tabButtonClass('members')}>
+                            <Shield className="size-4" />
+                            회원 관리
+                        </button>
+                        <button type="button" onClick={() => setSelectedTab('attendance')} className={tabButtonClass('attendance')}>
+                            <Activity className="size-4" />
+                            출석 현황
+                        </button>
+                        <button type="button" onClick={() => setSelectedTab('create')} className={tabButtonClass('create')}>
+                            <UserPlus className="size-4" />
+                            회원 추가
+                        </button>
+                    </div>
+                </div>
+                <div className="px-6 py-5">
+                    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+                        <label className="relative block">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                            <input
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="이름, 이메일, 급수, 역할 검색"
+                                className="h-11 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-sm"
+                            />
+                        </label>
+                        <select
+                            value={roleFilter}
+                            onChange={(e) => setRoleFilter(e.target.value as typeof roleFilter)}
+                            className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                        >
+                            <option value="all">전체 역할</option>
+                            <option value="admin">admin</option>
+                            <option value="manager">manager</option>
+                            <option value="user">user</option>
+                        </select>
+                        <select
+                            value={levelFilter}
+                            onChange={(e) => setLevelFilter(e.target.value)}
+                            className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                        >
+                            <option value="all">전체 급수</option>
+                            {levelOptions.map((levelCode) => (
+                                <option key={levelCode} value={levelCode}>
+                                    {formatAdminLevelLabel(getLevelOptionMeta(levelCode)) || levelCode}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            value={genderFilter}
+                            onChange={(e) => setGenderFilter(e.target.value as typeof genderFilter)}
+                            className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                        >
+                            <option value="all">전체 성별</option>
+                            <option value="M">남성</option>
+                            <option value="F">여성</option>
+                            <option value="O">기타</option>
+                            <option value="unset">미지정</option>
+                        </select>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+                        <div className="inline-flex items-center gap-2">
+                            <Filter className="size-4" />
+                            현재 표시 {filteredUsers.length}명
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSearchQuery('');
+                                setRoleFilter('all');
+                                setGenderFilter('all');
+                                setLevelFilter('all');
+                            }}
+                            className="rounded-md border border-slate-200 px-3 py-2 text-slate-600 hover:bg-slate-50"
+                        >
+                            필터 초기화
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            {selectedTab === 'overview' && (
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
+                    <section className="rounded-lg border border-slate-200 bg-white p-5">
+                        <h2 className="text-lg font-semibold text-slate-900">급수 분포</h2>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            {levelSummary.map((item) => (
+                                <div key={item.level} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                                    <div className="text-sm font-semibold text-slate-900">{formatLevelGroupLabel(item.level)}</div>
+                                    <div className="mt-2 text-2xl font-semibold text-slate-900">{item.count.total}</div>
+                                    <div className="mt-1 text-xs text-slate-500">
+                                        남 {item.count.male} / 여 {item.count.female}
                                     </div>
-                                );
-                            })}
+                                </div>
+                            ))}
                         </div>
                     </section>
-                ))}
+                    <section className="rounded-lg border border-slate-200 bg-white p-5">
+                        <h2 className="text-lg font-semibold text-slate-900">출석 상위</h2>
+                        <div className="mt-4 space-y-3">
+                            {overview.topAttendance.map((user, index) => (
+                                <div key={user.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
+                                    <div>
+                                        <div className="text-sm font-semibold text-slate-900">
+                                            {index + 1}. {user.full_name || user.username || user.email}
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            최근 30일 {user.attendance.last30}회
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-lg font-semibold text-slate-900">{user.attendance.total}</div>
+                                        <div className="text-xs text-slate-500">누적</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                </div>
+            )}
 
-                {groupedUsers.length === 0 && (
-                    <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-gray-500">
-                        검색 결과가 없습니다.
+            {selectedTab === 'members' && (
+                <div className="space-y-4">
+                    <section className="flex flex-col gap-3 rounded-lg border border-sky-200 bg-sky-50 p-4 md:flex-row md:items-center md:justify-between">
+                        <div>
+                            <div className="text-sm font-semibold text-sky-900">변경 대기</div>
+                            <div className="text-sm text-sky-700">
+                                {dirtyCount > 0 ? `${dirtyCount}명의 수정 내용이 아직 저장되지 않았습니다.` : '현재 저장 대기 중인 수정 내용이 없습니다.'}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={saveAllEdits}
+                            disabled={isPending || dirtyCount === 0}
+                            className="inline-flex items-center justify-center gap-2 rounded-md bg-sky-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                        >
+                            <Save className="size-4" />
+                            전체 저장
+                        </button>
+                    </section>
+                    {renderMemberTable()}
+                </div>
+            )}
+
+            {selectedTab === 'attendance' && (
+                <section className="rounded-lg border border-slate-200 bg-white">
+                    <div className="border-b border-slate-200 px-5 py-4">
+                        <h2 className="text-lg font-semibold text-slate-900">회원별 출석 현황</h2>
                     </div>
-                )}
-            </div>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                            <thead className="bg-slate-100 text-slate-600">
+                                <tr>
+                                    <th className="px-4 py-3 text-left font-semibold">회원</th>
+                                    <th className="px-4 py-3 text-right font-semibold">누적 출석</th>
+                                    <th className="px-4 py-3 text-right font-semibold">최근 30일</th>
+                                    <th className="px-4 py-3 text-left font-semibold">마지막 출석</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                                {attendanceRows.map((user) => (
+                                    <tr key={user.id}>
+                                        <td className="px-4 py-3">
+                                            <div className="font-medium text-slate-900">{user.full_name || user.username || user.email}</div>
+                                            <div className="text-xs text-slate-500">{formatLevelGroupLabel(normalizeLevelKey(user.skill_level))}</div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-semibold text-slate-900">{user.attendance.total}</td>
+                                        <td className="px-4 py-3 text-right font-semibold text-slate-700">{user.attendance.last30}</td>
+                                        <td className="px-4 py-3 text-slate-500">{user.attendance.lastAttended || '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            )}
+
+            {selectedTab === 'create' && (
+                <section className="rounded-lg border border-amber-200 bg-[linear-gradient(135deg,#fffaf0_0%,#fff5d6_100%)] p-5">
+                    <div className="max-w-4xl">
+                        <h2 className="text-lg font-semibold text-amber-900">새 회원 등록</h2>
+                        <p className="mt-1 text-sm text-amber-800">
+                            회원을 먼저 프로필로 등록하고, 로그인 연결은 이후 auth 계정 생성 또는 회원가입에서 이어집니다.
+                        </p>
+                    </div>
+                    <div className="mt-5 grid gap-3 md:grid-cols-4">
+                        <input
+                            type="text"
+                            value={newMember.full_name}
+                            onChange={(e) => setNewMember((prev) => ({ ...prev, full_name: e.target.value }))}
+                            placeholder="회원 이름"
+                            className="h-11 rounded-md border border-amber-300 bg-white px-3 text-sm"
+                        />
+                        <select
+                            value={newMember.skill_level}
+                            onChange={(e) => setNewMember((prev) => ({ ...prev, skill_level: e.target.value }))}
+                            className="h-11 rounded-md border border-amber-300 bg-white px-3 text-sm"
+                        >
+                            {levelOptions.map((levelCode) => {
+                                const option = getLevelOptionMeta(levelCode);
+                                return (
+                                    <option key={levelCode} value={levelCode}>
+                                        {formatAdminLevelLabel(option) || levelCode}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                        <select
+                            value={newMember.gender}
+                            onChange={(e) => setNewMember((prev) => ({ ...prev, gender: e.target.value }))}
+                            className="h-11 rounded-md border border-amber-300 bg-white px-3 text-sm"
+                        >
+                            <option value="">성별 미지정</option>
+                            <option value="M">남성</option>
+                            <option value="F">여성</option>
+                            <option value="O">기타</option>
+                        </select>
+                        <button
+                            type="button"
+                            onClick={handleCreateMember}
+                            disabled={isPending}
+                            className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                        >
+                            <UserPlus className="size-4" />
+                            회원 추가
+                        </button>
+                    </div>
+                </section>
+            )}
         </div>
     );
 }

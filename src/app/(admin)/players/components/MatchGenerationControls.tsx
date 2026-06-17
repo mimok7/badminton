@@ -62,6 +62,12 @@ export default function MatchGenerationControls({
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
           <button 
+            className="bg-orange-500 hover:bg-orange-600 text-white py-3 px-4 rounded font-medium transition-colors"
+            onClick={onManualAssign}
+          >
+            ✋ 수동 배정
+          </button>
+          <button 
             className="bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded font-medium transition-colors"
             onClick={onGenerateByLevel}
           >
@@ -78,12 +84,6 @@ export default function MatchGenerationControls({
             onClick={onGenerateMixed}
           >
             👫 혼합복식
-          </button>
-          <button 
-            className="bg-orange-500 hover:bg-orange-600 text-white py-3 px-4 rounded font-medium transition-colors"
-            onClick={onManualAssign}
-          >
-            ✋ 수동 배정
           </button>
         </div>
       </div>

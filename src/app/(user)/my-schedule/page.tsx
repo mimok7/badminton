@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/useUser';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -94,6 +94,7 @@ interface MatchSchedule {
     session_name: string;
     team1_player1: {
       id?: string;
+      user_id?: string;
       username?: string;
       full_name?: string;
       skill_level: string;
@@ -101,6 +102,7 @@ interface MatchSchedule {
     };
     team1_player2: {
       id?: string;
+      user_id?: string;
       username?: string;
       full_name?: string;
       skill_level: string;
@@ -108,6 +110,7 @@ interface MatchSchedule {
     };
     team2_player1: {
       id?: string;
+      user_id?: string;
       username?: string;
       full_name?: string;
       skill_level: string;
@@ -115,6 +118,7 @@ interface MatchSchedule {
     };
     team2_player2: {
       id?: string;
+      user_id?: string;
       username?: string;
       full_name?: string;
       skill_level: string;
@@ -148,7 +152,6 @@ type MatchCenterTab = 'upcoming' | 'results' | 'tournaments';
 export default function MySchedulePage() {
   const { user, profile, loading: userLoading, isAdmin } = useUser();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = getSupabaseClient();
   
   // 모든 상태를 상단에 선언
@@ -180,12 +183,29 @@ export default function MySchedulePage() {
   // 각 경기의 결과 입력 상태를 추적하는 state
   const [matchResultStates, setMatchResultStates] = useState<Record<string, boolean | null>>({});
 
+  const getTodayLocal = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
-    const requestedTab = searchParams.get('tab');
-    if (requestedTab === 'upcoming' || requestedTab === 'results' || requestedTab === 'tournaments') {
-      setActiveTab(requestedTab);
-    }
-  }, [searchParams]);
+    const syncTabFromUrl = () => {
+      const requestedTab = new URLSearchParams(window.location.search).get('tab');
+      if (requestedTab === 'upcoming' || requestedTab === 'results' || requestedTab === 'tournaments') {
+        setActiveTab(requestedTab);
+      }
+    };
+
+    syncTabFromUrl();
+    window.addEventListener('popstate', syncTabFromUrl);
+
+    return () => {
+      window.removeEventListener('popstate', syncTabFromUrl);
+    };
+  }, []);
 
   // 경기 결과 상태 확인 함수
   const checkMatchResult = async (matchId: string) => {
@@ -248,22 +268,29 @@ export default function MySchedulePage() {
 
     try {
       const matchesWithDetails: MatchSchedule[] = [];
+      const myProfile = profile || await getProfileByUserId(supabase, user.id);
+      const participantIds = Array.from(
+        new Set([myProfile?.id, myProfile?.user_id, user.id].filter((value): value is string => Boolean(value)))
+      );
 
       // 1. 내가 참여한 경기 일정 조회 (일반 등록형 경기)
-      const { data: registrationData, error: registrationError } = await supabase
-        .from('match_participants')
-        .select(`
-          match_schedule:match_schedules(
-            id,
-            match_date,
-            start_time,
-            end_time,
-            location,
-            status,
-            description
-          )
-        `)
-        .eq('user_id', user.id);
+      const { data: registrationData, error: registrationError } = participantIds.length > 0
+        ? await supabase
+            .from('match_participants')
+            .select(`
+              match_schedule:match_schedules(
+                id,
+                match_date,
+                start_time,
+                end_time,
+                location,
+                status,
+                description
+              )
+            `)
+            .in('user_id', participantIds)
+            .eq('status', 'registered')
+        : { data: [], error: null };
 
       console.log('등록형 경기 조회 결과:', { data: registrationData, error: registrationError });
 
@@ -285,11 +312,20 @@ export default function MySchedulePage() {
       }
 
       // 2. 내가 배정받은 경기 조회 (generated_matches 기반)
-      const myProfile = profile || await getProfileByUserId(supabase, user.id);
-
       console.log('내 프로필 조회:', { myProfile, userId: user.id });
 
-      if (myProfile?.id) {
+      if (participantIds.length > 0) {
+        const participantMatchFilter = participantIds
+          .map((participantId) =>
+            [
+              `team1_player1_id.eq.${participantId}`,
+              `team1_player2_id.eq.${participantId}`,
+              `team2_player1_id.eq.${participantId}`,
+              `team2_player2_id.eq.${participantId}`,
+            ].join(',')
+          )
+          .join(',');
+
         const { data: assignedMatches, error: assignedError } = await supabase
           .from('generated_matches')
           .select(`
@@ -316,7 +352,7 @@ export default function MySchedulePage() {
               session_date
             )
           `)
-          .or(`team1_player1_id.eq.${myProfile.id},team1_player2_id.eq.${myProfile.id},team2_player1_id.eq.${myProfile.id},team2_player2_id.eq.${myProfile.id}`)
+          .or(participantMatchFilter)
           .order('match_number', { ascending: true }); // 경기 순서 유지
 
         console.log('배정형 경기 조회 결과:', { 
@@ -334,13 +370,15 @@ export default function MySchedulePage() {
             const getPlayerInfo = (playerData: any) => {
               if (!playerData) return { 
                 id: null, 
+                user_id: null,
                 username: '미정', 
                 full_name: '미정', 
                 skill_level: 'E2',
                 skill_level_name: getUserLevelDisplay('E2')
               };
               return {
-                id: playerData.user_id,
+                id: playerData.id,
+                user_id: playerData.user_id,
                 username: playerData.full_name || playerData.username || '미정',
                 full_name: playerData.full_name || playerData.username || '미정',
                 skill_level: playerData.skill_level || 'E2',
@@ -380,7 +418,18 @@ export default function MySchedulePage() {
       let wins = 0;
       let losses = 0;
 
-      if (myProfile?.id) {
+      if (participantIds.length > 0) {
+        const participantMatchFilter = participantIds
+          .map((participantId) =>
+            [
+              `team1_player1_id.eq.${participantId}`,
+              `team1_player2_id.eq.${participantId}`,
+              `team2_player1_id.eq.${participantId}`,
+              `team2_player2_id.eq.${participantId}`,
+            ].join(',')
+          )
+          .join(',');
+
         // 내가 참여한 완료된 경기들의 결과 조회
         const { data: completedMatches, error: completedError } = await supabase
           .from('generated_matches')
@@ -405,7 +454,7 @@ export default function MySchedulePage() {
               session_date
             )
           `)
-          .or(`team1_player1_id.eq.${myProfile.id},team1_player2_id.eq.${myProfile.id},team2_player1_id.eq.${myProfile.id},team2_player2_id.eq.${myProfile.id}`)
+          .or(participantMatchFilter)
           .eq('status', 'completed')
           .not('match_result', 'is', null)
           .order('match_number', { ascending: false });
@@ -462,8 +511,8 @@ export default function MySchedulePage() {
       setFilteredRecords(records);
       
       // 통계 계산
-      const today = new Date().toISOString().slice(0, 10);
-      const upcoming = matchesWithDetails.filter(m => m.match_date >= today && m.status === 'scheduled');
+      const todayLocal = getTodayLocal();
+      const upcoming = matchesWithDetails.filter(m => m.match_date >= todayLocal && m.status === 'scheduled');
       const completed = matchesWithDetails.filter(m => m.status === 'completed');
       const winRate = (wins + losses) > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
       
@@ -498,7 +547,7 @@ export default function MySchedulePage() {
   // 선수 이름 조회
   const getPlayerName = (player: any) => {
     if (!player) return '미정';
-    if (player.id === user?.id) return '나';
+    if (player.user_id === user?.id) return '나';
     return player.full_name || player.username || '미정';
   };
 
@@ -592,7 +641,8 @@ export default function MySchedulePage() {
     router.replace(`/my-schedule?tab=${tab}`, { scroll: false });
   };
 
-  const upcomingMatches = myMatches.filter((match) => match.status !== 'completed');
+  const todayLocal = getTodayLocal();
+  const upcomingMatches = myMatches.filter((match) => match.status === 'scheduled' && match.match_date >= todayLocal);
 
   const formatCompactDate = (value?: string | null) =>
     value
@@ -609,31 +659,10 @@ export default function MySchedulePage() {
   const formatMatchBadge = (match: MatchSchedule) =>
     match.generated_match ? `#${match.generated_match.match_number}` : '등록 경기';
 
-  const summaryCards = [
-    {
-      label: '승률',
-      value: `${stats.winRate}%`,
-      tone: 'from-slate-900 via-blue-900 to-indigo-900',
-      sub: `${stats.wins + stats.losses}경기 완료`,
-    },
-    {
-      label: '예정 경기',
-      value: `${stats.upcomingMatches}`,
-      tone: 'from-emerald-500 to-teal-500',
-      sub: '참여 예정',
-    },
-    {
-      label: '완료 기록',
-      value: `${matchRecords.length}`,
-      tone: 'from-violet-500 to-fuchsia-500',
-      sub: '결과 확인',
-    },
-    {
-      label: '대회 경기',
-      value: `${tournamentMatches.length}`,
-      tone: 'from-amber-500 to-orange-500',
-      sub: allTournamentMatchCount > 0 ? '대회 데이터 연결' : '대회 대기',
-    },
+  const summaryItems = [
+    { label: '예정', value: `${stats.upcomingMatches}` },
+    { label: '완료', value: `${matchRecords.length}` },
+    { label: '승률', value: `${stats.winRate}%` },
   ];
 
   // 경기 결과 보기/일정 상세 보기 핸들러 (통합)
@@ -1065,100 +1094,96 @@ export default function MySchedulePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.16),_transparent_35%),linear-gradient(180deg,#f8fbff_0%,#eef4ff_45%,#f8fafc_100%)]">
-      <div className="mx-auto flex max-w-6xl flex-col gap-5 px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
-        <div className="overflow-hidden rounded-[28px] bg-slate-950 text-white shadow-[0_30px_80px_-35px_rgba(15,23,42,0.65)]">
-          <div className="bg-[radial-gradient(circle_at_top_left,_rgba(96,165,250,0.38),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(168,85,247,0.28),_transparent_28%),linear-gradient(135deg,#0f172a_0%,#1e3a8a_48%,#312e81_100%)] px-4 py-5 sm:px-6 sm:py-6">
+    <div className="min-h-screen bg-[#f5f7fb]">
+      <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-4">
+        <div className="overflow-hidden rounded-[28px] bg-[#0f172a] text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
+          <div className="px-4 py-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100/80">
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">
                   <span>Match Hub</span>
                   <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] tracking-[0.12em] text-white/90">
                     {profile?.full_name || profile?.username || '회원'}
                   </span>
-                  <span className="rounded-full bg-emerald-400/15 px-2 py-1 text-[10px] tracking-[0.12em] text-emerald-100">
+                  <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] tracking-[0.12em] text-white/90">
                     {getUserLevelDisplay(profile?.skill_level)}
                   </span>
                 </div>
-                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">🏸 내 경기 센터</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-blue-100/85 sm:text-[15px]">
-                  경기 일정, 완료 기록, 대회 결과를 모바일에서도 빠르게 훑어볼 수 있게 더 압축된 카드형으로 정리했습니다.
+                <h1 className="text-2xl font-semibold tracking-tight">내 일정</h1>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  오늘 필요한 경기 정보만 빠르게 확인할 수 있게 정리했습니다.
                 </p>
               </div>
               <Link
-                href="/"
+                href="/dashboard"
                 className="shrink-0 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/15"
               >
-                홈
+                대시보드
               </Link>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
-              {summaryCards.map((card) => (
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {summaryItems.map((item) => (
                 <div
-                  key={card.label}
-                  className="overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-sm"
+                  key={item.label}
+                  className="rounded-[18px] bg-white/10 px-2 py-3 text-center text-sm"
                 >
-                  <div className={`inline-flex rounded-full bg-gradient-to-r px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm ${card.tone}`}>
-                    {card.label}
-                  </div>
-                  <div className="mt-3 text-2xl font-bold tracking-tight sm:text-[28px]">{card.value}</div>
-                  <div className="mt-1 text-xs text-blue-100/75">{card.sub}</div>
+                  <div className="text-[11px] text-slate-300">{item.label}</div>
+                  <div className="mt-1 font-semibold text-white">{item.value}</div>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-slate-200/70 bg-white/90 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.22)] backdrop-blur">
-          <div className="overflow-x-auto px-3 py-3 sm:px-4">
+        <div className="rounded-[24px] bg-white px-3 py-3 shadow-sm">
+          <div className="overflow-x-auto">
             <div className="flex min-w-max gap-2">
               <button
                 type="button"
                 onClick={() => selectTab('upcoming')}
                 className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
                   activeTab === 'upcoming'
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                    ? 'bg-slate-950 text-white'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                예정 경기 {stats.upcomingMatches}
+                예정 경기
               </button>
               <button
                 type="button"
                 onClick={() => selectTab('results')}
                 className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
                   activeTab === 'results'
-                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/25'
+                    ? 'bg-slate-950 text-white'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                완료 기록 {matchRecords.length}
+                완료 기록
               </button>
               <button
                 type="button"
                 onClick={() => selectTab('tournaments')}
                 className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
                   activeTab === 'tournaments'
-                    ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                    ? 'bg-slate-950 text-white'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                대회 경기 {tournamentMatches.length}
+                대회 경기
               </button>
             </div>
           </div>
         </div>
 
         {activeTab === 'upcoming' && (
-          <div className="rounded-[24px] border border-slate-200/70 bg-white/95 shadow-[0_24px_60px_-35px_rgba(15,23,42,0.3)]">
-            <div className="border-b border-slate-200/80 px-4 py-4 sm:px-6">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div className="rounded-[24px] bg-white shadow-sm">
+            <div className="border-b border-slate-200/80 px-4 py-4">
+              <div className="flex flex-col gap-1">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">예정 경기</h2>
-                  <p className="text-sm text-slate-500">시간, 장소, 팀 구성을 더 촘촘하게 확인할 수 있습니다.</p>
+                  <h2 className="text-lg font-semibold text-slate-900">예정 경기</h2>
+                  <p className="text-sm text-slate-500">다가오는 경기와 팀 구성을 한 번에 확인합니다.</p>
                 </div>
-                <div className="text-sm font-medium text-slate-500">총 {upcomingMatches.length}건</div>
               </div>
             </div>
 
@@ -1172,15 +1197,12 @@ export default function MySchedulePage() {
                 <div className="mb-4 text-6xl">🏸</div>
                 <h3 className="mb-2 text-lg font-medium text-gray-900">예정된 경기가 없습니다</h3>
                 <p className="mb-4 text-gray-600">새로운 경기에 등록하거나 관리자의 배정을 기다려주세요.</p>
-                <Link href="/match-registration">
-                  <Button>경기 등록하기</Button>
-                </Link>
               </div>
             ) : (
               <div className="divide-y divide-slate-200/80">
                 {upcomingMatches.map((match) => (
-                  <div key={match.id} className="p-4 sm:p-5">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div key={match.id} className="p-4">
+                    <div className="flex flex-col gap-4">
                       <div className="min-w-0 flex-1">
                         <div className="mb-3 flex flex-wrap items-center gap-2">
                           <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
@@ -1189,46 +1211,36 @@ export default function MySchedulePage() {
                           <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(match.status)}`}>
                             {getStatusText(match.status)}
                           </span>
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                            {formatCompactDate(match.match_date)}
-                          </span>
                         </div>
 
-                        <div className="grid gap-2 sm:grid-cols-3">
+                        <div className="grid gap-2">
                           <div className="rounded-2xl bg-slate-50 px-3 py-3">
                             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">일정</div>
                             <div className="mt-1 text-sm font-medium text-slate-800">{formatCompactDate(match.match_date)}</div>
                             <div className="text-xs text-slate-500">{formatTimeRange(match.start_time, match.end_time)}</div>
                           </div>
                           <div className="rounded-2xl bg-slate-50 px-3 py-3">
-                            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">장소</div>
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">장소 / 구분</div>
                             <div className="mt-1 text-sm font-medium text-slate-800">{match.location}</div>
-                            <div className="text-xs text-slate-500">{match.description}</div>
-                          </div>
-                          <div className="rounded-2xl bg-slate-50 px-3 py-3">
-                            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">세션</div>
-                            <div className="mt-1 text-sm font-medium text-slate-800">
-                              {match.generated_match?.session_name || '일반 등록 경기'}
-                            </div>
                             <div className="text-xs text-slate-500">
-                              {match.generated_match ? '관리자 배정 경기' : '참가 신청 일정'}
+                              {match.generated_match?.session_name || '일반 등록 경기'}
                             </div>
                           </div>
                         </div>
 
                         {match.generated_match && (
-                          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                          <div className="mt-4 grid gap-3">
                             <div className="rounded-[20px] border border-blue-100 bg-blue-50/80 p-3">
                               <div className="mb-2 flex items-center justify-between">
                                 <div className="text-sm font-semibold text-blue-900">팀 A</div>
                                 <div className="text-[11px] font-medium text-blue-500">라켓팀</div>
                               </div>
                               <div className="space-y-1.5 text-sm">
-                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team1_player1.id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team1_player1.user_id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
                                   {getPlayerName(match.generated_match.team1_player1)}
                                   <span className="ml-1 text-xs text-blue-500">· {getLevelName(match.generated_match.team1_player1)}</span>
                                 </div>
-                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team1_player2.id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team1_player2.user_id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
                                   {getPlayerName(match.generated_match.team1_player2)}
                                   <span className="ml-1 text-xs text-blue-500">· {getLevelName(match.generated_match.team1_player2)}</span>
                                 </div>
@@ -1240,11 +1252,11 @@ export default function MySchedulePage() {
                                 <div className="text-[11px] font-medium text-rose-500">셔틀팀</div>
                               </div>
                               <div className="space-y-1.5 text-sm">
-                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team2_player1.id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team2_player1.user_id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
                                   {getPlayerName(match.generated_match.team2_player1)}
                                   <span className="ml-1 text-xs text-rose-500">· {getLevelName(match.generated_match.team2_player1)}</span>
                                 </div>
-                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team2_player2.id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team2_player2.user_id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
                                   {getPlayerName(match.generated_match.team2_player2)}
                                   <span className="ml-1 text-xs text-rose-500">· {getLevelName(match.generated_match.team2_player2)}</span>
                                 </div>
@@ -1255,7 +1267,7 @@ export default function MySchedulePage() {
                       </div>
 
                       {match.generated_match && (
-                        <div className="flex shrink-0 flex-col gap-2 xl:w-36">
+                        <div className="flex shrink-0 flex-col gap-2">
                           {match.status === 'scheduled' && (
                             <Button
                               variant="outline"
@@ -1327,10 +1339,10 @@ export default function MySchedulePage() {
         )}
 
         {activeTab === 'results' && (
-          <div className="rounded-[24px] border border-slate-200/70 bg-white/95 shadow-[0_24px_60px_-35px_rgba(15,23,42,0.3)]">
-            <div className="flex flex-col gap-4 border-b border-slate-200/80 p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
+          <div className="rounded-[24px] bg-white shadow-sm">
+            <div className="flex flex-col gap-4 border-b border-slate-200/80 p-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">완료된 경기 기록</h2>
+                  <h2 className="text-lg font-semibold text-slate-900">완료된 경기 기록</h2>
                 <p className="mt-1 text-sm text-slate-500">승패와 점수를 압축해서 빠르게 훑어볼 수 있습니다.</p>
               </div>
               <div className="flex items-center gap-2">
@@ -1362,10 +1374,10 @@ export default function MySchedulePage() {
             ) : (
               <div className="divide-y divide-slate-200/80">
                 {filteredRecords.map((record) => (
-                  <div key={record.id} className="p-4 sm:p-5">
-                    <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-                      <div className="rounded-[20px] bg-slate-50 px-4 py-3">
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <div key={record.id} className="p-4">
+                    <div className="grid gap-3">
+                        <div className="rounded-[20px] bg-slate-50 px-4 py-3">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
                           <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
                             #{record.matchNumber}
                           </span>
@@ -1381,9 +1393,6 @@ export default function MySchedulePage() {
                           </span>
                         </div>
                         <div className="text-lg font-semibold text-slate-900">{record.score || '점수 기록 없음'}</div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {record.isUserTeam1 ? '라켓팀 기준 기록' : '셔틀팀 기준 기록'}
-                        </div>
                       </div>
                       <div className="grid gap-2 text-sm">
                         <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-3">
@@ -1408,25 +1417,16 @@ export default function MySchedulePage() {
         )}
 
         {activeTab === 'tournaments' && (
-          <div className="rounded-[24px] border border-slate-200/70 bg-white/95 shadow-[0_24px_60px_-35px_rgba(15,23,42,0.3)]">
-            <div className="flex flex-col gap-4 border-b border-slate-200/80 p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
+          <div className="rounded-[24px] bg-white shadow-sm">
+            <div className="flex flex-col gap-4 border-b border-slate-200/80 p-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">대회 경기</h2>
-                <p className="mt-1 text-sm text-slate-500">대회 결과도 일반 경기와 같은 밀도로 볼 수 있습니다.</p>
+                  <h2 className="text-lg font-semibold text-slate-900">대회 경기</h2>
+                <p className="mt-1 text-sm text-slate-500">참가 중인 대회 경기만 모아봅니다.</p>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-2xl bg-amber-50 px-3 py-3">
-                  <div className="text-lg font-bold text-amber-900">{tournamentStats.total}</div>
-                  <div className="text-xs text-amber-700">총 경기</div>
-                </div>
-                <div className="rounded-2xl bg-green-50 px-3 py-3">
-                  <div className="text-lg font-bold text-green-900">{tournamentStats.wins}</div>
-                  <div className="text-xs text-green-700">승리</div>
-                </div>
-                <div className="rounded-2xl bg-blue-50 px-3 py-3">
-                  <div className="text-lg font-bold text-blue-900">{tournamentStats.pending}</div>
-                  <div className="text-xs text-blue-700">대기</div>
-                </div>
+              <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-600">
+                <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-800">총 {tournamentStats.total}</span>
+                <span className="rounded-full bg-green-50 px-3 py-1.5 text-green-800">승리 {tournamentStats.wins}</span>
+                <span className="rounded-full bg-blue-50 px-3 py-1.5 text-blue-800">대기 {tournamentStats.pending}</span>
               </div>
             </div>
 
@@ -1439,7 +1439,7 @@ export default function MySchedulePage() {
                 <p>대회가 생성되면 이 탭에서 일반 경기와 분리해서 확인할 수 있습니다.</p>
               </div>
             ) : (
-              <div className="space-y-3 p-4 sm:p-6">
+              <div className="space-y-3 p-4">
                 {tournamentMatches.map((match) => {
                   const myTeam = getMyTournamentTeam(match);
                   const didIWin = match.status === 'completed' && match.winner === myTeam;
@@ -1462,7 +1462,7 @@ export default function MySchedulePage() {
                           : 'border-slate-200 bg-slate-50/80'
                       }`}
                     >
-                      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="mb-3 flex flex-col gap-3">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
@@ -1502,7 +1502,7 @@ export default function MySchedulePage() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+                      <div className="grid grid-cols-1 gap-3">
                         <div className={`rounded-[20px] p-3 text-center ${myTeam === 'team1' ? 'border border-blue-300 bg-blue-100' : 'bg-white'}`}>
                           <div className="mb-2 font-semibold text-blue-700">{myTeam === 'team1' ? '내 팀' : '상대 팀'}</div>
                           {match.team1.map((player, index) => (
@@ -1537,7 +1537,7 @@ export default function MySchedulePage() {
           </div>
         )}
 
-        <div className="space-y-4 rounded-[24px] border border-slate-200/70 bg-white/80 p-4 text-center shadow-[0_20px_50px_-35px_rgba(15,23,42,0.22)]">
+        <div className="space-y-4 rounded-[24px] bg-white p-4 text-center shadow-sm">
           <Button onClick={fetchMySchedule} disabled={loading} variant="outline" className="rounded-xl">
             {loading ? (
               <>
@@ -1548,35 +1548,6 @@ export default function MySchedulePage() {
               '🔄 새로고침'
             )}
           </Button>
-
-          {isAdmin && (
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button
-                onClick={async () => {
-                  await NotificationService.sendNotification(
-                    '🏸 경기 준비 테스트',
-                    '이것은 알림 시스템 테스트입니다.\n브라우저 알림과 소리가 정상적으로 작동하는지 확인해주세요.',
-                    { playSound: true, showBrowserNotification: true }
-                  );
-                }}
-                variant="outline"
-                size="sm"
-                className="text-xs"
-              >
-                🔔 알림 테스트
-              </Button>
-              <Button
-                onClick={async () => {
-                  await NotificationService.sendMatchPreparationNotification(999, ['테스트 선수1', '테스트 선수2']);
-                }}
-                variant="outline"
-                size="sm"
-                className="text-xs"
-              >
-                🏸 경기 알림 테스트
-              </Button>
-            </div>
-          )}
         </div>
 
         {showDetailsModal && selectedMatch && (

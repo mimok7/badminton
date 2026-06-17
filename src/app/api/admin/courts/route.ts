@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { getUserRole } from '@/lib/auth';
+import type { Database } from '@/types/supabase';
+
+type CourtInsert = Database['public']['Tables']['courts']['Insert'];
+type CourtUpdate = Database['public']['Tables']['courts']['Update'];
 
 async function requireAdmin() {
   const serverSupabase = await getSupabaseServerClient();
@@ -61,7 +65,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Court name is required' }, { status: 400 });
     }
 
-    const payload: Record<string, unknown> = {
+    const payload: CourtInsert = {
       name,
       is_active: isActive,
     };
@@ -99,7 +103,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Court id is required' }, { status: 400 });
     }
 
-    const updates: Record<string, unknown> = {};
+    const updates: CourtUpdate = {};
 
     if (typeof body?.name === 'string') updates.name = body.name.trim();
     if (typeof body?.location === 'string') updates.location = body.location.trim();

@@ -7,11 +7,14 @@ import { ArrowRight, CalendarDays, MapPin, Users } from 'lucide-react';
 import { RequireAuth } from '@/components/AuthGuard';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
+import { getKoreaDate } from '@/lib/date';
 import { getUserLevelDisplay } from '@/lib/level-display';
 import { getSupabaseClient } from '@/lib/supabase';
 
 interface MatchSchedule {
   id: string;
+  generated_match_id: number | null;
+  schedule_source: string | null;
   match_date: string | null;
   start_time: string | null;
   end_time: string | null;
@@ -67,16 +70,18 @@ export default function MatchRegistrationPage() {
   const fetchSchedulesAndParticipation = useCallback(async () => {
     try {
       setLoading(true);
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getKoreaDate();
+      let schedulesList: MatchSchedule[] = [];
 
       const { data: schedulesData, error: schedulesError } = await supabase
         .from('match_schedules')
-        .select('id, match_date, start_time, end_time, location, max_participants, status, description, current_participants')
+        .select('id, generated_match_id, schedule_source, match_date, start_time, end_time, location, max_participants, status, description, current_participants')
         .eq('status', 'scheduled')
         .gte('match_date', todayStr)
+        .is('generated_match_id', null)
         .order('match_date', { ascending: true })
         .order('start_time', { ascending: true })
-        .limit(5);
+        .limit(100);
 
       if (schedulesError) {
         console.error('경기 일정 조회 오류:', schedulesError);
@@ -85,10 +90,35 @@ export default function MatchRegistrationPage() {
         return;
       }
 
-      const schedulesList: MatchSchedule[] = (schedulesData || []).map((schedule) => ({
-        ...schedule,
-        status: schedule.status || 'scheduled',
-      }));
+      const filteredSchedules: MatchSchedule[] = (schedulesData || [])
+        .filter((schedule) => {
+          const description = schedule.description || '';
+          return schedule.generated_match_id == null
+            && schedule.schedule_source !== 'generated'
+            && !description.includes('자동 배정된 경기');
+        })
+        .map((schedule) => ({
+          ...schedule,
+          status: schedule.status || 'scheduled',
+        }));
+      const visibleDates = new Set<string>();
+      schedulesList = filteredSchedules.filter((schedule) => {
+        if (!schedule.match_date) {
+          return false;
+        }
+
+        if (visibleDates.has(schedule.match_date)) {
+          return true;
+        }
+
+        if (visibleDates.size >= 5) {
+          return false;
+        }
+
+        visibleDates.add(schedule.match_date);
+        return true;
+      });
+
       setSchedules(schedulesList);
 
       if (schedulesList.length === 0) {
@@ -446,8 +476,18 @@ export default function MatchRegistrationPage() {
       <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
         <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-4">
           <section className="rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
-            <p className="text-xs text-slate-300">경기 신청</p>
-            <h1 className="mt-1 text-2xl font-semibold">참가 가능한 경기를 확인하세요</h1>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs text-slate-300">경기 신청</p>
+                <h1 className="mt-1 text-2xl font-semibold">참가 가능한 경기를 확인하세요</h1>
+              </div>
+              <Link
+                href="/dashboard"
+                className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+              >
+                홈
+              </Link>
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
               <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">
                 {profile?.full_name || profile?.username || '회원'}님

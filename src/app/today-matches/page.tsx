@@ -121,6 +121,22 @@ export default function TodayMatches() {
     return null;
   };
 
+  const normalizeGender = (value?: string | null) => String(value || '').trim().toUpperCase();
+
+  const getPlayerIcon = (gender?: string | null) => {
+    const normalized = normalizeGender(gender);
+
+    if (['M', 'MALE', 'MAN', '남', '남성'].includes(normalized)) {
+      return '👨';
+    }
+
+    if (['F', 'FEMALE', 'WOMAN', 'W', '여', '여성'].includes(normalized)) {
+      return '👩';
+    }
+
+    return '👤';
+  };
+
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
@@ -245,27 +261,27 @@ export default function TodayMatches() {
                     )}
                   </div>
 
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <div className={`rounded-[20px] p-4 ${team === 'team1' ? 'border-2 border-blue-300 bg-blue-50' : 'bg-slate-50'}`}>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className={`rounded-[20px] p-4 text-left ${team === 'team1' ? 'border-2 border-blue-300 bg-blue-50' : 'bg-slate-50'}`}>
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-blue-800">팀 1</span>
                         {team === 'team1' && <span className="rounded-full bg-blue-200 px-2 py-1 text-[11px] font-medium text-blue-800">내 팀</span>}
                       </div>
                       <div className="mt-3 space-y-1 text-sm text-blue-700">
-                        <div className={`${match.team1_player1 === user?.id ? 'font-semibold text-blue-900 underline' : 'font-medium'}`}>👤 {match.team1_player1_name}</div>
-                        <div className={`${match.team1_player2 === user?.id ? 'font-semibold text-blue-900 underline' : 'font-medium'}`}>👤 {match.team1_player2_name}</div>
+                        <div className={`${match.team1_player1 === user?.id ? 'font-semibold text-blue-900 underline' : 'font-medium'}`}>{getPlayerIcon(match.team1_player1_gender)} {match.team1_player1_name}</div>
+                        <div className={`${match.team1_player2 === user?.id ? 'font-semibold text-blue-900 underline' : 'font-medium'}`}>{getPlayerIcon(match.team1_player2_gender)} {match.team1_player2_name}</div>
                       </div>
                     </div>
 
-                    <div className={`rounded-[20px] p-4 ${team === 'team2' ? 'border-2 border-rose-300 bg-rose-50' : 'bg-slate-50'}`}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-rose-800">팀 2</span>
-                        {team === 'team2' && <span className="rounded-full bg-rose-200 px-2 py-1 text-[11px] font-medium text-rose-800">내 팀</span>}
+                    <div className={`rounded-[20px] p-4 text-right ${team === 'team2' ? 'border-2 border-emerald-300 bg-emerald-50' : 'bg-slate-50'}`}>
+                      <div className="flex items-center justify-end gap-2">
+                        {team === 'team2' && <span className="rounded-full bg-emerald-200 px-2 py-1 text-[11px] font-medium text-emerald-800">내 팀</span>}
+                        <span className="text-sm font-semibold text-emerald-800">팀 2</span>
                       </div>
-                      <div className="mt-3 space-y-1 text-sm text-rose-700">
-                        <div className={`${match.team2_player1 === user?.id ? 'font-semibold text-rose-900 underline' : 'font-medium'}`}>👤 {match.team2_player1_name}</div>
-                        <div className={`${match.team2_player2 === user?.id ? 'font-semibold text-rose-900 underline' : 'font-medium'}`}>👤 {match.team2_player2_name}</div>
-                      </div>
+                      <div className="mt-3 space-y-1 text-sm text-emerald-700">
+                          <div className={`${match.team2_player1 === user?.id ? 'font-semibold text-emerald-900 underline' : 'font-medium'}`}>{getPlayerIcon(match.team2_player1_gender)} {match.team2_player1_name}</div>
+                          <div className={`${match.team2_player2 === user?.id ? 'font-semibold text-emerald-900 underline' : 'font-medium'}`}>{getPlayerIcon(match.team2_player2_gender)} {match.team2_player2_name}</div>
+                        </div>
                     </div>
                   </div>
                 </article>

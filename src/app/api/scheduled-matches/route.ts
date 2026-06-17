@@ -8,10 +8,13 @@ type ProfileRow = {
   user_id: string | null;
   username: string | null;
   full_name: string | null;
+  gender: string | null;
 };
 
 const getProfileName = (profile?: Pick<ProfileRow, 'username' | 'full_name'> | null, fallback = '선수') =>
   profile?.full_name || profile?.username || fallback;
+
+const getProfileGender = (profile?: Pick<ProfileRow, 'gender'> | null) => profile?.gender || null;
 
 export async function GET(request: Request) {
   try {
@@ -95,7 +98,7 @@ export async function GET(request: Request) {
 
     const { data: profiles, error: profilesError } = await adminSupabase
       .from('profiles')
-      .select('id, user_id, username, full_name');
+      .select('id, user_id, username, full_name, gender');
 
     if (profilesError) {
       console.error('Scheduled matches profiles error:', profilesError);
@@ -163,6 +166,10 @@ export async function GET(request: Request) {
         team1_player2_name: getProfileName(profileMap.get(team1Player2Id || '') || null, '선수2'),
         team2_player1_name: getProfileName(profileMap.get(team2Player1Id || '') || null, '선수3'),
         team2_player2_name: getProfileName(profileMap.get(team2Player2Id || '') || null, '선수4'),
+        team1_player1_gender: getProfileGender(profileMap.get(team1Player1Id || '') || null),
+        team1_player2_gender: getProfileGender(profileMap.get(team1Player2Id || '') || null),
+        team2_player1_gender: getProfileGender(profileMap.get(team2Player1Id || '') || null),
+        team2_player2_gender: getProfileGender(profileMap.get(team2Player2Id || '') || null),
       };
     });
 

@@ -1729,3 +1729,16 @@
  ✓ Compiled in 717ms (719 modules)
  GET /my-schedule 200 in 123ms
  GET /manifest.webmanifest 200 in 57ms
+ ✓ Compiled in 3.6s (719 modules)
+ GET /my-schedule 200 in 142ms
+ GET /manifest.webmanifest 200 in 38ms
+ ✓ Compiled in 2.5s (719 modules)
+ GET /my-schedule 200 in 104ms
+ GET /manifest.webmanifest 200 in 53ms
+ GET /dashboard 200 in 89ms
+ GET /manifest.webmanifest 200 in 63ms
+ ○ Compiling /my-tournament-matches ...
+ ✓ Compiled /my-tournament-matches in 5.7s (668 modules)
+ GET /my-tournament-matches 200 in 5980ms
+ GET /my-schedule 200 in 359ms
+ GET /manifest.webmanifest 200 in 102ms

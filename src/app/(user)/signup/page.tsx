@@ -8,6 +8,7 @@ import { getUserLevelDisplay } from '@/lib/level-display';
 export const dynamic = 'force-dynamic';
 
 interface ProfileOption {
+  id: string;
   username: string;
   skill_level: string;
   skill_label: string;
@@ -18,35 +19,40 @@ export default function SignupPage() {
   const supabase = getSupabaseClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [selectedProfileId, setSelectedProfileId] = useState('');
   const [nameOptions, setNameOptions] = useState<ProfileOption[]>([]);
 
-  // 이름 목록 불러오기 (새로운 RPC 함수 사용)
+  // 가입 가능한 placeholder 프로필만 조회한다.
   const fetchNames = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_available_profiles');
-      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, user_id, skill_level')
+        .is('user_id', null)
+        .not('username', 'is', null)
+        .order('username', { ascending: true });
+
       if (error) {
         console.error('이름 목록 조회 오류:', error);
-        // 실패 시 기존 방식으로 fallback
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('profiles')
-          .select('username, user_id, skill_level')
-          .order('username', { ascending: true });
-        
-        if (!fallbackError && fallbackData) {
-          setNameOptions(fallbackData
-            .filter((row: any) => !row.user_id && row.username)
-            .map((row: any) => ({
+        return;
+      }
+
+      setNameOptions(
+        (data || [])
+          .map((row) => {
+            if (typeof row.id !== 'string' || typeof row.username !== 'string' || row.user_id) {
+              return null;
+            }
+
+            return {
+              id: row.id,
               username: row.username,
               skill_level: row.skill_level || 'E2',
-              skill_label: getUserLevelDisplay(row.skill_level)
-            }))
-          );
-        }
-      } else if (data) {
-        setNameOptions(data as ProfileOption[]);
-      }
+              skill_label: getUserLevelDisplay(row.skill_level),
+            };
+          })
+          .filter((row): row is ProfileOption => row !== null)
+      );
     } catch (error) {
       console.error('이름 목록 조회 중 오류:', error);
     }
@@ -59,17 +65,17 @@ export default function SignupPage() {
  const handleSignup = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  if (!name) {
+  if (!selectedProfileId) {
     alert('이름을 선택해주세요.');
     return;
   }
 
   try {
-    // 1. 먼저 선택한 이름이 아직 사용 가능한지 재확인
+    // 1. 선택한 placeholder 프로필이 아직 비어 있는지 재확인
     const { data: nameCheck, error: nameError } = await supabase
       .from('profiles')
       .select('id, user_id, username')
-      .eq('username', name)
+      .eq('id', selectedProfileId)
       .maybeSingle();
 
     if (nameError) {
@@ -85,7 +91,6 @@ export default function SignupPage() {
 
     if (nameCheck.user_id) {
       alert('선택한 이름이 이미 다른 사용자에게 연결되어 있습니다. 다른 이름을 선택해주세요.');
-      // 이름 목록 새로고침
       await fetchNames();
       return;
     }
@@ -112,18 +117,27 @@ export default function SignupPage() {
     console.log('새 사용자 ID:', user.id);
     console.log('선택한 프로필 ID:', nameCheck.id);
 
-    // 3. 기존 프로필에 user_id 연결
-    const { error: updateError } = await supabase
+    // 3. 기존 placeholder 프로필에 auth user_id 연결
+    const { data: updatedProfile, error: updateError } = await supabase
       .from('profiles')
       .update({
         user_id: user.id,
         email: user.email
       })
-      .eq('id', nameCheck.id);
+      .eq('id', nameCheck.id)
+      .is('user_id', null)
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       console.error('프로필 업데이트 오류:', updateError);
       alert('프로필 연결 중 오류가 발생했습니다: ' + updateError.message);
+      return;
+    }
+
+    if (!updatedProfile) {
+      alert('선택한 프로필이 방금 다른 사용자와 연결되었습니다. 다시 선택해주세요.');
+      await fetchNames();
       return;
     }
 
@@ -159,13 +173,13 @@ export default function SignupPage() {
         />
         <select
           className="w-full border p-2 rounded"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={selectedProfileId}
+          onChange={(e) => setSelectedProfileId(e.target.value)}
           required
         >
           <option value="">이름을 선택하세요</option>
           {nameOptions.map((option) => (
-            <option key={option.username} value={option.username}>
+            <option key={option.id} value={option.id}>
               {option.username} ({option.skill_label})
             </option>
           ))}

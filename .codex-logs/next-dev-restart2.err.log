@@ -1,0 +1,262 @@
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (108kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ⚠ Cross origin request detected from 192.168.1.10 to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ ⨯ ./src/app/(user)/dashboard/ClientDashboard.tsx
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\SHT-DATA\badminton\src\app\(user)\dashboard\ClientDashboard.tsx
+    1: 지정된 파일을 찾을 수 없습니다. (os error 2)
+
+Import trace for requested module:
+./src/app/(user)/dashboard/ClientDashboard.tsx
+./src/app/(user)/dashboard/page.tsx
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (108kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⨯ ReferenceError: participantKeys is not defined
+    at MatchRegistrationPage (src\app\match-registration\page.tsx:203:7)
+  201 |       setLoading(false);
+  202 |     }
+> 203 |   }, [participantKeys, supabase]);
+      |       ^
+  204 |
+  205 |   const registerForMatch = async (scheduleId: string) => {
+  206 |     if (!user) return; {
+  digest: '3078866391'
+}
+ ⨯ ReferenceError: participantKeys is not defined
+    at MatchRegistrationPage (src\app\match-registration\page.tsx:203:7)
+  201 |       setLoading(false);
+  202 |     }
+> 203 |   }, [participantKeys, supabase]);
+      |       ^
+  204 |
+  205 |   const registerForMatch = async (scheduleId: string) => {
+  206 |     if (!user) return; {
+  digest: '3078866391'
+}
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⨯ SyntaxError: Unexpected end of JSON input
+    at JSON.parse (<anonymous>) {
+  page: '/manifest.webmanifest'
+}
+ ⨯ ./src/app/(user)/tournament-bracket/page.tsx
+Error:   [31mx[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ,-[[36;1;4mC:\SHT-DATA\badminton\src\app\(user)\tournament-bracket\page.tsx[0m:962:1]
+ [2m959[0m |       </div>
+ [2m960[0m |     </div>
+ [2m961[0m |   );
+ [2m962[0m | }
+     : [35;1m^[0m
+     `----
+  [31mx[0m Unexpected eof
+     ,-[[36;1;4mC:\SHT-DATA\badminton\src\app\(user)\tournament-bracket\page.tsx[0m:962:3]
+ [2m960[0m |     </div>
+ [2m961[0m |   );
+ [2m962[0m | }
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/(user)/tournament-bracket/page.tsx
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⨯ ./src/app/(user)/tournament-bracket/page.tsx
+Error:   [31mx[0m Expected ',', got 'className'
+    ,-[[36;1;4mC:\SHT-DATA\badminton\src\app\(user)\tournament-bracket\page.tsx[0m:32:1]
+ [2m29[0m |   title: string;
+ [2m30[0m |   tournament_date: string;
+ [2m31[0m |   round_number: number;
+ [2m32[0m |         <div className="app-page">
+    : [35;1m             ^^^^^^^^^[0m
+ [2m33[0m |           <div className="app-page-wide">
+ [2m34[0m |             <div className="app-section-card flex min-h-[60vh] items-center justify-center">
+ [2m35[0m |               <div className="text-lg font-medium text-slate-600">대회 정보를 불러오는 중입니다...</div>
+    `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/(user)/tournament-bracket/page.tsx
+ ⨯ ./src/app/(user)/tournament-bracket/page.tsx
+Error:   [31mx[0m Expected ',', got 'className'
+    ,-[[36;1;4mC:\SHT-DATA\badminton\src\app\(user)\tournament-bracket\page.tsx[0m:32:1]
+ [2m29[0m |   title: string;
+ [2m30[0m |   tournament_date: string;
+ [2m31[0m |   round_number: number;
+ [2m32[0m |         <div className="app-page">
+    : [35;1m             ^^^^^^^^^[0m
+ [2m33[0m |           <div className="app-page-wide">
+ [2m34[0m |             <div className="app-section-card flex min-h-[60vh] items-center justify-center">
+ [2m35[0m |               <div className="text-lg font-medium text-slate-600">대회 정보를 불러오는 중입니다...</div>
+    `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/(user)/tournament-bracket/page.tsx
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\app\(user)\profile\page.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\app\\(user)\\profile\\page.js',
+  page: '/profile'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\app\(user)\profile\page.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\app\\(user)\\profile\\page.js',
+  page: '/profile'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\pages\\_document.js'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\pages\\_document.js'
+}
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading '/_app')]
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\app\(user)\profile\page.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\app\\(user)\\profile\\page.js',
+  page: '/profile'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\app\(user)\profile\page.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\app\\(user)\\profile\\page.js',
+  page: '/profile'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\pages\\_document.js'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\pages\\_document.js'
+}
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading '/_app')]
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\app\(user)\profile\page.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\app\\(user)\\profile\\page.js',
+  page: '/profile'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\pages\\_document.js'
+}
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading '/_app')]
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\app\(user)\profile\page.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\app\\(user)\\profile\\page.js',
+  page: '/profile'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\pages\\_document.js'
+}
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading '/_app')]
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\app\(user)\profile\page.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\app\\(user)\\profile\\page.js',
+  page: '/profile'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\pages\\_document.js'
+}
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading '/_app')]
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\app\(user)\profile\page.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\app\\(user)\\profile\\page.js',
+  page: '/profile'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\pages\\_document.js'
+}
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading '/_app')]
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\app\(user)\profile\page.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\app\\(user)\\profile\\page.js',
+  page: '/profile'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\pages\\_document.js'
+}
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading '/_app')]
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\app\(user)\profile\page.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\app\\(user)\\profile\\page.js',
+  page: '/profile'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\server\pages\_document.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\server\\pages\\_document.js'
+}
+[TypeError: Cannot read properties of undefined (reading '/_app')]
+ ⨯ [TypeError: Cannot read properties of undefined (reading '/_app')]
+[TypeError: Cannot read properties of undefined (reading '/_app')]

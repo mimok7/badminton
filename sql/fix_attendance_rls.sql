@@ -13,7 +13,7 @@ CREATE POLICY "Users can insert attendance v3" ON attendances
         auth.uid() = user_id OR
         EXISTS (
             SELECT 1 FROM profiles
-            WHERE profiles.id = auth.uid()
+            WHERE (profiles.user_id = auth.uid() OR profiles.id = auth.uid())
             AND profiles.role = 'admin'
         )
     );
@@ -23,7 +23,7 @@ CREATE POLICY "Users can update attendance v3" ON attendances
         auth.uid() = user_id OR
         EXISTS (
             SELECT 1 FROM profiles
-            WHERE profiles.id = auth.uid()
+            WHERE (profiles.user_id = auth.uid() OR profiles.id = auth.uid())
             AND profiles.role = 'admin'
         )
     );

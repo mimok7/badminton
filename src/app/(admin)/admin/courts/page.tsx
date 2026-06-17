@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
-import { getSupabaseClient } from '@/lib/supabase';
+import { useEffect, useState, useTransition } from 'react';
 import { useUser } from '@/hooks/useUser';
 
 type Court = {
@@ -13,7 +12,6 @@ type Court = {
 };
 
 export default function AdminCourtsPage() {
-  const supabase = useMemo(() => getSupabaseClient(), []);
   const { user, isAdmin, loading } = useUser();
   const [rows, setRows] = useState<Court[]>([]);
   const [form, setForm] = useState<{ name: string; location: string; is_active: boolean }>({ name: '', location: '', is_active: true });
@@ -25,21 +23,22 @@ export default function AdminCourtsPage() {
     setError(null);
     setTableMissing(false);
     try {
-      const { data, error } = await supabase
-        .from('courts')
-        .select('id, name, is_active, order_index, location')
-        .order('order_index', { ascending: true, nullsFirst: true })
-        .order('name', { ascending: true });
-      if (error) {
-        // PostgreSQL undefined table
-        if ((error as any).code === '42P01') {
+      const response = await fetch('/api/admin/courts', {
+        credentials: 'include',
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        if (response.status === 404 || payload?.error?.includes?.('table')) {
           setTableMissing(true);
           setRows([]);
           return;
         }
-        throw error;
+        throw new Error(payload?.error || '코트 목록을 불러오지 못했습니다.');
       }
-      setRows((data as any) || []);
+
+      setRows((payload?.courts as any[]) || []);
     } catch (e: any) {
       setError(e?.message || String(e));
       console.error('fetch courts error', e);
@@ -65,8 +64,14 @@ export default function AdminCourtsPage() {
           order_index: nextOrder,
         };
         if (form.location.trim()) payload.location = form.location.trim();
-        const { error } = await supabase.from('courts').insert(payload);
-        if (error) throw error;
+        const response = await fetch('/api/admin/courts', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(result?.error || '코트 생성에 실패했습니다.');
         setForm({ name: '', location: '', is_active: true });
         await fetchCourts();
       } catch (e: any) {
@@ -77,11 +82,14 @@ export default function AdminCourtsPage() {
 
   const toggleActive = async (court: Court) => {
     startTransition(async () => {
-      const { error } = await supabase
-        .from('courts')
-        .update({ is_active: !court.is_active })
-        .eq('id', court.id);
-      if (error) alert(`변경 실패: ${error.message}`);
+      const response = await fetch('/api/admin/courts', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: court.id, is_active: !court.is_active }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) alert(`변경 실패: ${result?.error || '알 수 없는 오류'}`);
       else await fetchCourts();
     });
   };
@@ -89,8 +97,14 @@ export default function AdminCourtsPage() {
   const remove = async (court: Court) => {
     if (!confirm(`'${court.name}' 코트를 삭제하시겠습니까?`)) return;
     startTransition(async () => {
-      const { error } = await supabase.from('courts').delete().eq('id', court.id);
-      if (error) alert(`삭제 실패: ${error.message}`);
+      const response = await fetch('/api/admin/courts', {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: court.id }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) alert(`삭제 실패: ${result?.error || '알 수 없는 오류'}`);
       else await fetchCourts();
     });
   };
@@ -106,22 +120,27 @@ export default function AdminCourtsPage() {
     const aOrder = a.order_index || 0;
     const bOrder = b.order_index || 0;
     startTransition(async () => {
-      const firstUpdate = await supabase
-        .from('courts')
-        .update({ order_index: bOrder })
-        .eq('id', a.id);
-
-      if (firstUpdate.error) {
-        alert(`정렬 변경 실패: ${firstUpdate.error.message}`);
+      const firstResponse = await fetch('/api/admin/courts', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: a.id, order_index: bOrder }),
+      });
+      const firstResult = await firstResponse.json().catch(() => null);
+      if (!firstResponse.ok) {
+        alert(`정렬 변경 실패: ${firstResult?.error || '알 수 없는 오류'}`);
         return;
       }
 
-      const secondUpdate = await supabase
-        .from('courts')
-        .update({ order_index: aOrder })
-        .eq('id', b.id);
+      const secondResponse = await fetch('/api/admin/courts', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: b.id, order_index: aOrder }),
+      });
+      const secondResult = await secondResponse.json().catch(() => null);
 
-      if (secondUpdate.error) alert(`정렬 변경 실패: ${secondUpdate.error.message}`);
+      if (!secondResponse.ok) alert(`정렬 변경 실패: ${secondResult?.error || '알 수 없는 오류'}`);
       else await fetchCourts();
     });
   };

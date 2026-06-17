@@ -45,24 +45,6 @@ interface ScheduleWithParticipants extends MatchSchedule {
 }
 
 export default function MatchSchedulePage() {
-  // 참가자 수 업데이트 헬퍼 함수
-  const updateParticipantCount = async (scheduleId: string) => {
-    try {
-      const { count } = await supabase
-        .from('match_participants')
-        .select('*', { count: 'exact', head: true })
-        .eq('match_schedule_id', scheduleId)
-        .in('status', ['registered', 'attended']);
-      
-      await supabase
-        .from('match_schedules')
-        .update({ current_participants: count || 0 })
-        .eq('id', scheduleId);
-    } catch (error) {
-      console.error('참가자 수 업데이트 오류:', error);
-    }
-  };
-
   // 전체 경기 일괄 삭제
   const deleteAllSchedules = async () => {
     if (!confirm('정말로 모든 경기를 삭제하시겠습니까? 관련된 모든 참가 신청도 함께 삭제됩니다.')) {
@@ -399,116 +381,64 @@ export default function MatchSchedulePage() {
     }
 
     try {
-      // 1. 프로필 존재 여부 확인 및 생성
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle();
+      const response = await fetch('/api/admin/match-schedules', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'join',
+          scheduleId,
+        }),
+      });
 
-      if (profileError && profileError.code !== 'PGRST116') {
-        console.error('프로필 확인 오류:', profileError);
-      }
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
 
-      // 프로필이 없으면 생성
-      if (!profileData) {
-        console.log('프로필이 없습니다. 생성 중...');
-        const { error: createError } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.id,
-            username: user.email?.split('@')[0] || 'user',
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Unknown',
-            email: user.email,
-            skill_level: 'E2', // 기본 레벨 (대문자)
-            role: 'user'
-          });
-
-        if (createError) {
-          console.error('프로필 생성 오류:', createError);
-          alert('프로필 생성 중 오류가 발생했습니다. 관리자에게 문의하세요.');
-          return;
-        }
-        console.log('✅ 프로필 생성 완료');
-      }
-
-      // 2. 이미 참가 신청했는지 확인
-      const { data: existingParticipant, error: checkError } = await supabase
-        .from('match_participants')
-        .select('id')
-        .eq('match_schedule_id', scheduleId)
-        .eq('user_id', user.id)
-        .eq('status', 'registered')
-        .maybeSingle();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('등록 확인 오류:', checkError);
-        alert('등록 확인 중 오류가 발생했습니다.');
-        return;
-      }
-
-      if (existingParticipant) {
-        alert('이미 참가 신청한 경기입니다.');
-        return;
-      }
-
-      // 3. 참가 신청 추가
-      const { data: insertedData, error } = await supabase
-        .from('match_participants')
-        .insert({
-          match_schedule_id: scheduleId,
-          user_id: user.id,
-          status: 'registered'
-        })
-        .select('id, match_schedule_id, user_id, registered_at')
-        .maybeSingle();
-
-      if (error) {
-        // 409 (Conflict) - 이미 등록됨 (UNIQUE 제약 위반)
-        if (error.code === '23505') {
-          console.log('이미 참가 신청된 경기입니다 (중복 방지)');
+        if (response.status === 409) {
           alert('이미 참가 신청한 경기입니다.');
-          // 현재 상태 새로고침
-          fetchSchedules();
+          await fetchSchedules();
           return;
         }
-        // 23503 - Foreign Key 제약 위반 (이미 처리했지만 혹시 모를 경우)
-        if (error.code === '23503') {
-          console.error('프로필 참조 오류:', error);
-          alert('프로필 정보가 올바르지 않습니다. 페이지를 새로고침 후 다시 시도해주세요.');
-          return;
-        }
-        console.error('참가 신청 오류:', error);
-        alert('참가 신청 중 오류가 발생했습니다.');
+
+        console.error('참가 신청 오류:', payload);
+        alert(payload?.error || '참가 신청 중 오류가 발생했습니다.');
         return;
       }
 
-      // 참가자 수 업데이트 (registered + attended)
-      await updateParticipantCount(scheduleId);
+      const payload = await response.json();
+      const insertedData = payload?.participant;
+      const currentParticipants =
+        typeof payload?.currentParticipants === 'number' ? payload.currentParticipants : null;
 
-      // Optimistic UI: 즉시 로컬 상태 반영 (participant 추가 및 참가자 수 증가)
       setSchedules((prev) => prev.map((s) => {
         if (s.id !== scheduleId) return s;
-    const newParticipant = {
+        const alreadyJoined = s.participants.some(
+          (participant) => participant.user_id === user.id && participant.status === 'registered'
+        );
+        if (alreadyJoined) return s;
+
+        const newParticipant = {
           id: insertedData?.id || `temp-${Date.now()}`,
           user_id: user.id,
           registered_at: insertedData?.registered_at || new Date().toISOString(),
           status: 'registered',
           profiles: {
-      username: (user as any)?.user_metadata?.username || (user as any)?.email || ''
+            username: (user as any)?.user_metadata?.username || (user as any)?.email || '',
+            full_name: (user as any)?.user_metadata?.full_name || undefined,
           }
         } as MatchParticipant;
 
         return {
           ...s,
           participants: [...s.participants, newParticipant],
-          current_participants: (s.current_participants || 0) + 1
+          current_participants:
+            currentParticipants ?? Math.max((s.current_participants || 0) + 1, s.participants.length + 1),
         };
       }));
 
-  // Optimistic UI already updated above. Refresh in background to sync with DB.
-  fetchSchedules();
-  alert('참가 신청이 완료되었습니다!');
+      fetchSchedules();
+      alert('참가 신청이 완료되었습니다!');
 
     } catch (error) {
       console.error('참가 신청 중 오류:', error);
@@ -521,35 +451,37 @@ export default function MatchSchedulePage() {
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from('match_participants')
-        .delete()
-        .eq('match_schedule_id', scheduleId)
-        .eq('user_id', user.id);
+      const response = await fetch('/api/admin/match-schedules', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ scheduleId }),
+      });
 
-      if (error) {
-        console.error('참가 취소 오류:', error);
-        alert('참가 취소 중 오류가 발생했습니다.');
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        console.error('참가 취소 오류:', payload);
+        alert(payload?.error || '참가 취소 중 오류가 발생했습니다.');
         return;
       }
 
-      // 참가자 수 업데이트 (registered + attended)
-      await updateParticipantCount(scheduleId);
+      const payload = await response.json().catch(() => null);
+      const currentParticipants =
+        typeof payload?.currentParticipants === 'number' ? payload.currentParticipants : null;
 
-      // Optimistic UI: 즉시 로컬 상태 반영 (participant 제거 및 참가자 수 감소)
       setSchedules((prev) => prev.map((s) => {
         if (s.id !== scheduleId) return s;
         const filtered = s.participants.filter(p => p.user_id !== user.id);
         return {
           ...s,
           participants: filtered,
-          current_participants: Math.max(0, (s.current_participants || 0) - 1)
+          current_participants: currentParticipants ?? filtered.length
         };
       }));
 
-  // Background refresh to sync with DB; optimistic update already applied
-  fetchSchedules();
-  alert('참가 신청이 취소되었습니다.');
+      fetchSchedules();
+      alert('참가 신청이 취소되었습니다.');
 
     } catch (error) {
       console.error('참가 취소 중 오류:', error);

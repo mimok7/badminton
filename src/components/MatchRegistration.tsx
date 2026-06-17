@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
+import { getProfileByUserId } from '@/lib/auth';
 import type { Database } from '@/types/supabase';
 
 interface MatchSchedule {
@@ -42,6 +43,7 @@ export default function MatchRegistration({
   onRegistrationChange 
 }: MatchRegistrationProps) {
   const supabase = getSupabaseClient();
+  const [resolvedParticipantId, setResolvedParticipantId] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(false);
   const [userRegistration, setUserRegistration] = useState<Participant | null>(null);
@@ -52,6 +54,15 @@ export default function MatchRegistration({
   const fetchParticipants = async () => {
     try {
       console.log('👥 참가자 목록 조회:', schedule.id);
+
+      let participantId = currentUserId ?? null;
+      if (currentUserId) {
+        const profile = await getProfileByUserId(supabase, currentUserId);
+        participantId = profile?.id ?? currentUserId;
+        setResolvedParticipantId(participantId);
+      } else {
+        setResolvedParticipantId(null);
+      }
 
       const { data, error } = await supabase
         .from('match_participants')
@@ -76,23 +87,28 @@ export default function MatchRegistration({
       if (userIds.length > 0) {
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
-          .select('user_id, username, full_name, skill_level')
-          .in('user_id', userIds);
+          .select('id, user_id, username, full_name, skill_level')
+          .or(
+            userIds
+              .map((userId) => `id.eq.${userId},user_id.eq.${userId}`)
+              .join(',')
+          );
 
         if (profilesError) {
           console.error('❌ 프로필 조회 오류:', profilesError);
         } else {
           profileMap = new Map(
             (profiles || [])
-              .filter((profile): profile is typeof profile & { user_id: string } => typeof profile.user_id === 'string')
-              .map((profile) => [
-                profile.user_id,
-                {
+              .flatMap((profile) => {
+                const value = {
                   username: profile.username || undefined,
                   full_name: profile.full_name || undefined,
                   skill_level: profile.skill_level || undefined,
-                },
-              ])
+                };
+                return [profile.id, profile.user_id]
+                  .filter((key): key is string => typeof key === 'string' && key.length > 0)
+                  .map((key) => [key, value] as const);
+              })
           );
         }
       }
@@ -109,8 +125,8 @@ export default function MatchRegistration({
       setParticipants(formattedParticipants);
 
       // 현재 사용자의 등록 상태 확인
-      if (currentUserId) {
-        const userParticipant = formattedParticipants.find((participant) => participant.user_id === currentUserId);
+      if (participantId) {
+        const userParticipant = formattedParticipants.find((participant) => participant.user_id === participantId);
         setUserRegistration(userParticipant || null);
       }
     } catch (error) {
@@ -124,7 +140,9 @@ export default function MatchRegistration({
 
   // 경기 참가 신청
   const handleRegister = async () => {
-    if (!currentUserId) {
+    const participantId = resolvedParticipantId ?? currentUserId;
+
+    if (!participantId) {
       alert('로그인이 필요합니다.');
       return;
     }
@@ -147,7 +165,7 @@ export default function MatchRegistration({
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('id')
-        .eq('id', currentUserId)
+        .eq('id', participantId)
         .maybeSingle();
 
       if (profileError && profileError.code !== 'PGRST116') {
@@ -166,7 +184,7 @@ export default function MatchRegistration({
         .from('match_participants')
         .select('id')
         .eq('match_schedule_id', schedule.id)
-        .eq('user_id', currentUserId)
+        .eq('user_id', participantId)
         .eq('status', 'registered')
         .maybeSingle();
 
@@ -186,7 +204,7 @@ export default function MatchRegistration({
         .from('match_participants')
         .insert([{
           match_schedule_id: schedule.id,
-          user_id: currentUserId,
+          user_id: participantId,
           status: 'registered'
         }]);
 

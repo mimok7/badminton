@@ -1,0 +1,270 @@
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (108kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⨯ ./src/app/(user)/dashboard/ClientDashboard.tsx
+Error: 
+
+Caused by:
+    0: Failed to read source code from C:\SHT-DATA\badminton\src\app\(user)\dashboard\ClientDashboard.tsx
+    1: 지정된 파일을 찾을 수 없습니다. (os error 2)
+
+Import trace for requested module:
+./src/app/(user)/dashboard/ClientDashboard.tsx
+./src/app/(user)/dashboard/page.tsx
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json',
+  page: '/dashboard'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'C:\SHT-DATA\badminton\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\SHT-DATA\\badminton\\.next\\routes-manifest.json'
+}

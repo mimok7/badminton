@@ -13,6 +13,10 @@ export interface ScheduledMatchView {
   team1_player2_name: string;
   team2_player1_name: string;
   team2_player2_name: string;
+  team1_player1_gender?: string | null;
+  team1_player2_gender?: string | null;
+  team2_player1_gender?: string | null;
+  team2_player2_gender?: string | null;
 }
 
 export async function fetchScheduledMatchesForDate(

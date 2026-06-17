@@ -78,33 +78,43 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const [myAttendanceStatus, setMyAttendanceStatus] = useState<AttendanceStatus>(null);
   const [statusSaving, setStatusSaving] = useState(false);
   const [todayAssignedMatches, setTodayAssignedMatches] = useState<ScheduledMatchView[]>([]);
+  const [todayAllMatches, setTodayAllMatches] = useState<ScheduledMatchView[]>([]);
 
   useEffect(() => {
+    if (!userId) return;
+
     const fetchTodaySummary = async () => {
       try {
         setLoading(true);
         const today = new Date().toISOString().slice(0, 10);
-        await new Promise((resolve) => setTimeout(resolve, 200));
 
-        const { count: playersCount } = await supabase
-          .from('attendances')
-          .select('*', { count: 'exact', head: true })
-          .eq('attended_at', today);
+        const [
+          { count: playersCount },
+          { count: matchCount },
+          myMatches,
+          allMatches,
+          attendanceResponse,
+        ] = await Promise.all([
+          supabase
+            .from('attendances')
+            .select('*', { count: 'exact', head: true })
+            .eq('attended_at', today),
+          supabase
+            .from('match_schedules')
+            .select('*', { count: 'exact', head: true })
+            .eq('match_date', today)
+            .eq('status', 'scheduled'),
+          fetchScheduledMatchesForDate(supabase, today, userId),
+          fetchScheduledMatchesForDate(supabase, today),
+          fetch(`/api/attendance/status?date=${today}`),
+        ]);
 
-        const { count: matchCount } = await supabase
-          .from('match_schedules')
-          .select('*', { count: 'exact', head: true })
-          .eq('match_date', today)
-          .eq('status', 'scheduled');
-
-        const myMatches = await fetchScheduledMatchesForDate(supabase, today, userId);
+        const attendancePayload = await attendanceResponse.json().catch(() => null);
 
         setTodayPlayersCount(playersCount || 0);
         setTodayMatchesCount(matchCount || 0);
         setTodayAssignedMatches(myMatches);
-
-        const attendanceResponse = await fetch(`/api/attendance/status?date=${today}`);
-        const attendancePayload = await attendanceResponse.json().catch(() => null);
+        setTodayAllMatches(allMatches);
 
         if (attendanceResponse.ok) {
           setMyAttendanceStatus(normalizeAttendanceStatus(attendancePayload?.status));
@@ -117,6 +127,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         setTodayMatchesCount(0);
         setMyAttendanceStatus(null);
         setTodayAssignedMatches([]);
+        setTodayAllMatches([]);
       } finally {
         setLoading(false);
       }
@@ -133,6 +144,9 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const displayName = profile?.full_name || profile?.username || email.split('@')[0];
   const levelLabel = getUserLevelDisplay(profile?.skill_level);
   const topMatch = todayAssignedMatches[0];
+  const topMatchOrder = topMatch
+    ? todayAllMatches.findIndex((match) => match.id === topMatch.id) + 1
+    : 0;
 
   const handleAttendanceStatusChange = async (nextStatus: Exclude<AttendanceStatus, null>) => {
     if (statusSaving) return;
@@ -255,6 +269,11 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
           {topMatch ? (
             <div className="mt-4 rounded-[20px] bg-slate-50 p-4">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-800">
+                {topMatchOrder > 0 && (
+                  <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                    {topMatchOrder}번째 경기
+                  </span>
+                )}
                 <span className="font-medium text-slate-900">코트 {topMatch.court_number || '미정'}</span>
                 <span className="text-slate-400">·</span>
                 <span>{topMatch.match_time || '시간 미정'}</span>

@@ -503,23 +503,6 @@ export default function MatchRegistrationPage() {
           </section>
 
           <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="rounded-[20px] bg-slate-50 px-2 py-3">
-                <p className="text-[11px] text-slate-500">예정 경기</p>
-                <p className="mt-1 text-lg font-semibold text-slate-900">{schedules.length}</p>
-              </div>
-              <div className="rounded-[20px] bg-slate-50 px-2 py-3">
-                <p className="text-[11px] text-slate-500">내 신청</p>
-                <p className="mt-1 text-lg font-semibold text-slate-900">{registeredMatches.length}</p>
-              </div>
-              <div className="rounded-[20px] bg-slate-50 px-2 py-3">
-                <p className="text-[11px] text-slate-500">보기 기준</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">모바일</p>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-slate-500">예정 일정</p>

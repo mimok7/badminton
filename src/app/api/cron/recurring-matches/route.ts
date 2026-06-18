@@ -78,7 +78,7 @@ async function createScheduleFromTemplate(
     'name' | 'description' | 'day_of_week' | 'start_time' | 'end_time' | 'location' | 'max_participants'
   >,
   executedBy?: string | null
-) {
+): Promise<boolean> {
   const recurringSuffix = `정기모임 (${DAY_LABELS[template.day_of_week] || `${template.day_of_week}`})`;
   const description = [template.description?.trim() || template.name.trim(), recurringSuffix].join(' - ');
 
@@ -98,8 +98,14 @@ async function createScheduleFromTemplate(
     });
 
   if (error) {
+    const code = (error as { code?: string }).code || '';
+    if (code === '23505') {
+      return false;
+    }
     throw error;
   }
+
+  return true;
 }
 
 async function generateRecurringMatchesFallback(
@@ -153,8 +159,10 @@ async function generateRecurringMatchesFallback(
           continue;
         }
 
-        await createScheduleFromTemplate(supabase, matchDate, template, executedBy);
-        createdMatches += 1;
+        const created = await createScheduleFromTemplate(supabase, matchDate, template, executedBy);
+        if (created) {
+          createdMatches += 1;
+        }
         break;
       }
 
@@ -177,8 +185,10 @@ async function generateRecurringMatchesFallback(
         continue;
       }
 
-      await createScheduleFromTemplate(supabase, matchDate, template, executedBy);
-      createdMatches += 1;
+      const created = await createScheduleFromTemplate(supabase, matchDate, template, executedBy);
+      if (created) {
+        createdMatches += 1;
+      }
     }
   }
 

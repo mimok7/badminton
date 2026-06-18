@@ -43,6 +43,7 @@ type ChallengePayload = {
     name: string;
     coin_balance: number;
     eligible: boolean;
+    ineligible_reason?: 'in_progress_match' | 'challenge_pending_or_accepted' | null;
   };
   eligiblePlayers: EligiblePlayer[];
   incomingChallenges: ChallengeItem[];
@@ -179,7 +180,7 @@ export default function ChallengePage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb] px-4">
         <div className="rounded-full bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-          도전 페이지를 불러오는 중입니다
+          경기 제안 페이지를 불러오는 중입니다
         </div>
       </div>
     );
@@ -192,9 +193,9 @@ export default function ChallengePage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs text-slate-300">Challenge Match</p>
-              <h1 className="mt-1 text-2xl font-semibold">도전 페이지</h1>
+              <h1 className="mt-1 text-2xl font-semibold">경기 제안</h1>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                오늘 참가 선수 중 현재 대기나 진행중 경기가 없는 선수에게 도전할 수 있습니다.
+                오늘 참가 선수 중 현재 대기나 진행중 경기가 없는 선수에게 경기 제안을 할 수 있습니다.
               </p>
             </div>
             <Link
@@ -210,7 +211,7 @@ export default function ChallengePage() {
               {formatCurrentUserNameWithCoins(payload?.currentProfile.name || profile?.full_name || profile?.username || '회원', payload?.currentProfile.coin_balance ?? profile?.coin_balance)}
             </span>
             <span className={`rounded-full px-2.5 py-1 ${payload?.currentProfile.eligible ? 'bg-emerald-400/20 text-emerald-100' : 'bg-rose-400/20 text-rose-100'}`}>
-              {payload?.currentProfile.eligible ? '도전 가능' : '도전 불가'}
+              {payload?.currentProfile.eligible ? '제안 가능' : '제안 불가'}
             </span>
           </div>
         </section>
@@ -218,17 +219,31 @@ export default function ChallengePage() {
         <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500">새 도전</p>
+              <p className="text-xs text-slate-500">새 경기 제안</p>
               <h2 className="mt-1 text-lg font-semibold text-slate-900">파트너와 상대 선택</h2>
             </div>
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-              후보 {eligiblePlayers.length}명
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                후보 {eligiblePlayers.length}명
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  void loadChallenges();
+                }}
+                disabled={loading}
+                className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? '갱신 중' : '새로고침'}
+              </button>
+            </div>
           </div>
 
           {payload && !payload.currentProfile.eligible ? (
             <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700">
-              아직 대기 또는 진행중 경기가 있어 지금은 도전할 수 없습니다.
+              {payload.currentProfile.ineligible_reason === 'challenge_pending_or_accepted'
+                ? '현재 대기 또는 수락 상태의 경기 제안에 포함되어 있어 지금은 새 경기 제안을 만들 수 없습니다. (보류 상태가 되면 다시 후보에 표시됩니다.)'
+                : '현재 진행중인 경기에 포함되어 있어 지금은 경기 제안을 할 수 없습니다.'}
             </div>
           ) : (
             <div className="mt-4 space-y-4">
@@ -293,7 +308,7 @@ export default function ChallengePage() {
               </div>
 
               <Button onClick={handleCreateChallenge} disabled={saving} className="h-12 w-full rounded-2xl">
-                {saving ? '도전 요청 보내는 중...' : '도전 요청 보내기'}
+                {saving ? '경기 제안 보내는 중...' : '경기 제안 보내기'}
               </Button>
             </div>
           )}
@@ -302,7 +317,7 @@ export default function ChallengePage() {
         <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500">받은 도전</p>
+              <p className="text-xs text-slate-500">받은 경기 제안</p>
               <h2 className="mt-1 text-lg font-semibold text-slate-900">수락 또는 보류</h2>
             </div>
             <Users className="size-4 text-slate-400" />
@@ -311,14 +326,14 @@ export default function ChallengePage() {
           <div className="mt-4 space-y-3">
             {(payload?.incomingChallenges || []).length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                받은 도전 요청이 없습니다.
+                받은 경기 제안이 없습니다.
               </div>
             ) : (
               payload?.incomingChallenges.map((challenge) => (
                 <article key={challenge.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-sm font-semibold text-slate-900">
-                      {challenge.challenger?.name}님의 도전
+                      {challenge.challenger?.name}님의 경기 제안
                     </div>
                     <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusChip(challenge.status)}`}>
                       {getResponseLabel(challenge.status)}
@@ -362,7 +377,7 @@ export default function ChallengePage() {
         <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500">보낸 도전</p>
+              <p className="text-xs text-slate-500">보낸 경기 제안</p>
               <h2 className="mt-1 text-lg font-semibold text-slate-900">응답 상태 확인</h2>
             </div>
             <Swords className="size-4 text-slate-400" />
@@ -371,14 +386,14 @@ export default function ChallengePage() {
           <div className="mt-4 space-y-3">
             {(payload?.outgoingChallenges || []).length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                아직 보낸 도전 요청이 없습니다.
+                아직 보낸 경기 제안이 없습니다.
               </div>
             ) : (
               payload?.outgoingChallenges.map((challenge) => (
                 <article key={challenge.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-sm font-semibold text-slate-900">
-                      {challenge.partner?.name} 파트너 도전
+                      {challenge.partner?.name} 파트너 경기 제안
                     </div>
                     <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusChip(challenge.status)}`}>
                       {getResponseLabel(challenge.status)}

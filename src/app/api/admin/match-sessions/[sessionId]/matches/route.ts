@@ -126,3 +126,71 @@ export async function GET(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ sessionId: string }> }
+) {
+  try {
+    const adminContext = await requireAdmin();
+
+    if ('error' in adminContext) {
+      return adminContext.error;
+    }
+
+    const { sessionId } = await params;
+    const body = await request.json().catch(() => null);
+    const matchId = typeof body?.matchId === 'string' ? body.matchId : '';
+
+    if (!matchId) {
+      return NextResponse.json({ error: 'Match id is required' }, { status: 400 });
+    }
+
+    const { error: scheduleDeleteError } = await adminContext.adminSupabase
+      .from('match_schedules')
+      .delete()
+      .eq('generated_match_id', matchId);
+
+    if (scheduleDeleteError) {
+      console.error('Admin generated match schedule delete error:', scheduleDeleteError);
+      return NextResponse.json({ error: 'Failed to delete linked schedule' }, { status: 500 });
+    }
+
+    const { error: matchDeleteError } = await adminContext.adminSupabase
+      .from('generated_matches')
+      .delete()
+      .eq('id', matchId)
+      .eq('session_id', sessionId);
+
+    if (matchDeleteError) {
+      console.error('Admin generated match delete error:', matchDeleteError);
+      return NextResponse.json({ error: 'Failed to delete generated match' }, { status: 500 });
+    }
+
+    const { data: remainingMatches, error: remainingMatchesError } = await adminContext.adminSupabase
+      .from('generated_matches')
+      .select('id')
+      .eq('session_id', sessionId)
+      .order('match_number', { ascending: true });
+
+    if (remainingMatchesError) {
+      console.error('Admin generated match remaining lookup error:', remainingMatchesError);
+      return NextResponse.json({ error: 'Failed to refresh session counts' }, { status: 500 });
+    }
+
+    const remainingCount = remainingMatches?.length || 0;
+
+    await adminContext.adminSupabase
+      .from('match_sessions')
+      .update({
+        total_matches: remainingCount,
+        assigned_matches: remainingCount,
+      })
+      .eq('id', sessionId);
+
+    return NextResponse.json({ success: true, remainingMatches: remainingCount });
+  } catch (error) {
+    console.error('Admin generated match DELETE unexpected error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

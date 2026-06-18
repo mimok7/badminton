@@ -286,3 +286,69 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const adminContext = await requireAdmin();
+
+    if ('error' in adminContext) {
+      return adminContext.error;
+    }
+
+    const body = await request.json().catch(() => null);
+    const sessionId = typeof body?.sessionId === 'string' ? body.sessionId : '';
+
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Session id is required' }, { status: 400 });
+    }
+
+    const { data: matches, error: matchesError } = await adminContext.adminSupabase
+      .from('generated_matches')
+      .select('id')
+      .eq('session_id', sessionId);
+
+    if (matchesError) {
+      console.error('Admin match session delete lookup error:', matchesError);
+      return NextResponse.json({ error: 'Failed to load session matches' }, { status: 500 });
+    }
+
+    const generatedMatchIds = (matches || []).map((match) => match.id);
+
+    if (generatedMatchIds.length > 0) {
+      const { error: scheduleDeleteError } = await adminContext.adminSupabase
+        .from('match_schedules')
+        .delete()
+        .in('generated_match_id', generatedMatchIds);
+
+      if (scheduleDeleteError) {
+        console.error('Admin match session schedule delete error:', scheduleDeleteError);
+        return NextResponse.json({ error: 'Failed to delete linked schedules' }, { status: 500 });
+      }
+
+      const { error: matchDeleteError } = await adminContext.adminSupabase
+        .from('generated_matches')
+        .delete()
+        .eq('session_id', sessionId);
+
+      if (matchDeleteError) {
+        console.error('Admin match session generated match delete error:', matchDeleteError);
+        return NextResponse.json({ error: 'Failed to delete generated matches' }, { status: 500 });
+      }
+    }
+
+    const { error: sessionDeleteError } = await adminContext.adminSupabase
+      .from('match_sessions')
+      .delete()
+      .eq('id', sessionId);
+
+    if (sessionDeleteError) {
+      console.error('Admin match session delete error:', sessionDeleteError);
+      return NextResponse.json({ error: 'Failed to delete session' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Admin match sessions DELETE unexpected error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

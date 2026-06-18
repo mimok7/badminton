@@ -42,50 +42,112 @@ function getProfileName(profile?: ProfileLite | null) {
 }
 
 async function getTodayChallengePool(adminSupabase: ReturnType<typeof getSupabaseAdminClient>, today: string) {
-  const { data: sessions, error: sessionsError } = await adminSupabase
-    .from('match_sessions')
-    .select('id')
-    .eq('session_date', today);
+  const { data: attendanceRows, error: attendanceError } = await adminSupabase
+    .from('attendances')
+    .select('user_id')
+    .eq('attended_at', today)
+    .eq('status', 'present');
 
-  if (sessionsError) {
-    throw new Error(sessionsError.message);
+  if (attendanceError) {
+    throw new Error(attendanceError.message);
   }
 
-  const sessionIds = (sessions || []).map((session) => session.id);
+  const presentUserIds = Array.from(
+    new Set((attendanceRows || []).map((row) => row.user_id).filter((value): value is string => Boolean(value))),
+  );
 
-  if (sessionIds.length === 0) {
+  if (presentUserIds.length === 0) {
     return {
       eligibilityMap: new Map<string, PlayerEligibility>(),
       profilesById: new Map<string, ProfileLite>(),
     };
   }
 
-  const { data: matches, error: matchesError } = await adminSupabase
-    .from('generated_matches')
-    .select('id, status, team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id')
-    .in('session_id', sessionIds);
+  const { data: activeSchedules, error: activeSchedulesError } = await adminSupabase
+    .from('match_schedules')
+    .select('id')
+    .eq('match_date', today)
+    .eq('status', 'in_progress');
 
-  if (matchesError) {
-    throw new Error(matchesError.message);
+  if (activeSchedulesError) {
+    throw new Error(activeSchedulesError.message);
   }
 
-  const playerIds = Array.from(
-    new Set(
-      (matches || []).flatMap((match) =>
-        [
-          match.team1_player1_id,
-          match.team1_player2_id,
-          match.team2_player1_id,
-          match.team2_player2_id,
-        ].filter((value): value is string => Boolean(value)),
-      ),
-    ),
+  const activeScheduleIds = (activeSchedules || []).map((schedule) => schedule.id);
+
+  let blockedUserIds = new Set<string>();
+
+  if (activeScheduleIds.length > 0) {
+    const { data: activeParticipants, error: participantsError } = await adminSupabase
+      .from('match_participants')
+      .select('user_id')
+      .in('match_schedule_id', activeScheduleIds)
+      .in('status', ['registered', 'attended']);
+
+    if (participantsError) {
+      throw new Error(participantsError.message);
+    }
+
+    blockedUserIds = new Set(
+      (activeParticipants || []).map((participant) => participant.user_id).filter((value): value is string => Boolean(value)),
+    );
+  }
+
+  const { data: challengeRows, error: challengeRowsError } = await adminSupabase
+    .from('challenge_requests')
+    .select('challenger_id, partner_id, opponent1_id, opponent2_id, status')
+    .eq('challenge_date', today)
+    .in('status', ['pending', 'accepted']);
+
+  if (challengeRowsError) {
+    throw new Error(challengeRowsError.message);
+  }
+
+  const challengeBlockedUserIds = new Set<string>();
+  (challengeRows || []).forEach((row) => {
+    [row.challenger_id, row.partner_id, row.opponent1_id, row.opponent2_id]
+      .filter((value): value is string => Boolean(value))
+      .forEach((value) => challengeBlockedUserIds.add(value));
+  });
+
+  const eligibleUserIds = presentUserIds.filter(
+    (userId) => !blockedUserIds.has(userId) && !challengeBlockedUserIds.has(userId),
   );
+
+  const profileIdsForLookup = presentUserIds;
+
+  if (profileIdsForLookup.length === 0) {
+    return {
+      eligibilityMap: new Map<string, PlayerEligibility>(),
+      profilesById: new Map<string, ProfileLite>(),
+    };
+  }
+
+  if (eligibleUserIds.length === 0) {
+    const { data: profiles, error: profilesError } = await adminSupabase
+      .from('profiles')
+      .select('id, user_id, username, full_name, coin_balance, skill_level')
+      .in('id', profileIdsForLookup);
+
+    if (profilesError) {
+      throw new Error(profilesError.message);
+    }
+
+    const profilesById = new Map<string, ProfileLite>();
+    (profiles || []).forEach((profile) => {
+      profilesById.set(profile.id, profile);
+    });
+
+    return {
+      eligibilityMap: new Map<string, PlayerEligibility>(),
+      profilesById,
+    };
+  }
 
   const { data: profiles, error: profilesError } = await adminSupabase
     .from('profiles')
     .select('id, user_id, username, full_name, coin_balance, skill_level')
-    .in('id', playerIds);
+    .in('id', profileIdsForLookup);
 
   if (profilesError) {
     throw new Error(profilesError.message);
@@ -96,33 +158,11 @@ async function getTodayChallengePool(adminSupabase: ReturnType<typeof getSupabas
     profilesById.set(profile.id, profile);
   });
 
-  const progressMap = new Map<string, { total: number; blocked: boolean }>();
-
-  (matches || []).forEach((match) => {
-    const ids = [
-      match.team1_player1_id,
-      match.team1_player2_id,
-      match.team2_player1_id,
-      match.team2_player2_id,
-    ].filter((value): value is string => Boolean(value));
-
-    ids.forEach((profileId) => {
-      const current = progressMap.get(profileId) || { total: 0, blocked: false };
-      current.total += 1;
-
-      if (match.status === 'scheduled' || match.status === 'in_progress') {
-        current.blocked = true;
-      }
-
-      progressMap.set(profileId, current);
-    });
-  });
-
   const eligibilityMap = new Map<string, PlayerEligibility>();
 
-  progressMap.forEach((progress, profileId) => {
+  eligibleUserIds.forEach((profileId) => {
     const profile = profilesById.get(profileId);
-    if (!profile || progress.total <= 0 || progress.blocked) {
+    if (!profile) {
       return;
     }
 
@@ -131,13 +171,15 @@ async function getTodayChallengePool(adminSupabase: ReturnType<typeof getSupabas
       name: getProfileName(profile),
       coin_balance: profile.coin_balance ?? null,
       skill_level: profile.skill_level,
-      today_match_count: progress.total,
+      today_match_count: 0,
     });
   });
 
   return {
     eligibilityMap,
     profilesById,
+    blockedByMatchUserIds: blockedUserIds,
+    blockedByChallengeUserIds: challengeBlockedUserIds,
   };
 }
 
@@ -211,7 +253,12 @@ export async function GET() {
 
   try {
     const today = getKoreaDate();
-    const { eligibilityMap, profilesById } = await getTodayChallengePool(adminSupabase, today);
+    const {
+      eligibilityMap,
+      profilesById,
+      blockedByMatchUserIds,
+      blockedByChallengeUserIds,
+    } = await getTodayChallengePool(adminSupabase, today);
 
     const eligiblePlayers = Array.from(eligibilityMap.values())
       .filter((player) => player.id !== currentProfile.id)
@@ -239,12 +286,20 @@ export async function GET() {
       serializeChallenge(challenge as ChallengeRow, profilesById, currentProfile.id),
     );
 
+    const currentBlockedByChallenge = blockedByChallengeUserIds.has(currentProfile.id);
+    const currentBlockedByMatch = blockedByMatchUserIds.has(currentProfile.id);
+
     return NextResponse.json({
       currentProfile: {
         id: currentProfile.id,
         name: currentProfile.full_name || currentProfile.username || '회원',
         coin_balance: currentProfile.coin_balance ?? 0,
         eligible: eligibilityMap.has(currentProfile.id),
+        ineligible_reason: currentBlockedByChallenge
+          ? 'challenge_pending_or_accepted'
+          : currentBlockedByMatch
+            ? 'in_progress_match'
+            : null,
       },
       eligiblePlayers,
       incomingChallenges: serializedChallenges.filter((challenge) => challenge.challenger?.id !== currentProfile.id),
@@ -252,7 +307,7 @@ export async function GET() {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '도전 데이터를 불러오지 못했습니다.' },
+      { error: error instanceof Error ? error.message : '경기 제안 데이터를 불러오지 못했습니다.' },
       { status: 500 },
     );
   }
@@ -300,7 +355,7 @@ export async function POST(request: Request) {
 
     if (!eligibilityMap.has(currentProfile.id)) {
       return NextResponse.json(
-        { error: '현재 회원님은 아직 대기/진행중 경기가 있어 도전할 수 없습니다.' },
+        { error: '현재 회원님은 아직 대기/진행중 경기가 있어 경기 제안을 할 수 없습니다.' },
         { status: 400 },
       );
     }
@@ -322,7 +377,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (existingChallenge) {
-      return NextResponse.json({ error: '같은 구성의 대기 중인 도전이 이미 있습니다.' }, { status: 400 });
+      return NextResponse.json({ error: '같은 구성의 대기 중인 경기 제안이 이미 있습니다.' }, { status: 400 });
     }
 
     const { data: insertedChallenge, error: insertError } = await adminSupabase
@@ -339,7 +394,7 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError || !insertedChallenge) {
-      throw new Error(insertError?.message || '도전 생성에 실패했습니다.');
+      throw new Error(insertError?.message || '경기 제안 생성에 실패했습니다.');
     }
 
     const challengerName = currentProfile.full_name || currentProfile.username || '회원';
@@ -351,8 +406,8 @@ export async function POST(request: Request) {
     await adminSupabase.from('notifications').insert(
       [partnerId, opponent1Id, opponent2Id].map((profileId) => ({
         user_id: profileId,
-        title: '새 도전 요청',
-        message: `${challengerName}님이 ${partnerName}님과 함께 ${opponentNames}님에게 도전을 보냈습니다. 도전 페이지에서 수락 또는 보류를 선택해주세요.`,
+        title: '새 경기 제안',
+        message: `${challengerName}님이 ${partnerName}님과 함께 ${opponentNames}님에게 경기 제안을 보냈습니다. 경기 제안 페이지에서 수락 또는 보류를 선택해주세요.`,
         type: 'general',
         is_read: false,
       })),
@@ -363,7 +418,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '도전 생성 중 오류가 발생했습니다.' },
+      { error: error instanceof Error ? error.message : '경기 제안 생성 중 오류가 발생했습니다.' },
       { status: 500 },
     );
   }

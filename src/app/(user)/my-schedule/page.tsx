@@ -17,6 +17,10 @@ import {
   type MyTournamentMatchView,
 } from '@/lib/tournament-matches';
 
+const tournamentNamesMatch = (candidate: string, teamMember: string) =>
+  Boolean(candidate && teamMember) &&
+  (candidate === teamMember || candidate.includes(teamMember) || teamMember.includes(candidate));
+
 // 경기 결과 표시 컴포넌트
 function MatchResultDisplay({ selectedMatch, user, supabase }: {
   selectedMatch: MatchSchedule;
@@ -705,8 +709,8 @@ export default function MySchedulePage() {
     const team1Names = (match.team1 || []).map((name) => normalizeTournamentPlayerName(name));
     const team2Names = (match.team2 || []).map((name) => normalizeTournamentPlayerName(name));
 
-    if (searchNames.some((name) => team1Names.includes(name))) return 'team1';
-    if (searchNames.some((name) => team2Names.includes(name))) return 'team2';
+    if (searchNames.some((name) => team1Names.some((teamName) => tournamentNamesMatch(name, teamName)))) return 'team1';
+    if (searchNames.some((name) => team2Names.some((teamName) => tournamentNamesMatch(name, teamName)))) return 'team2';
     return null;
   };
 
@@ -1172,7 +1176,7 @@ export default function MySchedulePage() {
                 href="/dashboard"
                 className="shrink-0 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/15"
               >
-                대시보드
+                홈
               </Link>
             </div>
 

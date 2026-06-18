@@ -24,6 +24,12 @@ const ATTENDANCE_OPTIONS: Array<{ value: Exclude<AttendanceStatus, null>; label:
 
 const quickLinks = [
   {
+    href: '/challenge',
+    title: '경기 제안',
+    description: '완료된 선수들과 다음 경기를 제안합니다.',
+    icon: Zap,
+  },
+  {
     href: '/today-matches',
     title: '오늘 경기',
     description: '배정된 경기와 코트를 확인합니다.',
@@ -46,12 +52,6 @@ const quickLinks = [
     title: '프로필',
     description: '내 정보와 레벨을 관리합니다.',
     icon: UserCircle2,
-  },
-  {
-    href: '/challenge',
-    title: '도전',
-    description: '완료된 선수들과 다음 경기를 제안합니다.',
-    icon: Zap,
   },
   {
     href: '/tournament-bracket',
@@ -430,36 +430,43 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <MatchNotifications />
 
-      <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-4">
-        <section className="rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
+      <div className="mx-auto flex max-w-md flex-col gap-3 px-4 py-3">
+        <section className="rounded-[24px] bg-[#0f172a] px-4 py-3 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs text-slate-300">안녕하세요</p>
-              <h1 className="mt-1 text-2xl font-semibold">{displayName}</h1>
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">레벨 {levelLabel}</span>
+              <p className="text-[11px] text-slate-300">안녕하세요</p>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-semibold leading-tight">{displayName}</h1>
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-slate-100">
+                  승 {profile?.coin_wins ?? 0}
+                </span>
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-slate-100">
+                  패 {profile?.coin_losses ?? 0}
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-slate-100">레벨 {levelLabel}</span>
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-slate-100">
+                  코인 {profile?.coin_balance ?? 0}
+                </span>
                 {userIsAdmin && (
                   <Link
                     href="/admin"
-                    className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-slate-100 transition hover:bg-white/20"
+                    className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-slate-100 transition hover:bg-white/20"
                   >
                     <Shield className="size-3.5" />
                     관리자 홈
                   </Link>
                 )}
               </div>
-              <div className="mt-3 text-sm text-slate-300">
+              <div className="mt-2 text-[12px] text-slate-300">
                 상태: <span className="font-medium text-white">{getAttendanceLabel(myAttendanceStatus)}</span>
               </div>
             </div>
           </div>
 
-          <div className="mt-4 rounded-[22px] bg-white/8 px-3 py-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium text-slate-200">오늘 상태 선택</p>
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="mt-3 rounded-[18px] bg-white/8 px-2.5 py-2.5">
+            <div className="grid grid-cols-3 gap-1.5">
               {ATTENDANCE_OPTIONS.map((option) => {
                 const isActive = myAttendanceStatus === option.value;
 
@@ -471,7 +478,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                     onClick={() => {
                       void handleAttendanceStatusChange(option.value);
                     }}
-                    className={`rounded-xl px-2 py-2 text-xs font-semibold transition ${
+                    className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
                       isActive
                         ? 'bg-white text-slate-900'
                         : 'bg-white/10 text-slate-100 hover:bg-white/20'
@@ -483,20 +490,6 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
               })}
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="rounded-xl bg-white/10 px-2 py-2">
-                <p className="text-slate-300">코인</p>
-                <p className="mt-1 text-sm font-semibold text-white">{profile?.coin_balance ?? 0}</p>
-              </div>
-              <div className="rounded-xl bg-white/10 px-2 py-2">
-                <p className="text-slate-300">승</p>
-                <p className="mt-1 text-sm font-semibold text-white">{profile?.coin_wins ?? 0}</p>
-              </div>
-              <div className="rounded-xl bg-white/10 px-2 py-2">
-                <p className="text-slate-300">패</p>
-                <p className="mt-1 text-sm font-semibold text-white">{profile?.coin_losses ?? 0}</p>
-              </div>
-            </div>
           </div>
 
         </section>
@@ -689,12 +682,14 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                   href={item.href}
                   className="rounded-[20px] border border-slate-200 bg-slate-50 px-3 py-4 transition hover:bg-slate-100"
                 >
-                  <div className="flex items-center justify-between">
-                    <Icon className="size-4 text-slate-700" />
-                    <ArrowRight className="size-4 text-slate-400" />
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Icon className="size-4 shrink-0 text-slate-700" />
+                      <h3 className="truncate text-sm font-semibold text-slate-900">{item.title}</h3>
+                    </div>
+                    <ArrowRight className="mt-0.5 size-4 shrink-0 text-slate-400" />
                   </div>
-                  <h3 className="mt-4 text-sm font-semibold text-slate-900">{item.title}</h3>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">{item.description}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">{item.description}</p>
                 </Link>
               );
             })}

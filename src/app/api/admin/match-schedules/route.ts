@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { isUserAdmin } from '@/lib/auth';
 import { getKoreaDate } from '@/lib/date';
-import { inferScheduleSource, normalizeScheduleSource } from '@/lib/match-schedule-source';
+import {
+  decorateDescriptionForScheduleSource,
+  inferScheduleSource,
+  normalizeScheduleSource,
+} from '@/lib/match-schedule-source';
 
 type ParticipantProfile = {
   id?: string | null;
@@ -46,12 +50,50 @@ export async function GET(request: Request) {
     const fromDateParam = requestUrl.searchParams.get('from_date');
     const statusParam = requestUrl.searchParams.get('status');
     const scheduleSourceParam = requestUrl.searchParams.get('schedule_source');
+    const profilesQueryParam = requestUrl.searchParams.get('profiles_query');
+    const profilesAllParam = requestUrl.searchParams.get('profiles_all');
 
     const todayDate = getKoreaDate();
     const exactDate = dateParam === 'today' ? todayDate : dateParam;
     const fromDate = fromDateParam === 'today' || !fromDateParam ? todayDate : fromDateParam;
+    const shouldFetchAllProfiles = profilesAllParam === '1' || profilesAllParam === 'true';
 
     const scheduleSource = scheduleSourceParam ? normalizeScheduleSource(scheduleSourceParam) : null;
+
+    if (profilesQueryParam !== null) {
+      const normalizedQuery = profilesQueryParam.trim();
+
+      let profilesQuery = adminSupabase
+        .from('profiles')
+        .select('id, user_id, username, full_name')
+        .not('user_id', 'is', null)
+        .limit(shouldFetchAllProfiles ? 500 : 20);
+
+      if (normalizedQuery.length > 0) {
+        const escapedQuery = normalizedQuery.replace(/[%_,]/g, (value) => `\\${value}`);
+        profilesQuery = profilesQuery.or(
+          `username.ilike.%${escapedQuery}%,full_name.ilike.%${escapedQuery}%`
+        );
+      } else {
+        profilesQuery = profilesQuery.order('full_name', { ascending: true }).order('username', { ascending: true });
+      }
+
+      const { data: profilesData, error: profilesError } = await profilesQuery;
+
+      if (profilesError) {
+        console.error('Admin profiles search error:', profilesError);
+        return NextResponse.json({ error: 'Failed to search profiles' }, { status: 500 });
+      }
+
+      const profiles = (profilesData || []).map((profile) => ({
+        id: profile.id,
+        user_id: profile.user_id,
+        username: profile.username,
+        full_name: profile.full_name,
+      }));
+
+      return NextResponse.json({ profiles });
+    }
 
     const buildSchedulesQuery = (includeScheduleSourceFilter: boolean) => {
       let query = adminSupabase
@@ -249,9 +291,95 @@ export async function POST(request: Request) {
     const { adminSupabase, user } = adminContext;
     const body = await request.json().catch(() => null);
     const action = typeof body?.action === 'string' ? body.action : '';
-    const scheduleId = typeof body?.scheduleId === 'string' ? body.scheduleId : '';
 
-    if (action !== 'join' || !scheduleId) {
+    if (action === 'create_schedule') {
+      const matchDate = typeof body?.match_date === 'string' ? body.match_date : '';
+      const startTime = typeof body?.start_time === 'string' ? body.start_time : '';
+      const endTime = typeof body?.end_time === 'string' ? body.end_time : '';
+      const location = typeof body?.location === 'string' ? body.location.trim() : '';
+      const maxParticipants =
+        typeof body?.max_participants === 'number' && Number.isFinite(body.max_participants)
+          ? Math.max(1, Math.floor(body.max_participants))
+          : 20;
+      const scheduleSource = normalizeScheduleSource(body?.schedule_source);
+      const rawDescription = typeof body?.description === 'string' ? body.description : '';
+
+      if (!matchDate || !startTime || !endTime || !location) {
+        return NextResponse.json({ error: 'Required fields are missing' }, { status: 400 });
+      }
+
+      const { data: existingSlot, error: existingSlotError } = await adminSupabase
+        .from('match_schedules')
+        .select('id')
+        .eq('match_date', matchDate)
+        .eq('start_time', startTime)
+        .eq('end_time', endTime)
+        .eq('location', location)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingSlotError) {
+        console.error('Admin schedule duplicate check error:', existingSlotError);
+        return NextResponse.json({ error: 'Failed to validate duplicate schedule' }, { status: 500 });
+      }
+
+      if (existingSlot) {
+        return NextResponse.json({ error: 'Duplicate slot already exists' }, { status: 409 });
+      }
+
+      const basePayload = {
+        match_date: matchDate,
+        start_time: startTime,
+        end_time: endTime,
+        location,
+        max_participants: maxParticipants,
+        current_participants: 0,
+        status: 'scheduled',
+        description: decorateDescriptionForScheduleSource(rawDescription, scheduleSource),
+        created_by: user.id,
+        updated_by: user.id,
+      };
+
+      let insertResult = await adminSupabase
+        .from('match_schedules')
+        .insert({
+          ...basePayload,
+          schedule_source: scheduleSource,
+        })
+        .select('*')
+        .single();
+
+      if ((insertResult.error as { code?: string } | null)?.code === '42703') {
+        insertResult = await adminSupabase
+          .from('match_schedules')
+          .insert(basePayload)
+          .select('*')
+          .single();
+      }
+
+      if (insertResult.error) {
+        const insertError = insertResult.error as { code?: string; message?: string };
+
+        if (insertError.code === '23505') {
+          return NextResponse.json({ error: 'Duplicate slot already exists' }, { status: 409 });
+        }
+
+        console.error('Admin schedule create error:', insertResult.error);
+        return NextResponse.json({ error: 'Failed to create match schedule' }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        schedule: {
+          ...insertResult.data,
+          schedule_source: inferScheduleSource(insertResult.data),
+        },
+      });
+    }
+
+    const scheduleId = typeof body?.scheduleId === 'string' ? body.scheduleId : '';
+    const targetUserId = typeof body?.targetUserId === 'string' ? body.targetUserId : user.id;
+
+    if (!['join', 'add_participant'].includes(action) || !scheduleId || !targetUserId) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
@@ -259,7 +387,7 @@ export async function POST(request: Request) {
       .from('match_participants')
       .select('id, status, registered_at')
       .eq('match_schedule_id', scheduleId)
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .maybeSingle();
 
     if (existingParticipantError) {
@@ -295,7 +423,7 @@ export async function POST(request: Request) {
         .from('match_participants')
         .insert({
           match_schedule_id: scheduleId,
-          user_id: user.id,
+          user_id: targetUserId,
           status: 'registered',
         })
         .select('id, match_schedule_id, user_id, registered_at, status')
@@ -308,6 +436,13 @@ export async function POST(request: Request) {
 
       participant = data;
     }
+
+    const { data: participantProfile } = await adminSupabase
+      .from('profiles')
+      .select('id, user_id, username, full_name')
+      .or(`id.eq.${targetUserId},user_id.eq.${targetUserId}`)
+      .limit(1)
+      .maybeSingle();
 
     const { count, error: countError } = await adminSupabase
       .from('match_participants')
@@ -326,7 +461,15 @@ export async function POST(request: Request) {
       .eq('id', scheduleId);
 
     return NextResponse.json({
-      participant,
+      participant: {
+        ...participant,
+        profiles: participantProfile
+          ? {
+              username: participantProfile.username ?? undefined,
+              full_name: participantProfile.full_name ?? undefined,
+            }
+          : undefined,
+      },
       currentParticipants: count || 0,
     });
   } catch (error) {
@@ -346,8 +489,9 @@ export async function DELETE(request: Request) {
     const { adminSupabase, user } = adminContext;
     const body = await request.json().catch(() => null);
     const scheduleId = typeof body?.scheduleId === 'string' ? body.scheduleId : '';
+    const targetUserId = typeof body?.targetUserId === 'string' ? body.targetUserId : user.id;
 
-    if (!scheduleId) {
+    if (!scheduleId || !targetUserId) {
       return NextResponse.json({ error: 'Schedule id is required' }, { status: 400 });
     }
 
@@ -355,7 +499,7 @@ export async function DELETE(request: Request) {
       .from('match_participants')
       .update({ status: 'cancelled' })
       .eq('match_schedule_id', scheduleId)
-      .eq('user_id', user.id);
+      .eq('user_id', targetUserId);
 
     if (error) {
       console.error('Admin match participant cancel error:', error);

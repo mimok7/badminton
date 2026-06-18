@@ -7,14 +7,6 @@ import { formatNameWithCoins } from '@/lib/player-display';
 import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
 import { getSupabaseClient } from '@/lib/supabase';
 
-type AttendanceStatus = 'present' | 'lesson' | 'absent';
-
-const ATTENDANCE_OPTIONS: Array<{ value: AttendanceStatus; label: string; chip: string }> = [
-  { value: 'present', label: '출석', chip: '출석' },
-  { value: 'lesson', label: '레슨', chip: '레슨' },
-  { value: 'absent', label: '퇴근', chip: '퇴근' },
-];
-
 function getMatchStatusMeta(status?: string | null) {
   if (status === 'completed') {
     return {
@@ -63,8 +55,6 @@ export default function TodayMatches() {
   const { user, loading: userLoading } = useUser();
   const [matches, setMatches] = useState<ScheduledMatchView[]>([]);
   const [loading, setLoading] = useState(true);
-  const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus | null>(null);
-  const [statusSaving, setStatusSaving] = useState(false);
   const supabase = getSupabaseClient();
 
   useEffect(() => {
@@ -77,22 +67,6 @@ export default function TodayMatches() {
         // 오늘의 모든 배정된 경기 조회
         const todayMatches = await fetchScheduledMatchesForDate(supabase, today);
         setMatches(todayMatches);
-
-        if (user?.id) {
-          const response = await fetch(`/api/attendance/status?date=${today}`);
-          const payload = await response.json().catch(() => null);
-
-          if (!response.ok) {
-            console.error('출석 상태 조회 오류:', payload);
-          } else {
-            const normalized = payload?.status;
-            if (normalized === 'present' || normalized === 'lesson' || normalized === 'absent') {
-              setAttendanceStatus(normalized);
-            } else {
-              setAttendanceStatus(null);
-            }
-          }
-        }
       } catch (error) {
         console.error('데이터 조회 중 오류:', error);
       } finally {
@@ -102,42 +76,6 @@ export default function TodayMatches() {
 
     fetchTodayMatches();
   }, [userLoading, user?.id, supabase]);
-
-  const handleAttendanceStatusChange = async (nextStatus: AttendanceStatus) => {
-    if (!user?.id || statusSaving) {
-      alert('로그인 상태를 확인한 뒤 다시 시도해주세요.');
-      return;
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
-
-    try {
-      setStatusSaving(true);
-
-      const response = await fetch('/api/attendance/status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: nextStatus,
-          attendedAt: today,
-        }),
-      });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Failed to save attendance status');
-      }
-
-      setAttendanceStatus(nextStatus);
-    } catch (error) {
-      console.error('출석 상태 저장 오류:', error);
-      alert('상태 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
-    } finally {
-      setStatusSaving(false);
-    }
-  };
 
   if (userLoading || loading) {
     return (
@@ -221,41 +159,6 @@ export default function TodayMatches() {
               <p className="mt-1 text-lg font-semibold">
                 {matches.length > 0 ? Math.max(...matches.map((m) => m.court_number || 0)) : 0}
               </p>
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-[22px] bg-white/8 px-3 py-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium text-slate-200">오늘 상태</p>
-              <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] font-medium text-white">
-                {attendanceStatus
-                  ? ATTENDANCE_OPTIONS.find((option) => option.value === attendanceStatus)?.chip
-                  : '미선택'}
-              </span>
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              {ATTENDANCE_OPTIONS.map((option) => {
-                const isActive = attendanceStatus === option.value;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    disabled={!user?.id || statusSaving}
-                    onClick={() => {
-                      void handleAttendanceStatusChange(option.value);
-                    }}
-                    className={`rounded-xl px-2 py-2 text-xs font-semibold transition ${
-                      isActive
-                        ? 'bg-white text-slate-900'
-                        : 'bg-white/10 text-slate-100 hover:bg-white/20'
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
             </div>
           </div>
         </section>

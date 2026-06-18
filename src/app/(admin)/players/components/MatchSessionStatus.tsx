@@ -365,11 +365,11 @@ export default function MatchSessionStatus({
                               <td className="border border-gray-300 px-2 py-3 text-center text-sm">
                                 <button
                                   type="button"
-                                  onClick={() => onDeleteSessionMatch(selectedSession.id, row.match.id)}
-                                  disabled={Boolean(deletingMatchIds[row.match.id])}
+                                  onClick={() => onDeleteSessionMatch(selectedSession.id, String(row.match.id))}
+                                  disabled={Boolean(deletingMatchIds[String(row.match.id)])}
                                   className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                  {deletingMatchIds[row.match.id] ? '삭제 중...' : '삭제'}
+                                  {deletingMatchIds[String(row.match.id)] ? '삭제 중...' : '삭제'}
                                 </button>
                               </td>
                             )}

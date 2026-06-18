@@ -5,6 +5,7 @@ export interface ExtendedPlayer {
   name: string;
   skill_level: string;
   skill_label: string;
+  score?: number;
   gender: string;
   skill_code: string;
   status: AttendanceStatus;

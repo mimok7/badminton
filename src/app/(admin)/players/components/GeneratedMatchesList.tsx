@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { getTeamScore } from '@/utils/match-utils';
 import { Match } from '@/types';
 import { getLevelScoreFromCode, type LevelInfoMap } from '@/lib/level-info';
 
@@ -55,13 +54,7 @@ export default function GeneratedMatchesList({
     }
 
     const skillLevel = String(player.skill_level || 'E2');
-    const mappedScore = getLevelScoreFromCode(levelInfoMap, skillLevel, Number.NaN);
-
-    if (!Number.isNaN(mappedScore)) {
-      return mappedScore;
-    }
-
-    return getTeamScore({ player1: player, player2: { ...player, id: `${player.id || 'fallback'}-pair` } }) / 2;
+    return getLevelScoreFromCode(levelInfoMap, skillLevel, 0);
   };
 
   const getAccurateTeamScore = (team: any) => {
@@ -89,6 +82,10 @@ export default function GeneratedMatchesList({
 
   const averageScoreDiff = matchScoreDiffs.length > 0
     ? matchScoreDiffs.reduce((sum, item) => sum + item.diff, 0) / matchScoreDiffs.length
+    : 0;
+  const playerCountEntries = Object.entries(playerGameCounts);
+  const averageGameCount = playerCountEntries.length > 0
+    ? Object.values(playerGameCounts).reduce((sum, count) => sum + count, 0) / playerCountEntries.length
     : 0;
 
   const handlePlayerSelect = (matchIdx: number, team: 'team1' | 'team2', slot: 'player1' | 'player2', playerId: string) => {
@@ -119,7 +116,22 @@ export default function GeneratedMatchesList({
     if (match.team1?.player2?.id) selectedIds.add(match.team1.player2.id);
     if (match.team2?.player1?.id) selectedIds.add(match.team2.player1.id);
     if (match.team2?.player2?.id) selectedIds.add(match.team2.player2.id);
-    return presentPlayers.filter(p => !selectedIds.has(p.id));
+    return presentPlayers
+      .filter((player) => !selectedIds.has(player.id))
+      .slice()
+      .sort((left, right) => {
+        const scoreDiff = getAccuratePlayerScore(right) - getAccuratePlayerScore(left);
+        if (Math.abs(scoreDiff) > 0.0001) {
+          return scoreDiff;
+        }
+
+        const nameDiff = (left.name || '').localeCompare(right.name || '', 'ko', { sensitivity: 'base' });
+        if (nameDiff !== 0) {
+          return nameDiff;
+        }
+
+        return String(left.id || '').localeCompare(String(right.id || ''), 'ko', { sensitivity: 'base' });
+      });
   };
 
   return (
@@ -283,28 +295,25 @@ export default function GeneratedMatchesList({
       </div>
 
       {/* 1인당 게임수 표시 */}
-      {Object.keys(playerGameCounts).length > 0 && (
+      {playerCountEntries.length > 0 && (
         <div className="mb-6">
           <h4 className="text-lg font-semibold mb-3">1인당 총 게임수</h4>
           <div className="bg-gray-50 p-4 rounded border">
             <div className="grid gap-2 text-sm" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', justifyContent: 'start' }}>
-              {Object.entries(playerGameCounts)
+              {playerCountEntries
                 .sort(([nameA], [nameB]) => nameA.localeCompare(nameB, 'ko', { sensitivity: 'base' })) // 한글 사전(ㄱㄴㄷ) 순 정렬
                 .map(([playerName, gameCount]) => (
                   <div key={playerName} className="flex justify-between bg-white p-2 rounded border" style={{ width: '120px', minWidth: '120px' }}>
-                    <span className="font-medium truncate mr-2">{playerName}</span>
-                    <span className="text-blue-600 font-bold flex-shrink-0">{gameCount}</span>
+                    <span className="truncate mr-2 font-medium">{playerName}</span>
+                    <span className={`flex-shrink-0 font-bold ${gameCount > averageGameCount ? 'text-xl text-red-600' : 'text-blue-600'}`}>{gameCount}</span>
                   </div>
                 ))}
             </div>
             <div className="mt-3 text-xs text-gray-600">
               <div className="flex flex-wrap gap-4">
-                <span>총 선수: {Object.keys(playerGameCounts).length}명</span>
+                <span>총 선수: {playerCountEntries.length}명</span>
                 <span>총 경기: {matches.length}경기</span>
-                <span>평균 경기수: {Object.keys(playerGameCounts).length > 0 
-                  ? (Object.values(playerGameCounts).reduce((a, b) => a + b, 0) / Object.keys(playerGameCounts).length).toFixed(1)
-                  : '0'
-                }경기/인</span>
+                <span>평균 경기수: {averageGameCount.toFixed(1)}경기/인</span>
               </div>
             </div>
           </div>

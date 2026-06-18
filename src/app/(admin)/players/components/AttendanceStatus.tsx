@@ -16,6 +16,14 @@ export default function AttendanceStatus({
   onBulkStatusChange,
   disabled = false,
 }: AttendanceStatusProps) {
+  const formatPlayerScore = (score?: number) => {
+    if (typeof score !== 'number' || !Number.isFinite(score)) {
+      return '0.0';
+    }
+
+    return score.toFixed(1);
+  };
+
   const [filter, setFilter] = useState<'all' | 'present' | 'lesson' | 'absent'>('all');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [isPlayerListOpen, setIsPlayerListOpen] = useState(false);
@@ -111,12 +119,18 @@ export default function AttendanceStatus({
     await onStatusChange(playerId, status);
   };
 
+  const getBulkTargetIds = (status: ExtendedPlayer['status']) => {
+    return selectedPlayerIds
+      .filter((id) => visiblePlayerIds.includes(id))
+      .filter((id) => todayPlayers.find((player) => player.id === id)?.status !== status);
+  };
+
   const applyBulkStatus = async (status: ExtendedPlayer['status']) => {
     if (disabled || !onBulkStatusChange || selectedPlayerIds.length === 0) {
       return;
     }
 
-    const targetIds = selectedPlayerIds.filter((id) => visiblePlayerIds.includes(id));
+    const targetIds = getBulkTargetIds(status);
     if (targetIds.length === 0) {
       return;
     }
@@ -212,7 +226,7 @@ export default function AttendanceStatus({
                 <button
                   type="button"
                   onClick={() => applyBulkStatus('present')}
-                  disabled={disabled || selectedPlayerIds.length === 0}
+                  disabled={disabled || getBulkTargetIds('present').length === 0}
                   className="rounded bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-300"
                 >
                   선택한 회원 출석으로 변경
@@ -220,7 +234,7 @@ export default function AttendanceStatus({
                 <button
                   type="button"
                   onClick={() => applyBulkStatus('lesson')}
-                  disabled={disabled || selectedPlayerIds.length === 0}
+                  disabled={disabled || getBulkTargetIds('lesson').length === 0}
                   className="rounded bg-yellow-500 px-3 py-1 text-xs font-medium text-white hover:bg-yellow-600 disabled:cursor-not-allowed disabled:bg-yellow-300"
                 >
                   선택 레슨
@@ -228,7 +242,7 @@ export default function AttendanceStatus({
                 <button
                   type="button"
                   onClick={() => applyBulkStatus('absent')}
-                  disabled={disabled || selectedPlayerIds.length === 0}
+                  disabled={disabled || getBulkTargetIds('absent').length === 0}
                   className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
                 >
                   선택 불참
@@ -277,7 +291,9 @@ export default function AttendanceStatus({
                         />
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">{player.name}</div>
-                          <div className="truncate text-xs text-gray-500">{(player.skill_label || player.skill_level || 'N1').toUpperCase()}</div>
+                          <div className="truncate text-xs text-gray-500">
+                            {(player.skill_label || player.skill_level || 'N1').toUpperCase()} · {formatPlayerScore(player.score)}점
+                          </div>
                         </div>
                         <span className={`rounded-full px-2 py-1 text-xs font-medium ${
                           player.status === 'present' ? 'bg-green-100 text-green-800' :
@@ -292,7 +308,7 @@ export default function AttendanceStatus({
                         <button
                           type="button"
                           onClick={() => applySingleStatus(player.id, 'present')}
-                          disabled={disabled}
+                          disabled={disabled || player.status === 'present'}
                           className="rounded border border-green-200 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           출석으로 변경
@@ -300,7 +316,7 @@ export default function AttendanceStatus({
                         <button
                           type="button"
                           onClick={() => applySingleStatus(player.id, 'lesson')}
-                          disabled={disabled}
+                          disabled={disabled || player.status === 'lesson'}
                           className="rounded border border-yellow-200 px-2 py-1 text-xs font-medium text-yellow-700 hover:bg-yellow-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           레슨
@@ -308,7 +324,7 @@ export default function AttendanceStatus({
                         <button
                           type="button"
                           onClick={() => applySingleStatus(player.id, 'absent')}
-                          disabled={disabled}
+                          disabled={disabled || player.status === 'absent'}
                           className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           불참

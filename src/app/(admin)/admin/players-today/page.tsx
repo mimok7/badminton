@@ -14,7 +14,6 @@ import { Match } from '@/types';
 import { getKoreaDate } from '@/lib/date';
 import { getAdminLevelDisplay } from '@/lib/level-display';
 import { fetchLevelInfoMap, getLevelScoreFromCode, type LevelInfoMap } from '@/lib/level-info';
-import { getLevelScore } from '@/utils/match-helpers';
 
 interface MemberOption {
   id: string;
@@ -78,11 +77,15 @@ export default function PlayersTodayPage() {
   };
 
   const getAccurateScore = (skillLevel?: string | null) => {
-    const mappedScore = getLevelScoreFromCode(levelInfoMap, skillLevel, Number.NaN);
-    if (!Number.isNaN(mappedScore)) {
-      return mappedScore;
+    return getLevelScoreFromCode(levelInfoMap, skillLevel, 0);
+  };
+
+  const formatScore = (score?: number) => {
+    if (typeof score !== 'number' || !Number.isFinite(score)) {
+      return '0.0';
     }
-    return getLevelScore(skillLevel || 'E2');
+
+    return score.toFixed(1);
   };
 
   const attachScores = <T extends ExtendedPlayer | MemberOption>(players: T[]) =>
@@ -97,7 +100,7 @@ export default function PlayersTodayPage() {
   ) =>
     players.map((player) => ({
       ...player,
-      score: getLevelScoreFromCode(map, player.skill_level, getLevelScore(player.skill_level || 'E2')),
+      score: getLevelScoreFromCode(map, player.skill_level, 0),
     }));
 
   const ensureLevelInfoMap = async () => {
@@ -134,7 +137,7 @@ export default function PlayersTodayPage() {
           name,
           skill_level: normalizedLevel,
           skill_label: getAdminLevelDisplay(normalizedLevel),
-          score: getLevelScoreFromCode(nextLevelInfoMap, normalizedLevel, getLevelScore(normalizedLevel)),
+          score: getLevelScoreFromCode(nextLevelInfoMap, normalizedLevel, 0),
           gender: profile.gender || '',
           skill_code: '',
         } as MemberOption;
@@ -170,7 +173,7 @@ export default function PlayersTodayPage() {
         // 출석 조회 실패해도 참가자는 absent 상태로 표시
         const absentPlayers = (participants || []).map((p) => ({
           ...p,
-          score: getLevelScoreFromCode(currentLevelInfoMap, p.skill_level, getLevelScore(p.skill_level)),
+          score: getLevelScoreFromCode(currentLevelInfoMap, p.skill_level, 0),
           status: 'absent' as const,
         }));
         setTodayPlayers(absentPlayers);
@@ -207,7 +210,7 @@ export default function PlayersTodayPage() {
               name,
               skill_level: normalized,
               skill_label: label,
-              score: getLevelScoreFromCode(currentLevelInfoMap, normalized, getLevelScore(normalized)),
+              score: getLevelScoreFromCode(currentLevelInfoMap, normalized, 0),
               gender: profile.gender || '',
               skill_code: '',
               status: (attendanceMap.get(profile.id) || 'present') as ExtendedPlayer['status'],
@@ -218,7 +221,7 @@ export default function PlayersTodayPage() {
 
       const combinedPlayers = (participants || []).map(p => ({
         ...p,
-        score: getLevelScoreFromCode(currentLevelInfoMap, p.skill_level, getLevelScore(p.skill_level)),
+        score: getLevelScoreFromCode(currentLevelInfoMap, p.skill_level, 0),
         status: (attendanceMap.get(p.id) || 'absent') as ExtendedPlayer['status']
       })) as ExtendedPlayer[];
 
@@ -240,7 +243,7 @@ export default function PlayersTodayPage() {
         const participants = await fetchRegisteredPlayersForDate(today);
         const absentPlayers = participants.map(p => ({
           ...p,
-          score: getLevelScoreFromCode(currentLevelInfoMap, p.skill_level, getLevelScore(p.skill_level)),
+          score: getLevelScoreFromCode(currentLevelInfoMap, p.skill_level, 0),
           status: 'absent' as const,
         }));
         setTodayPlayers(absentPlayers);
@@ -276,21 +279,21 @@ export default function PlayersTodayPage() {
         team1: {
           player1: {
             ...match.team1.player1,
-            score: getLevelScoreFromCode(levelInfoMap, match.team1.player1.skill_level, getLevelScore(match.team1.player1.skill_level)),
+            score: getLevelScoreFromCode(levelInfoMap, match.team1.player1.skill_level, 0),
           },
           player2: {
             ...match.team1.player2,
-            score: getLevelScoreFromCode(levelInfoMap, match.team1.player2.skill_level, getLevelScore(match.team1.player2.skill_level)),
+            score: getLevelScoreFromCode(levelInfoMap, match.team1.player2.skill_level, 0),
           },
         },
         team2: {
           player1: {
             ...match.team2.player1,
-            score: getLevelScoreFromCode(levelInfoMap, match.team2.player1.skill_level, getLevelScore(match.team2.player1.skill_level)),
+            score: getLevelScoreFromCode(levelInfoMap, match.team2.player1.skill_level, 0),
           },
           player2: {
             ...match.team2.player2,
-            score: getLevelScoreFromCode(levelInfoMap, match.team2.player2.skill_level, getLevelScore(match.team2.player2.skill_level)),
+            score: getLevelScoreFromCode(levelInfoMap, match.team2.player2.skill_level, 0),
           },
         },
       }))
@@ -934,7 +937,7 @@ export default function PlayersTodayPage() {
                   onClick={() => removeManualPlayer(player.id)}
                   className="rounded-full border border-amber-500 bg-amber-500 px-3 py-1 text-sm text-white transition-colors hover:bg-amber-600"
                 >
-                  제거 · {player.name} ({player.skill_label || player.skill_level})
+                  제거 · {player.name} ({player.skill_label || player.skill_level}, {formatScore(player.score)}점)
                 </button>
               ))}
             </div>
@@ -1038,7 +1041,7 @@ export default function PlayersTodayPage() {
                         <div className="min-w-0 flex-1">
                           <div className="truncate font-medium text-gray-900">{member.name}</div>
                           <div className="mt-1 text-sm text-gray-500">
-                            {member.skill_label || member.skill_level} · {member.gender || '성별 미지정'}
+                            {member.skill_label || member.skill_level} · {formatScore(member.score)}점 · {member.gender || '성별 미지정'}
                           </div>
                         </div>
                       </label>

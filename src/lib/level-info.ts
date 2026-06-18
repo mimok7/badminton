@@ -32,6 +32,18 @@ function normalizeLevelCode(value?: string | null) {
   }
 }
 
+function toLevelInfoMap(rows: LevelInfoRow[]) {
+  return (rows || []).reduce<LevelInfoMap>((acc, row) => {
+    if (row.code) {
+      acc[normalizeLevelCode(row.code)] = {
+        name: row.name || row.code,
+        score: Number(row.score ?? 0),
+      };
+    }
+    return acc;
+  }, {});
+}
+
 export async function fetchLevelNameMap(
   supabase: SupabaseClient<Database>
 ): Promise<LevelNameMap> {
@@ -50,19 +62,33 @@ export async function fetchLevelInfoMap(
     .select('code, name, score')
     .order('score', { ascending: false, nullsFirst: false });
 
+  if (!error && data && data.length > 0) {
+    return toLevelInfoMap(data as LevelInfoRow[]);
+  }
+
+  if (typeof window !== 'undefined') {
+    const response = await fetch('/api/admin/level-info', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      if (error) {
+        throw error;
+      }
+      throw new Error('Failed to load level info');
+    }
+
+    const payload = await response.json().catch(() => null);
+    return toLevelInfoMap((payload?.levelInfo || []) as LevelInfoRow[]);
+  }
+
   if (error) {
     throw error;
   }
 
-  return (data || []).reduce<LevelInfoMap>((acc, row: LevelInfoRow) => {
-    if (row.code) {
-      acc[normalizeLevelCode(row.code)] = {
-        name: row.name || row.code,
-        score: Number(row.score ?? 0),
-      };
-    }
-    return acc;
-  }, {});
+  return {};
 }
 
 export function getLevelNameFromCode(

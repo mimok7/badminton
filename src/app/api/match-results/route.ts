@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isAdminRole, getProfileByUserId } from '@/lib/auth';
-import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
+import { readCoinSettings } from '@/lib/coin-settings';
+import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER, type CoinSettlementMode } from '@/lib/coins';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 
 type MatchParticipantRow = {
@@ -13,6 +14,77 @@ type MatchParticipantRow = {
   team2_player2_id: string | null;
   match_result: unknown;
 };
+
+type CoinTransactionRow = {
+  profile_id: string;
+  delta: number;
+  transaction_type: string;
+  wager_amount: number;
+};
+
+function allocateWinningPool(winningWagers: number[], losingTotal: number) {
+  const winningTotal = winningWagers.reduce((sum, wager) => sum + wager, 0);
+
+  if (winningTotal <= 0) {
+    throw new Error('배팅 코인 합계가 올바르지 않습니다.');
+  }
+
+  const gains: number[] = [];
+  let allocated = 0;
+
+  winningWagers.forEach((wager) => {
+    const gain = Math.floor((losingTotal * wager) / winningTotal);
+    gains.push(gain);
+    allocated += gain;
+  });
+
+  let remainder = losingTotal - allocated;
+  let index = 0;
+  while (remainder > 0 && gains.length > 0) {
+    gains[index] += 1;
+    remainder -= 1;
+    index = (index + 1) % gains.length;
+  }
+
+  return gains;
+}
+
+function buildCoinDeltas(params: {
+  mode: CoinSettlementMode;
+  winnerTeam1: boolean;
+  team1Wagers: number[];
+  team2Wagers: number[];
+  fixedWinnerReward: number;
+}) {
+  const { mode, winnerTeam1, team1Wagers, team2Wagers, fixedWinnerReward } = params;
+  const losingWagers = winnerTeam1 ? team2Wagers : team1Wagers;
+  const losingTotal = losingWagers.reduce((sum, wager) => sum + wager, 0);
+  const winningWagers = winnerTeam1 ? team1Wagers : team2Wagers;
+
+  const zeroSumWinningGains = allocateWinningPool(winningWagers, losingTotal);
+
+  if (mode === 'zero_sum') {
+    return {
+      team1: winnerTeam1 ? zeroSumWinningGains : team1Wagers.map((wager) => -wager),
+      team2: winnerTeam1 ? team2Wagers.map((wager) => -wager) : zeroSumWinningGains,
+      totalLosingPool: losingTotal,
+    };
+  }
+
+  if (mode === 'winner_only_pool') {
+    return {
+      team1: winnerTeam1 ? zeroSumWinningGains : team1Wagers.map(() => 0),
+      team2: winnerTeam1 ? team2Wagers.map(() => 0) : zeroSumWinningGains,
+      totalLosingPool: losingTotal,
+    };
+  }
+
+  return {
+    team1: winnerTeam1 ? team1Wagers.map(() => fixedWinnerReward) : team1Wagers.map(() => 0),
+    team2: winnerTeam1 ? team2Wagers.map(() => 0) : team2Wagers.map(() => fixedWinnerReward),
+    totalLosingPool: losingTotal,
+  };
+}
 
 export async function POST(request: Request) {
   const serverSupabase = await getSupabaseServerClient();
@@ -55,6 +127,7 @@ export async function POST(request: Request) {
   }
 
   const currentProfile = await getProfileByUserId(serverSupabase, user.id);
+  const coinSettings = await readCoinSettings();
 
   if (!currentProfile) {
     return NextResponse.json({ error: '프로필을 찾을 수 없습니다.' }, { status: 404 });
@@ -114,17 +187,163 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data, error } = await adminSupabase.rpc('record_match_result_with_coins', {
-    p_match_id: normalizedMatchId,
-    p_winner_team1: winnerTeam1,
-    p_team1_score: normalizedTeam1Score,
-    p_team2_score: normalizedTeam2Score,
-    p_recorded_by: currentProfile.id,
+  const team1Ids = [matchRow.team1_player1_id, matchRow.team1_player2_id].filter((value): value is string => Boolean(value));
+  const team2Ids = [matchRow.team2_player1_id, matchRow.team2_player2_id].filter((value): value is string => Boolean(value));
+  const existingTransactions = new Map<string, CoinTransactionRow>(
+    ((await adminSupabase
+      .from('profile_coin_transactions')
+      .select('profile_id, delta, transaction_type, wager_amount')
+      .eq('match_id', normalizedMatchId)).data || []).map((row) => [row.profile_id, row as CoinTransactionRow])
+  );
+
+  const deltas = buildCoinDeltas({
+    mode: coinSettings.settlementMode,
+    winnerTeam1,
+    team1Wagers: team1Bets,
+    team2Wagers: team2Bets,
+    fixedWinnerReward: coinSettings.fixedWinnerReward,
   });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (coinSettings.settlementMode === 'zero_sum') {
+    const losingIds = winnerTeam1 ? team2Ids : team1Ids;
+    const losingWagers = winnerTeam1 ? team2Bets : team1Bets;
+
+    for (let index = 0; index < losingIds.length; index += 1) {
+      const profileId = losingIds[index];
+      const { data: profileRow, error: profileError } = await adminSupabase
+        .from('profiles')
+        .select('coin_balance')
+        .eq('id', profileId)
+        .single();
+
+      if (profileError || !profileRow) {
+        return NextResponse.json({ error: '정산할 사용자 코인을 찾을 수 없습니다.' }, { status: 500 });
+      }
+
+      const priorDelta = existingTransactions.get(profileId)?.delta ?? 0;
+      const nextBalance = (profileRow.coin_balance ?? 0) + priorDelta - losingWagers[index];
+      if (nextBalance < 0) {
+        return NextResponse.json({ error: '패배 팀 선수의 코인이 부족하여 정산할 수 없습니다.' }, { status: 400 });
+      }
+    }
   }
+
+  const matchResultPayload = {
+    winner: winnerTeam1 ? 'team1' : 'team2',
+    score: `${normalizedTeam1Score}:${normalizedTeam2Score}`,
+    team1_score: normalizedTeam1Score,
+    team2_score: normalizedTeam2Score,
+    total_losing_pool: deltas.totalLosingPool,
+    team1_bets: team1Bets,
+    team2_bets: team2Bets,
+    settlement_mode: coinSettings.settlementMode,
+    fixed_winner_reward: coinSettings.fixedWinnerReward,
+    completed_at: new Date().toISOString(),
+    recorded_by: currentProfile.id,
+  };
+
+  const { error: matchResultError } = await adminSupabase
+    .from('match_results')
+    .upsert({
+      match_id: normalizedMatchId,
+      winner_team1: winnerTeam1,
+      team1_score: normalizedTeam1Score,
+      team2_score: normalizedTeam2Score,
+    }, { onConflict: 'match_id' });
+
+  if (matchResultError) {
+    return NextResponse.json({ error: matchResultError.message }, { status: 500 });
+  }
+
+  const teamUpdates = [
+    { ids: team1Ids, wagers: team1Bets, deltas: deltas.team1, teamSide: 'team1' as const },
+    { ids: team2Ids, wagers: team2Bets, deltas: deltas.team2, teamSide: 'team2' as const },
+  ];
+
+  for (const team of teamUpdates) {
+    for (let index = 0; index < team.ids.length; index += 1) {
+      const profileId = team.ids[index];
+      const nextDelta = team.deltas[index] ?? 0;
+      const transactionType = nextDelta > 0 ? 'win' : 'loss';
+      const previousTransaction = existingTransactions.get(profileId);
+
+      const { data: profileRow, error: profileError } = await adminSupabase
+        .from('profiles')
+        .select('coin_balance, coin_wins, coin_losses')
+        .eq('id', profileId)
+        .single();
+
+      if (profileError || !profileRow) {
+        return NextResponse.json({ error: '사용자 코인 정보를 찾을 수 없습니다.' }, { status: 500 });
+      }
+
+      const nextCoinBalance = Math.max(0, (profileRow.coin_balance ?? 0) + nextDelta - (previousTransaction?.delta ?? 0));
+      const nextWins =
+        (profileRow.coin_wins ?? 0)
+        + (transactionType === 'win' ? 1 : 0)
+        - (previousTransaction?.transaction_type === 'win' ? 1 : 0);
+      const nextLosses =
+        (profileRow.coin_losses ?? 0)
+        + (transactionType === 'loss' ? 1 : 0)
+        - (previousTransaction?.transaction_type === 'loss' ? 1 : 0);
+
+      const { error: updateProfileError } = await adminSupabase
+        .from('profiles')
+        .update({
+          coin_balance: nextCoinBalance,
+          coin_wins: nextWins,
+          coin_losses: nextLosses,
+          coin_updated_at: new Date().toISOString(),
+        })
+        .eq('id', profileId);
+
+      if (updateProfileError) {
+        return NextResponse.json({ error: updateProfileError.message }, { status: 500 });
+      }
+
+      const { error: transactionError } = await adminSupabase
+        .from('profile_coin_transactions')
+        .upsert({
+          profile_id: profileId,
+          match_id: normalizedMatchId,
+          transaction_type: transactionType,
+          delta: nextDelta,
+          wager_amount: team.wagers[index] ?? DEFAULT_MATCH_WAGER,
+          team_side: team.teamSide,
+          team1_score: normalizedTeam1Score,
+          team2_score: normalizedTeam2Score,
+          recorded_by: currentProfile.id,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'match_id,profile_id' });
+
+      if (transactionError) {
+        return NextResponse.json({ error: transactionError.message }, { status: 500 });
+      }
+    }
+  }
+
+  const { error: updateGeneratedMatchError } = await adminSupabase
+    .from('generated_matches')
+    .update({
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      match_result: matchResultPayload,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', normalizedMatchId);
+
+  if (updateGeneratedMatchError) {
+    return NextResponse.json({ error: updateGeneratedMatchError.message }, { status: 500 });
+  }
+
+  await adminSupabase
+    .from('match_schedules')
+    .update({
+      status: 'completed',
+      match_result: matchResultPayload,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('generated_match_id', normalizedMatchId);
 
   if (matchRow.session_id && typeof matchRow.match_number === 'number') {
     const { data: sessionMatches, error: sessionMatchesError } = await adminSupabase
@@ -181,10 +400,13 @@ export async function POST(request: Request) {
 
   return NextResponse.json(
     {
-      data,
+      data: matchResultPayload,
       coinRules: {
         defaultWager: DEFAULT_MATCH_WAGER,
         maxWager: MAX_MATCH_WAGER,
+        settlementMode: coinSettings.settlementMode,
+        fixedWinnerReward: coinSettings.fixedWinnerReward,
+        initialCoinBalance: coinSettings.initialCoinBalance,
       },
     },
     { status: 200 }

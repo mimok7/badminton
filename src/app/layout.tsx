@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import ConsoleSilencer from "@/components/ConsoleSilencer";
 import PWARegister from "@/components/PWARegister";
+import AppInstallPrompt from "@/components/AppInstallPrompt";
 import NotificationInitializer from "@/components/NotificationInitializer";
 import RealtimeNotifications from "@/components/RealtimeNotifications";
 import { AppDataProvider } from "@/contexts/AppDataContext";
@@ -47,6 +48,7 @@ export default function RootLayout({
         <AppDataProvider>
           <ConsoleSilencer />
           <PWARegister />
+          <AppInstallPrompt />
           <NotificationInitializer />
           <RealtimeNotifications />
           {children}

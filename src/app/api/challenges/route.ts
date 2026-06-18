@@ -256,8 +256,8 @@ export async function GET() {
     const {
       eligibilityMap,
       profilesById,
-      blockedByMatchUserIds,
-      blockedByChallengeUserIds,
+      blockedByMatchUserIds = new Set<string>(),
+      blockedByChallengeUserIds = new Set<string>(),
     } = await getTodayChallengePool(adminSupabase, today);
 
     const eligiblePlayers = Array.from(eligibilityMap.values())

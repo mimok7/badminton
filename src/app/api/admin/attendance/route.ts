@@ -46,7 +46,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => null);
-    const userIds = Array.isArray(body?.userIds) ? body.userIds.filter((id: unknown): id is string => typeof id === 'string' && id.trim() !== '') : [];
+    const userIds: string[] = Array.isArray(body?.userIds)
+      ? body.userIds.filter((id: unknown): id is string => typeof id === 'string' && id.trim() !== '')
+      : [];
     const status = body?.status;
     const attendedAt = typeof body?.attendedAt === 'string' && body.attendedAt ? body.attendedAt : getTodayLocal();
 
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User ids are required' }, { status: 400 });
     }
 
-    const rows = userIds.map((userId) => ({
+    const rows = userIds.map((userId: string) => ({
       user_id: userId,
       attended_at: attendedAt,
       status,

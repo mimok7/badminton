@@ -5,6 +5,13 @@ export interface ScheduledMatchView {
   match_time: string | null;
   court_number: number | null;
   status: string;
+  match_result?: {
+    winner?: 'team1' | 'team2';
+    score?: string;
+    team1_score?: number;
+    team2_score?: number;
+    total_losing_pool?: number;
+  } | null;
   team1_player1: string | null;
   team1_player2: string | null;
   team2_player1: string | null;
@@ -13,6 +20,10 @@ export interface ScheduledMatchView {
   team1_player2_name: string;
   team2_player1_name: string;
   team2_player2_name: string;
+  team1_player1_coin_balance?: number | null;
+  team1_player2_coin_balance?: number | null;
+  team2_player1_coin_balance?: number | null;
+  team2_player2_coin_balance?: number | null;
   team1_player1_gender?: string | null;
   team1_player2_gender?: string | null;
   team2_player1_gender?: string | null;

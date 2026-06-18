@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
 import { getKoreaDate } from '@/lib/date';
 import { getUserLevelDisplay } from '@/lib/level-display';
+import { formatCurrentUserNameWithCoins } from '@/lib/player-display';
 import { getSupabaseClient } from '@/lib/supabase';
 
 interface MatchSchedule {
@@ -490,7 +491,7 @@ export default function MatchRegistrationPage() {
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
               <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">
-                {profile?.full_name || profile?.username || '회원'}님
+                {formatCurrentUserNameWithCoins(profile?.full_name || profile?.username || '회원', profile?.coin_balance)}님
               </span>
               <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">
                 레벨 {getUserLevelDisplay(profile?.skill_level)}

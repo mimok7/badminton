@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import { RequireAdmin } from '@/components/AuthGuard';
 import { Button } from '@/components/ui/button';
+import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
 import Link from 'next/link';
 
 interface AssignedMatch {
@@ -19,6 +20,16 @@ interface AssignedMatch {
   generated_match: {
     id: number;
     match_number: number;
+    status?: string;
+    completed_at?: string | null;
+    match_result?: {
+      winner?: 'team1' | 'team2';
+      score?: string;
+      team1_score?: number;
+      team2_score?: number;
+      completed_at?: string;
+      recorded_by?: string;
+    } | null;
     session: {
       session_name: string;
       session_date: string;
@@ -131,6 +142,9 @@ function MatchResultsPage() {
             id,
             match_number,
             session_id,
+            status,
+            completed_at,
+            match_result,
             team1_player1_id,
             team1_player2_id,
             team2_player1_id,
@@ -224,6 +238,9 @@ function MatchResultsPage() {
           generated_match: {
             id: generatedMatch.id,
             match_number: generatedMatch.match_number,
+            status: generatedMatch.status,
+            completed_at: generatedMatch.completed_at,
+            match_result: generatedMatch.match_result,
             session: session || { session_name: '알 수 없음', session_date: '', id: '' },
             team1_player1: getPlayer(generatedMatch.team1_player1_id),
             team1_player2: getPlayer(generatedMatch.team1_player2_id),
@@ -302,12 +319,18 @@ function MatchResultsPage() {
 
   // 결과 제출 컴포넌트
   function MatchResultRow({ match, onSaved }: { match: AssignedMatch, onSaved: () => void }) {
-    const [team1Score, setTeam1Score] = useState<number>(0);
-    const [team2Score, setTeam2Score] = useState<number>(0);
+    const [team1Score, setTeam1Score] = useState<number>(match.generated_match?.match_result?.team1_score || 0);
+    const [team2Score, setTeam2Score] = useState<number>(match.generated_match?.match_result?.team2_score || 0);
     const [submitting, setSubmitting] = useState(false);
 
     const submitResult = async () => {
       if (!match || !match.generated_match) return;
+
+      if (team1Score === team2Score) {
+        alert('무승부는 저장할 수 없습니다.');
+        return;
+      }
+
       setSubmitting(true);
       try {
         const payload = {
@@ -326,6 +349,10 @@ function MatchResultsPage() {
         const data = await res.json();
         if (!res.ok) throw new Error(data?.error || '결과 저장 중 오류');
 
+        alert(
+          `결과 저장 완료\n기본 배팅 ${DEFAULT_MATCH_WAGER}코인, 최대 ${MAX_MATCH_WAGER}코인 규칙으로 정산되었습니다.`
+        );
+
         // 저장 후 목록 새로고침
         onSaved();
       } catch (err) {
@@ -337,7 +364,14 @@ function MatchResultsPage() {
     };
 
     return (
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex flex-col items-center justify-center gap-3">
+        {match.generated_match?.match_result && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+            저장된 결과: {match.generated_match.match_result.winner === 'team1' ? '라켓팀' : '셔틀팀'} 승
+            {' · '}
+            {match.generated_match.match_result.score || `${team1Score}:${team2Score}`}
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <input
             type="number"
@@ -351,9 +385,14 @@ function MatchResultsPage() {
             onChange={(e) => setTeam2Score(Number(e.target.value))}
             className="w-20 px-2 py-1 border rounded" />
         </div>
-        <Button onClick={submitResult} disabled={submitting}>
-          {submitting ? '저장 중...' : '결과 저장'}
-        </Button>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500">
+            기본 {DEFAULT_MATCH_WAGER}코인 · 최대 {MAX_MATCH_WAGER}코인
+          </span>
+          <Button onClick={submitResult} disabled={submitting}>
+            {submitting ? '저장 중...' : match.generated_match?.match_result ? '결과 수정' : '결과 저장'}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -377,6 +416,9 @@ function MatchResultsPage() {
         {/* 상단 제목 */}
         <div className="mb-6">
           <h1 className="text-2xl font-semibold">📋 배정 현황 확인</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            관리자 확인용 화면입니다. 기본 배팅은 {DEFAULT_MATCH_WAGER}코인이고, 사용자는 경기별로 최대 {MAX_MATCH_WAGER}코인까지 올릴 수 있습니다.
+          </p>
         </div>
 
         {/* 필터 컨트롤 */}

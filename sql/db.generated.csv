@@ -23,6 +23,20 @@ public,courts,is_active,boolean,NO,true
 public,courts,location,text,YES,null
 public,courts,name,text,NO,null
 public,courts,order_index,integer,YES,null
+public,challenge_requests,challenge_date,date,NO,CURRENT_DATE
+public,challenge_requests,challenger_id,uuid,NO,null
+public,challenge_requests,created_at,timestamp with time zone,NO,now()
+public,challenge_requests,id,uuid,NO,gen_random_uuid()
+public,challenge_requests,note,text,YES,null
+public,challenge_requests,opponent1_id,uuid,NO,null
+public,challenge_requests,opponent1_response,text,NO,pending
+public,challenge_requests,opponent2_id,uuid,NO,null
+public,challenge_requests,opponent2_response,text,NO,pending
+public,challenge_requests,partner_id,uuid,NO,null
+public,challenge_requests,partner_response,text,NO,pending
+public,challenge_requests,responded_at,timestamp with time zone,YES,null
+public,challenge_requests,status,text,NO,pending
+public,challenge_requests,updated_at,timestamp with time zone,NO,now()
 public,daily_game_counts,count,integer,NO,0
 public,daily_game_counts,date,date,NO,null
 public,daily_game_counts,last_assigned_at,timestamp with time zone,YES,null
@@ -116,6 +130,10 @@ public,notifications,title,character varying,NO,null
 public,notifications,type,character varying,NO,general
 public,notifications,user_id,uuid,NO,null
 public,profiles,created_at,timestamp with time zone,NO,now()
+public,profiles,coin_balance,integer,NO,30
+public,profiles,coin_losses,integer,NO,0
+public,profiles,coin_updated_at,timestamp with time zone,NO,now()
+public,profiles,coin_wins,integer,NO,0
 public,profiles,email,text,YES,null
 public,profiles,full_name,text,YES,null
 public,profiles,gender,text,YES,null
@@ -125,6 +143,24 @@ public,profiles,skill_level,text,NO,E2
 public,profiles,updated_at,timestamp with time zone,NO,now()
 public,profiles,user_id,uuid,YES,null
 public,profiles,username,text,YES,null
+public,match_coin_bets,created_at,timestamp with time zone,NO,now()
+public,match_coin_bets,id,bigint,NO,null
+public,match_coin_bets,match_id,bigint,NO,null
+public,match_coin_bets,profile_id,uuid,NO,null
+public,match_coin_bets,updated_at,timestamp with time zone,NO,now()
+public,match_coin_bets,wager_amount,integer,NO,1
+public,profile_coin_transactions,created_at,timestamp with time zone,NO,now()
+public,profile_coin_transactions,delta,integer,NO,null
+public,profile_coin_transactions,id,bigint,NO,null
+public,profile_coin_transactions,match_id,bigint,NO,null
+public,profile_coin_transactions,profile_id,uuid,NO,null
+public,profile_coin_transactions,recorded_by,uuid,YES,null
+public,profile_coin_transactions,team1_score,integer,NO,null
+public,profile_coin_transactions,team2_score,integer,NO,null
+public,profile_coin_transactions,team_side,text,NO,null
+public,profile_coin_transactions,transaction_type,text,NO,null
+public,profile_coin_transactions,updated_at,timestamp with time zone,NO,now()
+public,profile_coin_transactions,wager_amount,integer,NO,1
 public,recurring_match_templates,advance_days,integer,NO,7
 public,recurring_match_templates,created_at,timestamp with time zone,NO,now()
 public,recurring_match_templates,created_by,uuid,YES,null

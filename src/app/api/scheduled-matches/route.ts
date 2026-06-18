@@ -9,12 +9,35 @@ type ProfileRow = {
   username: string | null;
   full_name: string | null;
   gender: string | null;
+  coin_balance: number | null;
 };
 
 const getProfileName = (profile?: Pick<ProfileRow, 'username' | 'full_name'> | null, fallback = '선수') =>
   profile?.full_name || profile?.username || fallback;
 
 const getProfileGender = (profile?: Pick<ProfileRow, 'gender'> | null) => profile?.gender || null;
+
+function normalizeMatchResult(value: unknown): ScheduledMatchView['match_result'] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const winner = record.winner === 'team1' || record.winner === 'team2' ? record.winner : undefined;
+  const score = typeof record.score === 'string' ? record.score : undefined;
+  const team1Score = typeof record.team1_score === 'number' ? record.team1_score : undefined;
+  const team2Score = typeof record.team2_score === 'number' ? record.team2_score : undefined;
+  const totalLosingPool =
+    typeof record.total_losing_pool === 'number' ? record.total_losing_pool : undefined;
+
+  return {
+    winner,
+    score,
+    team1_score: team1Score,
+    team2_score: team2Score,
+    total_losing_pool: totalLosingPool,
+  };
+}
 
 export async function GET(request: Request) {
   try {
@@ -36,9 +59,8 @@ export async function GET(request: Request) {
 
     const { data: schedules, error: schedulesError } = await adminSupabase
       .from('match_schedules')
-      .select('id, generated_match_id, match_date, scheduled_time, start_time, court_number, status')
+      .select('id, generated_match_id, match_date, scheduled_time, start_time, court_number, status, match_result')
       .eq('match_date', date)
-      .eq('status', 'scheduled')
       .order('court_number', { ascending: true })
       .order('scheduled_time', { ascending: true })
       .order('start_time', { ascending: true });
@@ -48,15 +70,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Failed to load scheduled matches' }, { status: 500 });
     }
 
-    const scheduleRows = (schedules || []).filter((schedule): schedule is {
-      id: string;
-      generated_match_id: number | null;
-      match_date: string | null;
-      scheduled_time: string | null;
-      start_time: string | null;
-      court_number: number | null;
-      status: string;
-    } => Boolean(schedule.id));
+    const scheduleRows = (schedules || []).filter((schedule) => Boolean(schedule.id));
 
     if (scheduleRows.length === 0) {
       return NextResponse.json({ matches: [] satisfies ScheduledMatchView[] });
@@ -98,7 +112,7 @@ export async function GET(request: Request) {
 
     const { data: profiles, error: profilesError } = await adminSupabase
       .from('profiles')
-      .select('id, user_id, username, full_name, gender');
+      .select('id, user_id, username, full_name, gender, coin_balance');
 
     if (profilesError) {
       console.error('Scheduled matches profiles error:', profilesError);
@@ -158,6 +172,7 @@ export async function GET(request: Request) {
         match_time: schedule.scheduled_time || schedule.start_time || null,
         court_number: schedule.court_number,
         status: schedule.status,
+        match_result: normalizeMatchResult(schedule.match_result),
         team1_player1: team1Player1Id,
         team1_player2: team1Player2Id,
         team2_player1: team2Player1Id,
@@ -166,6 +181,10 @@ export async function GET(request: Request) {
         team1_player2_name: getProfileName(profileMap.get(team1Player2Id || '') || null, '선수2'),
         team2_player1_name: getProfileName(profileMap.get(team2Player1Id || '') || null, '선수3'),
         team2_player2_name: getProfileName(profileMap.get(team2Player2Id || '') || null, '선수4'),
+        team1_player1_coin_balance: profileMap.get(team1Player1Id || '')?.coin_balance ?? null,
+        team1_player2_coin_balance: profileMap.get(team1Player2Id || '')?.coin_balance ?? null,
+        team2_player1_coin_balance: profileMap.get(team2Player1Id || '')?.coin_balance ?? null,
+        team2_player2_coin_balance: profileMap.get(team2Player2Id || '')?.coin_balance ?? null,
         team1_player1_gender: getProfileGender(profileMap.get(team1Player1Id || '') || null),
         team1_player2_gender: getProfileGender(profileMap.get(team1Player2Id || '') || null),
         team2_player1_gender: getProfileGender(profileMap.get(team2Player1Id || '') || null),

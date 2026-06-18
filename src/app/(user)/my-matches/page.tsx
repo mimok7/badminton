@@ -5,6 +5,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { formatNameWithCoins } from '@/lib/player-display';
 import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
 
 export default function TodayMatches() {
@@ -157,12 +158,12 @@ export default function TodayMatches() {
                       <div className={`font-medium ${
                         match.team1_player1 === user?.id ? 'text-blue-900 underline' : ''
                       }`}>
-                        👤 {match.team1_player1_name}
+                        👤 {formatNameWithCoins(match.team1_player1_name, match.team1_player1_coin_balance)}
                       </div>
                       <div className={`font-medium ${
                         match.team1_player2 === user?.id ? 'text-blue-900 underline' : ''
                       }`}>
-                        👤 {match.team1_player2_name}
+                        👤 {formatNameWithCoins(match.team1_player2_name, match.team1_player2_coin_balance)}
                       </div>
                     </div>
                   </div>
@@ -182,12 +183,12 @@ export default function TodayMatches() {
                       <div className={`font-medium ${
                         match.team2_player1 === user?.id ? 'text-red-900 underline' : ''
                       }`}>
-                        👤 {match.team2_player1_name}
+                        👤 {formatNameWithCoins(match.team2_player1_name, match.team2_player1_coin_balance)}
                       </div>
                       <div className={`font-medium ${
                         match.team2_player2 === user?.id ? 'text-red-900 underline' : ''
                       }`}>
-                        👤 {match.team2_player2_name}
+                        👤 {formatNameWithCoins(match.team2_player2_name, match.team2_player2_coin_balance)}
                       </div>
                     </div>
                   </div>

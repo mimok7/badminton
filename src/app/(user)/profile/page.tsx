@@ -31,6 +31,7 @@ import {
   type SkillLevelGroupCode,
 } from '@/lib/skill-levels';
 import { getUserLevelDisplay } from '@/lib/level-display';
+import { formatCurrentUserNameWithCoins } from '@/lib/player-display';
 
 const formSchema = z.object({
   username: z.string().min(2, { message: '닉네임은 2자 이상이어야 합니다.' }),
@@ -42,7 +43,7 @@ export default function ProfilePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const supabase = getSupabaseClient();
-  const displayName = profile?.full_name || profile?.username || '회원';
+  const displayName = formatCurrentUserNameWithCoins(profile?.full_name || profile?.username || '회원', profile?.coin_balance);
   const levelLabel = getUserLevelDisplay(profile?.skill_level);
   const roleLabel = profile?.role === 'admin' ? '관리자' : '일반 회원';
   const genderLabel =
@@ -116,6 +117,7 @@ export default function ProfilePage() {
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">레벨 {levelLabel}</span>
                 <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">{roleLabel}</span>
+                <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-amber-100">코인 {profile?.coin_balance ?? 0}</span>
               </div>
             </div>
             <Link href="/dashboard" className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15">
@@ -126,7 +128,7 @@ export default function ProfilePage() {
           <div className="mt-5 rounded-[22px] bg-white/8 px-4 py-4">
             <p className="text-sm text-slate-300">오늘의 상태</p>
             <p className="mt-1 text-lg font-semibold text-white">{genderLabel} · {levelLabel}</p>
-            <div className="mt-4 grid grid-cols-2 gap-2 text-center sm:grid-cols-3">
+            <div className="mt-4 grid grid-cols-2 gap-2 text-center">
               <div className="rounded-2xl bg-white/8 px-2 py-3">
                 <p className="text-[11px] text-slate-300">역할</p>
                 <p className="mt-1 text-sm font-semibold text-white">{roleLabel}</p>
@@ -135,9 +137,19 @@ export default function ProfilePage() {
                 <p className="text-[11px] text-slate-300">성별</p>
                 <p className="mt-1 text-sm font-semibold text-white">{genderLabel}</p>
               </div>
-              <div className="col-span-2 rounded-2xl bg-white/8 px-2 py-3 sm:col-span-1">
+              <div className="rounded-2xl bg-white/8 px-2 py-3">
                 <p className="text-[11px] text-slate-300">급수</p>
                 <p className="mt-1 text-sm font-semibold text-white">{levelLabel}</p>
+              </div>
+              <div className="rounded-2xl bg-white/8 px-2 py-3">
+                <p className="text-[11px] text-slate-300">코인</p>
+                <p className="mt-1 text-sm font-semibold text-white">{profile?.coin_balance ?? 0}</p>
+              </div>
+              <div className="rounded-2xl bg-white/8 px-2 py-3">
+                <p className="text-[11px] text-slate-300">승 / 패</p>
+                <p className="mt-1 text-sm font-semibold text-white">
+                  {profile?.coin_wins ?? 0} / {profile?.coin_losses ?? 0}
+                </p>
               </div>
             </div>
           </div>

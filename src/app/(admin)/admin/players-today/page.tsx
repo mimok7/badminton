@@ -48,6 +48,7 @@ export default function PlayersTodayPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [playerGameCounts, setPlayerGameCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [assignType, setAssignType] = useState<'today' | 'scheduled'>('today');
   const [sessionMode, setSessionMode] = useState<'레벨' | '랜덤' | '혼복' | '수동'>('레벨');
   const [perPlayerMinGames, setPerPlayerMinGames] = useState<number>(1);
@@ -157,89 +158,79 @@ export default function PlayersTodayPage() {
       // 오늘 경기 참가자 조회
       const participants = await fetchRegisteredPlayersForDate(today);
       console.log('참가자 데이터 조회 결과:', participants);
-      
-      if (!participants || participants.length === 0) {
-        console.log('오늘 등록된 참가자가 없습니다.');
-        setTodayPlayers([]);
-        return;
-      }
 
       // 오늘 출석 데이터 조회
-      const { data: attendancePresent, error: attErr } = await supabase
+      const { data: attendanceRows, error: attErr } = await supabase
         .from('attendances')
-        .select('user_id')
-        .eq('attended_at', today)
-        .eq('status', 'present');
+        .select('user_id, status')
+        .eq('attended_at', today);
         
       if (attErr) {
         console.error('출석 조회 오류:', attErr);
         // 출석 조회 실패해도 참가자는 absent 상태로 표시
-        const absentPlayers = participants.map((p) => ({
+        const absentPlayers = (participants || []).map((p) => ({
           ...p,
           score: getLevelScoreFromCode(currentLevelInfoMap, p.skill_level, getLevelScore(p.skill_level)),
           status: 'absent' as const,
         }));
         setTodayPlayers(absentPlayers);
+        setManualPlayers([]);
         return;
       }
 
-      console.log('출석 데이터 조회 결과:', attendancePresent);
+      console.log('출석 데이터 조회 결과:', attendanceRows);
 
-      // 참가자가 없고 출석 데이터만 있는 경우: 출석 데이터를 참가자로 변환
-      if ((!participants || participants.length === 0) && attendancePresent && attendancePresent.length > 0) {
-        console.log('참가자 데이터가 없어 출석 데이터를 참가자로 사용');
+      // 참가자와 출석 데이터 결합
+      const attendanceMap = new Map(
+        (attendanceRows || []).map((row: any) => [row.user_id, row.status as ExtendedPlayer['status']])
+      );
+      const participantIds = new Set((participants || []).map((player) => player.id));
+      const attendanceOnlyUserIds = Array.from(attendanceMap.keys()).filter((userId) => !participantIds.has(userId));
+      let attendanceOnlyPlayers: ExtendedPlayer[] = [];
 
-        // 출석한 사용자들의 프로필 조회
-        const attendanceUserIds = attendancePresent.map((a: any) => a.user_id);
+      if (attendanceOnlyUserIds.length > 0) {
         const { data: profiles, error: profileErr } = await supabase
           .from('profiles')
           .select('id, username, full_name, skill_level, gender')
-          .in('id', attendanceUserIds);
+          .in('id', attendanceOnlyUserIds);
 
         if (profileErr) {
-          console.error('프로필 조회 오류:', profileErr);
-          setTodayPlayers([]);
-          return;
+          console.error('출석 전용 사용자 프로필 조회 오류:', profileErr);
+        } else {
+          attendanceOnlyPlayers = (profiles || []).map((profile: any) => {
+            const raw = (profile.skill_level || '').toString().toLowerCase();
+            const normalized = normalizeLevel('', raw);
+            const label = getAdminLevelDisplay(normalized);
+            const name = profile.full_name || profile.username || `선수-${String(profile.id).slice(0, 4)}`;
+            return {
+              id: profile.id,
+              name,
+              skill_level: normalized,
+              skill_label: label,
+              score: getLevelScoreFromCode(currentLevelInfoMap, normalized, getLevelScore(normalized)),
+              gender: profile.gender || '',
+              skill_code: '',
+              status: (attendanceMap.get(profile.id) || 'present') as ExtendedPlayer['status'],
+            } as ExtendedPlayer;
+          });
         }
-
-        // 레벨 정보 조회
-        const { data: levelData } = await supabase
-          .from('level_info')
-          .select('code, name');
-
-        // 출석 데이터를 참가자 데이터로 변환
-        const playersFromAttendance: ExtendedPlayer[] = (profiles || []).map((profile: any) => {
-          const raw = (profile.skill_level || '').toString().toLowerCase();
-          const normalized = normalizeLevel('', raw);
-          const label = getAdminLevelDisplay(normalized);
-          const name = profile.full_name || profile.username || `선수-${String(profile.id).slice(0, 4)}`;
-          return {
-            id: profile.id,
-            name,
-            skill_level: normalized,
-            skill_label: label,
-            score: getLevelScoreFromCode(currentLevelInfoMap, normalized, getLevelScore(normalized)),
-            gender: profile.gender || '',
-            skill_code: '',
-            status: 'present', // 출석 데이터이므로 present로 설정
-          } as ExtendedPlayer;
-        });
-
-        console.log(`출석 데이터에서 ${playersFromAttendance.length}명 참가자 생성`);
-        setTodayPlayers(playersFromAttendance);
-        return;
       }
 
-      // 참가자와 출석 데이터 결합
-      const attendanceMap = new Map(attendancePresent?.map((a: any) => [a.user_id, true]) || []);
-      const combinedPlayers = participants.map(p => ({
+      const combinedPlayers = (participants || []).map(p => ({
         ...p,
         score: getLevelScoreFromCode(currentLevelInfoMap, p.skill_level, getLevelScore(p.skill_level)),
-        status: attendanceMap.has(p.id) ? 'present' : 'absent'
+        status: (attendanceMap.get(p.id) || 'absent') as ExtendedPlayer['status']
       })) as ExtendedPlayer[];
 
-      console.log('최종 결합된 플레이어 데이터:', combinedPlayers);
-      setTodayPlayers(combinedPlayers);
+      const mergedPlayersMap = new Map<string, ExtendedPlayer>();
+      combinedPlayers.forEach((player) => mergedPlayersMap.set(player.id, player));
+      attendanceOnlyPlayers.forEach((player) => mergedPlayersMap.set(player.id, player));
+
+      const mergedPlayers = Array.from(mergedPlayersMap.values());
+
+      console.log('최종 결합된 플레이어 데이터:', mergedPlayers);
+      setTodayPlayers(mergedPlayers);
+      setManualPlayers(attendanceOnlyPlayers);
 
     } catch (error) {
       console.error('출석 데이터 갱신 오류:', error);
@@ -253,9 +244,11 @@ export default function PlayersTodayPage() {
           status: 'absent' as const,
         }));
         setTodayPlayers(absentPlayers);
+        setManualPlayers([]);
       } catch (fallbackError) {
         console.error('참가자 데이터 조회 실패:', fallbackError);
         setTodayPlayers([]);
+        setManualPlayers([]);
       }
     }
   };
@@ -359,18 +352,18 @@ export default function PlayersTodayPage() {
 
   const fetchMatchSessions = async () => {
     try {
-      const response = await fetch('/api/admin/match-sessions?date=today', {
-        method: 'GET',
-        cache: 'no-store',
-      });
+      const today = getTodayLocal();
+      const { data, error } = await supabase
+        .from('match_sessions')
+        .select('*')
+        .eq('session_date', today)
+        .order('created_at', { ascending: false });
 
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error || '세션 조회 실패');
+      if (error) {
+        throw error;
       }
 
-      const payload = (await response.json()) as { sessions?: MatchSession[] };
-      setMatchSessions(payload.sessions || []);
+      setMatchSessions((data || []) as MatchSession[]);
     } catch (e) {
       console.error('세션 조회 오류:', e);
       setMatchSessions([]);
@@ -378,12 +371,13 @@ export default function PlayersTodayPage() {
   };
 
   const fetchTodaySchedules = async () => {
-    const fetchTodaySchedulesDirectly = async (today: string) => {
+    try {
+      const today = getTodayLocal();
       const { data, error } = await supabase
         .from('match_schedules')
-        .select('id, match_date, start_time, end_time, location, status, current_participants, max_participants, generated_match_id')
+        .select('id, match_date, start_time, end_time, location, status, current_participants, max_participants, generated_match_id, schedule_source')
         .eq('match_date', today)
-        .is('generated_match_id', null)
+        .or('schedule_source.eq.recurring,generated_match_id.is.null')
         .order('start_time', { ascending: true });
 
       if (error) {
@@ -400,44 +394,9 @@ export default function PlayersTodayPage() {
         current_participants: schedule.current_participants,
         max_participants: schedule.max_participants,
       })));
-    };
-
-    try {
-      const today = getTodayLocal();
-      const response = await fetch('/api/admin/match-schedules?date=today&schedule_source=recurring', {
-        method: 'GET',
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        console.warn('관리자 일정 API fallback 실행:', payload);
-        await fetchTodaySchedulesDirectly(today);
-        return;
-      }
-
-      const payload = (await response.json()) as {
-        schedules?: Array<{
-          id: string;
-          match_date: string | null;
-          start_time: string | null;
-          end_time: string | null;
-          location: string | null;
-          status: string;
-          current_participants: number | null;
-          max_participants: number | null;
-        }>;
-      };
-
-      setTodaySchedules(payload.schedules || []);
     } catch (e) {
       console.error('오늘 경기 일정 조회 오류:', e);
-      try {
-        await fetchTodaySchedulesDirectly(getTodayLocal());
-      } catch (fallbackError) {
-        console.error('오늘 경기 일정 직접 조회 오류:', fallbackError);
-        setTodaySchedules([]);
-      }
+      setTodaySchedules([]);
     }
   };
 
@@ -651,31 +610,254 @@ export default function PlayersTodayPage() {
     setSelectedMemberIds(availableMembersToAdd.map((member) => member.id));
   };
 
-  const addSelectedMembersToAttendance = () => {
+  const applyAttendanceStatusLocally = (memberIds: string[], status: ExtendedPlayer['status']) => {
+    if (memberIds.length === 0) {
+      return;
+    }
+
+    const memberIdSet = new Set(memberIds);
+
+    setTodayPlayers((prev) => {
+      if (prev === null) {
+        return prev;
+      }
+
+      return prev.map((player) =>
+        memberIdSet.has(player.id)
+          ? {
+              ...player,
+              status,
+            }
+          : player
+      );
+    });
+
+    setManualPlayers((prev) =>
+      prev.map((player) =>
+        memberIdSet.has(player.id)
+          ? {
+              ...player,
+              status,
+            }
+          : player
+      )
+    );
+  };
+
+  const saveAttendanceStatuses = async (memberIds: string[], status: ExtendedPlayer['status']) => {
+    if (memberIds.length === 0) {
+      return;
+    }
+
+    applyAttendanceStatusLocally(memberIds, status);
+
+    const attendedAt = getTodayLocal();
+
+    try {
+      const response = await fetch('/api/admin/attendance', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userIds: memberIds,
+          status,
+          attendedAt,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.warn('관리자 출석 API 실패, 클라이언트 저장으로 fallback:', payload);
+        const { error } = await supabase
+          .from('attendances')
+          .upsert(
+            memberIds.map((userId) => ({
+              user_id: userId,
+              attended_at: attendedAt,
+              status,
+            })),
+            { onConflict: 'user_id,attended_at' }
+          );
+
+        if (error) {
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error('출석 저장 fallback 실패:', error);
+      throw error;
+    }
+
+    await refreshAttendanceData();
+  };
+
+  const handleAttendanceStatusChange = async (memberId: string, status: ExtendedPlayer['status']) => {
+    setAttendanceLoading(true);
+    try {
+      await saveAttendanceStatuses([memberId], status);
+    } catch (error) {
+      console.error('개별 출석 저장 오류:', error);
+      alert('출석 상태 저장 중 오류가 발생했습니다.');
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
+  const handleBulkAttendanceChange = async (memberIds: string[], status: ExtendedPlayer['status']) => {
+    setAttendanceLoading(true);
+    try {
+      await saveAttendanceStatuses(memberIds, status);
+    } catch (error) {
+      console.error('일괄 출석 저장 오류:', error);
+      alert('출석 상태 일괄 저장 중 오류가 발생했습니다.');
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
+  const addSelectedMembersToAttendance = async () => {
     if (selectedMemberIds.length === 0) {
       return;
     }
 
-    const selectedMembers = availableMembersToAdd
-      .filter((member) => selectedMemberIds.includes(member.id))
-      .map((member) => ({
-        ...member,
-        status: 'present' as const,
-      }));
+    try {
+      await saveAttendanceStatuses(selectedMemberIds, 'present');
 
-    setManualPlayers((prev) => {
-      const merged = new Map(prev.map((player) => [player.id, player]));
-      selectedMembers.forEach((member) => {
-        merged.set(member.id, member);
-      });
-      return Array.from(merged.values());
-    });
-    setSelectedMemberIds([]);
-    setShowMemberModal(false);
+      setSelectedMemberIds([]);
+      setShowMemberModal(false);
+      alert('선택한 회원이 오늘 출석자에 추가되었습니다.');
+    } catch (error) {
+      console.error('회원 출석 추가 중 오류:', error);
+      alert('회원 추가 중 오류가 발생했습니다.');
+    }
   };
 
-  const removeManualPlayer = (playerId: string) => {
-    setManualPlayers((prev) => prev.filter((player) => player.id !== playerId));
+  const removeManualPlayer = async (playerId: string) => {
+    try {
+      const today = getTodayLocal();
+      const { error } = await supabase
+        .from('attendances')
+        .delete()
+        .eq('user_id', playerId)
+        .eq('attended_at', today);
+
+      if (error) {
+        console.error('수동 추가 회원 제거 오류:', error);
+        alert('수동 추가 회원 제거 중 오류가 발생했습니다.');
+        return;
+      }
+
+      await refreshAttendanceData();
+    } catch (error) {
+      console.error('수동 추가 회원 제거 중 오류:', error);
+      alert('수동 추가 회원 제거 중 오류가 발생했습니다.');
+    }
+  };
+
+  const deleteTodaySession = async (sessionId: string) => {
+    if (!confirm('이 배정된 경기 세션을 삭제하시겠습니까? 세션에 포함된 경기들도 함께 삭제됩니다.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/match-sessions', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessionId }),
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.error('배정 세션 삭제 오류:', payload);
+        alert(payload?.error || '배정 세션 삭제 중 오류가 발생했습니다.');
+        return;
+      }
+
+      await fetchTodaySchedules();
+      await fetchMatchSessions();
+      alert('배정 세션이 삭제되었습니다.');
+    } catch (error) {
+      console.error('배정 세션 삭제 중 오류:', error);
+      alert('배정 세션 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const deleteAllTodaySessions = async () => {
+    if (matchSessions.length === 0) {
+      alert('삭제할 배정된 세션이 없습니다.');
+      return;
+    }
+
+    if (!confirm(`오늘 배정된 세션 ${matchSessions.length}개를 모두 삭제하시겠습니까? 세션 내 경기들도 함께 삭제됩니다.`)) {
+      return;
+    }
+
+    try {
+      let deletedCount = 0;
+      for (const session of [...matchSessions]) {
+        const response = await fetch('/api/admin/match-sessions', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ sessionId: session.id }),
+        });
+
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          console.error('배정 세션 전체 삭제 오류:', payload);
+          alert(payload?.error || '배정 세션 전체 삭제 중 오류가 발생했습니다.');
+          return;
+        }
+
+        deletedCount += 1;
+      }
+
+      await fetchTodaySchedules();
+      await fetchMatchSessions();
+      await refreshAttendanceData();
+      alert(`오늘 배정된 세션 ${deletedCount}개가 모두 삭제되었습니다.`);
+    } catch (error) {
+      console.error('배정 세션 전체 삭제 중 오류:', error);
+      alert('배정 세션 전체 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const deleteSessionMatch = async (sessionId: string, matchId: string) => {
+    if (!confirm('이 세션의 개별 경기를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/match-sessions/${sessionId}/matches`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ matchId }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        console.error('개별 경기 삭제 오류:', payload);
+        alert(payload?.error || '개별 경기 삭제 중 오류가 발생했습니다.');
+        return;
+      }
+
+      await fetchMatchSessions();
+      await fetchTodaySchedules();
+      alert('개별 경기가 삭제되었습니다.');
+    } catch (error) {
+      console.error('개별 경기 삭제 중 오류:', error);
+      alert('개별 경기 삭제 중 오류가 발생했습니다.');
+    }
   };
 
   const handleDirectAssign = async () => {
@@ -758,11 +940,19 @@ export default function PlayersTodayPage() {
             </div>
           )}
         </div>
-        <AttendanceStatus todayPlayers={effectiveTodayPlayers} />
+        <AttendanceStatus
+          todayPlayers={effectiveTodayPlayers}
+          onStatusChange={handleAttendanceStatusChange}
+          onBulkStatusChange={handleBulkAttendanceChange}
+          disabled={attendanceLoading}
+        />
         
         <MatchSessionStatus
           matchSessions={matchSessions}
           registeredSchedules={todaySchedules}
+          onDeleteSession={deleteTodaySession}
+          onDeleteSessionMatch={deleteSessionMatch}
+          onDeleteAllSessions={deleteAllTodaySessions}
         />
 
         <MatchGenerationControls

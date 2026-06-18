@@ -19,12 +19,24 @@ interface MatchSessionStatusProps {
   matchSessions: MatchSession[];
   registeredSchedules?: RegisteredScheduleSummary[];
   title?: string;
+  onDeleteSession?: (sessionId: string) => void;
+  onDeleteSessionMatch?: (sessionId: string, matchId: string) => void;
+  onDeleteAllSessions?: () => void;
+  deletingAllSessions?: boolean;
+  deletingSessionIds?: Record<string, boolean>;
+  deletingMatchIds?: Record<string, boolean>;
 }
 
 export default function MatchSessionStatus({
   matchSessions,
   registeredSchedules = [],
   title = '📅 오늘의 경기 일정',
+  onDeleteSession,
+  onDeleteSessionMatch,
+  onDeleteAllSessions,
+  deletingAllSessions = false,
+  deletingSessionIds = {},
+  deletingMatchIds = {},
 }: MatchSessionStatusProps) {
   const hasRegisteredSchedules = registeredSchedules.length > 0;
   const hasMatchSessions = matchSessions.length > 0;
@@ -168,7 +180,7 @@ export default function MatchSessionStatus({
                       <div className="text-sm text-gray-600">
                         인원: {schedule.current_participants ?? 0} / {schedule.max_participants ?? 0}명
                       </div>
-                      <div className="text-xs text-gray-500">상태: {schedule.status}</div>
+                      <div className="mt-1 text-xs text-gray-500">상태: {schedule.status}</div>
                     </div>
                   ))}
                 </div>
@@ -204,6 +216,16 @@ export default function MatchSessionStatus({
                             ? '배정닫기'
                             : '배정보기'}
                         </button>
+                        {onDeleteSession && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteSession(session.id)}
+                            disabled={Boolean(deletingSessionIds[session.id])}
+                            className="rounded border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {deletingSessionIds[session.id] ? '삭제 중...' : '세션 삭제'}
+                          </button>
+                        )}
                         <span className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
                           session.assigned_matches === session.total_matches 
                             ? 'bg-green-100 text-green-800' 
@@ -245,6 +267,16 @@ export default function MatchSessionStatus({
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
                 배정 완료 {selectedSession.assigned_matches}경기
               </span>
+              {onDeleteSession && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteSession(selectedSession.id)}
+                  disabled={Boolean(deletingSessionIds[selectedSession.id])}
+                  className="rounded border border-red-200 bg-red-50 px-3 py-1 text-sm text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {deletingSessionIds[selectedSession.id] ? '세션 삭제 중...' : '세션 삭제'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={closeDetails}
@@ -288,6 +320,9 @@ export default function MatchSessionStatus({
                         <th className="border border-gray-300 px-3 py-2 text-center text-sm font-semibold">라켓팀</th>
                         <th className="border border-gray-300 px-3 py-2 text-center text-sm font-semibold">셔틀팀</th>
                         <th className="border border-gray-300 px-2 py-2 text-center text-sm font-semibold">점수 차이</th>
+                        {onDeleteSessionMatch && (
+                          <th className="border border-gray-300 px-2 py-2 text-center text-sm font-semibold">삭제</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -326,6 +361,18 @@ export default function MatchSessionStatus({
                                 <div className="mt-1 text-xs font-medium text-rose-600">최대 편차</div>
                               )}
                             </td>
+                            {onDeleteSessionMatch && (
+                              <td className="border border-gray-300 px-2 py-3 text-center text-sm">
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteSessionMatch(selectedSession.id, row.match.id)}
+                                  disabled={Boolean(deletingMatchIds[row.match.id])}
+                                  className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {deletingMatchIds[row.match.id] ? '삭제 중...' : '삭제'}
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         );
                       })}

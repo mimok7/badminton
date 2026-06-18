@@ -29,6 +29,11 @@ export const normalizeTournamentPlayerName = (value?: string | null) =>
     .replace(/\([^)]*\)/g, '')
     .trim();
 
+const tournamentNamesMatch = (candidate: string, teamMember: string) => {
+  if (!candidate || !teamMember) return false;
+  return candidate === teamMember || candidate.includes(teamMember) || teamMember.includes(candidate);
+};
+
 export async function fetchMyTournamentMatches(
   supabase: BrowserSupabaseClient,
   profile?: {
@@ -62,7 +67,10 @@ export async function fetchMyTournamentMatches(
   const filteredMatches = ((allMatches || []) as TournamentMatchRow[]).filter((match) => {
     const team1Names = (match.team1 || []).map((name) => normalizeTournamentPlayerName(name));
     const team2Names = (match.team2 || []).map((name) => normalizeTournamentPlayerName(name));
-    return searchNames.some((name) => team1Names.includes(name) || team2Names.includes(name));
+    return searchNames.some((name) =>
+      team1Names.some((teamName) => tournamentNamesMatch(name, teamName)) ||
+      team2Names.some((teamName) => tournamentNamesMatch(name, teamName))
+    );
   });
 
   const tournamentIds = Array.from(

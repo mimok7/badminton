@@ -40,8 +40,20 @@ interface MatchParticipant {
   };
 }
 
+interface ParticipantSearchProfile {
+  id: string;
+  user_id: string | null;
+  username: string | null;
+  full_name: string | null;
+}
+
 interface ScheduleWithParticipants extends MatchSchedule {
   participants: MatchParticipant[];
+}
+
+interface ScheduleGroup {
+  matchDate: string;
+  schedules: ScheduleWithParticipants[];
 }
 
 export default function MatchSchedulePage() {
@@ -97,6 +109,13 @@ export default function MatchSchedulePage() {
   const router = useRouter();
   // 상세보기 토글 상태: 스케줄별로 참가자 이름 목록 표시 여부
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [participantActionLoading, setParticipantActionLoading] = useState<Record<string, boolean>>({});
+  const [showParticipantModal, setShowParticipantModal] = useState(false);
+  const [participantModalScheduleId, setParticipantModalScheduleId] = useState<string | null>(null);
+  const [participantModalProfiles, setParticipantModalProfiles] = useState<ParticipantSearchProfile[]>([]);
+  const [participantModalLoading, setParticipantModalLoading] = useState(false);
+  const [participantModalSubmitting, setParticipantModalSubmitting] = useState(false);
+  const [selectedModalParticipantIds, setSelectedModalParticipantIds] = useState<string[]>([]);
 
   // 새 경기 생성 폼 데이터
   const [newSchedule, setNewSchedule] = useState({
@@ -197,49 +216,40 @@ export default function MatchSchedulePage() {
     }
 
     try {
-      // 세션 확인
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        console.error('세션 오류:', sessionError);
-        alert('세션이 만료되었습니다. 다시 로그인해주세요.');
-        window.location.href = '/login';
-        return;
-      }
-
       const scheduleSource = normalizeScheduleSource(newSchedule.schedule_source);
-      const basePayload = {
-        ...newSchedule,
-        description: decorateDescriptionForScheduleSource(newSchedule.description, scheduleSource),
-        created_by: user.id,
-        updated_by: user.id
-      };
-
-      let { error } = await supabase
-        .from('match_schedules')
-        .insert({
-          ...basePayload,
+      const response = await fetch('/api/admin/match-schedules', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'create_schedule',
+          match_date: newSchedule.match_date,
+          start_time: newSchedule.start_time,
+          end_time: newSchedule.end_time,
+          location: newSchedule.location,
+          max_participants: newSchedule.max_participants,
           schedule_source: scheduleSource,
-        });
+          description: newSchedule.description,
+        }),
+      });
 
-      if (error?.code === '42703') {
-        const retry = await supabase
-          .from('match_schedules')
-          .insert(basePayload);
-        error = retry.error;
-      }
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
 
-      if (error) {
-        console.error('경기 생성 오류:', error);
-        
-        // 401 Unauthorized 처리
-        if (error.message.includes('JWT') || error.message.includes('401')) {
+        if (response.status === 401) {
           alert('세션이 만료되었습니다. 다시 로그인해주세요.');
           window.location.href = '/login';
           return;
         }
-        
-        alert('경기 생성 중 오류가 발생했습니다: ' + error.message);
+
+        if (response.status === 409) {
+          alert('동일한 날짜/시간/장소의 경기가 이미 등록되어 있습니다.');
+          return;
+        }
+
+        console.error('경기 생성 API 오류:', payload);
+        alert(payload?.error || '경기 생성 중 오류가 발생했습니다.');
         return;
       }
 
@@ -540,6 +550,194 @@ export default function MatchSchedulePage() {
     }
   };
 
+  const fetchAvailableProfilesForSchedule = async (scheduleId: string) => {
+    try {
+      setParticipantModalLoading(true);
+      const response = await fetch('/api/admin/match-schedules?profiles_query=&profiles_all=1', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        console.error('참가자 조회 오류:', payload);
+        alert(payload?.error || '회원 목록 조회 중 오류가 발생했습니다.');
+        return;
+      }
+
+      const currentSchedule = schedules.find((schedule) => schedule.id === scheduleId);
+      const registeredUserIds = new Set(
+        (currentSchedule?.participants || [])
+          .filter((participant) => participant.status === 'registered' || participant.status === 'attended')
+          .map((participant) => participant.user_id)
+      );
+
+      const availableProfiles = ((payload?.profiles || []) as ParticipantSearchProfile[])
+        .filter((profile) => profile.user_id && !registeredUserIds.has(profile.user_id))
+        .sort((left, right) => {
+          const leftName = (left.full_name || left.username || '').trim();
+          const rightName = (right.full_name || right.username || '').trim();
+          return leftName.localeCompare(rightName, 'ko', { sensitivity: 'base' });
+        });
+
+      setParticipantModalProfiles(availableProfiles);
+      setSelectedModalParticipantIds([]);
+    } catch (error) {
+      console.error('참가자 목록 조회 중 오류:', error);
+      alert('회원 목록 조회 중 오류가 발생했습니다.');
+    } finally {
+      setParticipantModalLoading(false);
+    }
+  };
+
+  const removeParticipantFromSchedule = async (scheduleId: string, targetUserId: string) => {
+    if (!confirm('이 참가자를 경기에서 제거하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      setParticipantActionLoading((prev) => ({ ...prev, [scheduleId]: true }));
+      const response = await fetch('/api/admin/match-schedules', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          scheduleId,
+          targetUserId,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        console.error('관리자 참가자 제거 오류:', payload);
+        alert(payload?.error || '참가자 제거 중 오류가 발생했습니다.');
+        return;
+      }
+
+      const currentParticipants =
+        typeof payload?.currentParticipants === 'number' ? payload.currentParticipants : null;
+
+      setSchedules((prev) =>
+        prev.map((schedule) => {
+          if (schedule.id !== scheduleId) return schedule;
+          const participants = schedule.participants.filter((participant) => participant.user_id !== targetUserId);
+          return {
+            ...schedule,
+            participants,
+            current_participants: currentParticipants ?? participants.length,
+          };
+        })
+      );
+
+      alert('참가자가 제거되었습니다.');
+      fetchSchedules();
+    } catch (error) {
+      console.error('관리자 참가자 제거 중 오류:', error);
+      alert('참가자 제거 중 오류가 발생했습니다.');
+    } finally {
+      setParticipantActionLoading((prev) => ({ ...prev, [scheduleId]: false }));
+    }
+  };
+
+  const openParticipantModal = async (scheduleId: string) => {
+    setParticipantModalScheduleId(scheduleId);
+    setShowParticipantModal(true);
+    await fetchAvailableProfilesForSchedule(scheduleId);
+  };
+
+  const closeParticipantModal = () => {
+    setShowParticipantModal(false);
+    setParticipantModalScheduleId(null);
+    setParticipantModalProfiles([]);
+    setSelectedModalParticipantIds([]);
+  };
+
+  const toggleModalParticipantSelection = (profileId: string) => {
+    setSelectedModalParticipantIds((prev) =>
+      prev.includes(profileId)
+        ? prev.filter((id) => id !== profileId)
+        : [...prev, profileId]
+    );
+  };
+
+  const toggleSelectAllModalParticipants = () => {
+    if (selectedModalParticipantIds.length === participantModalProfiles.length) {
+      setSelectedModalParticipantIds([]);
+      return;
+    }
+
+    setSelectedModalParticipantIds(participantModalProfiles.map((profile) => profile.id));
+  };
+
+  const addSelectedParticipantsToSchedule = async () => {
+    if (!participantModalScheduleId || selectedModalParticipantIds.length === 0) {
+      return;
+    }
+
+    const selectedProfiles = participantModalProfiles.filter(
+      (profile) => selectedModalParticipantIds.includes(profile.id) && profile.user_id
+    );
+
+    if (selectedProfiles.length === 0) {
+      alert('추가할 참가자를 선택해주세요.');
+      return;
+    }
+
+    let successCount = 0;
+    let duplicateCount = 0;
+    let failureCount = 0;
+
+    try {
+      setParticipantModalSubmitting(true);
+      setParticipantActionLoading((prev) => ({ ...prev, [participantModalScheduleId]: true }));
+
+      for (const profile of selectedProfiles) {
+        const response = await fetch('/api/admin/match-schedules', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'add_participant',
+            scheduleId: participantModalScheduleId,
+            targetUserId: profile.user_id,
+          }),
+        });
+
+        if (response.ok) {
+          successCount += 1;
+          continue;
+        }
+
+        if (response.status === 409) {
+          duplicateCount += 1;
+          continue;
+        }
+
+        failureCount += 1;
+      }
+
+      await fetchSchedules();
+      closeParticipantModal();
+
+      if (failureCount > 0) {
+        alert(`참가자 추가 완료: 성공 ${successCount}명, 중복 ${duplicateCount}명, 실패 ${failureCount}명`);
+        return;
+      }
+
+      alert(`참가자가 추가되었습니다. (성공 ${successCount}명${duplicateCount > 0 ? `, 중복 ${duplicateCount}명` : ''})`);
+    } catch (error) {
+      console.error('참가자 일괄 추가 중 오류:', error);
+      alert('참가자 추가 중 오류가 발생했습니다.');
+    } finally {
+      setParticipantModalSubmitting(false);
+      if (participantModalScheduleId) {
+        setParticipantActionLoading((prev) => ({ ...prev, [participantModalScheduleId]: false }));
+      }
+    }
+  };
+
   const getScheduleSourceBadgeClass = (source: MatchScheduleSource) => {
     switch (source) {
       case 'tournament':
@@ -552,9 +750,33 @@ export default function MatchSchedulePage() {
     }
   };
 
+  const groupedSchedules = useMemo<ScheduleGroup[]>(() => {
+    const groupMap = schedules.reduce<Record<string, ScheduleWithParticipants[]>>((acc, schedule) => {
+      const dateKey = schedule.match_date;
+
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+
+      acc[dateKey].push(schedule);
+      return acc;
+    }, {});
+
+    return Object.entries(groupMap)
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .map(([matchDate, dateSchedules]) => ({
+        matchDate,
+        schedules: [...dateSchedules].sort((left, right) => {
+          const leftTime = `${left.start_time || ''}-${left.end_time || ''}`;
+          const rightTime = `${right.start_time || ''}-${right.end_time || ''}`;
+          return leftTime.localeCompare(rightTime);
+        }),
+      }));
+  }, [schedules]);
+
   return (
     <RequireAdmin>
-      <div className="w-full mt-10 p-6">
+      <div className="w-full p-6">
         {/* 헤더 */}
         <div className="bg-white shadow rounded-lg mb-6">
           <div className="px-6 py-4 flex justify-between items-center">
@@ -735,173 +957,208 @@ export default function MatchSchedulePage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6">
-                  {schedules.map((schedule) => (
-                    <div key={schedule.id} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-lg font-semibold text-gray-900">
-                              {new Date(schedule.match_date).toLocaleDateString('ko-KR', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                                weekday: 'long'
-                              })}
-                            </h3>
-                            <span className={`px-3 py-1 rounded text-sm font-semibold ${getScheduleSourceBadgeClass(schedule.schedule_source)}`}>
-                              {schedule.schedule_source === 'tournament' ? '🏆 대회 경기' : `${getScheduleSourceLabel(schedule.schedule_source)}`}
-                            </span>
-                            <span className={`px-3 py-1 rounded text-sm ${getStatusColor(schedule.status)}`}>
-                              {getStatusText(schedule.status)}
-                            </span>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
-                            <div>
-                              <p>🕐 {schedule.start_time} - {schedule.end_time}</p>
-                              <p>📍 {schedule.location}</p>
-                            </div>
-                            <div>
-                              <p>👥 참가자: {schedule.current_participants} / {schedule.max_participants}명</p>
-                              <p>📅 생성일: {new Date(schedule.created_at).toLocaleDateString('ko-KR')}</p>
-                            </div>
-                          </div>
-                          
-                          {schedule.description && (
-                            <p className="text-gray-600 mt-2 text-sm">
-                              💬 {schedule.description.replace(/^\[(정기모임|대회 경기|일반 경기)\]\s*/u, '')}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* 참가자 상세보기 토글 + 목록 */}
+                  {groupedSchedules.map((group) => (
+                    <section key={group.matchDate} className="rounded-lg border border-gray-200 p-4 md:p-6 bg-gray-50/60">
                       <div className="mb-4">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold text-gray-900">참가자</h4>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setExpanded((prev) => ({ ...prev, [schedule.id]: !prev[schedule.id] }))}
-                          >
-                            {expanded[schedule.id] ? '닫기' : `상세보기 (${schedule.participants.length}명)`}
-                          </Button>
-                        </div>
-                        {expanded[schedule.id] && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {schedule.participants.length === 0 ? (
-                              <span className="text-gray-500 text-sm">아직 참가자가 없습니다.</span>
-                            ) : (
-                              schedule.participants.map((participant) => {
-                                const baseName = (participant.profiles?.username && String(participant.profiles.username))
-                                  || (participant.profiles?.full_name && String(participant.profiles.full_name))
-                                  || '이름 없음';
-                                const isMe = participant.user_id === user?.id; // auth.uid()
-                                return (
-                                  <span
-                                    key={participant.id}
-                                    title={baseName}
-                                    className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm cursor-default"
-                                  >
-                                    {baseName}
-                                    {isMe && <span className="text-green-700 ml-1">*</span>}
+                        <h3 className="text-lg font-bold text-gray-900">
+                          {new Date(group.matchDate).toLocaleDateString('ko-KR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            weekday: 'long',
+                          })}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">총 {group.schedules.length}경기</p>
+                      </div>
+
+                      <div className="space-y-4">
+                        {group.schedules.map((schedule) => (
+                          <div key={schedule.id} className="border rounded-lg p-6 bg-white hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h4 className="text-lg font-semibold text-gray-900">
+                                    🕐 {schedule.start_time} - {schedule.end_time}
+                                  </h4>
+                                  <span className={`px-3 py-1 rounded text-sm font-semibold ${getScheduleSourceBadgeClass(schedule.schedule_source)}`}>
+                                    {schedule.schedule_source === 'tournament' ? '🏆 대회 경기' : `${getScheduleSourceLabel(schedule.schedule_source)}`}
                                   </span>
-                                );
-                              })
-                            )}
+                                  <span className={`px-3 py-1 rounded text-sm ${getStatusColor(schedule.status)}`}>
+                                    {getStatusText(schedule.status)}
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
+                                  <div>
+                                    <p>📍 {schedule.location}</p>
+                                  </div>
+                                  <div>
+                                    <p>👥 참가자: {schedule.current_participants} / {schedule.max_participants}명</p>
+                                    <p>📅 생성일: {new Date(schedule.created_at).toLocaleDateString('ko-KR')}</p>
+                                  </div>
+                                </div>
+
+                                {schedule.description && (
+                                  <p className="text-gray-600 mt-2 text-sm">
+                                    💬 {schedule.description.replace(/^\[(정기모임|대회 경기|일반 경기)\]\s*/u, '')}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 참가자 상세보기 토글 + 목록 */}
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-semibold text-gray-900">참가자</h4>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    className="bg-blue-600 text-white hover:bg-blue-700"
+                                    onClick={() => openParticipantModal(schedule.id)}
+                                    disabled={participantActionLoading[schedule.id] || participantModalSubmitting}
+                                  >
+                                    참가자 추가
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setExpanded((prev) => ({ ...prev, [schedule.id]: !prev[schedule.id] }))}
+                                  >
+                                    {expanded[schedule.id] ? '닫기' : `상세보기 (${schedule.participants.length}명)`}
+                                  </Button>
+                                </div>
+                              </div>
+                              {expanded[schedule.id] && (
+                                <div className="mt-3 space-y-3">
+                            <div className="flex flex-wrap gap-2">
+                              {schedule.participants.length === 0 ? (
+                                <span className="text-gray-500 text-sm">아직 참가자가 없습니다.</span>
+                              ) : (
+                                schedule.participants.map((participant) => {
+                                  const baseName = (participant.profiles?.username && String(participant.profiles.username))
+                                    || (participant.profiles?.full_name && String(participant.profiles.full_name))
+                                    || '이름 없음';
+                                  const isMe = participant.user_id === user?.id;
+                                  return (
+                                    <div
+                                      key={participant.id}
+                                      title={baseName}
+                                      className="flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-800"
+                                    >
+                                      <span>
+                                        {baseName}
+                                        {isMe && <span className="ml-1 text-green-700">*</span>}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeParticipantFromSchedule(schedule.id, participant.user_id)}
+                                        className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-semibold text-red-600 hover:bg-white"
+                                        disabled={participantActionLoading[schedule.id]}
+                                      >
+                                        제거
+                                      </button>
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 관리 버튼들 */}
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                onClick={() => openEdit(schedule)}
+                                variant="outline"
+                                className="text-sm"
+                                size="sm"
+                              >
+                                수정
+                              </Button>
+                              {schedule.status === 'scheduled' && (
+                                <>
+                                  <Button
+                                    onClick={() => updateScheduleStatus(schedule.id, 'ongoing')}
+                                    className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
+                                    size="sm"
+                                    disabled={schedule.current_participants === 0}
+                                  >
+                                    진행 시작
+                                  </Button>
+                                  <Button
+                                    onClick={() => updateScheduleStatus(schedule.id, 'cancelled')}
+                                    className="bg-red-600 hover:bg-red-700 text-white text-sm"
+                                    size="sm"
+                                  >
+                                    취소
+                                  </Button>
+                                </>
+                              )}
+
+                              {schedule.status === 'ongoing' && (
+                                <Button
+                                  onClick={() => updateScheduleStatus(schedule.id, 'completed')}
+                                  className="bg-green-600 hover:bg-green-700 text-white text-sm"
+                                  size="sm"
+                                >
+                                  완료 처리
+                                </Button>
+                              )}
+
+                              {(schedule.status === 'cancelled' || schedule.status === 'completed') && (
+                                <Button
+                                  onClick={() => updateScheduleStatus(schedule.id, 'scheduled')}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
+                                  size="sm"
+                                >
+                                  다시 예정으로
+                                </Button>
+                              )}
+
+                              <Button
+                                onClick={() => deleteSchedule(schedule.id)}
+                                variant="outline"
+                                className="border-red-300 text-red-600 hover:bg-red-50 text-sm"
+                                size="sm"
+                              >
+                                삭제
+                              </Button>
+
+                              {/* 참가자 신청/취소 버튼 - scheduled 또는 ongoing 상태에서 모두 노출 */}
+                              {(schedule.status === 'scheduled' || schedule.status === 'ongoing') && user && (
+                                (() => {
+                                  // 현재 사용자가 참가 신청했는지 확인
+                                  const isParticipant = schedule.participants.some(
+                                    participant => participant.user_id === user.id &&
+                                    participant.status === 'registered'
+                                  );
+
+                                  return isParticipant ? (
+                                    <Button
+                                      onClick={() => cancelJoinMatch(schedule.id)}
+                                      className="bg-red-500 hover:bg-red-600 text-white text-sm"
+                                      size="sm"
+                                    >
+                                      참가 취소
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      onClick={() => joinMatch(schedule.id)}
+                                      className="bg-blue-500 hover:bg-blue-600 text-white text-sm"
+                                      size="sm"
+                                    >
+                                      참가 신청
+                                    </Button>
+                                  );
+                                })()
+                              )}
+                            </div>
                           </div>
-                        )}
+                        ))}
                       </div>
-
-                      {/* 관리 버튼들 */}
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          onClick={() => openEdit(schedule)}
-                          variant="outline"
-                          className="text-sm"
-                          size="sm"
-                        >
-                          수정
-                        </Button>
-                        {schedule.status === 'scheduled' && (
-                          <>
-                            <Button
-                              onClick={() => updateScheduleStatus(schedule.id, 'ongoing')}
-                              className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
-                              size="sm"
-                              disabled={schedule.current_participants === 0}
-                            >
-                              진행 시작
-                            </Button>
-                            <Button
-                              onClick={() => updateScheduleStatus(schedule.id, 'cancelled')}
-                              className="bg-red-600 hover:bg-red-700 text-white text-sm"
-                              size="sm"
-                            >
-                              취소
-                            </Button>
-                          </>
-                        )}
-                        
-                        {schedule.status === 'ongoing' && (
-                          <Button
-                            onClick={() => updateScheduleStatus(schedule.id, 'completed')}
-                            className="bg-green-600 hover:bg-green-700 text-white text-sm"
-                            size="sm"
-                          >
-                            완료 처리
-                          </Button>
-                        )}
-                        
-                        {(schedule.status === 'cancelled' || schedule.status === 'completed') && (
-                          <Button
-                            onClick={() => updateScheduleStatus(schedule.id, 'scheduled')}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
-                            size="sm"
-                          >
-                            다시 예정으로
-                          </Button>
-                        )}
-
-                        <Button
-                          onClick={() => deleteSchedule(schedule.id)}
-                          variant="outline"
-                          className="border-red-300 text-red-600 hover:bg-red-50 text-sm"
-                          size="sm"
-                        >
-                          삭제
-                        </Button>
-
-                        {/* 참가자 신청/취소 버튼 - scheduled 또는 ongoing 상태에서 모두 노출 */}
-                        {(schedule.status === 'scheduled' || schedule.status === 'ongoing') && user && (
-                          (() => {
-                            // 현재 사용자가 참가 신청했는지 확인
-                            const isParticipant = schedule.participants.some(
-                              participant => participant.user_id === user.id && 
-                              participant.status === 'registered'
-                            );
-                            
-                            return isParticipant ? (
-                              <Button
-                                onClick={() => cancelJoinMatch(schedule.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white text-sm"
-                                size="sm"
-                              >
-                                참가 취소
-                              </Button>
-                            ) : (
-                              <Button
-                                onClick={() => joinMatch(schedule.id)}
-                                className="bg-blue-500 hover:bg-blue-600 text-white text-sm"
-                                size="sm"
-                              >
-                                참가 신청
-                              </Button>
-                            );
-                          })()
-                        )}
-                      </div>
-                    </div>
+                    </section>
                   ))}
                 </div>
               )}
@@ -1013,6 +1270,101 @@ export default function MatchSchedulePage() {
                 <Button type="submit" className="bg-blue-600 hover:bg-blue-700">저장</Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 참가자 추가 모달 */}
+      {showParticipantModal && participantModalScheduleId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">경기 참가자 추가</h2>
+                <p className="text-sm text-gray-500">회원을 선택한 뒤 일괄 추가를 누르세요.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeParticipantModal}
+                className="rounded-md px-3 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              >
+                닫기
+              </button>
+            </div>
+            <div className="flex items-center justify-between border-b bg-gray-50 px-6 py-3 text-sm">
+              <span className="text-gray-600">추가 가능 회원 {participantModalProfiles.length}명</span>
+              <button
+                type="button"
+                onClick={toggleSelectAllModalParticipants}
+                disabled={participantModalProfiles.length === 0 || participantModalLoading}
+                className="rounded-md border px-3 py-1 text-xs font-medium text-gray-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {participantModalProfiles.length > 0 && selectedModalParticipantIds.length === participantModalProfiles.length
+                  ? '전체 해제'
+                  : '전체 선택'}
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+              {participantModalLoading ? (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
+                  회원 목록을 불러오는 중입니다...
+                </div>
+              ) : participantModalProfiles.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
+                  추가 가능한 회원이 없습니다.
+                </div>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-4">
+                  {participantModalProfiles.map((profile) => {
+                    const checked = selectedModalParticipantIds.includes(profile.id);
+                    const displayName = profile.full_name || profile.username || '이름 없음';
+                    const secondaryName =
+                      profile.full_name && profile.username && profile.full_name !== profile.username
+                        ? profile.username
+                        : null;
+
+                    return (
+                      <label
+                        key={profile.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                          checked ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-200'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleModalParticipantSelection(profile.id)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium text-gray-900">{displayName}</div>
+                          {secondaryName && (
+                            <div className="mt-1 text-sm text-gray-500">{secondaryName}</div>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t px-6 py-4">
+              <button
+                type="button"
+                onClick={closeParticipantModal}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={addSelectedParticipantsToSchedule}
+                disabled={selectedModalParticipantIds.length === 0 || participantModalSubmitting || participantModalLoading}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              >
+                {participantModalSubmitting ? '추가 중...' : '선택한 회원 추가'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -118,6 +118,57 @@ export type Database = {
   };
   Relationships: [];
 };
+      "challenge_requests": {
+  Row: {
+    id: string;
+  challenge_date: string;
+  challenger_id: string;
+  partner_id: string;
+  opponent1_id: string;
+  opponent2_id: string;
+  status: string;
+  partner_response: string;
+  opponent1_response: string;
+  opponent2_response: string;
+  note: string | null;
+  responded_at: string | null;
+  created_at: string;
+  updated_at: string;
+  };
+  Insert: {
+    id?: string;
+  challenge_date?: string;
+  challenger_id: string;
+  partner_id: string;
+  opponent1_id: string;
+  opponent2_id: string;
+  status?: string;
+  partner_response?: string;
+  opponent1_response?: string;
+  opponent2_response?: string;
+  note?: string | null;
+  responded_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  };
+  Update: {
+    id?: string | null;
+  challenge_date?: string | null;
+  challenger_id?: string | null;
+  partner_id?: string | null;
+  opponent1_id?: string | null;
+  opponent2_id?: string | null;
+  status?: string | null;
+  partner_response?: string | null;
+  opponent1_response?: string | null;
+  opponent2_response?: string | null;
+  note?: string | null;
+  responded_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  };
+  Relationships: [];
+};
       "daily_game_counts": {
   Row: {
     date: string;
@@ -463,6 +514,78 @@ export type Database = {
   };
   Relationships: [];
 };
+      "match_coin_bets": {
+  Row: {
+    id: number;
+  match_id: number;
+  profile_id: string;
+  wager_amount: number;
+  created_at: string;
+  updated_at: string;
+  };
+  Insert: {
+    id?: number;
+  match_id: number;
+  profile_id: string;
+  wager_amount?: number;
+  created_at?: string;
+  updated_at?: string;
+  };
+  Update: {
+    id?: number | null;
+  match_id?: number | null;
+  profile_id?: string | null;
+  wager_amount?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  };
+  Relationships: [];
+};
+      "profile_coin_transactions": {
+  Row: {
+    id: number;
+  profile_id: string;
+  match_id: number;
+  transaction_type: string;
+  delta: number;
+  wager_amount: number;
+  team_side: string;
+  team1_score: number;
+  team2_score: number;
+  recorded_by: string | null;
+  created_at: string;
+  updated_at: string;
+  };
+  Insert: {
+    id?: number;
+  profile_id: string;
+  match_id: number;
+  transaction_type: string;
+  delta: number;
+  wager_amount?: number;
+  team_side: string;
+  team1_score: number;
+  team2_score: number;
+  recorded_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  };
+  Update: {
+    id?: number | null;
+  profile_id?: string | null;
+  match_id?: number | null;
+  transaction_type?: string | null;
+  delta?: number | null;
+  wager_amount?: number | null;
+  team_side?: string | null;
+  team1_score?: number | null;
+  team2_score?: number | null;
+  recorded_by?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  };
+  Relationships: [];
+};
       "profiles": {
   Row: {
     id: string;
@@ -473,6 +596,10 @@ export type Database = {
   role: string;
   skill_level: string;
   gender: string | null;
+  coin_balance: number;
+  coin_wins: number;
+  coin_losses: number;
+  coin_updated_at: string;
   created_at: string;
   updated_at: string;
   };
@@ -485,6 +612,10 @@ export type Database = {
   role?: string;
   skill_level?: string;
   gender?: string | null;
+  coin_balance?: number;
+  coin_wins?: number;
+  coin_losses?: number;
+  coin_updated_at?: string;
   created_at?: string;
   updated_at?: string;
   };
@@ -497,6 +628,10 @@ export type Database = {
   role?: string | null;
   skill_level?: string | null;
   gender?: string | null;
+  coin_balance?: number | null;
+  coin_wins?: number | null;
+  coin_losses?: number | null;
+  coin_updated_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   };
@@ -853,6 +988,16 @@ export type Database = {
       "get_my_role": {
   Args: Record<string, never>;
   Returns: string | null;
+};
+      "record_match_result_with_coins": {
+  Args: {
+    p_match_id: number;
+    p_winner_team1: boolean;
+    p_team1_score: number;
+    p_team2_score: number;
+    p_recorded_by?: string | null;
+  };
+  Returns: Json;
 };
     };
     Enums: Record<string, never>;

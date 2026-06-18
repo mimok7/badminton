@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import { getProfileByUserId } from '@/lib/auth';
+import { formatNameWithCoins } from '@/lib/player-display';
 import type { Database } from '@/types/supabase';
 
 interface MatchSchedule {
@@ -26,6 +27,7 @@ interface Participant {
     username?: string | null;
     full_name?: string | null;
     skill_level?: string | null;
+    coin_balance?: number | null;
   };
 }
 
@@ -87,7 +89,7 @@ export default function MatchRegistration({
       if (userIds.length > 0) {
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
-          .select('id, user_id, username, full_name, skill_level')
+          .select('id, user_id, username, full_name, skill_level, coin_balance')
           .or(
             userIds
               .map((userId) => `id.eq.${userId},user_id.eq.${userId}`)
@@ -104,6 +106,7 @@ export default function MatchRegistration({
                   username: profile.username || undefined,
                   full_name: profile.full_name || undefined,
                   skill_level: profile.skill_level || undefined,
+                  coin_balance: profile.coin_balance ?? undefined,
                 };
                 return [profile.id, profile.user_id]
                   .filter((key): key is string => typeof key === 'string' && key.length > 0)
@@ -374,7 +377,10 @@ export default function MatchRegistration({
                     {index + 1}.
                   </span>
                   <span className="font-medium">
-                    {participant.profile?.full_name || participant.profile?.username || '이름 없음'}
+                    {formatNameWithCoins(
+                      participant.profile?.full_name || participant.profile?.username || '이름 없음',
+                      participant.profile?.coin_balance,
+                    )}
                   </span>
                   {participant.profile?.skill_level && (
                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">

@@ -149,7 +149,7 @@ export default function AdminPage() {
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                <span className="text-indigo-600">📊</span>
+                <span className="text-indigo-600">🪙</span>
               </div>
             </div>
             <div className="ml-4">
@@ -186,6 +186,14 @@ export default function AdminPage() {
           >
             <h3 className="font-medium text-gray-900">✅ 출석 현황</h3>
             <p className="text-sm text-gray-500 mt-1">출석 통계와 현황을 확인하세요</p>
+          </Link>
+
+          <Link 
+            href="/admin/coins"
+            className="p-4 border border-gray-200 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-colors cursor-pointer"
+          >
+            <h3 className="font-medium text-gray-900">🪙 코인 관리</h3>
+            <p className="text-sm text-gray-500 mt-1">사용자 코인 현황과 수동 조정을 관리하세요</p>
           </Link>
           
           <Link 

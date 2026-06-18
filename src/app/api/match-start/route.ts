@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
 import { isAdminRole, getProfileByUserId } from '@/lib/auth';
-import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
+import { DEFAULT_MATCH_WAGER } from '@/lib/coins';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 
-type MatchParticipantRow = {
+type MatchRow = {
   id: number;
+  status: string | null;
   session_id?: string | null;
   match_number?: number | null;
   team1_player1_id: string | null;
   team1_player2_id: string | null;
   team2_player1_id: string | null;
   team2_player2_id: string | null;
-  match_result: unknown;
 };
 
 export async function POST(request: Request) {
@@ -28,43 +28,22 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const normalizedMatchId = Number(body?.match_id);
-  const normalizedTeam1Score = Number(body?.team1_score);
-  const normalizedTeam2Score = Number(body?.team2_score);
-  const winnerTeam1 = body?.winner_team1;
+  const matchId = Number(body?.match_id);
 
-  if (
-    !Number.isFinite(normalizedMatchId) ||
-    typeof winnerTeam1 !== 'boolean' ||
-    !Number.isFinite(normalizedTeam1Score) ||
-    !Number.isFinite(normalizedTeam2Score)
-  ) {
-    return NextResponse.json({ error: 'Invalid input data' }, { status: 400 });
-  }
-
-  if (normalizedTeam1Score < 0 || normalizedTeam2Score < 0) {
-    return NextResponse.json({ error: '점수는 0 이상이어야 합니다.' }, { status: 400 });
-  }
-
-  if (normalizedTeam1Score === normalizedTeam2Score) {
-    return NextResponse.json({ error: '무승부 결과는 저장할 수 없습니다.' }, { status: 400 });
-  }
-
-  if ((normalizedTeam1Score > normalizedTeam2Score) !== winnerTeam1) {
-    return NextResponse.json({ error: '승리 팀과 점수가 일치하지 않습니다.' }, { status: 400 });
+  if (!Number.isFinite(matchId)) {
+    return NextResponse.json({ error: 'Invalid match_id' }, { status: 400 });
   }
 
   const currentProfile = await getProfileByUserId(serverSupabase, user.id);
-
   if (!currentProfile) {
     return NextResponse.json({ error: '프로필을 찾을 수 없습니다.' }, { status: 404 });
   }
 
   const { data: matchRow, error: matchError } = await adminSupabase
     .from('generated_matches')
-    .select('id, session_id, match_number, team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id, match_result')
-    .eq('id', normalizedMatchId)
-    .single<MatchParticipantRow>();
+    .select('id, status, session_id, match_number, team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id')
+    .eq('id', matchId)
+    .single<MatchRow>();
 
   if (matchError || !matchRow) {
     return NextResponse.json({ error: '경기 정보를 찾을 수 없습니다.' }, { status: 404 });
@@ -78,15 +57,18 @@ export async function POST(request: Request) {
   ].filter((value): value is string => Boolean(value));
 
   const canManage = isAdminRole(currentProfile.role) || participantIds.includes(currentProfile.id);
-
   if (!canManage) {
-    return NextResponse.json({ error: '이 경기의 참가자 또는 관리자만 결과를 저장할 수 있습니다.' }, { status: 403 });
+    return NextResponse.json({ error: '이 경기의 참가자 또는 관리자만 경기를 시작할 수 있습니다.' }, { status: 403 });
+  }
+
+  if (matchRow.status === 'completed' || matchRow.status === 'cancelled') {
+    return NextResponse.json({ error: '완료되었거나 취소된 경기는 시작할 수 없습니다.' }, { status: 400 });
   }
 
   const { data: betRows, error: betError } = await adminSupabase
     .from('match_coin_bets')
     .select('profile_id, wager_amount')
-    .eq('match_id', normalizedMatchId);
+    .eq('match_id', matchId);
 
   if (betError) {
     return NextResponse.json({ error: betError.message }, { status: 500 });
@@ -110,20 +92,8 @@ export async function POST(request: Request) {
   if (hasRaisedBet && !symmetricRaisedBet) {
     return NextResponse.json(
       { error: '한 팀이 1코인 이상 올렸다면 상대팀도 동일한 코인으로 배팅해야 경기를 시작할 수 있습니다.' },
-      { status: 400 }
+      { status: 400 },
     );
-  }
-
-  const { data, error } = await adminSupabase.rpc('record_match_result_with_coins', {
-    p_match_id: normalizedMatchId,
-    p_winner_team1: winnerTeam1,
-    p_team1_score: normalizedTeam1Score,
-    p_team2_score: normalizedTeam2Score,
-    p_recorded_by: currentProfile.id,
-  });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   if (matchRow.session_id && typeof matchRow.match_number === 'number') {
@@ -137,20 +107,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: sessionMatchesError.message }, { status: 500 });
     }
 
-    const nextMatch = (sessionMatches || []).find(
-      (match) =>
-        match.match_number > matchRow.match_number! &&
-        match.status !== 'completed' &&
-        match.status !== 'cancelled'
-    );
-
     const waitingMatchIds = (sessionMatches || [])
       .filter(
         (match) =>
-          match.id !== normalizedMatchId &&
-          match.id !== nextMatch?.id &&
+          match.id !== matchId &&
           match.status !== 'completed' &&
-          match.status !== 'cancelled'
+          match.status !== 'cancelled',
       )
       .map((match) => match.id);
 
@@ -165,71 +127,30 @@ export async function POST(request: Request) {
         .update({ status: 'scheduled' })
         .in('generated_match_id', waitingMatchIds);
     }
-
-    if (nextMatch?.id) {
-      await adminSupabase
-        .from('generated_matches')
-        .update({ status: 'in_progress' })
-        .eq('id', nextMatch.id);
-
-      await adminSupabase
-        .from('match_schedules')
-        .update({ status: 'in_progress' })
-        .eq('generated_match_id', nextMatch.id);
-    }
   }
 
-  return NextResponse.json(
-    {
-      data,
-      coinRules: {
-        defaultWager: DEFAULT_MATCH_WAGER,
-        maxWager: MAX_MATCH_WAGER,
-      },
-    },
-    { status: 200 }
-  );
-}
+  const { error: generatedUpdateError } = await adminSupabase
+    .from('generated_matches')
+    .update({ status: 'in_progress' })
+    .eq('id', matchId);
 
-export async function GET(request: Request) {
-  const adminSupabase = getSupabaseAdminClient();
-  const { searchParams } = new URL(request.url);
-  const matchId = Number(searchParams.get('match_id'));
-
-  if (!Number.isFinite(matchId)) {
-    return NextResponse.json({ error: 'Missing match_id' }, { status: 400 });
+  if (generatedUpdateError) {
+    return NextResponse.json({ error: generatedUpdateError.message }, { status: 500 });
   }
 
-  const [{ data: resultRow, error: resultError }, { data: generatedMatch, error: generatedError }] = await Promise.all([
-    adminSupabase
-      .from('match_results')
-      .select('*')
-      .eq('match_id', matchId)
-      .maybeSingle(),
-    adminSupabase
-      .from('generated_matches')
-      .select('status, match_result, completed_at')
-      .eq('id', matchId)
-      .maybeSingle(),
-  ]);
+  const { error: scheduleUpdateError } = await adminSupabase
+    .from('match_schedules')
+    .update({ status: 'in_progress' })
+    .eq('generated_match_id', matchId);
 
-  if (resultError || generatedError) {
-    return NextResponse.json(
-      { error: resultError?.message || generatedError?.message || 'Failed to load match result' },
-      { status: 500 }
-    );
+  if (scheduleUpdateError) {
+    return NextResponse.json({ error: scheduleUpdateError.message }, { status: 500 });
   }
 
   return NextResponse.json({
     data: {
-      match_result: generatedMatch?.match_result || null,
-      status: generatedMatch?.status || null,
-      completed_at: generatedMatch?.completed_at || null,
-      row: resultRow || null,
-    },
-    coinRules: {
-      defaultWager: DEFAULT_MATCH_WAGER,
-      maxWager: MAX_MATCH_WAGER,
+      match_id: matchId,
+      status: 'in_progress',
     },
   });
 }

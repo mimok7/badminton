@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/useUser';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
+import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
 import Link from 'next/link';
 import { NotificationService } from '@/utils/notification-service';
 import { getUserLevelDisplay } from '@/lib/level-display';
 import { getProfileByUserId } from '@/lib/auth';
+import { formatCurrentUserNameWithCoins, formatNameWithCoins } from '@/lib/player-display';
 import {
   fetchMyTournamentMatches,
   normalizeTournamentPlayerName,
@@ -97,6 +99,7 @@ interface MatchSchedule {
       user_id?: string;
       username?: string;
       full_name?: string;
+      coin_balance?: number | null;
       skill_level: string;
       skill_level_name: string;
     };
@@ -105,6 +108,7 @@ interface MatchSchedule {
       user_id?: string;
       username?: string;
       full_name?: string;
+      coin_balance?: number | null;
       skill_level: string;
       skill_level_name: string;
     };
@@ -113,6 +117,7 @@ interface MatchSchedule {
       user_id?: string;
       username?: string;
       full_name?: string;
+      coin_balance?: number | null;
       skill_level: string;
       skill_level_name: string;
     };
@@ -121,6 +126,7 @@ interface MatchSchedule {
       user_id?: string;
       username?: string;
       full_name?: string;
+      coin_balance?: number | null;
       skill_level: string;
       skill_level_name: string;
     };
@@ -145,6 +151,11 @@ interface MatchRecord {
   teammates: string[];
   opponents: string[];
   isUserTeam1: boolean;
+}
+
+interface MatchBetState {
+  myProfileId: string | null;
+  bets: Record<string, number>;
 }
 
 type MatchCenterTab = 'upcoming' | 'results' | 'tournaments';
@@ -182,6 +193,8 @@ export default function MySchedulePage() {
   
   // 각 경기의 결과 입력 상태를 추적하는 state
   const [matchResultStates, setMatchResultStates] = useState<Record<string, boolean | null>>({});
+  const [selectedMatchBetState, setSelectedMatchBetState] = useState<MatchBetState>({ myProfileId: null, bets: {} });
+  const [savingBet, setSavingBet] = useState(false);
 
   const getTodayLocal = () => {
     const now = new Date();
@@ -240,6 +253,74 @@ export default function MySchedulePage() {
     setMatchResultStates(states);
   };
 
+  const loadSelectedMatchBets = async (match: MatchSchedule | null) => {
+    if (!match?.generated_match) {
+      setSelectedMatchBetState({ myProfileId: null, bets: {} });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/match-bets?match_id=${Number(match.generated_match.id)}`, {
+        credentials: 'include',
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || '배팅 정보 조회 실패');
+      }
+
+      const bets = Object.fromEntries(
+        (payload?.bets || []).map((item: { profile_id: string; wager_amount: number }) => [
+          item.profile_id,
+          item.wager_amount ?? DEFAULT_MATCH_WAGER,
+        ])
+      );
+
+      setSelectedMatchBetState({
+        myProfileId: payload?.my_profile_id || null,
+        bets,
+      });
+    } catch (error) {
+      console.error('배팅 정보 조회 실패:', error);
+      setSelectedMatchBetState({ myProfileId: profile?.id || null, bets: {} });
+    }
+  };
+
+  const saveMyMatchBet = async (wagerAmount: number) => {
+    if (!selectedMatch?.generated_match) return;
+
+    try {
+      setSavingBet(true);
+      const response = await fetch('/api/match-bets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          match_id: Number(selectedMatch.generated_match.id),
+          wager_amount: wagerAmount,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || '배팅 저장 실패');
+      }
+
+      setSelectedMatchBetState((prev) => ({
+        myProfileId: prev.myProfileId || profile?.id || null,
+        bets: {
+          ...prev.bets,
+          [payload.profile_id]: payload.wager_amount,
+        },
+      }));
+    } catch (error) {
+      console.error('배팅 저장 실패:', error);
+      alert(error instanceof Error ? error.message : '배팅 저장 중 오류가 발생했습니다.');
+    } finally {
+      setSavingBet(false);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchMySchedule();
@@ -258,6 +339,15 @@ export default function MySchedulePage() {
       updateMatchResultStates();
     }
   }, [myMatches.length]); // 의존성을 단순화
+
+  useEffect(() => {
+    if (showDetailsModal && selectedMatch?.generated_match) {
+      loadSelectedMatchBets(selectedMatch);
+      return;
+    }
+
+    setSelectedMatchBetState({ myProfileId: profile?.id || null, bets: {} });
+  }, [showDetailsModal, selectedMatch?.id, profile?.id]);
 
   // 내 경기 조회 함수
   const fetchMySchedule = async () => {
@@ -331,19 +421,19 @@ export default function MySchedulePage() {
           .select(`
             *,
             team1_player1:profiles!team1_player1_id(
-              id, user_id, username, full_name, skill_level,
+              id, user_id, username, full_name, coin_balance, skill_level,
               level_info:level_info!skill_level(name)
             ),
             team1_player2:profiles!team1_player2_id(
-              id, user_id, username, full_name, skill_level,
+              id, user_id, username, full_name, coin_balance, skill_level,
               level_info:level_info!skill_level(name)
             ),
             team2_player1:profiles!team2_player1_id(
-              id, user_id, username, full_name, skill_level,
+              id, user_id, username, full_name, coin_balance, skill_level,
               level_info:level_info!skill_level(name)
             ),
             team2_player2:profiles!team2_player2_id(
-              id, user_id, username, full_name, skill_level,
+              id, user_id, username, full_name, coin_balance, skill_level,
               level_info:level_info!skill_level(name)
             ),
             match_sessions(
@@ -373,6 +463,7 @@ export default function MySchedulePage() {
                 user_id: null,
                 username: '미정', 
                 full_name: '미정', 
+                coin_balance: null,
                 skill_level: 'E2',
                 skill_level_name: getUserLevelDisplay('E2')
               };
@@ -381,6 +472,7 @@ export default function MySchedulePage() {
                 user_id: playerData.user_id,
                 username: playerData.full_name || playerData.username || '미정',
                 full_name: playerData.full_name || playerData.username || '미정',
+                coin_balance: playerData.coin_balance ?? null,
                 skill_level: playerData.skill_level || 'E2',
                 skill_level_name: playerData.level_info?.name || getUserLevelDisplay(playerData.skill_level || 'E2')
               };
@@ -439,16 +531,16 @@ export default function MySchedulePage() {
             match_result,
             status,
             team1_player1:profiles!team1_player1_id(
-              id, user_id, username, full_name, skill_level
+              id, user_id, username, full_name, coin_balance, skill_level
             ),
             team1_player2:profiles!team1_player2_id(
-              id, user_id, username, full_name, skill_level
+              id, user_id, username, full_name, coin_balance, skill_level
             ),
             team2_player1:profiles!team2_player1_id(
-              id, user_id, username, full_name, skill_level
+              id, user_id, username, full_name, coin_balance, skill_level
             ),
             team2_player2:profiles!team2_player2_id(
-              id, user_id, username, full_name, skill_level
+              id, user_id, username, full_name, coin_balance, skill_level
             ),
             match_sessions(
               session_date
@@ -491,7 +583,7 @@ export default function MySchedulePage() {
             const getPlayerNames = (players: any[]) => 
               players
                 .filter(p => p && p.user_id !== user.id) // 나 제외
-                .map(p => p.username || p.full_name || '미정');
+                .map(p => formatNameWithCoins(p.username || p.full_name || '미정', p.coin_balance));
 
             records.push({
               id: String(match.id),
@@ -547,8 +639,13 @@ export default function MySchedulePage() {
   // 선수 이름 조회
   const getPlayerName = (player: any) => {
     if (!player) return '미정';
-    if (player.user_id === user?.id) return '나';
-    return player.full_name || player.username || '미정';
+    if (player.user_id === user?.id) return formatNameWithCoins('나', profile?.coin_balance);
+    return formatNameWithCoins(player.full_name || player.username || '미정', player.coin_balance);
+  };
+
+  const getPlayerBet = (player?: { id?: string } | null) => {
+    if (!player?.id) return DEFAULT_MATCH_WAGER;
+    return selectedMatchBetState.bets[player.id] ?? DEFAULT_MATCH_WAGER;
   };
 
   // 레벨 이름 반환 (데이터베이스에서 가져온 이름 사용)
@@ -821,7 +918,23 @@ export default function MySchedulePage() {
       } else {
         // 다른 상태들: 바로 업데이트
         setMatchStatus(newStatus);
-        await updateMatchStatus(newStatus);
+        if (newStatus === 'in_progress' && selectedMatch.generated_match) {
+          const response = await fetch('/api/match-start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              match_id: Number(selectedMatch.generated_match.id),
+            }),
+          });
+
+          const payload = await response.json().catch(() => null);
+          if (!response.ok) {
+            throw new Error(payload?.error || '경기 시작 중 오류가 발생했습니다.');
+          }
+        } else {
+          await updateMatchStatus(newStatus);
+        }
         
         // 전체 일정 새로고침 (배정현황도 실시간 업데이트됨)
         await fetchMySchedule();
@@ -957,103 +1070,44 @@ export default function MySchedulePage() {
       return;
     }
 
-    // 현재 사용자 확인 (타입 가드)
-    const currentUserId = user?.id;
-    if (!currentUserId) {
-      alert('로그인이 필요합니다.');
-      return;
-    }
-
     try {
       const generatedMatchId = selectedMatch.id.replace('generated_', '');
-      
-      // 1. 현재 사용자가 이 경기의 참가자인지 확인
-      const { data: currentMatch, error: matchError } = await supabase
-        .from('generated_matches')
-        .select(`
-          *,
-          team1_player1:profiles!team1_player1_id(user_id),
-          team1_player2:profiles!team1_player2_id(user_id),
-          team2_player1:profiles!team2_player1_id(user_id),
-          team2_player2:profiles!team2_player2_id(user_id)
-        `)
-        .eq('id', Number(generatedMatchId))
-        .single();
 
-      if (matchError || !currentMatch) {
-        console.error('경기 정보 조회 실패:', matchError);
-        alert('경기 정보를 찾을 수 없습니다.');
+      const [team1ScoreText, team2ScoreText] = matchResult.score.split(':');
+      const team1Score = Number(team1ScoreText);
+      const team2Score = Number(team2ScoreText);
+
+      if (!Number.isFinite(team1Score) || !Number.isFinite(team2Score)) {
+        alert('점수 형식은 예: 21:18 처럼 입력해주세요.');
         return;
       }
 
-      // 참가자 권한 확인
-      const currentMatchAny = currentMatch as any;
-      const participantUserIds = [
-        currentMatchAny.team1_player1?.user_id,
-        currentMatchAny.team1_player2?.user_id,
-        currentMatchAny.team2_player1?.user_id,
-        currentMatchAny.team2_player2?.user_id
-      ].filter(Boolean);
-
-  if (!participantUserIds.includes(currentUserId)) {
-        alert('이 경기의 참가자만 결과를 입력할 수 있습니다.');
+      if (team1Score === team2Score) {
+        alert('무승부는 저장할 수 없습니다.');
         return;
       }
 
-      // 2. 이미 완료된 경기인지 확인 (중복 저장 방지)
-      if (currentMatch.status === 'completed' && currentMatch.match_result) {
-        // 기존 결과가 있는 경우 사용자에게 확인
-        const existingResult = currentMatch.match_result as any;
-        const confirmOverwrite = confirm(
-          `이미 저장된 결과가 있습니다.\n\n` +
-          `기존 결과: ${existingResult.winner === 'team1' ? '라켓팀' : '셔틀팀'} 승리 (${existingResult.score})\n` +
-          `새 결과: ${matchResult.winner === 'team1' ? '라켓팀' : '셔틀팀'} 승리 (${matchResult.score})\n\n` +
-          `기존 결과를 덮어쓰시겠습니까?`
-        );
-        
-        if (!confirmOverwrite) {
-          return;
-        }
-      }
+      const response = await fetch('/api/match-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match_id: Number(generatedMatchId),
+          winner_team1: matchResult.winner === 'team1',
+          team1_score: team1Score,
+          team2_score: team2Score,
+        }),
+      });
 
-      // 3. 결과 데이터 준비
-      const result = {
-        winner: matchResult.winner,
-        score: matchResult.score,
-        completed_at: new Date().toISOString(),
-  recorded_by: currentUserId, // 누가 기록했는지 추적
-        participants: participantUserIds // 참가자 목록 기록
-      };
+      const payload = await response.json().catch(() => null);
 
-      // 4. 트랜잭션으로 안전하게 업데이트 (동시성 제어)
-      const { error: updateError } = await supabase
-        .from('generated_matches')
-        .update({
-          status: 'completed',
-          match_result: result
-        })
-        .eq('id', Number(generatedMatchId))
-        .not('status', 'eq', 'completed'); // 이미 완료된 경기는 제외 (동시 저장 방지)
-
-      if (updateError) {
-        // PGRST116 = No rows updated (이미 다른 사람이 완료 처리한 경우)
-        if (updateError.code === 'PGRST116') {
-          alert('다른 참가자가 이미 결과를 저장했습니다.\n페이지를 새로고침하여 최신 정보를 확인해주세요.');
-          await fetchMySchedule(); // 데이터 새로고침
-          setShowDetailsModal(false);
-          return;
-        }
-        
-        console.error('결과 저장 실패:', updateError);
-        alert('결과 저장 중 오류가 발생했습니다: ' + updateError.message);
+      if (!response.ok) {
+        alert(payload?.error || '결과 저장 중 오류가 발생했습니다.');
         return;
       }
 
-      // 5. 성공 메시지 및 모달 닫기
-      alert(`경기 결과가 저장되었습니다! 🏆\n\n` +
-            `승리팀: ${matchResult.winner === 'team1' ? '라켓팀' : '셔틀팀'}\n` +
-            `점수: ${matchResult.score}\n\n` +
-            `모든 참가자가 동일한 결과를 확인할 수 있습니다.`);
+      alert(
+        `경기 결과가 저장되었습니다.\n\n승리팀: ${matchResult.winner === 'team1' ? '라켓팀' : '셔틀팀'}\n점수: ${team1Score}:${team2Score}\n코인 반영: 패자 배팅 코인이 승자에게 이동합니다. 기본 ${DEFAULT_MATCH_WAGER}코인, 최대 ${MAX_MATCH_WAGER}코인`
+      );
       
       // 모달 닫기 및 상태 초기화
       setShowDetailsModal(false);
@@ -1103,7 +1157,7 @@ export default function MySchedulePage() {
                 <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">
                   <span>Match Hub</span>
                   <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] tracking-[0.12em] text-white/90">
-                    {profile?.full_name || profile?.username || '회원'}
+                    {formatCurrentUserNameWithCoins(profile?.full_name || profile?.username || '회원', profile?.coin_balance)}
                   </span>
                   <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] tracking-[0.12em] text-white/90">
                     {getUserLevelDisplay(profile?.skill_level)}
@@ -1650,11 +1704,21 @@ export default function MySchedulePage() {
                           <div className="space-y-2 text-sm">
                             <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
                               <span>{getPlayerName(selectedMatch.generated_match.team1_player1)}</span>
-                              <span className="text-xs text-blue-600">{getLevelName(selectedMatch.generated_match.team1_player1)}</span>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                                  배팅 {getPlayerBet(selectedMatch.generated_match.team1_player1)}
+                                </span>
+                                <span className="text-blue-600">{getLevelName(selectedMatch.generated_match.team1_player1)}</span>
+                              </div>
                             </div>
                             <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
                               <span>{getPlayerName(selectedMatch.generated_match.team1_player2)}</span>
-                              <span className="text-xs text-blue-600">{getLevelName(selectedMatch.generated_match.team1_player2)}</span>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                                  배팅 {getPlayerBet(selectedMatch.generated_match.team1_player2)}
+                                </span>
+                                <span className="text-blue-600">{getLevelName(selectedMatch.generated_match.team1_player2)}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1663,15 +1727,69 @@ export default function MySchedulePage() {
                           <div className="space-y-2 text-sm">
                             <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
                               <span>{getPlayerName(selectedMatch.generated_match.team2_player1)}</span>
-                              <span className="text-xs text-rose-600">{getLevelName(selectedMatch.generated_match.team2_player1)}</span>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                                  배팅 {getPlayerBet(selectedMatch.generated_match.team2_player1)}
+                                </span>
+                                <span className="text-rose-600">{getLevelName(selectedMatch.generated_match.team2_player1)}</span>
+                              </div>
                             </div>
                             <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2">
                               <span>{getPlayerName(selectedMatch.generated_match.team2_player2)}</span>
-                              <span className="text-xs text-rose-600">{getLevelName(selectedMatch.generated_match.team2_player2)}</span>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                                  배팅 {getPlayerBet(selectedMatch.generated_match.team2_player2)}
+                                </span>
+                                <span className="text-rose-600">{getLevelName(selectedMatch.generated_match.team2_player2)}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
+
+                      {profile?.id && matchStatus === 'scheduled' && (
+                        <div className="rounded-[20px] border border-amber-200 bg-amber-50/80 p-4">
+                          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <h4 className="font-semibold text-amber-900">내 배팅 코인</h4>
+                              <p className="mt-1 text-sm text-amber-800">
+                                기본 {DEFAULT_MATCH_WAGER}코인, 최대 {MAX_MATCH_WAGER}코인. 패배 시 내 배팅 코인이 차감되고 승리 시 패자 코인이 승자에게 분배됩니다.
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              {Array.from({ length: MAX_MATCH_WAGER }, (_, index) => {
+                                const wagerAmount = index + 1;
+                                const isActive =
+                                  selectedMatchBetState.bets[selectedMatchBetState.myProfileId || ''] === wagerAmount;
+
+                                return (
+                                  <button
+                                    key={wagerAmount}
+                                    type="button"
+                                    disabled={savingBet || (profile?.coin_balance ?? 0) < wagerAmount}
+                                    onClick={() => saveMyMatchBet(wagerAmount)}
+                                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                                      isActive
+                                        ? 'bg-amber-500 text-white'
+                                        : 'border border-amber-300 bg-white text-amber-800 hover:bg-amber-100'
+                                    } disabled:cursor-not-allowed disabled:opacity-40`}
+                                  >
+                                    {wagerAmount}코인
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="mt-3 text-xs text-amber-700">
+                            현재 보유 코인: {profile?.coin_balance ?? 0}
+                            {selectedMatchBetState.myProfileId && (
+                              <span className="ml-2">
+                                현재 선택: {selectedMatchBetState.bets[selectedMatchBetState.myProfileId] ?? DEFAULT_MATCH_WAGER}코인
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {matchStatus === 'completed' && (
                         <div className="rounded-[20px] border border-green-200 bg-green-50/80 p-4">

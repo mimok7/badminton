@@ -903,39 +903,39 @@ export default function PlayersTodayPage() {
 
   return (
     <RequireAdmin>
-      <div className="p-6">
-        <h1 className="text-xl font-bold mb-4">오늘 경기 생성/배정</h1>
-        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+      <div className="px-2 py-2 sm:p-6">
+        <h1 className="mb-3 text-lg font-bold sm:mb-4 sm:text-xl">오늘 경기 생성/배정</h1>
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 sm:mb-4 sm:px-4 sm:py-3 sm:text-sm">
           오늘 경기에서 생성 후 배정하면 사용자 대시보드와 나의 일정에 바로 보이도록 자동 처리됩니다.
         </div>
-        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <div className="flex items-center justify-between gap-4">
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 sm:mb-6 sm:p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
-              <h3 className="font-semibold text-amber-900">관리자 수동 출석자 추가</h3>
-              <p className="text-sm text-amber-800">
+              <h3 className="text-sm font-semibold text-amber-900 sm:text-base">관리자 수동 출석자 추가</h3>
+              <p className="hidden text-sm text-amber-800 sm:block">
                 오늘 참가 신청자 외에도 관리자가 원하는 회원을 출석자에 직접 추가해 경기 생성에 포함할 수 있습니다.
               </p>
             </div>
-            <div className="text-sm text-amber-900">추가됨 {manualPlayers.length}명</div>
+            <div className="text-xs text-amber-900 sm:text-sm">추가됨 {manualPlayers.length}명</div>
           </div>
-          <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="mt-2 flex flex-col gap-2 sm:mt-3 sm:gap-3 md:flex-row md:items-center">
             <button
               type="button"
               onClick={() => setShowMemberModal(true)}
-              className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+              className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 sm:px-4"
             >
               회원추가
             </button>
-            <span className="text-sm text-amber-800">추가한 회원은 출석 상태로 즉시 반영되고 경기 생성 대상에 포함됩니다.</span>
+            <span className="hidden text-sm text-amber-800 sm:block">추가한 회원은 출석 상태로 즉시 반영되고 경기 생성 대상에 포함됩니다.</span>
           </div>
           {manualPlayers.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3 sm:gap-2">
               {manualPlayers.map((player) => (
                 <button
                   key={player.id}
                   type="button"
                   onClick={() => removeManualPlayer(player.id)}
-                  className="rounded-full border border-amber-500 bg-amber-500 px-3 py-1 text-sm text-white transition-colors hover:bg-amber-600"
+                  className="rounded-full border border-amber-500 bg-amber-500 px-2.5 py-1 text-xs text-white transition-colors hover:bg-amber-600 sm:px-3 sm:text-sm"
                 >
                   제거 · {player.name} ({player.skill_label || player.skill_level}, {formatScore(player.score)}점)
                 </button>
@@ -990,10 +990,10 @@ export default function PlayersTodayPage() {
       {showMemberModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
+            <div className="flex items-start justify-between gap-3 border-b px-4 py-3 sm:px-6 sm:py-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">출석자에 회원 추가</h2>
-                <p className="text-sm text-gray-500">추가할 회원을 여러 명 선택한 뒤 확인을 누르세요.</p>
+                <h2 className="text-base font-semibold text-gray-900 sm:text-lg">출석자에 회원 추가</h2>
+                <p className="hidden text-sm text-gray-500 sm:block">추가할 회원을 여러 명 선택한 뒤 확인을 누르세요.</p>
               </div>
               <button
                 type="button"
@@ -1006,7 +1006,7 @@ export default function PlayersTodayPage() {
                 닫기
               </button>
             </div>
-            <div className="flex items-center justify-between border-b bg-gray-50 px-6 py-3 text-sm">
+            <div className="flex items-center justify-between border-b bg-gray-50 px-4 py-2 text-xs sm:px-6 sm:py-3 sm:text-sm">
               <span className="text-gray-600">추가 가능 회원 {availableMembersToAdd.length}명</span>
               <button
                 type="button"
@@ -1016,19 +1016,19 @@ export default function PlayersTodayPage() {
                 {selectedMemberIds.length === availableMembersToAdd.length ? '전체 해제' : '전체 선택'}
               </button>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+            <div className="max-h-[60vh] overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
               {availableMembersToAdd.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
                   추가 가능한 회원이 없습니다.
                 </div>
               ) : (
-                <div className="grid gap-3 md:grid-cols-4">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4 sm:gap-3">
                   {availableMembersToAdd.map((member) => {
                     const checked = selectedMemberIds.includes(member.id);
                     return (
                       <label
                         key={member.id}
-                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                        className={`flex cursor-pointer items-start gap-2 rounded-lg border p-2.5 transition-colors sm:gap-3 sm:p-3 ${
                           checked ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-white hover:border-amber-200'
                         }`}
                       >
@@ -1050,7 +1050,7 @@ export default function PlayersTodayPage() {
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-end gap-3 border-t px-6 py-4">
+            <div className="flex items-center justify-end gap-2 border-t px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
               <button
                 type="button"
                 onClick={() => {

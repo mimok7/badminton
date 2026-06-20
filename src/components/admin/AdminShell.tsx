@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RequireAdmin } from '@/components/AuthGuard';
 import { useUser } from '@/hooks/useUser';
-import { SECTIONS } from './menuConfig';
+import { MOBILE_PRIMARY_ITEMS, SECTIONS } from './menuConfig';
 
 function getGroupColors(color: string) {
   const colorMap: Record<string, { bg: string; border: string; text: string; active: string }> = {
@@ -40,7 +40,33 @@ function getGroupColors(color: string) {
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { profile } = useUser();
-  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isDesktopSidebarVisible, setIsDesktopSidebarVisible] = useState(true);
+  const [isMobileView, setIsMobileView] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+
+    const syncViewport = (matches: boolean) => {
+      setIsMobileView(matches);
+      if (!matches) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+
+    syncViewport(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      syncViewport(event.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   const isActive = (href: string) => {
     try {
@@ -51,78 +77,181 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     }
   };
 
+  const handleNavClick = () => {
+    if (isMobileView) {
+      setIsMobileSidebarOpen(false);
+    }
+  };
+
+  const sidebarNav = (
+    <nav className="p-3 space-y-2">
+      {SECTIONS.map((section) => {
+        const colors = getGroupColors(section.color);
+        return (
+          <div key={section.title} className={`mb-5 rounded-xl ${colors.bg} p-3`}>
+            <div className={`px-2 mb-2 text-sm font-bold uppercase tracking-[0.08em] ${colors.text}`}>
+              {section.title}
+            </div>
+            <ul className="space-y-1">
+              {section.items.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={handleNavClick}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                      isActive(item.href)
+                        ? colors.active
+                        : 'text-gray-600 hover:bg-white hover:bg-opacity-50 hover:text-gray-900'
+                    }`}
+                  >
+                    <span className="w-5 text-center text-sm">{item.icon ?? '•'}</span>
+                    <span>{item.label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+
+      <div className="px-2 mt-6 pt-4 border-t border-gray-200">
+        <div className="text-sm font-bold uppercase tracking-[0.08em] text-gray-500 mb-2">빠른 이동</div>
+        <div className="space-y-1">
+          <Link
+            href="/dashboard"
+            onClick={handleNavClick}
+            className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          >
+            <span>📊</span> 대시보드
+          </Link>
+          <Link
+            href="/admin/tournament-bracket"
+            onClick={handleNavClick}
+            className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          >
+            <span>🧭</span> 관리자 대진표
+          </Link>
+          <Link
+            href="/tournament-bracket"
+            onClick={handleNavClick}
+            className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          >
+            <span>📈</span> 사용자 대진표
+          </Link>
+          <Link
+            href="/"
+            onClick={handleNavClick}
+            className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          >
+            <span>🏠</span> 홈으로
+          </Link>
+        </div>
+      </div>
+    </nav>
+  );
+
   return (
     <RequireAdmin>
-      <div className={`min-h-screen bg-gray-50 ${isSidebarVisible ? 'grid grid-cols-[13rem_minmax(0,1fr)]' : 'grid grid-cols-1'}`}>
-        {isSidebarVisible && (
-          <aside className="w-52 shrink-0 border-r border-gray-200 bg-white sticky top-0 h-screen overflow-y-auto z-30">
-          <div className="p-4 border-b border-gray-100">
-            <Link href="/admin" className="block text-base font-bold text-gray-900 tracking-tight">⚙️ 관리자</Link>
-            <div className="mt-1 text-xs text-gray-500">{profile?.full_name || profile?.username || '관리자'}님</div>
-          </div>
-
-          <nav className="p-3 space-y-2">
-            {SECTIONS.map((section) => {
-              const colors = getGroupColors(section.color);
-              return (
-                <div key={section.title} className={`mb-5 rounded-xl ${colors.bg} p-3`}>
-                  <div className={`px-2 mb-2 text-sm font-bold uppercase tracking-[0.08em] ${colors.text}`}>
-                    {section.title}
-                  </div>
-                  <ul className="space-y-1">
-                    {section.items.map((item) => (
-                      <li key={item.href}>
-                        <Link
-                          href={item.href}
-                          className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-                            isActive(item.href)
-                              ? colors.active
-                              : 'text-gray-600 hover:bg-white hover:bg-opacity-50 hover:text-gray-900'
-                          }`}
-                        >
-                          <span className="w-5 text-center text-sm">{item.icon ?? '•'}</span>
-                          <span>{item.label}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-
-            <div className="px-2 mt-6 pt-4 border-t border-gray-200">
-              <div className="text-sm font-bold uppercase tracking-[0.08em] text-gray-500 mb-2">빠른 이동</div>
-              <div className="space-y-1">
-                <Link href="/dashboard" className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900">
-                  <span>📊</span> 대시보드
-                </Link>
-                <Link href="/tournament-bracket" className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900">
-                  <span>📈</span> 사용자 대진표
-                </Link>
-                <Link href="/" className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900">
-                  <span>🏠</span> 홈으로
-                </Link>
-              </div>
+      <div className={`admin-mobile-optimized min-h-screen bg-gray-50 ${!isMobileView && isDesktopSidebarVisible ? 'grid grid-cols-[13rem_minmax(0,1fr)]' : 'grid grid-cols-1'}`}>
+        {!isMobileView && isDesktopSidebarVisible && (
+          <aside className="sticky top-0 z-30 h-screen w-52 shrink-0 overflow-y-auto border-r border-gray-200 bg-white">
+            <div className="border-b border-gray-100 p-4">
+              <Link href="/admin" className="block text-base font-bold text-gray-900 tracking-tight">⚙️ 관리자</Link>
+              <div className="mt-1 text-xs text-gray-500">{profile?.full_name || profile?.username || '관리자'}님</div>
             </div>
-          </nav>
+            {sidebarNav}
           </aside>
         )}
 
+        {isMobileView && isMobileSidebarOpen && (
+          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setIsMobileSidebarOpen(false)}>
+            <aside
+              className="absolute inset-y-0 left-0 w-72 max-w-[82vw] overflow-y-auto border-r border-gray-200 bg-white shadow-xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 p-4">
+                <div>
+                  <Link href="/admin" onClick={handleNavClick} className="block text-base font-bold text-gray-900 tracking-tight">
+                    ⚙️ 관리자
+                  </Link>
+                  <div className="mt-1 text-xs text-gray-500">{profile?.full_name || profile?.username || '관리자'}님</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  className="rounded border border-gray-300 px-2 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                >
+                  닫기
+                </button>
+              </div>
+              {sidebarNav}
+            </aside>
+          </div>
+        )}
+
         <div className="min-w-0 w-full">
-          <header className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-10">
+          <header className="sticky top-0 z-10 border-b border-gray-200 bg-white px-3 py-3 sm:px-6 sm:py-4">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-sm text-gray-500">관리자 영역</div>
-              <button
-                type="button"
-                onClick={() => setIsSidebarVisible((prev) => !prev)}
-                className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
-              >
-                {isSidebarVisible ? '사이드바 숨기기' : '사이드바 표시'}
-              </button>
+              <div className="min-w-0">
+                <div className="text-xs font-semibold tracking-[0.12em] text-gray-400 sm:text-sm">ADMIN</div>
+                <div className="truncate text-sm font-semibold text-gray-900 sm:hidden">
+                  {profile?.full_name || profile?.username || '관리자'}
+                </div>
+                <div className="hidden text-sm text-gray-500 sm:block">관리자 영역</div>
+              </div>
+              {isMobileView ? (
+                <button
+                  type="button"
+                  onClick={() => setIsMobileSidebarOpen(true)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                >
+                  메뉴
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsDesktopSidebarVisible((prev) => !prev)}
+                  className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                >
+                  {isDesktopSidebarVisible ? '사이드바 숨기기' : '사이드바 표시'}
+                </button>
+              )}
             </div>
           </header>
-          <main className="bg-gray-50 min-h-screen relative z-0 w-full px-6 py-6">{children}</main>
+          <main className={`admin-mobile-content relative z-0 min-h-screen w-full bg-gray-50 ${isMobileView ? 'px-2 py-2 pb-24' : 'px-6 py-6'}`}>
+            {children}
+          </main>
         </div>
+
+        {isMobileView && (
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/98 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur">
+            <div className="grid grid-cols-5 gap-1">
+              {MOBILE_PRIMARY_ITEMS.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex min-h-[56px] flex-col items-center justify-center rounded-xl px-2 py-2 text-[11px] font-medium transition-colors ${
+                      active ? 'bg-blue-50 text-blue-700' : 'text-gray-500'
+                    }`}
+                  >
+                    <span className="text-base leading-none">{item.icon ?? '•'}</span>
+                    <span className="mt-1 leading-none">{item.label}</span>
+                  </Link>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setIsMobileSidebarOpen(true)}
+                className="flex min-h-[56px] flex-col items-center justify-center rounded-xl px-2 py-2 text-[11px] font-medium text-gray-500 transition-colors"
+              >
+                <span className="text-base leading-none">☰</span>
+                <span className="mt-1 leading-none">전체</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </RequireAdmin>
   );

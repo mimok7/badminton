@@ -399,8 +399,8 @@ function MatchResultsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-6">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 py-3 sm:py-6">
+        <div className="w-full px-2 sm:px-6 lg:px-8">
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
             <span className="ml-2 text-gray-600">로딩 중...</span>
@@ -411,20 +411,20 @@ function MatchResultsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6">
-      <div className="w-full px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-3 sm:py-6">
+      <div className="w-full px-2 sm:px-6 lg:px-8">
         {/* 상단 제목 */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold">📋 배정 현황 확인</h1>
-          <p className="mt-2 text-sm text-gray-600">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl font-semibold sm:text-2xl">📋 배정 현황 확인</h1>
+          <p className="mt-2 hidden text-sm text-gray-600 sm:block">
             관리자 확인용 화면입니다. 기본 배팅은 {DEFAULT_MATCH_WAGER}코인이고, 사용자는 경기별로 최대 {MAX_MATCH_WAGER}코인까지 올릴 수 있습니다.
           </p>
         </div>
 
         {/* 필터 컨트롤 */}
-        <div className="bg-white shadow-sm rounded-lg mb-6 p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">🔍 필터 설정</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="mb-4 rounded-lg bg-white p-3 shadow-sm sm:mb-6 sm:p-6">
+          <h3 className="mb-3 text-base font-medium text-gray-900 sm:mb-4 sm:text-lg">🔍 필터 설정</h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
             {/* 세션 필터 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">경기 세션</label>
@@ -487,17 +487,17 @@ function MatchResultsPage() {
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+        <div className="mb-4 grid grid-cols-2 gap-2.5 sm:mb-6 sm:gap-6 md:grid-cols-4">
           <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
+            <div className="p-3 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="text-2xl">📊</div>
                 </div>
-                <div className="ml-5 w-0 flex-1">
+                <div className="ml-3 w-0 flex-1 sm:ml-5">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">총 배정 경기</dt>
-                    <dd className="text-lg font-medium text-gray-900">{assignedMatches.length}경기</dd>
+                    <dt className="truncate text-xs font-medium text-gray-500 sm:text-sm">총 배정 경기</dt>
+                    <dd className="text-sm font-medium text-gray-900 sm:text-lg">{assignedMatches.length}경기</dd>
                   </dl>
                 </div>
               </div>
@@ -505,15 +505,15 @@ function MatchResultsPage() {
           </div>
 
           <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
+            <div className="p-3 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="text-2xl">⏰</div>
                 </div>
-                <div className="ml-5 w-0 flex-1">
+                <div className="ml-3 w-0 flex-1 sm:ml-5">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">예정된 경기</dt>
-                    <dd className="text-lg font-medium text-gray-900">
+                    <dt className="truncate text-xs font-medium text-gray-500 sm:text-sm">예정된 경기</dt>
+                    <dd className="text-sm font-medium text-gray-900 sm:text-lg">
                       {assignedMatches.filter(m => m.status === 'scheduled').length}경기
                     </dd>
                   </dl>
@@ -523,15 +523,15 @@ function MatchResultsPage() {
           </div>
 
           <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
+            <div className="p-3 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="text-2xl">✅</div>
                 </div>
-                <div className="ml-5 w-0 flex-1">
+                <div className="ml-3 w-0 flex-1 sm:ml-5">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">완료된 경기</dt>
-                    <dd className="text-lg font-medium text-gray-900">
+                    <dt className="truncate text-xs font-medium text-gray-500 sm:text-sm">완료된 경기</dt>
+                    <dd className="text-sm font-medium text-gray-900 sm:text-lg">
                       {assignedMatches.filter(m => m.status === 'completed').length}경기
                     </dd>
                   </dl>
@@ -541,15 +541,15 @@ function MatchResultsPage() {
           </div>
 
           <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
+            <div className="p-3 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="text-2xl">🏟️</div>
                 </div>
-                <div className="ml-5 w-0 flex-1">
+                <div className="ml-3 w-0 flex-1 sm:ml-5">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">총 세션</dt>
-                    <dd className="text-lg font-medium text-gray-900">{matchSessions.length}개</dd>
+                    <dt className="truncate text-xs font-medium text-gray-500 sm:text-sm">총 세션</dt>
+                    <dd className="text-sm font-medium text-gray-900 sm:text-lg">{matchSessions.length}개</dd>
                   </dl>
                 </div>
               </div>
@@ -558,10 +558,10 @@ function MatchResultsPage() {
         </div>
 
         {/* 배정된 경기 목록 */}
-        <div className="bg-white shadow-sm rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">배정된 경기 목록</h3>
-            <p className="text-sm text-gray-500 mt-1">총 {assignedMatches.length}개의 배정된 경기</p>
+        <div className="rounded-lg bg-white shadow-sm">
+          <div className="border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
+            <h3 className="text-base font-medium text-gray-900 sm:text-lg">배정된 경기 목록</h3>
+            <p className="mt-1 text-xs text-gray-500 sm:text-sm">총 {assignedMatches.length}개의 배정된 경기</p>
           </div>
 
           {assignedMatches.length === 0 ? (

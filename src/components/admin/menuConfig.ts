@@ -17,7 +17,7 @@ export const SECTIONS: MenuSection[] = [
     items: [
       { label: '팀 관리', href: '/team-management', icon: '🤝' },
       { label: '대회 경기', href: '/admin/tournament-matches', icon: '🎪' },
-      { label: '대진표', href: '/tournament-bracket', icon: '📊' },
+      { label: '대진표', href: '/admin/tournament-bracket', icon: '📊' },
     ],
     color: 'purple',
   },
@@ -47,4 +47,11 @@ export const SECTIONS: MenuSection[] = [
     ],
     color: 'orange',
   },
+];
+
+export const MOBILE_PRIMARY_ITEMS: MenuItem[] = [
+  { label: '홈', href: '/admin', icon: '🏠' },
+  { label: '오늘', href: '/admin/players-today', icon: '⚡' },
+  { label: '회원', href: '/admin/members', icon: '👥' },
+  { label: '대회', href: '/admin/tournament-matches', icon: '🎪' },
 ];

@@ -105,3 +105,48 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const adminContext = await requireAdmin();
+
+    if ('error' in adminContext) {
+      return adminContext.error;
+    }
+
+    const payload = await request.json().catch(() => null);
+    const assignmentId = String((payload as { assignmentId?: unknown })?.assignmentId || '').trim();
+
+    if (!assignmentId) {
+      return NextResponse.json({ error: 'assignmentId is required' }, { status: 400 });
+    }
+
+    const { error } = await adminContext.adminSupabase
+      .from('team_assignments')
+      .delete()
+      .eq('id', assignmentId);
+
+    if (error) {
+      return NextResponse.json(
+        {
+          error: 'Failed to delete team assignment',
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, assignmentId });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: 'Unexpected server error',
+        message: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}

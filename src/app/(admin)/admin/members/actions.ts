@@ -19,50 +19,68 @@ async function isAdmin() {
 }
 
 export async function deleteUser(userId: string) {
-    if (!(await isAdmin())) {
-        return { error: '삭제 권한이 없습니다.' };
-    }
+    try {
+        if (!(await isAdmin())) {
+            return { error: '삭제 권한이 없습니다.' };
+        }
 
-    const profileLookup = await supabaseAdmin
-        .from('profiles')
-        .select('id, user_id')
-        .or(`user_id.eq.${userId},id.eq.${userId}`)
-        .limit(1)
-        .maybeSingle();
-
-    if (profileLookup.error) {
-        return { error: profileLookup.error.message };
-    }
-
-    const targetProfile = profileLookup.data;
-
-    if (!targetProfile) {
-        return { error: '대상 사용자를 찾을 수 없습니다.' };
-    }
-
-    if (!targetProfile.user_id) {
-        const { error } = await supabaseAdmin
+        const profileLookup = await supabaseAdmin
             .from('profiles')
-            .delete()
-            .eq('id', targetProfile.id);
+            .select('id, user_id, updated_at')
+            .or(`user_id.eq.${userId},id.eq.${userId}`)
+            .order('updated_at', { ascending: false });
 
-        if (error) {
-            return { error: error.message };
+        if (profileLookup.error) {
+            return { error: profileLookup.error.message };
+        }
+
+        const matchedProfiles = (profileLookup.data || []) as Array<{ id: string; user_id: string | null }>;
+        const targetProfile =
+            matchedProfiles.find((profile) => profile.user_id === userId) ||
+            matchedProfiles.find((profile) => profile.id === userId) ||
+            matchedProfiles[0];
+
+        if (!targetProfile) {
+            return { error: '대상 사용자를 찾을 수 없습니다.' };
+        }
+
+        let warning: string | null = null;
+
+        if (targetProfile.user_id) {
+            // auth.users 삭제가 가능한 경우에는 auth 쪽을 먼저 지웁니다.
+            const authDelete = await supabaseAdmin.auth.admin.deleteUser(targetProfile.user_id);
+
+            if (authDelete.error) {
+                warning = authDelete.error.message;
+
+                // auth 삭제가 막힌 경우에도 관리자 화면에서는 확실히 제거되도록
+                // 프로필을 직접 삭제하는 fallback을 수행합니다.
+                const fallbackDelete = await supabaseAdmin
+                    .from('profiles')
+                    .delete()
+                    .eq('id', targetProfile.id);
+
+                if (fallbackDelete.error) {
+                    return { error: fallbackDelete.error.message };
+                }
+            }
+        } else {
+            const { error } = await supabaseAdmin
+                .from('profiles')
+                .delete()
+                .eq('id', targetProfile.id);
+
+            if (error) {
+                return { error: error.message };
+            }
         }
 
         revalidatePath('/admin/members');
-        return { success: true };
+        return warning ? { success: true, warning } : { success: true };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : '사용자 삭제 중 알 수 없는 오류가 발생했습니다.';
+        return { error: message };
     }
-
-    // auth.users에서 삭제하면 public.profiles에서도 자동으로 삭제됩니다 (foreign key가 cascade로 설정된 경우).
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(targetProfile.user_id);
-
-    if (error) {
-        return { error: error.message };
-    }
-
-    revalidatePath('/admin/members');
-    return { success: true };
 }
 
 export type UpdateUserPayload = {

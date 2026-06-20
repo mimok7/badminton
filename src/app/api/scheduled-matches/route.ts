@@ -59,8 +59,8 @@ export async function GET(request: Request) {
 
     const { data: schedules, error: schedulesError } = await adminSupabase
       .from('match_schedules')
-      .select('id, generated_match_id, match_date, scheduled_time, start_time, court_number, status, match_result')
-      .eq('match_date', date)
+      .select('id, generated_match_id, match_date, scheduled_date, scheduled_time, start_time, court_number, status, match_result')
+      .or(`match_date.eq.${date},scheduled_date.eq.${date}`)
       .order('court_number', { ascending: true })
       .order('scheduled_time', { ascending: true })
       .order('start_time', { ascending: true });
@@ -168,7 +168,7 @@ export async function GET(request: Request) {
       return {
         id: schedule.id,
         generated_match_id: schedule.generated_match_id,
-        match_date: schedule.match_date,
+        match_date: schedule.match_date || schedule.scheduled_date || date,
         match_time: schedule.scheduled_time || schedule.start_time || null,
         court_number: schedule.court_number,
         status: schedule.status,

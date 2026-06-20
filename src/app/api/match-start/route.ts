@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { isAdminRole, getProfileByUserId } from '@/lib/auth';
+import { getProfileByUserId, isAdminOrManagerRole } from '@/lib/auth';
 import { DEFAULT_MATCH_WAGER } from '@/lib/coins';
+import { syncSessionMatchFlow } from '@/lib/match-session-flow';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 
 type MatchRow = {
@@ -56,9 +57,9 @@ export async function POST(request: Request) {
     matchRow.team2_player2_id,
   ].filter((value): value is string => Boolean(value));
 
-  const canManage = isAdminRole(currentProfile.role) || participantIds.includes(currentProfile.id);
+  const canManage = isAdminOrManagerRole(currentProfile.role) || participantIds.includes(currentProfile.id);
   if (!canManage) {
-    return NextResponse.json({ error: '이 경기의 참가자 또는 관리자만 경기를 시작할 수 있습니다.' }, { status: 403 });
+    return NextResponse.json({ error: '이 경기의 참가자 또는 관리자/매니저만 경기를 시작할 수 있습니다.' }, { status: 403 });
   }
 
   if (matchRow.status === 'completed' || matchRow.status === 'cancelled') {
@@ -96,61 +97,98 @@ export async function POST(request: Request) {
     );
   }
 
-  if (matchRow.session_id && typeof matchRow.match_number === 'number') {
-    const { data: sessionMatches, error: sessionMatchesError } = await adminSupabase
-      .from('generated_matches')
-      .select('id, match_number, status')
-      .eq('session_id', matchRow.session_id)
-      .order('match_number', { ascending: true });
-
-    if (sessionMatchesError) {
-      return NextResponse.json({ error: sessionMatchesError.message }, { status: 500 });
-    }
-
-    const waitingMatchIds = (sessionMatches || [])
-      .filter(
-        (match) =>
-          match.id !== matchId &&
-          match.status !== 'completed' &&
-          match.status !== 'cancelled',
-      )
-      .map((match) => match.id);
-
-    if (waitingMatchIds.length > 0) {
-      await adminSupabase
+  if (matchRow.status === 'in_progress') {
+    if (matchRow.session_id) {
+      const { data: activeSessionMatches, error: activeSessionMatchesError } = await adminSupabase
         .from('generated_matches')
-        .update({ status: 'scheduled' })
-        .in('id', waitingMatchIds);
+        .select('id')
+        .eq('session_id', matchRow.session_id)
+        .eq('status', 'in_progress');
 
-      await adminSupabase
+      if (activeSessionMatchesError) {
+        return NextResponse.json({ error: activeSessionMatchesError.message }, { status: 500 });
+      }
+
+      const activeIds = (activeSessionMatches || []).map((match) => match.id);
+      if (activeIds.length > 0) {
+        await adminSupabase
+          .from('generated_matches')
+          .update({ status: 'scheduled', updated_at: new Date().toISOString() })
+          .in('id', activeIds);
+
+        await adminSupabase
+          .from('match_schedules')
+          .update({ status: 'scheduled', updated_at: new Date().toISOString() })
+          .in('generated_match_id', activeIds);
+      }
+    } else {
+      const { error: generatedUpdateError } = await adminSupabase
+        .from('generated_matches')
+        .update({ status: 'scheduled', updated_at: new Date().toISOString() })
+        .eq('id', matchId);
+
+      if (generatedUpdateError) {
+        return NextResponse.json({ error: generatedUpdateError.message }, { status: 500 });
+      }
+
+      const { error: scheduleUpdateError } = await adminSupabase
         .from('match_schedules')
-        .update({ status: 'scheduled' })
-        .in('generated_match_id', waitingMatchIds);
+        .update({ status: 'scheduled', updated_at: new Date().toISOString() })
+        .eq('generated_match_id', matchId);
+
+      if (scheduleUpdateError) {
+        return NextResponse.json({ error: scheduleUpdateError.message }, { status: 500 });
+      }
     }
+
+    return NextResponse.json({
+      data: {
+        match_id: matchId,
+        status: 'scheduled',
+        active_match_ids: [],
+      },
+    });
   }
 
-  const { error: generatedUpdateError } = await adminSupabase
-    .from('generated_matches')
-    .update({ status: 'in_progress' })
-    .eq('id', matchId);
+  let activeMatchIds = [matchId];
 
-  if (generatedUpdateError) {
-    return NextResponse.json({ error: generatedUpdateError.message }, { status: 500 });
-  }
+  if (matchRow.session_id) {
+    try {
+      const flowResult = await syncSessionMatchFlow(adminSupabase, matchRow.session_id, {
+        initialize: true,
+      });
+      activeMatchIds = flowResult.activeMatchIds.length > 0 ? flowResult.activeMatchIds : activeMatchIds;
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : '세션 경기 시작 처리에 실패했습니다.' },
+        { status: 500 }
+      );
+    }
+  } else {
+    const { error: generatedUpdateError } = await adminSupabase
+      .from('generated_matches')
+      .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+      .eq('id', matchId);
 
-  const { error: scheduleUpdateError } = await adminSupabase
-    .from('match_schedules')
-    .update({ status: 'in_progress' })
-    .eq('generated_match_id', matchId);
+    if (generatedUpdateError) {
+      return NextResponse.json({ error: generatedUpdateError.message }, { status: 500 });
+    }
 
-  if (scheduleUpdateError) {
-    return NextResponse.json({ error: scheduleUpdateError.message }, { status: 500 });
+    const { error: scheduleUpdateError } = await adminSupabase
+      .from('match_schedules')
+      .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+      .eq('generated_match_id', matchId);
+
+    if (scheduleUpdateError) {
+      return NextResponse.json({ error: scheduleUpdateError.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({
     data: {
       match_id: matchId,
       status: 'in_progress',
+      active_match_ids: activeMatchIds,
     },
   });
 }

@@ -22,6 +22,7 @@ export type AppProfile = Pick<
 type ProfileLookupClient = Pick<SupabaseClient<Database, any, any>, 'from'>;
 
 const ADMIN_ROLE_ALIASES = new Set(['admin', 'administrator', '관리자']);
+const MANAGER_ROLE_ALIASES = new Set(['manager', '매니저', '운영자']);
 const USER_ROLE_ALIASES = new Set(['user', 'member', '일반 사용자', '일반회원']);
 
 export function normalizeRole(role: unknown): string | null {
@@ -39,6 +40,10 @@ export function normalizeRole(role: unknown): string | null {
     return 'admin';
   }
 
+  if (MANAGER_ROLE_ALIASES.has(normalized)) {
+    return 'manager';
+  }
+
   if (USER_ROLE_ALIASES.has(normalized)) {
     return 'user';
   }
@@ -48,6 +53,15 @@ export function normalizeRole(role: unknown): string | null {
 
 export function isAdminRole(role: unknown): boolean {
   return normalizeRole(role) === 'admin';
+}
+
+export function isManagerRole(role: unknown): boolean {
+  return normalizeRole(role) === 'manager';
+}
+
+export function isAdminOrManagerRole(role: unknown): boolean {
+  const normalized = normalizeRole(role);
+  return normalized === 'admin' || normalized === 'manager';
 }
 
 export function getRoleFromUser(user: User | null | undefined): string | null {
@@ -117,6 +131,10 @@ export async function getUserRole(
 
   if (isAdminRole(profileRole) || isAdminRole(userRole)) {
     return 'admin';
+  }
+
+  if (isManagerRole(profileRole) || isManagerRole(userRole)) {
+    return 'manager';
   }
 
   return profileRole ?? userRole;

@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/useUser';
+import { isAdminOrManagerRole } from '@/lib/auth';
+import { getKoreaDate } from '@/lib/date';
 import { formatNameWithCoins } from '@/lib/player-display';
 import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -52,21 +55,54 @@ function getMatchOutcomeMeta(
 }
 
 export default function TodayMatches() {
-  const { user, loading: userLoading } = useUser();
+  const { user, profile, loading: userLoading } = useUser();
   const [matches, setMatches] = useState<ScheduledMatchView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [startSaving, setStartSaving] = useState(false);
+  const [scoreDrafts, setScoreDrafts] = useState<Record<string, { team1: string; team2: string }>>({});
+  const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
+  const router = useRouter();
   const supabase = getSupabaseClient();
+
+  const loadTodayMatches = async () => {
+    if (!user) {
+      setMatches([]);
+      return;
+    }
+
+    const today = getKoreaDate();
+    const todayMatches = await fetchScheduledMatchesForDate(supabase, today);
+    setMatches(todayMatches);
+    setScoreDrafts((current) => {
+      const nextDrafts = { ...current };
+
+      todayMatches.forEach((match) => {
+        const existing = nextDrafts[match.id];
+        const team1Score = match.match_result?.team1_score;
+        const team2Score = match.match_result?.team2_score;
+
+        nextDrafts[match.id] = {
+          team1: existing?.team1 ?? (team1Score !== undefined ? String(team1Score) : ''),
+          team2: existing?.team2 ?? (team2Score !== undefined ? String(team2Score) : ''),
+        };
+      });
+
+      return nextDrafts;
+    });
+  };
 
   useEffect(() => {
     if (userLoading) return;
-    
+
+    if (!user) {
+      setMatches([]);
+      setLoading(false);
+      return;
+    }
+
     const fetchTodayMatches = async () => {
       try {
-        const today = new Date().toISOString().slice(0, 10);
-        
-        // 오늘의 모든 배정된 경기 조회
-        const todayMatches = await fetchScheduledMatchesForDate(supabase, today);
-        setMatches(todayMatches);
+        await loadTodayMatches();
       } catch (error) {
         console.error('데이터 조회 중 오류:', error);
       } finally {
@@ -87,21 +123,129 @@ export default function TodayMatches() {
     );
   }
 
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
+        <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-4 px-4 py-6 text-center">
+          <section className="w-full rounded-[24px] bg-white px-5 py-8 shadow-sm">
+            <div className="text-5xl">🔐</div>
+            <h1 className="mt-4 text-xl font-semibold text-slate-900">로그인이 필요합니다</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              오늘 배정된 경기를 보려면 먼저 로그인해 주세요.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => router.push('/login')}
+                className="flex-1 rounded-full bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                로그인
+              </button>
+              <Link
+                href="/dashboard"
+                className="flex-1 rounded-full border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                홈
+              </Link>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  const canManageMatches = isAdminOrManagerRole(profile?.role);
+
+  if (!canManageMatches) {
+    return (
+      <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
+        <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-4 px-4 py-6 text-center">
+          <section className="w-full rounded-[24px] bg-white px-5 py-8 shadow-sm">
+            <div className="text-5xl">🛡️</div>
+            <h1 className="mt-4 text-xl font-semibold text-slate-900">관리자 전용 페이지</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              오늘 경기 관리와 점수 입력은 관리자 또는 매니저만 사용할 수 있습니다.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => router.push('/admin')}
+                className="flex-1 rounded-full bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                관리자 홈
+              </button>
+              <Link
+                href="/dashboard"
+                className="flex-1 rounded-full border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                대시보드
+              </Link>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  const myParticipantIds = new Set(
+    [user?.id, profile?.id, profile?.user_id].filter((value): value is string => Boolean(value))
+  );
+
   const isPlayerInMatch = (match: ScheduledMatchView) => {
-    return match.team1_player1 === user?.id || 
-           match.team1_player2 === user?.id || 
-           match.team2_player1 === user?.id || 
-           match.team2_player2 === user?.id;
+    return [
+      match.team1_player1,
+      match.team1_player2,
+      match.team2_player1,
+      match.team2_player2,
+    ].some((participantId) => participantId ? myParticipantIds.has(participantId) : false);
   };
 
   const getPlayerTeam = (match: ScheduledMatchView) => {
-    if (match.team1_player1 === user?.id || match.team1_player2 === user?.id) {
+    if ([match.team1_player1, match.team1_player2].some((participantId) => participantId ? myParticipantIds.has(participantId) : false)) {
       return 'team1';
     }
-    if (match.team2_player1 === user?.id || match.team2_player2 === user?.id) {
+    if ([match.team2_player1, match.team2_player2].some((participantId) => participantId ? myParticipantIds.has(participantId) : false)) {
       return 'team2';
     }
     return null;
+  };
+
+  const primaryMatch = matches.find((match) => match.status === 'in_progress')
+    || matches.find((match) => match.status === 'scheduled')
+    || null;
+
+  const canStartPrimaryMatch = Boolean(
+    primaryMatch?.generated_match_id &&
+    (primaryMatch.status === 'scheduled' || primaryMatch.status === 'in_progress') &&
+    canManageMatches
+  );
+
+  const handlePrimaryMatchStart = async () => {
+    if (!primaryMatch?.generated_match_id || !canStartPrimaryMatch) return;
+
+    try {
+      setStartSaving(true);
+      const response = await fetch('/api/match-start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          match_id: primaryMatch.generated_match_id,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || '경기 시작에 실패했습니다.');
+      }
+
+      await loadTodayMatches();
+    } catch (error) {
+      console.error('오늘 경기 시작 오류:', error);
+      alert(error instanceof Error ? error.message : '경기 시작 중 오류가 발생했습니다.');
+    } finally {
+      setStartSaving(false);
+    }
   };
 
   const normalizeGender = (value?: string | null) => String(value || '').trim().toUpperCase();
@@ -118,6 +262,62 @@ export default function TodayMatches() {
     }
 
     return '👤';
+  };
+
+  const updateScoreDraft = (matchId: string, team: 'team1' | 'team2', value: string) => {
+    setScoreDrafts((current) => ({
+      ...current,
+      [matchId]: {
+        team1: team === 'team1' ? value : current[matchId]?.team1 ?? '',
+        team2: team === 'team2' ? value : current[matchId]?.team2 ?? '',
+      },
+    }));
+  };
+
+  const handleMatchResultSave = async (match: ScheduledMatchView) => {
+    if (!match.generated_match_id) return;
+
+    const team1Value = scoreDrafts[match.id]?.team1 ?? '';
+    const team2Value = scoreDrafts[match.id]?.team2 ?? '';
+    const team1Score = Number(team1Value);
+    const team2Score = Number(team2Value);
+
+    if (!Number.isFinite(team1Score) || !Number.isFinite(team2Score)) {
+      alert('점수를 숫자로 입력해주세요.');
+      return;
+    }
+
+    if (team1Score === team2Score) {
+      alert('무승부는 저장할 수 없습니다.');
+      return;
+    }
+
+    try {
+      setSavingMatchId(match.id);
+      const response = await fetch('/api/match-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          match_id: match.generated_match_id,
+          winner_team1: team1Score > team2Score,
+          team1_score: team1Score,
+          team2_score: team2Score,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || '점수 저장에 실패했습니다.');
+      }
+
+      await loadTodayMatches();
+    } catch (error) {
+      console.error('경기 결과 저장 오류:', error);
+      alert(error instanceof Error ? error.message : '점수 저장 중 오류가 발생했습니다.');
+    } finally {
+      setSavingMatchId(null);
+    }
   };
 
   return (
@@ -161,6 +361,41 @@ export default function TodayMatches() {
               </p>
             </div>
           </div>
+
+          {primaryMatch && (
+            <div className="mt-4 rounded-[22px] bg-white/8 px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] text-slate-300">
+                    {primaryMatch.status === 'in_progress' ? '현재 진행 경기' : '다음 시작 경기'}
+                  </p>
+                  <div className="mt-1 text-sm font-semibold text-white">
+                    코트 {primaryMatch.court_number || '미정'} · {primaryMatch.match_time || '시간 미정'}
+                  </div>
+                </div>
+                {canStartPrimaryMatch ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handlePrimaryMatchStart();
+                    }}
+                    disabled={startSaving}
+                    className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:opacity-60"
+                  >
+                    {startSaving
+                      ? '처리 중...'
+                      : primaryMatch.status === 'in_progress'
+                        ? '진행중'
+                        : '경기 시작'}
+                  </button>
+                ) : (
+                  <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-medium text-slate-200">
+                    {primaryMatch.status === 'in_progress' ? '진행 중' : '자동 시작 대기'}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </section>
 
         {matches.length === 0 ? (
@@ -176,6 +411,12 @@ export default function TodayMatches() {
               const statusMeta = getMatchStatusMeta(match.status);
               const team1Outcome = getMatchOutcomeMeta(match.status, match.match_result?.winner ?? null, 'team1');
               const team2Outcome = getMatchOutcomeMeta(match.status, match.match_result?.winner ?? null, 'team2');
+              const isEditable = Boolean(match.generated_match_id && match.status === 'in_progress');
+              const scoreDraft = scoreDrafts[match.id] ?? { team1: '', team2: '' };
+              const canSaveScore =
+                isEditable &&
+                scoreDraft.team1.trim().length > 0 &&
+                scoreDraft.team2.trim().length > 0;
 
               return (
                 <article
@@ -208,44 +449,128 @@ export default function TodayMatches() {
                       <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusMeta.chipClass}`}>
                         {statusMeta.label}
                       </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-[18px] bg-slate-50 px-3 py-3 text-left">
-                      <div className="space-y-2">
-                        <div className="text-sm font-medium text-slate-900">
-                          {getPlayerIcon(match.team1_player1_gender)} {formatNameWithCoins(match.team1_player1_name, match.team1_player1_coin_balance)}
-                        </div>
-                        <div className="text-sm font-medium text-slate-900">
-                          {getPlayerIcon(match.team1_player2_gender)} {formatNameWithCoins(match.team1_player2_name, match.team1_player2_coin_balance)}
-                        </div>
-                      </div>
-                      {team1Outcome && (
-                        <div className={`mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ${team1Outcome.chipClass}`}>
-                          <span>{team1Outcome.icon}</span>
-                          <span>{team1Outcome.label}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="rounded-[18px] bg-slate-50 px-3 py-3 text-right">
-                      <div className="space-y-2">
-                        <div className="text-sm font-medium text-slate-900">
-                          {getPlayerIcon(match.team2_player1_gender)} {formatNameWithCoins(match.team2_player1_name, match.team2_player1_coin_balance)}
-                        </div>
-                        <div className="text-sm font-medium text-slate-900">
-                          {getPlayerIcon(match.team2_player2_gender)} {formatNameWithCoins(match.team2_player2_name, match.team2_player2_coin_balance)}
-                        </div>
-                      </div>
-                      {team2Outcome && (
-                        <div className={`mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ${team2Outcome.chipClass}`}>
-                          <span>{team2Outcome.icon}</span>
-                          <span>{team2Outcome.label}</span>
-                        </div>
+                      {isEditable && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleMatchResultSave(match);
+                          }}
+                          disabled={!canSaveScore || savingMatchId === match.id}
+                          className="rounded-full bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {savingMatchId === match.id ? '저장 중...' : '점수 저장'}
+                        </button>
                       )}
                     </div>
                   </div>
+
+                  {isEditable ? (
+                    <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5">
+                      <div className="rounded-[16px] bg-slate-50 px-2.5 py-2.5 text-left">
+                        <div className="min-w-0 space-y-2">
+                          <div className="truncate text-sm font-medium text-slate-900">
+                            {getPlayerIcon(match.team1_player1_gender)} {formatNameWithCoins(match.team1_player1_name, match.team1_player1_coin_balance)}
+                          </div>
+                          <div className="truncate text-sm font-medium text-slate-900">
+                            {getPlayerIcon(match.team1_player2_gender)} {formatNameWithCoins(match.team1_player2_name, match.team1_player2_coin_balance)}
+                          </div>
+                        </div>
+                        {team1Outcome && (
+                          <div className={`mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ${team1Outcome.chipClass}`}>
+                            <span>{team1Outcome.icon}</span>
+                            <span>{team1Outcome.label}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 px-0.5">
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          value={scoreDraft.team1}
+                          onChange={(event) => updateScoreDraft(match.id, 'team1', event.target.value)}
+                          className="h-9 w-11 rounded-lg border border-slate-300 bg-white px-1 text-center text-sm font-bold text-slate-900 outline-none transition focus:border-slate-900"
+                        />
+                        <span className="text-[11px] font-semibold text-slate-400">:</span>
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          value={scoreDraft.team2}
+                          onChange={(event) => updateScoreDraft(match.id, 'team2', event.target.value)}
+                          className="h-9 w-11 rounded-lg border border-slate-300 bg-white px-1 text-center text-sm font-bold text-slate-900 outline-none transition focus:border-slate-900"
+                        />
+                      </div>
+
+                      <div className="rounded-[16px] bg-slate-50 px-2.5 py-2.5 text-right">
+                        <div className="min-w-0 space-y-2">
+                          <div className="truncate text-sm font-medium text-slate-900">
+                            {getPlayerIcon(match.team2_player1_gender)} {formatNameWithCoins(match.team2_player1_name, match.team2_player1_coin_balance)}
+                          </div>
+                          <div className="truncate text-sm font-medium text-slate-900">
+                            {getPlayerIcon(match.team2_player2_gender)} {formatNameWithCoins(match.team2_player2_name, match.team2_player2_coin_balance)}
+                          </div>
+                        </div>
+                        {team2Outcome && (
+                          <div className={`mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ${team2Outcome.chipClass}`}>
+                            <span>{team2Outcome.icon}</span>
+                            <span>{team2Outcome.label}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <div className="rounded-[18px] bg-slate-50 px-3 py-3 text-left">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="truncate text-sm font-medium text-slate-900">
+                              {getPlayerIcon(match.team1_player1_gender)} {formatNameWithCoins(match.team1_player1_name, match.team1_player1_coin_balance)}
+                            </div>
+                            <div className="truncate text-sm font-medium text-slate-900">
+                              {getPlayerIcon(match.team1_player2_gender)} {formatNameWithCoins(match.team1_player2_name, match.team1_player2_coin_balance)}
+                            </div>
+                          </div>
+                          {match.match_result?.team1_score !== undefined ? (
+                            <div className="flex h-10 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-lg font-bold text-blue-700">
+                              {match.match_result.team1_score}
+                            </div>
+                          ) : null}
+                        </div>
+                        {team1Outcome && (
+                          <div className={`mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ${team1Outcome.chipClass}`}>
+                            <span>{team1Outcome.icon}</span>
+                            <span>{team1Outcome.label}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="rounded-[18px] bg-slate-50 px-3 py-3 text-right">
+                        <div className="flex items-center justify-between gap-3">
+                          {match.match_result?.team2_score !== undefined ? (
+                            <div className="flex h-10 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-lg font-bold text-emerald-700">
+                              {match.match_result.team2_score}
+                            </div>
+                          ) : null}
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="truncate text-sm font-medium text-slate-900">
+                              {getPlayerIcon(match.team2_player1_gender)} {formatNameWithCoins(match.team2_player1_name, match.team2_player1_coin_balance)}
+                            </div>
+                            <div className="truncate text-sm font-medium text-slate-900">
+                              {getPlayerIcon(match.team2_player2_gender)} {formatNameWithCoins(match.team2_player2_name, match.team2_player2_coin_balance)}
+                            </div>
+                          </div>
+                        </div>
+                        {team2Outcome && (
+                          <div className={`mt-3 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ${team2Outcome.chipClass}`}>
+                            <span>{team2Outcome.icon}</span>
+                            <span>{team2Outcome.label}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </article>
               );
             })}

@@ -48,10 +48,3 @@ export const SECTIONS: MenuSection[] = [
     color: 'orange',
   },
 ];
-
-export const MOBILE_PRIMARY_ITEMS: MenuItem[] = [
-  { label: '홈', href: '/admin', icon: '🏠' },
-  { label: '오늘', href: '/admin/players-today', icon: '⚡' },
-  { label: '회원', href: '/admin/members', icon: '👥' },
-  { label: '대회', href: '/admin/tournament-matches', icon: '🎪' },
-];

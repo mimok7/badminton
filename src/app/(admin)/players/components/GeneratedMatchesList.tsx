@@ -35,11 +35,32 @@ export default function GeneratedMatchesList({
     return null;
   }
 
+  const getGenderLabel = (gender?: string) => {
+    const normalized = String(gender || '').trim().toLowerCase();
+    if (['male', 'm', 'man', '남', '남성'].includes(normalized)) {
+      return '남';
+    }
+    if (['female', 'f', 'woman', '여', '여성'].includes(normalized)) {
+      return '여';
+    }
+    return '';
+  };
+
+  const getPlayerDisplayLabel = (player: any) => {
+    if (!player || typeof player !== 'object') {
+      return '미지정';
+    }
+
+    const level = String(player.skill_level || 'E2').toUpperCase();
+    const gender = getGenderLabel(player.gender);
+    const meta = gender ? `${gender}/${level}` : level;
+    return `${player.name}(${meta}) ${getAccuratePlayerScore(player).toFixed(1)}점`;
+  };
+
   const getPlayerName = (player: any) => {
     if (!player) return '미지정';
     if (typeof player === 'object' && player.name) {
-      const level = player.skill_level || 'E2';
-      return `${player.name}(${level.toUpperCase()}) ${getAccuratePlayerScore(player).toFixed(1)}점`;
+      return getPlayerDisplayLabel(player);
     }
     return String(player);
   };
@@ -184,12 +205,12 @@ export default function GeneratedMatchesList({
                             <option value="">선수 선택</option>
                             {match.team1?.player1 && (
                               <option key={match.team1.player1.id} value={match.team1.player1.id}>
-                                {match.team1.player1.name} ({(match.team1.player1.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(match.team1.player1).toFixed(1)}점
+                                {getPlayerDisplayLabel(match.team1.player1)}
                               </option>
                             )}
                             {getAvailablePlayers(match).map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({(p.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(p).toFixed(1)}점
+                                {getPlayerDisplayLabel(p)}
                               </option>
                             ))}
                           </select>
@@ -201,12 +222,12 @@ export default function GeneratedMatchesList({
                             <option value="">선수 선택</option>
                             {match.team1?.player2 && (
                               <option key={match.team1.player2.id} value={match.team1.player2.id}>
-                                {match.team1.player2.name} ({(match.team1.player2.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(match.team1.player2).toFixed(1)}점
+                                {getPlayerDisplayLabel(match.team1.player2)}
                               </option>
                             )}
                             {getAvailablePlayers(match).map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({(p.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(p).toFixed(1)}점
+                                {getPlayerDisplayLabel(p)}
                               </option>
                             ))}
                           </select>
@@ -229,12 +250,12 @@ export default function GeneratedMatchesList({
                             <option value="">선수 선택</option>
                             {match.team2?.player1 && (
                               <option key={match.team2.player1.id} value={match.team2.player1.id}>
-                                {match.team2.player1.name} ({(match.team2.player1.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(match.team2.player1).toFixed(1)}점
+                                {getPlayerDisplayLabel(match.team2.player1)}
                               </option>
                             )}
                             {getAvailablePlayers(match).map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({(p.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(p).toFixed(1)}점
+                                {getPlayerDisplayLabel(p)}
                               </option>
                             ))}
                           </select>
@@ -246,12 +267,12 @@ export default function GeneratedMatchesList({
                             <option value="">선수 선택</option>
                             {match.team2?.player2 && (
                               <option key={match.team2.player2.id} value={match.team2.player2.id}>
-                                {match.team2.player2.name} ({(match.team2.player2.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(match.team2.player2).toFixed(1)}점
+                                {getPlayerDisplayLabel(match.team2.player2)}
                               </option>
                             )}
                             {getAvailablePlayers(match).map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({(p.skill_level || '').toUpperCase()}) {getAccuratePlayerScore(p).toFixed(1)}점
+                                {getPlayerDisplayLabel(p)}
                               </option>
                             ))}
                           </select>

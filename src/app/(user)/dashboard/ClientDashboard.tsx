@@ -13,6 +13,7 @@ import { getUserLevelDisplay } from '@/lib/level-display';
 import { formatCurrentUserNameWithCoins, formatNameWithCoins } from '@/lib/player-display';
 import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
 import { getSupabaseClient } from '@/lib/supabase';
+import { getKoreaDate } from '@/lib/date';
 
 type AttendanceStatus = 'present' | 'lesson' | 'absent' | null;
 
@@ -146,7 +147,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
     const fetchTodaySummary = async () => {
       try {
         setLoading(true);
-        const today = new Date().toISOString().slice(0, 10);
+        const today = getKoreaDate();
 
         const [
           { count: playersCount },
@@ -267,7 +268,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const handleAttendanceStatusChange = async (nextStatus: Exclude<AttendanceStatus, null>) => {
     if (statusSaving) return;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getKoreaDate();
 
     try {
       setStatusSaving(true);
@@ -298,7 +299,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   };
 
   const refreshTopMatchSummary = async () => {
-    const today = new Date().toISOString().slice(0, 10);
+      const today = getKoreaDate();
     const [myMatches, allMatches] = await Promise.all([
       fetchScheduledMatchesForDate(supabase, today, userId),
       fetchScheduledMatchesForDate(supabase, today),

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { RequireAdmin } from '@/components/AuthGuard';
 import { useUser } from '@/hooks/useUser';
-import { MOBILE_PRIMARY_ITEMS, SECTIONS } from './menuConfig';
+import { SECTIONS } from './menuConfig';
 
 function getGroupColors(color: string) {
   const colorMap: Record<string, { bg: string; border: string; text: string; active: string }> = {
@@ -218,40 +218,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               )}
             </div>
           </header>
-          <main className={`admin-mobile-content relative z-0 min-h-screen w-full bg-gray-50 ${isMobileView ? 'px-2 py-2 pb-24' : 'px-6 py-6'}`}>
+          <main className={`admin-mobile-content relative z-0 min-h-screen w-full bg-gray-50 ${isMobileView ? 'px-2 py-2 pb-3' : 'px-6 py-6'}`}>
             {children}
           </main>
         </div>
-
-        {isMobileView && (
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/98 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur">
-            <div className="grid grid-cols-5 gap-1">
-              {MOBILE_PRIMARY_ITEMS.map((item) => {
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex min-h-[56px] flex-col items-center justify-center rounded-xl px-2 py-2 text-[11px] font-medium transition-colors ${
-                      active ? 'bg-blue-50 text-blue-700' : 'text-gray-500'
-                    }`}
-                  >
-                    <span className="text-base leading-none">{item.icon ?? '•'}</span>
-                    <span className="mt-1 leading-none">{item.label}</span>
-                  </Link>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => setIsMobileSidebarOpen(true)}
-                className="flex min-h-[56px] flex-col items-center justify-center rounded-xl px-2 py-2 text-[11px] font-medium text-gray-500 transition-colors"
-              >
-                <span className="text-base leading-none">☰</span>
-                <span className="mt-1 leading-none">전체</span>
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </RequireAdmin>
   );

@@ -38,6 +38,121 @@ async function requireAdmin() {
   return { adminSupabase };
 }
 
+async function syncAutoLinkedScheduleParticipants(params: {
+  adminSupabase: ReturnType<typeof getSupabaseAdminClient>;
+  attendedAt: string;
+  userIds: string[];
+  status: AttendanceStatus;
+}) {
+  const { adminSupabase, attendedAt, userIds, status } = params;
+
+  const { data: baseSchedules, error: schedulesError } = await adminSupabase
+    .from('match_schedules')
+    .select('id')
+    .eq('match_date', attendedAt)
+    .is('generated_match_id', null)
+    .order('start_time', { ascending: true });
+
+  if (schedulesError) {
+    console.error('Admin attendance schedule sync lookup error:', schedulesError);
+    return { autoLinkedScheduleId: null as string | null };
+  }
+
+  if (!baseSchedules || baseSchedules.length !== 1) {
+    return { autoLinkedScheduleId: null as string | null };
+  }
+
+  const autoLinkedScheduleId = baseSchedules[0].id;
+
+  const { data: existingParticipants, error: existingParticipantsError } = await adminSupabase
+    .from('match_participants')
+    .select('id, user_id, status')
+    .eq('match_schedule_id', autoLinkedScheduleId)
+    .in('user_id', userIds);
+
+  if (existingParticipantsError) {
+    console.error('Admin attendance participant sync lookup error:', existingParticipantsError);
+    return { autoLinkedScheduleId };
+  }
+
+  const existingByUserId = new Map((existingParticipants || []).map((participant) => [participant.user_id, participant]));
+
+  if (status === 'present' || status === 'lesson') {
+    const missingUserIds = userIds.filter((userId) => !existingByUserId.has(userId));
+
+    if (missingUserIds.length > 0) {
+      const { error: insertError } = await adminSupabase
+        .from('match_participants')
+        .insert(
+          missingUserIds.map((userId) => ({
+            match_schedule_id: autoLinkedScheduleId,
+            user_id: userId,
+            status: 'registered',
+          }))
+        );
+
+      if (insertError) {
+        console.error('Admin attendance participant sync insert error:', insertError);
+      }
+    }
+
+    const reactivateParticipantIds = (existingParticipants || [])
+      .filter((participant) => participant.status !== 'registered' && participant.status !== 'attended')
+      .map((participant) => participant.id);
+
+    if (reactivateParticipantIds.length > 0) {
+      const { error: reactivateError } = await adminSupabase
+        .from('match_participants')
+        .update({
+          status: 'registered',
+          registered_at: new Date().toISOString(),
+        })
+        .in('id', reactivateParticipantIds);
+
+      if (reactivateError) {
+        console.error('Admin attendance participant sync reactivate error:', reactivateError);
+      }
+    }
+  } else {
+    const activeParticipantIds = (existingParticipants || [])
+      .filter((participant) => participant.status === 'registered' || participant.status === 'attended')
+      .map((participant) => participant.id);
+
+    if (activeParticipantIds.length > 0) {
+      const { error: cancelError } = await adminSupabase
+        .from('match_participants')
+        .update({ status: 'cancelled' })
+        .in('id', activeParticipantIds);
+
+      if (cancelError) {
+        console.error('Admin attendance participant sync cancel error:', cancelError);
+      }
+    }
+  }
+
+  const { count, error: countError } = await adminSupabase
+    .from('match_participants')
+    .select('*', { count: 'exact', head: true })
+    .eq('match_schedule_id', autoLinkedScheduleId)
+    .in('status', ['registered', 'attended']);
+
+  if (countError) {
+    console.error('Admin attendance participant sync recount error:', countError);
+    return { autoLinkedScheduleId };
+  }
+
+  const { error: scheduleUpdateError } = await adminSupabase
+    .from('match_schedules')
+    .update({ current_participants: count || 0 })
+    .eq('id', autoLinkedScheduleId);
+
+  if (scheduleUpdateError) {
+    console.error('Admin attendance schedule count update error:', scheduleUpdateError);
+  }
+
+  return { autoLinkedScheduleId };
+}
+
 export async function POST(request: Request) {
   try {
     const adminContext = await requireAdmin();
@@ -60,10 +175,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User ids are required' }, { status: 400 });
     }
 
+    const { autoLinkedScheduleId } = await syncAutoLinkedScheduleParticipants({
+      adminSupabase: adminContext.adminSupabase,
+      attendedAt,
+      userIds,
+      status,
+    });
+
     const rows = userIds.map((userId: string) => ({
       user_id: userId,
       attended_at: attendedAt,
       status,
+      match_schedule_id: status === 'present' || status === 'lesson' ? autoLinkedScheduleId : null,
     }));
 
     const { error } = await adminContext.adminSupabase
@@ -75,7 +198,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to save attendance' }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, attendedAt, status, count: rows.length });
+    return NextResponse.json({
+      ok: true,
+      attendedAt,
+      status,
+      count: rows.length,
+      autoLinkedScheduleId,
+    });
   } catch (error) {
     console.error('Admin attendance POST unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

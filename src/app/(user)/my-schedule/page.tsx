@@ -11,6 +11,7 @@ import { NotificationService } from '@/utils/notification-service';
 import { getUserLevelDisplay } from '@/lib/level-display';
 import { getProfileByUserId } from '@/lib/auth';
 import { formatCurrentUserNameWithCoins, formatNameWithCoins } from '@/lib/player-display';
+import { fetchScheduledMatchesForDate } from '@/lib/scheduled-matches';
 import {
   fetchMyTournamentMatches,
   normalizeTournamentPlayerName,
@@ -366,6 +367,7 @@ export default function MySchedulePage() {
       const participantIds = Array.from(
         new Set([myProfile?.id, myProfile?.user_id, user.id].filter((value): value is string => Boolean(value)))
       );
+      const todayLocal = getTodayLocal();
 
       // 1. 내가 참여한 경기 일정 조회 (일반 등록형 경기)
       const { data: registrationData, error: registrationError } = participantIds.length > 0
@@ -404,6 +406,65 @@ export default function MySchedulePage() {
           }
         });
       }
+
+      const todayAssignedMatches = await fetchScheduledMatchesForDate(supabase, todayLocal, user.id);
+      const assignedScheduleIds = new Set<string>();
+
+      todayAssignedMatches.forEach((match, index) => {
+        if (!match.generated_match_id) {
+          return;
+        }
+
+        const syntheticId = `generated_${match.generated_match_id}`;
+        assignedScheduleIds.add(syntheticId);
+
+        matchesWithDetails.push({
+          id: syntheticId,
+          match_date: match.match_date || todayLocal,
+          start_time: match.match_time || '시간 미정',
+          end_time: match.match_time || '시간 미정',
+          location: `코트 ${match.court_number || '미정'}`,
+          status: (match.status || 'scheduled') as 'scheduled' | 'in_progress' | 'completed' | 'cancelled',
+          description: '관리자 배정 경기',
+          generated_match: {
+            id: match.generated_match_id,
+            match_number: index + 1,
+            session_name: '오늘 배정 경기',
+            team1_player1: {
+              id: match.team1_player1 || undefined,
+              username: match.team1_player1_name,
+              full_name: match.team1_player1_name,
+              coin_balance: match.team1_player1_coin_balance ?? null,
+              skill_level: 'E2',
+              skill_level_name: getUserLevelDisplay('E2'),
+            },
+            team1_player2: {
+              id: match.team1_player2 || undefined,
+              username: match.team1_player2_name,
+              full_name: match.team1_player2_name,
+              coin_balance: match.team1_player2_coin_balance ?? null,
+              skill_level: 'E2',
+              skill_level_name: getUserLevelDisplay('E2'),
+            },
+            team2_player1: {
+              id: match.team2_player1 || undefined,
+              username: match.team2_player1_name,
+              full_name: match.team2_player1_name,
+              coin_balance: match.team2_player1_coin_balance ?? null,
+              skill_level: 'E2',
+              skill_level_name: getUserLevelDisplay('E2'),
+            },
+            team2_player2: {
+              id: match.team2_player2 || undefined,
+              username: match.team2_player2_name,
+              full_name: match.team2_player2_name,
+              coin_balance: match.team2_player2_coin_balance ?? null,
+              skill_level: 'E2',
+              skill_level_name: getUserLevelDisplay('E2'),
+            },
+          },
+        });
+      });
 
       // 2. 내가 배정받은 경기 조회 (generated_matches 기반)
       console.log('내 프로필 조회:', { myProfile, userId: user.id });
@@ -459,6 +520,10 @@ export default function MySchedulePage() {
         if (!assignedError && assignedMatches && assignedMatches.length > 0) {
           // 배정된 경기를 가상의 일정로 변환
           assignedMatches.forEach((match: any, index) => {
+            const syntheticId = `generated_${match.id}`;
+            if (assignedScheduleIds.has(syntheticId)) {
+              return;
+            }
             const session = Array.isArray(match.match_sessions) ? match.match_sessions[0] : null; // 첫 번째 세션 정보 사용
             
             const getPlayerInfo = (playerData: any) => {
@@ -483,8 +548,8 @@ export default function MySchedulePage() {
             };
 
             matchesWithDetails.push({
-              id: `generated_${match.id}`,
-              match_date: session?.session_date || new Date().toISOString().split('T')[0],
+              id: syntheticId,
+              match_date: session?.session_date || todayLocal,
               start_time: `${9 + (index % 8)}:00`, // 9시부터 시작해서 8경기마다 순환
               end_time: `${10 + (index % 8)}:00`,
               location: '클럽 코트',
@@ -607,9 +672,8 @@ export default function MySchedulePage() {
       setFilteredRecords(records);
       
       // 통계 계산
-      const todayLocal = getTodayLocal();
-      const upcoming = matchesWithDetails.filter(m => m.match_date >= todayLocal && m.status === 'scheduled');
-      const completed = matchesWithDetails.filter(m => m.status === 'completed');
+        const upcoming = matchesWithDetails.filter(m => m.match_date >= todayLocal && m.status === 'scheduled');
+        const completed = matchesWithDetails.filter(m => m.status === 'completed');
       const winRate = (wins + losses) > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
       
       setStats({

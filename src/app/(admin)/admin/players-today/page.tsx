@@ -31,13 +31,19 @@ export default function PlayersTodayPage() {
   const [memberPlayers, setMemberPlayers] = useState<MemberOption[]>([]);
   const [manualPlayers, setManualPlayers] = useState<ExtendedPlayer[]>([]);
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [showManualPlayersModal, setShowManualPlayersModal] = useState(false);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [matchSessions, setMatchSessions] = useState<MatchSession[]>([]);
   const [todaySchedules, setTodaySchedules] = useState<Array<{
     id: string;
+    generated_match_id?: number | null;
+    schedule_source?: string | null;
     match_date: string | null;
     start_time: string | null;
     end_time: string | null;
+    scheduled_time?: string | null;
+    court_number?: number | null;
+    description?: string | null;
     location: string | null;
     status: string;
     current_participants: number | null;
@@ -376,25 +382,51 @@ export default function PlayersTodayPage() {
   const fetchTodaySchedules = async () => {
     try {
       const today = getTodayLocal();
-      const { data, error } = await supabase
-        .from('match_schedules')
-        .select('id, match_date, start_time, end_time, location, status, current_participants, max_participants, generated_match_id, schedule_source')
-        .eq('match_date', today)
-        .or('schedule_source.eq.recurring,generated_match_id.is.null')
-        .order('start_time', { ascending: true });
+      const [{ data, error }, { count: activeAttendanceCount, error: attendanceCountError }] = await Promise.all([
+        supabase
+          .from('match_schedules')
+          .select('id, generated_match_id, schedule_source, match_date, start_time, end_time, scheduled_time, court_number, location, status, current_participants, max_participants, description')
+          .eq('match_date', today)
+          .order('generated_match_id', { ascending: true })
+          .order('start_time', { ascending: true })
+          .order('scheduled_time', { ascending: true }),
+        supabase
+          .from('attendances')
+          .select('*', { count: 'exact', head: true })
+          .eq('attended_at', today)
+          .in('status', ['present', 'lesson']),
+      ]);
 
       if (error) {
         throw error;
       }
 
+      if (attendanceCountError) {
+        console.error('오늘 출석 인원 수 조회 오류:', attendanceCountError);
+      }
+
+      const originalSchedules = (data || []).filter((schedule) => schedule.generated_match_id == null);
+      const shouldApplyAttendanceFallback = originalSchedules.length === 1;
+      const originalScheduleId = shouldApplyAttendanceFallback ? originalSchedules[0]?.id : null;
+
       setTodaySchedules((data || []).map((schedule) => ({
         id: schedule.id,
+        generated_match_id: schedule.generated_match_id,
+        schedule_source: schedule.schedule_source,
         match_date: schedule.match_date,
         start_time: schedule.start_time,
         end_time: schedule.end_time,
+        scheduled_time: schedule.scheduled_time,
+        court_number: schedule.court_number,
+        description: schedule.description,
         location: schedule.location,
         status: schedule.status,
-        current_participants: schedule.current_participants,
+        current_participants:
+          shouldApplyAttendanceFallback &&
+          schedule.id === originalScheduleId &&
+          (schedule.current_participants || 0) < (activeAttendanceCount || 0)
+            ? activeAttendanceCount || 0
+            : schedule.current_participants,
         max_participants: schedule.max_participants,
       })));
     } catch (e) {
@@ -926,6 +958,15 @@ export default function PlayersTodayPage() {
             >
               회원추가
             </button>
+            {manualPlayers.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowManualPlayersModal(true)}
+                className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 sm:px-4"
+              >
+                추가회원 보기
+              </button>
+            )}
             <span className="hidden text-sm text-amber-800 sm:block">추가한 회원은 출석 상태로 즉시 반영되고 경기 생성 대상에 포함됩니다.</span>
           </div>
           {manualPlayers.length > 0 && (
@@ -1069,6 +1110,58 @@ export default function PlayersTodayPage() {
               >
                 선택한 회원 추가
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showManualPlayersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-3 border-b px-4 py-3 sm:px-6 sm:py-4">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 sm:text-lg">추가회원 명단</h2>
+                <p className="hidden text-sm text-gray-500 sm:block">관리자가 오늘 출석자에 수동 추가한 회원 목록입니다.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowManualPlayersModal(false)}
+                className="rounded-md px-3 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              >
+                닫기
+              </button>
+            </div>
+            <div className="border-b bg-amber-50 px-4 py-2 text-xs text-amber-900 sm:px-6 sm:text-sm">
+              총 {manualPlayers.length}명
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
+              {manualPlayers.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
+                  추가된 회원이 없습니다.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+                  {manualPlayers.map((player) => (
+                    <div key={player.id} className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium text-gray-900">{player.name}</div>
+                        <div className="mt-1 text-sm text-gray-600">
+                          {player.skill_label || player.skill_level} · {formatScore(player.score)}점 · {player.gender || '성별 미지정'}
+                        </div>
+                        <div className="mt-1 text-xs text-amber-800">
+                          상태: {player.status === 'present' ? '출석' : player.status === 'lesson' ? '레슨' : '불참'}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeManualPlayer(player.id)}
+                        className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-50"
+                      >
+                        제거
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

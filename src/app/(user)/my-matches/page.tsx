@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { formatNameWithCoins } from '@/lib/player-display';
 import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
+import { getKoreaDate } from '@/lib/date';
 
 export default function TodayMatches() {
   const { user, loading: userLoading } = useUser();
@@ -19,7 +20,7 @@ export default function TodayMatches() {
     
     const fetchTodayMatches = async () => {
       try {
-        const today = new Date().toISOString().slice(0, 10);
+        const today = getKoreaDate();
         
         // 오늘의 모든 배정된 경기 조회
         const todayMatches = await fetchScheduledMatchesForDate(supabase, today);

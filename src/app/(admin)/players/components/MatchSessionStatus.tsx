@@ -6,9 +6,14 @@ import { GeneratedMatch, MatchSession } from '../types';
 
 interface RegisteredScheduleSummary {
   id: string;
+  generated_match_id?: number | null;
+  schedule_source?: string | null;
   match_date: string | null;
   start_time: string | null;
   end_time: string | null;
+  scheduled_time?: string | null;
+  court_number?: number | null;
+  description?: string | null;
   location: string | null;
   status: string;
   current_participants: number | null;
@@ -38,6 +43,12 @@ export default function MatchSessionStatus({
   deletingSessionIds = {},
   deletingMatchIds = {},
 }: MatchSessionStatusProps) {
+  const originalSchedules = registeredSchedules.filter(
+    (schedule) => schedule.generated_match_id == null && schedule.schedule_source !== 'generated'
+  );
+  const generatedSchedules = registeredSchedules.filter(
+    (schedule) => schedule.generated_match_id != null || schedule.schedule_source === 'generated'
+  );
   const hasRegisteredSchedules = registeredSchedules.length > 0;
   const hasMatchSessions = matchSessions.length > 0;
   const [selectedSession, setSelectedSession] = useState<MatchSession | null>(null);
@@ -169,21 +180,54 @@ export default function MatchSessionStatus({
           <div className="space-y-4">
             {hasRegisteredSchedules && (
               <div>
-                <div className="mb-2 text-sm font-medium text-blue-900">등록된 오늘 원본 일정</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {registeredSchedules.map((schedule) => (
-                    <div key={schedule.id} className="p-3 bg-white rounded border">
-                      <div className="font-medium text-gray-800">
-                        {schedule.start_time} - {schedule.end_time}
-                      </div>
-                      <div className="text-sm text-gray-600">{schedule.location || '장소 미정'}</div>
-                      <div className="text-sm text-gray-600">
-                        인원: {schedule.current_participants ?? 0} / {schedule.max_participants ?? 0}명
-                      </div>
-                      <div className="mt-1 text-xs text-gray-500">상태: {schedule.status}</div>
+                {originalSchedules.length > 0 && (
+                  <>
+                    <div className="mb-2 text-sm font-medium text-blue-900">등록된 오늘 원본 일정</div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {originalSchedules.map((schedule) => (
+                        <div key={schedule.id} className="p-3 bg-white rounded border">
+                          <div className="font-medium text-gray-800">
+                            {schedule.start_time} - {schedule.end_time}
+                          </div>
+                          <div className="text-sm text-gray-600">{schedule.location || '장소 미정'}</div>
+                          <div className="text-sm text-gray-600">
+                            인원: {schedule.current_participants ?? 0} / {schedule.max_participants ?? 0}명
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500">상태: {schedule.status}</div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
+
+                {generatedSchedules.length > 0 && (
+                  <>
+                    <div className="mb-2 mt-4 text-sm font-medium text-emerald-900">DB에 배정된 오늘 경기 일정</div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {generatedSchedules.map((schedule) => (
+                        <div key={schedule.id} className="rounded border border-emerald-200 bg-emerald-50 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="font-medium text-emerald-900">
+                              코트 {schedule.court_number ?? '-'}
+                            </div>
+                            <div className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                              경기 #{schedule.generated_match_id ?? '-'}
+                            </div>
+                          </div>
+                          <div className="mt-1 text-sm text-gray-700">
+                            {schedule.scheduled_time || schedule.start_time || '시간 미정'}
+                            {schedule.end_time ? ` - ${schedule.end_time}` : ''}
+                          </div>
+                          <div className="text-sm text-gray-600">{schedule.location || '장소 미정'}</div>
+                          {schedule.description && (
+                            <div className="mt-1 text-xs text-gray-500">{schedule.description}</div>
+                          )}
+                          <div className="mt-1 text-xs text-emerald-800">상태: {schedule.status}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

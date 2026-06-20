@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
+import { getKoreaDate } from '@/lib/date';
+import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { Json } from '@/types/supabase';
 
@@ -65,6 +67,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   const [availableTeams, setAvailableTeams] = useState<TeamAssignment[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<TeamAssignment | null>(null);
   const [showPlayerAssignments, setShowPlayerAssignments] = useState(!adminMode);
+  const [todayAssignedMatches, setTodayAssignedMatches] = useState<ScheduledMatchView[]>([]);
 
   const tournamentQueryId = searchParams.get('tournament');
 
@@ -74,12 +77,17 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     random: { label: '랜덤', badge: 'bg-emerald-100 text-emerald-700' },
   };
 
-  const getTodayLocal = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  const getTodayLocal = () => getKoreaDate();
+
+  const fetchTodayAssignedMatches = async () => {
+    try {
+      const today = getTodayLocal();
+      const scheduledMatches = await fetchScheduledMatchesForDate(supabase, today);
+      setTodayAssignedMatches(scheduledMatches);
+    } catch (error) {
+      console.error('오늘 배정 경기 조회 오류:', error);
+      setTodayAssignedMatches([]);
+    }
   };
 
   const fetchMatches = async (tournamentId: string) => {
@@ -186,6 +194,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   useEffect(() => {
     void fetchTournaments();
     void fetchAvailableTeams();
+    void fetchTodayAssignedMatches();
   }, [tournamentQueryId]);
 
   const generateMatchesFromTeam = async (teamAssignment: TeamAssignment, matchesPerPlayer: number, matchType: string) => {
@@ -559,6 +568,53 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                 팀 구성 표시
               </button>
             )}
+
+            <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+              <div className="mb-4">
+                <p className="text-xs text-slate-500">오늘 배정 경기</p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">일반 경기 대진표</h2>
+                <p className="mt-1 text-sm text-slate-500">관리자가 오늘 배정한 일반 경기를 여기서 함께 확인할 수 있습니다.</p>
+              </div>
+
+              {todayAssignedMatches.length === 0 ? (
+                <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                  오늘 배정된 일반 경기가 없습니다.
+                </div>
+              ) : (
+                <div className={`gap-3 ${adminMode ? 'grid md:grid-cols-2' : 'space-y-3'}`}>
+                  {todayAssignedMatches.map((match, index) => (
+                    <article key={match.id} className="rounded-[24px] border border-slate-200 bg-slate-50/60 p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">배정 경기 #{index + 1}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            코트 {match.court_number || '미정'} · {match.match_time || '시간 미정'}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                          {match.status}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 space-y-2 text-sm">
+                        <div className="rounded-2xl bg-white px-3 py-3 text-slate-800">
+                          <span className="text-xs font-medium text-blue-600">라켓팀</span>
+                          <div className="mt-1 font-medium">
+                            {match.team1_player1_name}, {match.team1_player2_name}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl bg-white px-3 py-3 text-slate-800">
+                          <span className="text-xs font-medium text-rose-600">셔틀팀</span>
+                          <div className="mt-1 font-medium">
+                            {match.team2_player1_name}, {match.team2_player2_name}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
 
             <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
               <div className="mb-4">

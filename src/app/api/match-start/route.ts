@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getProfileByUserId, isAdminOrManagerRole } from '@/lib/auth';
 import { DEFAULT_MATCH_WAGER } from '@/lib/coins';
+import { notifyWaitingMatchesForSession } from '@/lib/match-preparation-notifications';
 import { syncSessionMatchFlow } from '@/lib/match-session-flow';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 
@@ -151,6 +152,7 @@ export async function POST(request: Request) {
   }
 
   let activeMatchIds = [matchId];
+  let waitingMatchIds: number[] = [];
 
   if (matchRow.session_id) {
     try {
@@ -158,6 +160,8 @@ export async function POST(request: Request) {
         initialize: true,
       });
       activeMatchIds = flowResult.activeMatchIds.length > 0 ? flowResult.activeMatchIds : activeMatchIds;
+      const notificationResult = await notifyWaitingMatchesForSession(adminSupabase, matchRow.session_id);
+      waitingMatchIds = notificationResult.waitingMatchIds;
     } catch (error) {
       return NextResponse.json(
         { error: error instanceof Error ? error.message : '세션 경기 시작 처리에 실패했습니다.' },
@@ -189,6 +193,7 @@ export async function POST(request: Request) {
       match_id: matchId,
       status: 'in_progress',
       active_match_ids: activeMatchIds,
+      waiting_match_ids: waitingMatchIds,
     },
   });
 }

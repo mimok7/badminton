@@ -114,6 +114,10 @@ function getMatchStatusMeta(status?: string | null) {
   };
 }
 
+function getCourtLabel(match: ScheduledMatchView) {
+  return match.court_name || `코트 ${match.court_number || '미정'}`;
+}
+
 type MatchResultSummary = {
   winner?: 'team1' | 'team2';
   score?: string;
@@ -217,11 +221,13 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const prioritizedAssignedMatches = [...todayAssignedMatches].sort((left, right) => {
     const statusDiff = getMatchStatusPriority(left.status) - getMatchStatusPriority(right.status);
     if (statusDiff !== 0) return statusDiff;
+    const matchNumberDiff = (left.match_number ?? 9999) - (right.match_number ?? 9999);
+    if (matchNumberDiff !== 0) return matchNumberDiff;
     return (left.court_number || 0) - (right.court_number || 0);
   });
   const topMatch = prioritizedAssignedMatches[0];
   const topMatchOrder = topMatch
-    ? todayAllMatches.findIndex((match) => match.id === topMatch.id) + 1
+    ? topMatch.match_number ?? (todayAllMatches.findIndex((match) => match.id === topMatch.id) + 1)
     : 0;
   const hasEditableTopMatch = Boolean(
     topMatch?.generated_match_id &&
@@ -532,7 +538,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
           {topMatch ? (
             <div className="mt-4 space-y-3">
               {prioritizedAssignedMatches.map((match) => {
-                const matchOrder = todayAllMatches.findIndex((item) => item.id === match.id) + 1;
+                const matchOrder = match.match_number ?? (todayAllMatches.findIndex((item) => item.id === match.id) + 1);
                 const statusMeta = getMatchStatusMeta(match.status);
                 const isCurrentEditableMatch =
                   topMatch.id === match.id && hasEditableTopMatch && match.status === 'in_progress';
@@ -550,7 +556,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusMeta.chipClass}`}>
                         {statusMeta.label}
                       </span>
-                      <span className="font-medium text-slate-900">코트 {match.court_number || '미정'}</span>
+                      <span className="font-medium text-slate-900">{getCourtLabel(match)}</span>
                       <span className="text-slate-400">·</span>
                       <span>{match.match_time || '시간 미정'}</span>
                     </div>

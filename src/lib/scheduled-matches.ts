@@ -1,9 +1,13 @@
 export interface ScheduledMatchView {
   id: string;
   generated_match_id: number | null;
+  match_number?: number | null;
+  description?: string | null;
   match_date: string | null;
   match_time: string | null;
   court_number: number | null;
+  court_name?: string | null;
+  location?: string | null;
   status: string;
   match_result?: {
     winner?: 'team1' | 'team2';

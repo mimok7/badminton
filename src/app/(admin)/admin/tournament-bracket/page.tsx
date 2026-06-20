@@ -1,5 +1,10 @@
+import { Suspense } from 'react';
 import TournamentBracketView from '@/components/tournament/TournamentBracketView';
 
 export default function AdminTournamentBracketPage() {
-  return <TournamentBracketView adminMode />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
+      <TournamentBracketView adminMode />
+    </Suspense>
+  );
 }

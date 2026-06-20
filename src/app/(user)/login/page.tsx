@@ -16,6 +16,7 @@ import { getProfileByUserId, isAdminRole } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 const INITIAL_TEMP_PASSWORD = 'bad123!';
+const MOBILE_MEDIA_QUERY = '(max-width: 768px)';
 
 export default function LoginPage() {
   const supabase = getSupabaseClient();
@@ -89,6 +90,14 @@ export default function LoginPage() {
     }
 
     return '이메일 조회 중 문제가 발생했습니다.';
+  };
+
+  const shouldRedirectAdminToAdminDashboard = () => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false;
+    }
+
+    return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
   };
 
   const handleNameSearch = async () => {
@@ -213,7 +222,10 @@ export default function LoginPage() {
 
       if (userId && !mustChangePassword) {
         const profile = await getProfileByUserId(supabase, userId);
-        nextPath = isAdminRole(profile?.role) ? DEFAULT_ADMIN_REDIRECT : DEFAULT_USER_REDIRECT;
+        const isAdmin = isAdminRole(profile?.role);
+        nextPath = isAdmin
+          ? (shouldRedirectAdminToAdminDashboard() ? '/admin' : DEFAULT_ADMIN_REDIRECT)
+          : DEFAULT_USER_REDIRECT;
       }
 
       const redirectTo =

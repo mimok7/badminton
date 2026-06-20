@@ -776,17 +776,17 @@ export default function MatchSchedulePage() {
 
   return (
     <RequireAdmin>
-      <div className="w-full p-6">
+      <div className="w-full px-2 py-2 sm:p-6">
         {/* 헤더 */}
-        <div className="bg-white shadow rounded-lg mb-6">
-          <div className="px-6 py-4 flex justify-between items-center">
+        <div className="mb-4 rounded-lg bg-white shadow sm:mb-6">
+          <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
             <div>
-              <h1 className="text-lg font-bold text-gray-900 mb-2">
+              <h1 className="mb-1 text-base font-bold text-gray-900 sm:mb-2 sm:text-lg">
                 경기 일정 관리 📅
               </h1>
-              <p className="text-gray-600">관리자 전용 - 경기 일정을 생성하고 관리할 수 있습니다</p>
+              <p className="hidden text-gray-600 sm:block">관리자 전용 - 경기 일정을 생성하고 관리할 수 있습니다</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button 
                 onClick={() => setShowCreateForm(true)}
                 className="bg-blue-600 hover:bg-blue-700"
@@ -811,12 +811,12 @@ export default function MatchSchedulePage() {
 
         {/* 새 경기 생성 폼 */}
         {showCreateForm && (
-          <div className="bg-white shadow rounded-lg mb-6">
-            <div className="px-6 py-4 border-b border-gray-200">
+          <div className="mb-4 rounded-lg bg-white shadow sm:mb-6">
+            <div className="border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
               <h2 className="text-lg font-bold text-gray-900">새 경기 생성</h2>
             </div>
-            <form onSubmit={handleCreateSchedule} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleCreateSchedule} className="space-y-3 p-4 sm:space-y-4 sm:p-6">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     경기 날짜 *
@@ -845,7 +845,7 @@ export default function MatchSchedulePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     시작 시간 *
@@ -918,7 +918,7 @@ export default function MatchSchedulePage() {
                 />
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
                 <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
                   경기 생성
                 </Button>
@@ -944,23 +944,23 @@ export default function MatchSchedulePage() {
           </div>
         ) : (
           <div className="bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
               <h2 className="text-lg font-bold text-gray-900">
                 등록된 경기 ({schedules.length}개)
               </h2>
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {schedules.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <p>등록된 경기가 없습니다.</p>
                   <p className="text-sm mt-2">새 경기를 생성해보세요!</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-1 gap-4 sm:gap-6">
                   {groupedSchedules.map((group) => (
-                    <section key={group.matchDate} className="rounded-lg border border-gray-200 p-4 md:p-6 bg-gray-50/60">
-                      <div className="mb-4">
-                        <h3 className="text-lg font-bold text-gray-900">
+                    <section key={group.matchDate} className="rounded-lg border border-gray-200 bg-gray-50/60 p-3 sm:p-4 md:p-6">
+                      <div className="mb-3 sm:mb-4">
+                        <h3 className="text-base font-bold text-gray-900 sm:text-lg">
                           {new Date(group.matchDate).toLocaleDateString('ko-KR', {
                             year: 'numeric',
                             month: 'long',
@@ -971,13 +971,13 @@ export default function MatchSchedulePage() {
                         <p className="text-sm text-gray-600 mt-1">총 {group.schedules.length}경기</p>
                       </div>
 
-                      <div className="space-y-4">
+                      <div className="space-y-3 sm:space-y-4">
                         {group.schedules.map((schedule) => (
-                          <div key={schedule.id} className="border rounded-lg p-6 bg-white hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-4">
+                          <div key={schedule.id} className="rounded-lg border bg-white p-3 transition-shadow hover:shadow-md sm:p-6">
+                            <div className="mb-3 flex flex-col gap-3 sm:mb-4 sm:flex-row sm:items-start sm:justify-between">
                               <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <h4 className="text-lg font-semibold text-gray-900">
+                                <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                                  <h4 className="text-base font-semibold text-gray-900 sm:text-lg">
                                     🕐 {schedule.start_time} - {schedule.end_time}
                                   </h4>
                                   <span className={`px-3 py-1 rounded text-sm font-semibold ${getScheduleSourceBadgeClass(schedule.schedule_source)}`}>
@@ -988,7 +988,7 @@ export default function MatchSchedulePage() {
                                   </span>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
+                                <div className="grid grid-cols-1 gap-2 text-sm text-gray-600 sm:gap-4 md:grid-cols-2">
                                   <div>
                                     <p>📍 {schedule.location}</p>
                                   </div>
@@ -1008,7 +1008,7 @@ export default function MatchSchedulePage() {
 
                             {/* 참가자 상세보기 토글 + 목록 */}
                             <div className="mb-4">
-                              <div className="flex items-center justify-between">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <h4 className="font-semibold text-gray-900">참가자</h4>
                                 <div className="flex items-center gap-2">
                                   <Button
@@ -1031,7 +1031,7 @@ export default function MatchSchedulePage() {
                               </div>
                               {expanded[schedule.id] && (
                                 <div className="mt-3 space-y-3">
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-1.5 sm:gap-2">
                               {schedule.participants.length === 0 ? (
                                 <span className="text-gray-500 text-sm">아직 참가자가 없습니다.</span>
                               ) : (
@@ -1170,8 +1170,8 @@ export default function MatchSchedulePage() {
       {/* 수정 모달 */}
       {editingSchedule && editForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="w-full max-w-2xl rounded-lg bg-white shadow-lg">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
               <h3 className="text-lg font-bold">경기 수정</h3>
               <button
                 onClick={() => { setEditingSchedule(null); setEditForm(null); }}
@@ -1179,8 +1179,8 @@ export default function MatchSchedulePage() {
                 aria-label="close"
               >×</button>
             </div>
-            <form onSubmit={handleUpdateSchedule} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleUpdateSchedule} className="space-y-3 p-4 sm:space-y-4 sm:p-6">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">경기 날짜 *</label>
                   <input
@@ -1202,7 +1202,7 @@ export default function MatchSchedulePage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">시작 시간 *</label>
                   <input
@@ -1259,7 +1259,7 @@ export default function MatchSchedulePage() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <div className="flex gap-3 justify-end">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
                 <Button
                   type="button"
                   variant="outline"
@@ -1278,10 +1278,10 @@ export default function MatchSchedulePage() {
       {showParticipantModal && participantModalScheduleId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
+            <div className="flex items-start justify-between gap-3 border-b px-4 py-3 sm:px-6 sm:py-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">경기 참가자 추가</h2>
-                <p className="text-sm text-gray-500">회원을 선택한 뒤 일괄 추가를 누르세요.</p>
+                <p className="hidden text-sm text-gray-500 sm:block">회원을 선택한 뒤 일괄 추가를 누르세요.</p>
               </div>
               <button
                 type="button"
@@ -1291,7 +1291,7 @@ export default function MatchSchedulePage() {
                 닫기
               </button>
             </div>
-            <div className="flex items-center justify-between border-b bg-gray-50 px-6 py-3 text-sm">
+            <div className="flex items-center justify-between border-b bg-gray-50 px-4 py-2 text-xs sm:px-6 sm:py-3 sm:text-sm">
               <span className="text-gray-600">추가 가능 회원 {participantModalProfiles.length}명</span>
               <button
                 type="button"
@@ -1304,7 +1304,7 @@ export default function MatchSchedulePage() {
                   : '전체 선택'}
               </button>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+            <div className="max-h-[60vh] overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
               {participantModalLoading ? (
                 <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
                   회원 목록을 불러오는 중입니다...
@@ -1314,7 +1314,7 @@ export default function MatchSchedulePage() {
                   추가 가능한 회원이 없습니다.
                 </div>
               ) : (
-                <div className="grid gap-3 md:grid-cols-4">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4 sm:gap-3">
                   {participantModalProfiles.map((profile) => {
                     const checked = selectedModalParticipantIds.includes(profile.id);
                     const displayName = profile.full_name || profile.username || '이름 없음';
@@ -1348,7 +1348,7 @@ export default function MatchSchedulePage() {
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-end gap-3 border-t px-6 py-4">
+            <div className="flex items-center justify-end gap-2 border-t px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
               <button
                 type="button"
                 onClick={closeParticipantModal}

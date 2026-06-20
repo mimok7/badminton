@@ -544,33 +544,33 @@ export default function UserManagementClient({
     );
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
             <section className="rounded-lg border border-slate-200 bg-white">
-                <div className="border-b border-slate-200 bg-[linear-gradient(135deg,#f7fafc_0%,#eef6ff_100%)] px-6 py-6">
+                <div className="border-b border-slate-200 bg-[linear-gradient(135deg,#f7fafc_0%,#eef6ff_100%)] px-4 py-4 sm:px-6 sm:py-6">
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                         <div>
-                            <div className="text-sm font-medium text-slate-500">Member Console</div>
-                            <h1 className="mt-1 text-3xl font-semibold text-slate-900">회원 운영 센터</h1>
-                            <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                            <div className="text-xs font-medium text-slate-500 sm:text-sm">Member Console</div>
+                            <h1 className="mt-1 text-xl font-semibold text-slate-900 sm:text-3xl">회원 운영 센터</h1>
+                            <p className="mt-2 hidden max-w-3xl text-sm text-slate-600 sm:block">
                                 회원 정보, 권한, 급수, 출석 흐름을 한 화면에서 정리하도록 묶었습니다.
                             </p>
                         </div>
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+                            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
                                 <div className="text-xs uppercase tracking-wide text-slate-500">전체 회원</div>
-                                <div className="mt-1 text-2xl font-semibold text-slate-900">{memberList.length}</div>
+                                <div className="mt-1 text-lg font-semibold text-slate-900 sm:text-2xl">{memberList.length}</div>
                             </div>
-                            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
                                 <div className="text-xs uppercase tracking-wide text-slate-500">관리자</div>
-                                <div className="mt-1 text-2xl font-semibold text-slate-900">{overview.adminCount}</div>
+                                <div className="mt-1 text-lg font-semibold text-slate-900 sm:text-2xl">{overview.adminCount}</div>
                             </div>
-                            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
                                 <div className="text-xs uppercase tracking-wide text-slate-500">매니저</div>
-                                <div className="mt-1 text-2xl font-semibold text-slate-900">{overview.managerCount}</div>
+                                <div className="mt-1 text-lg font-semibold text-slate-900 sm:text-2xl">{overview.managerCount}</div>
                             </div>
-                            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
                                 <div className="text-xs uppercase tracking-wide text-slate-500">연결 완료</div>
-                                <div className="mt-1 text-2xl font-semibold text-slate-900">{overview.linkedCount}</div>
+                                <div className="mt-1 text-lg font-semibold text-slate-900 sm:text-2xl">{overview.linkedCount}</div>
                             </div>
                         </div>
                     </div>
@@ -595,8 +595,8 @@ export default function UserManagementClient({
                         </button>
                     </div>
                 </div>
-                <div className="px-6 py-5">
-                    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+                <div className="px-4 py-4 sm:px-6 sm:py-5">
+                    <div className="grid gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
                         <label className="relative block">
                             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                             <input
@@ -640,7 +640,7 @@ export default function UserManagementClient({
                             <option value="unset">미지정</option>
                         </select>
                     </div>
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 sm:mt-3 sm:gap-3 sm:text-sm">
                         <div className="inline-flex items-center gap-2">
                             <Filter className="size-4" />
                             현재 표시 {filteredUsers.length}명
@@ -662,10 +662,10 @@ export default function UserManagementClient({
             </section>
 
             {selectedTab === 'overview' && (
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
-                    <section className="rounded-lg border border-slate-200 bg-white p-5">
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)] xl:gap-6">
+                    <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
                         <h2 className="text-lg font-semibold text-slate-900">급수 분포</h2>
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="mt-3 grid gap-2 sm:mt-4 sm:gap-3 sm:grid-cols-2 xl:grid-cols-3">
                             {levelSummary.map((item) => (
                                 <div key={item.level} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                                     <div className="text-sm font-semibold text-slate-900">{formatLevelGroupLabel(item.level)}</div>
@@ -677,9 +677,9 @@ export default function UserManagementClient({
                             ))}
                         </div>
                     </section>
-                    <section className="rounded-lg border border-slate-200 bg-white p-5">
+                    <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
                         <h2 className="text-lg font-semibold text-slate-900">출석 상위</h2>
-                        <div className="mt-4 space-y-3">
+                        <div className="mt-3 space-y-2.5 sm:mt-4 sm:space-y-3">
                             {overview.topAttendance.map((user, index) => (
                                 <div key={user.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
                                     <div>
@@ -702,8 +702,8 @@ export default function UserManagementClient({
             )}
 
             {selectedTab === 'members' && (
-                <div className="space-y-4">
-                    <section className="flex flex-col gap-3 rounded-lg border border-sky-200 bg-sky-50 p-4 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-3 sm:space-y-4">
+                    <section className="flex flex-col gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3 sm:gap-3 sm:p-4 md:flex-row md:items-center md:justify-between">
                         <div>
                             <div className="text-sm font-semibold text-sky-900">변경 대기</div>
                             <div className="text-sm text-sky-700">
@@ -726,7 +726,7 @@ export default function UserManagementClient({
 
             {selectedTab === 'attendance' && (
                 <section className="rounded-lg border border-slate-200 bg-white">
-                    <div className="border-b border-slate-200 px-5 py-4">
+                    <div className="border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4">
                         <h2 className="text-lg font-semibold text-slate-900">회원별 출석 현황</h2>
                     </div>
                     <div className="overflow-x-auto">
@@ -758,14 +758,14 @@ export default function UserManagementClient({
             )}
 
             {selectedTab === 'create' && (
-                <section className="rounded-lg border border-amber-200 bg-[linear-gradient(135deg,#fffaf0_0%,#fff5d6_100%)] p-5">
-                    <div className="max-w-4xl">
-                        <h2 className="text-lg font-semibold text-amber-900">새 회원 등록</h2>
-                        <p className="mt-1 text-sm text-amber-800">
-                            회원을 먼저 프로필로 등록하고, 로그인 연결은 이후 auth 계정 생성 또는 회원가입에서 이어집니다.
-                        </p>
-                    </div>
-                    <div className="mt-5 grid gap-3 md:grid-cols-4">
+                    <section className="rounded-lg border border-amber-200 bg-[linear-gradient(135deg,#fffaf0_0%,#fff5d6_100%)] p-4 sm:p-5">
+                        <div className="max-w-4xl">
+                            <h2 className="text-lg font-semibold text-amber-900">새 회원 등록</h2>
+                            <p className="mt-1 hidden text-sm text-amber-800 sm:block">
+                                회원을 먼저 프로필로 등록하고, 로그인 연결은 이후 auth 계정 생성 또는 회원가입에서 이어집니다.
+                            </p>
+                        </div>
+                    <div className="mt-3 grid gap-2 sm:mt-5 sm:gap-3 md:grid-cols-4">
                         <input
                             type="text"
                             value={newMember.full_name}

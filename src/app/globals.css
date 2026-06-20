@@ -167,3 +167,95 @@
     @apply rounded-[24px] border border-slate-200/80 bg-white/92 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.08)] backdrop-blur sm:p-6;
   }
 }
+
+@media (max-width: 768px) {
+  .admin-mobile-optimized .admin-mobile-content {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    padding-top: 0.5rem !important;
+  }
+
+  .admin-mobile-optimized h1 {
+    line-height: 1.2;
+  }
+
+  .admin-mobile-optimized h2,
+  .admin-mobile-optimized h3 {
+    line-height: 1.25;
+  }
+
+  .admin-mobile-optimized [class*="p-6"] {
+    padding: 0.75rem !important;
+  }
+
+  .admin-mobile-optimized [class*="px-6"] {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .admin-mobile-optimized [class*="py-6"] {
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+
+  .admin-mobile-optimized [class*="py-5"] {
+    padding-top: 0.65rem !important;
+    padding-bottom: 0.65rem !important;
+  }
+
+  .admin-mobile-optimized [class*="px-4"] {
+    padding-left: 0.625rem !important;
+    padding-right: 0.625rem !important;
+  }
+
+  .admin-mobile-optimized [class*="py-4"] {
+    padding-top: 0.625rem !important;
+    padding-bottom: 0.625rem !important;
+  }
+
+  .admin-mobile-optimized [class*="gap-6"] {
+    gap: 0.75rem !important;
+  }
+
+  .admin-mobile-optimized [class*="gap-4"] {
+    gap: 0.625rem !important;
+  }
+
+  .admin-mobile-optimized [class*="mb-8"] {
+    margin-bottom: 0.875rem !important;
+  }
+
+  .admin-mobile-optimized [class*="mb-6"] {
+    margin-bottom: 0.75rem !important;
+  }
+
+  .admin-mobile-optimized [class*="mt-8"] {
+    margin-top: 0.875rem !important;
+  }
+
+  .admin-mobile-optimized [class*="mt-6"] {
+    margin-top: 0.75rem !important;
+  }
+
+  .admin-mobile-optimized [class*="rounded-2xl"],
+  .admin-mobile-optimized [class*="rounded-xl"],
+  .admin-mobile-optimized [class*="rounded-lg"] {
+    border-radius: 0.75rem !important;
+  }
+
+  .admin-mobile-optimized table {
+    font-size: 0.8125rem;
+  }
+
+  .admin-mobile-optimized th,
+  .admin-mobile-optimized td {
+    white-space: nowrap;
+  }
+
+  .admin-mobile-optimized input,
+  .admin-mobile-optimized select,
+  .admin-mobile-optimized textarea,
+  .admin-mobile-optimized button {
+    min-height: 2.5rem;
+  }
+}

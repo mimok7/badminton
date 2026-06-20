@@ -31,6 +31,7 @@ interface RegisteredScheduleSummary {
   court_number?: number | null;
   description?: string | null;
   location: string | null;
+  court_name?: string | null;
   status: string;
   current_participants: number | null;
   max_participants: number | null;
@@ -61,6 +62,35 @@ export default function MatchSessionStatus({
   deletingSessionIds = {},
   deletingMatchIds = {},
 }: MatchSessionStatusProps) {
+  const parseGeneratedSequence = (description?: string | null) => {
+    const normalized = description?.replace(/^\[일반 경기\]\s*/u, '').trim() || '';
+    const matched = normalized.match(/^(?:\d{4}-\d{2}-\d{2}[_\s]+)?(\d+)-(\d+)$/u);
+
+    if (!matched) {
+      return { batch: 9999, order: 9999 };
+    }
+
+    return {
+      batch: Number(matched[1]),
+      order: Number(matched[2]),
+    };
+  };
+
+  const getDisplaySequenceLabel = (schedule: RegisteredScheduleSummary, match: AssignedScheduleDetail | null) => {
+    const sequence = parseGeneratedSequence(schedule.description);
+
+    if (sequence.batch !== 9999 && sequence.order !== 9999) {
+      return `${sequence.batch}-${sequence.order}`;
+    }
+
+    if (typeof match?.match_number === 'number' && match.match_number > 0) {
+      return String(match.match_number);
+    }
+
+    return String(schedule.generated_match_id ?? '-');
+  };
+
+  const [assignedModalView, setAssignedModalView] = useState<'sequence' | 'bracket'>('sequence');
   const originalSchedules = registeredSchedules.filter(
     (schedule) => schedule.generated_match_id == null && schedule.schedule_source !== 'generated'
   );
@@ -182,20 +212,19 @@ export default function MatchSessionStatus({
   const assignedScheduleRows = useMemo(() => {
     return [...generatedSchedules]
       .sort((a, b) => {
-        const matchOrderA = a.generated_match_id != null
-          ? assignedScheduleDetails[String(a.generated_match_id)]?.match_number ?? 9999
-          : 9999;
-        const matchOrderB = b.generated_match_id != null
-          ? assignedScheduleDetails[String(b.generated_match_id)]?.match_number ?? 9999
-          : 9999;
-        const matchOrderDiff = matchOrderA - matchOrderB;
-        if (matchOrderDiff !== 0) {
-          return matchOrderDiff;
+        const sequenceA = parseGeneratedSequence(a.description);
+        const sequenceB = parseGeneratedSequence(b.description);
+
+        const batchDiff = sequenceA.batch - sequenceB.batch;
+        if (batchDiff !== 0) {
+          return batchDiff;
         }
-        const courtDiff = (a.court_number ?? 999) - (b.court_number ?? 999);
-        if (courtDiff !== 0) {
-          return courtDiff;
+
+        const orderDiff = sequenceA.order - sequenceB.order;
+        if (orderDiff !== 0) {
+          return orderDiff;
         }
+
         return (a.generated_match_id ?? 9999) - (b.generated_match_id ?? 9999);
       })
       .map((schedule) => ({
@@ -270,7 +299,10 @@ export default function MatchSessionStatus({
                               </div>
                               <button
                                 type="button"
-                                onClick={() => setIsAssignedMatchesModalOpen(true)}
+                                onClick={() => {
+                                  setAssignedModalView('sequence');
+                                  setIsAssignedMatchesModalOpen(true);
+                                }}
                                 className="mt-3 w-full rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-800 transition-colors hover:bg-emerald-100"
                               >
                                 상세 대진표 보기
@@ -520,7 +552,9 @@ export default function MatchSessionStatus({
             <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
               <div>
                 <h4 className="text-lg font-semibold text-gray-900">배정된 경기</h4>
-                <p className="mt-1 text-sm text-gray-500">오늘 DB에 연결된 배정 경기 목록입니다.</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  배정 순서대로 이어서 확인하거나 상세 대진표로 나눠서 볼 수 있습니다.
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 {onDeleteAllSessions && (
@@ -543,30 +577,97 @@ export default function MatchSessionStatus({
               </div>
             </div>
 
+            <div className="flex items-center gap-2 border-b bg-slate-50 px-5 py-3">
+              <button
+                type="button"
+                onClick={() => setAssignedModalView('sequence')}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  assignedModalView === 'sequence'
+                    ? 'bg-slate-900 text-white'
+                    : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                배정 순서
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssignedModalView('bracket')}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  assignedModalView === 'bracket'
+                    ? 'bg-slate-900 text-white'
+                    : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                상세 대진표
+              </button>
+            </div>
+
             <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
               {generatedSchedules.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
                   배정된 경기가 없습니다.
                 </div>
+              ) : assignedModalView === 'sequence' ? (
+                <div className="space-y-3">
+                  {assignedScheduleRows.map(({ schedule, match }) => (
+                    <div key={schedule.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="mb-2 text-sm font-semibold text-slate-900">
+                        {schedule.description || `자동 배정된 경기 #${match?.match_number ?? (schedule.generated_match_id ?? '-')}`}
+                      </div>
+                      <div className="text-sm font-medium text-slate-700">
+                        {schedule.scheduled_time || schedule.start_time || '시간 미정'}
+                        {schedule.end_time ? ` - ${schedule.end_time}` : ''}
+                      </div>
+                      <div className="mt-1 text-sm text-slate-500">
+                        {schedule.location || '장소 미정'}
+                      </div>
+
+                      {match ? (
+                        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
+                          <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-3">
+                            <div className="mb-1 text-xs font-semibold text-sky-700">
+                              팀 A · 합계 {match.team1_total_score.toFixed(1)}점
+                            </div>
+                            {renderAssignedPlayer(match.team1_player1_name, match.team1_player1_skill_level, match.team1_player1_score)}
+                            {renderAssignedPlayer(match.team1_player2_name, match.team1_player2_skill_level, match.team1_player2_score)}
+                          </div>
+                          <div className="text-center text-sm font-semibold text-slate-400">VS</div>
+                          <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-3">
+                            <div className="mb-1 text-xs font-semibold text-rose-700">
+                              팀 B · 합계 {match.team2_total_score.toFixed(1)}점
+                            </div>
+                            {renderAssignedPlayer(match.team2_player1_name, match.team2_player1_skill_level, match.team2_player1_score)}
+                            {renderAssignedPlayer(match.team2_player2_name, match.team2_player2_skill_level, match.team2_player2_score)}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-3 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-3 text-xs text-amber-700">
+                          해당 경기의 선수 대진표를 아직 불러오지 못했습니다.
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                   {assignedScheduleRows.map(({ schedule, match }) => (
                     <div key={schedule.id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                      <div className="mb-2 text-sm font-semibold text-emerald-900">
+                        {schedule.description || `자동 배정된 경기 #${match?.match_number ?? (schedule.generated_match_id ?? '-')}`}
+                      </div>
                       <div className="flex items-start justify-between gap-3">
-                        <div className="font-medium text-emerald-900">코트 {schedule.court_number ?? '-'}</div>
+                        <div className="font-medium text-emerald-900">
+                          {schedule.location || '장소 미정'}
+                        </div>
                         <div className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                          경기 #{schedule.generated_match_id ?? '-'}
+                          {getDisplaySequenceLabel(schedule, match)}
                         </div>
                       </div>
                       <div className="mt-2 text-sm text-gray-700">
                         {schedule.scheduled_time || schedule.start_time || '시간 미정'}
                         {schedule.end_time ? ` - ${schedule.end_time}` : ''}
                       </div>
-                      <div className="text-sm text-gray-600">{schedule.location || '장소 미정'}</div>
-                      {schedule.description && (
-                        <div className="mt-1 text-xs text-gray-500">{schedule.description}</div>
-                      )}
-                      <div className="mt-2 text-xs text-emerald-800">상태: {schedule.status}</div>
+                      <div className="text-sm text-gray-600">상태: {schedule.status}</div>
 
                       {match ? (
                         <div className="mt-3 rounded-lg border border-white/70 bg-white/80 p-3">

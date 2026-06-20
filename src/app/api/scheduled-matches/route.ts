@@ -39,6 +39,20 @@ function normalizeMatchResult(value: unknown): ScheduledMatchView['match_result'
   };
 }
 
+function parseGeneratedDescriptionOrder(description?: string | null) {
+  const normalized = description?.replace(/^\[일반 경기\]\s*/u, '').trim() || '';
+  const matched = normalized.match(/^(?:\d{4}-\d{2}-\d{2}[_\s]+)?(\d+)-(\d+)$/u);
+
+  if (!matched) {
+    return { batch: 9999, order: 9999 };
+  }
+
+  return {
+    batch: Number(matched[1]),
+    order: Number(matched[2]),
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const serverSupabase = await getSupabaseServerClient();
@@ -59,7 +73,7 @@ export async function GET(request: Request) {
 
     const { data: schedules, error: schedulesError } = await adminSupabase
       .from('match_schedules')
-      .select('id, generated_match_id, match_date, scheduled_date, scheduled_time, start_time, court_number, status, match_result')
+      .select('id, generated_match_id, match_date, scheduled_date, scheduled_time, start_time, court_number, location, description, status, match_result')
       .or(`match_date.eq.${date},scheduled_date.eq.${date}`)
       .order('court_number', { ascending: true })
       .order('scheduled_time', { ascending: true })
@@ -90,7 +104,7 @@ export async function GET(request: Request) {
 
     const { data: generatedMatches, error: generatedMatchesError } = await adminSupabase
       .from('generated_matches')
-      .select('id, team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id')
+      .select('id, match_number, team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id')
       .in('id', generatedMatchIds);
 
     if (generatedMatchesError) {
@@ -100,6 +114,7 @@ export async function GET(request: Request) {
 
     const generatedMatchesById = new Map<number, {
       id: number;
+      match_number: number | null;
       team1_player1_id: string | null;
       team1_player2_id: string | null;
       team2_player1_id: string | null;
@@ -135,8 +150,35 @@ export async function GET(request: Request) {
         )
       : [];
 
+    const { data: activeCourts, error: activeCourtsError } = await adminSupabase
+      .from('courts')
+      .select('name, location, order_index')
+      .eq('is_active', true)
+      .order('order_index', { ascending: true, nullsFirst: true })
+      .order('name', { ascending: true });
+
+    if (activeCourtsError) {
+      console.error('Scheduled matches active courts error:', activeCourtsError);
+    }
+
+    const courtByNumber = new Map<number, { name: string | null; location: string | null }>();
+    (activeCourts || []).forEach((court, index) => {
+      courtByNumber.set(index + 1, {
+        name: court.name || null,
+        location: court.location || null,
+      });
+    });
+
+    const generatedScheduleRows = scheduleRows.filter((schedule) => {
+      if (typeof schedule.generated_match_id !== 'number') {
+        return false;
+      }
+
+      return generatedMatchesById.has(schedule.generated_match_id);
+    });
+
     const visibleSchedules = filterIds.length > 0
-      ? scheduleRows.filter((schedule) => {
+      ? generatedScheduleRows.filter((schedule) => {
           const match = typeof schedule.generated_match_id === 'number'
             ? generatedMatchesById.get(schedule.generated_match_id)
             : null;
@@ -153,12 +195,14 @@ export async function GET(request: Request) {
               )
           );
         })
-      : scheduleRows;
+      : generatedScheduleRows;
 
     const matches: ScheduledMatchView[] = visibleSchedules.map((schedule) => {
       const generatedMatch = typeof schedule.generated_match_id === 'number'
         ? generatedMatchesById.get(schedule.generated_match_id)
         : null;
+      const configuredCourt =
+        typeof schedule.court_number === 'number' ? courtByNumber.get(schedule.court_number) : null;
 
       const team1Player1Id = generatedMatch?.team1_player1_id || null;
       const team1Player2Id = generatedMatch?.team1_player2_id || null;
@@ -168,9 +212,13 @@ export async function GET(request: Request) {
       return {
         id: schedule.id,
         generated_match_id: schedule.generated_match_id,
+        match_number: generatedMatch?.match_number ?? null,
+        description: schedule.description || null,
         match_date: schedule.match_date || schedule.scheduled_date || date,
         match_time: schedule.scheduled_time || schedule.start_time || null,
         court_number: schedule.court_number,
+        court_name: configuredCourt?.name || null,
+        location: schedule.location || configuredCourt?.location || null,
         status: schedule.status,
         match_result: normalizeMatchResult(schedule.match_result),
         team1_player1: team1Player1Id,
@@ -190,6 +238,33 @@ export async function GET(request: Request) {
         team2_player1_gender: getProfileGender(profileMap.get(team2Player1Id || '') || null),
         team2_player2_gender: getProfileGender(profileMap.get(team2Player2Id || '') || null),
       };
+    });
+
+    matches.sort((left, right) => {
+      const leftOrder = parseGeneratedDescriptionOrder(left.description);
+      const rightOrder = parseGeneratedDescriptionOrder(right.description);
+
+      const batchDiff = leftOrder.batch - rightOrder.batch;
+      if (batchDiff !== 0) {
+        return batchDiff;
+      }
+
+      const orderDiff = leftOrder.order - rightOrder.order;
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
+
+      const matchNumberDiff = (left.match_number ?? 9999) - (right.match_number ?? 9999);
+      if (matchNumberDiff !== 0) {
+        return matchNumberDiff;
+      }
+
+      const courtDiff = (left.court_number ?? 999) - (right.court_number ?? 999);
+      if (courtDiff !== 0) {
+        return courtDiff;
+      }
+
+      return (left.match_time || '').localeCompare(right.match_time || '', 'ko');
     });
 
     return NextResponse.json({ matches });

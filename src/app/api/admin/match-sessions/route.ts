@@ -4,6 +4,47 @@ import { getUserRole } from '@/lib/auth';
 import { getKoreaDate } from '@/lib/date';
 import { decorateDescriptionForScheduleSource } from '@/lib/match-schedule-source';
 
+function addMinutesToTimeString(time: string | null | undefined, minutesToAdd: number) {
+  if (!time) {
+    return null;
+  }
+
+  const [hourRaw, minuteRaw] = time.split(':');
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return time;
+  }
+
+  const totalMinutes = hour * 60 + minute + minutesToAdd;
+  const normalizedMinutes = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const nextHour = Math.floor(normalizedMinutes / 60);
+  const nextMinute = normalizedMinutes % 60;
+
+  return `${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}:00`;
+}
+
+function getTimeValue(time: string | null | undefined) {
+  if (!time) {
+    return -1;
+  }
+
+  const [hourRaw, minuteRaw] = time.split(':');
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return -1;
+  }
+
+  return hour * 60 + minute;
+}
+
+function buildGeneratedMatchLabel(sessionDate: string, batchNumber: number, matchNumber: number) {
+  return `${sessionDate}_${batchNumber}-${matchNumber}`;
+}
+
 async function requireAdmin() {
   const supabase = await getSupabaseServerClient();
   const adminSupabase = getSupabaseAdminClient();
@@ -143,7 +184,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to count existing sessions' }, { status: 500 });
     }
 
-    const sessionName = `${sessionDate}_${mode}_${(count ?? 0) + 1}번째`;
+    const sessionBatchNumber = (count ?? 0) + 1;
+    const sessionName = `경기일자 ${sessionBatchNumber}`;
 
     const { data: sessionData, error: sessionError } = await adminContext.adminSupabase
       .from('match_sessions')
@@ -231,6 +273,12 @@ export async function POST(request: Request) {
       .is('generated_match_id', null)
       .order('start_time', { ascending: true });
 
+    const { data: existingGeneratedSchedules, error: existingGeneratedSchedulesError } = await adminContext.adminSupabase
+      .from('match_schedules')
+      .select('scheduled_time, start_time')
+      .eq('match_date', sessionDate)
+      .eq('schedule_source', 'generated');
+
     if (baseSchedulesError) {
       console.error('Admin base schedules query error:', baseSchedulesError);
       return NextResponse.json({
@@ -240,6 +288,10 @@ export async function POST(request: Request) {
         match_count: matches.length,
         scheduled_count: 0,
       });
+    }
+
+    if (existingGeneratedSchedulesError) {
+      console.error('Admin existing generated schedules query error:', existingGeneratedSchedulesError);
     }
 
     const scheduleTemplates = (baseSchedules || []).length > 0
@@ -258,10 +310,22 @@ export async function POST(request: Request) {
       court_number: index + 1,
       location: court.location || court.name || '클럽 코트',
     }));
+    const latestExistingGeneratedTime = (existingGeneratedSchedules || []).reduce<string | null>((latest, schedule) => {
+      const candidate = schedule.scheduled_time || schedule.start_time || null;
+      if (!candidate) {
+        return latest;
+      }
+
+      return getTimeValue(candidate) > getTimeValue(latest) ? candidate : latest;
+    }, null);
+
+    const baseDisplayTime = latestExistingGeneratedTime
+      ? addMinutesToTimeString(latestExistingGeneratedTime, 10)
+      : (scheduleTemplates[0]?.scheduled_time || scheduleTemplates[0]?.start_time || null);
 
     const schedulePayload = (createdGeneratedMatches || []).map((generatedMatch, index) => {
       const template = scheduleTemplates[index % scheduleTemplates.length];
-      const displayTime = template.scheduled_time || template.start_time || null;
+      const displayTime = addMinutesToTimeString(baseDisplayTime || template.scheduled_time || template.start_time, index * 10);
       const configuredCourt = configuredCourts.length > 0
         ? configuredCourts[index % configuredCourts.length]
         : null;
@@ -285,7 +349,10 @@ export async function POST(request: Request) {
         max_participants: 4,
         current_participants: 0,
         status: 'scheduled',
-        description: decorateDescriptionForScheduleSource(`자동 배정된 경기 #${generatedMatch.match_number}`, 'generated'),
+        description: decorateDescriptionForScheduleSource(
+          buildGeneratedMatchLabel(sessionDate, sessionBatchNumber, generatedMatch.match_number),
+          'generated'
+        ),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

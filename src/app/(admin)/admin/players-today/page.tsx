@@ -68,6 +68,7 @@ export default function PlayersTodayPage() {
     court_number?: number | null;
     description?: string | null;
     location: string | null;
+    court_name?: string | null;
     status: string;
     current_participants: number | null;
     max_participants: number | null;
@@ -472,6 +473,9 @@ export default function PlayersTodayPage() {
       const originalSchedules = (data || []).filter((schedule) => schedule.generated_match_id == null);
       const shouldApplyAttendanceFallback = originalSchedules.length === 1;
       const originalScheduleId = shouldApplyAttendanceFallback ? originalSchedules[0]?.id : null;
+      const activeCourtNameByNumber = new Map(
+        activeCourts.map((court, index) => [index + 1, court.name || null] as const)
+      );
       setTodaySchedules((data || []).map((schedule) => ({
         id: schedule.id,
         generated_match_id: schedule.generated_match_id,
@@ -483,6 +487,10 @@ export default function PlayersTodayPage() {
         court_number: schedule.court_number,
         description: schedule.description,
         location: schedule.location,
+        court_name:
+          typeof schedule.court_number === 'number'
+            ? activeCourtNameByNumber.get(schedule.court_number) ?? null
+            : null,
         status: schedule.status,
         current_participants:
           shouldApplyAttendanceFallback &&

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getProfileByUserId, isAdminOrManagerRole } from '@/lib/auth';
 import { readCoinSettings } from '@/lib/coin-settings';
 import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER, type CoinSettlementMode } from '@/lib/coins';
+import { notifyWaitingMatchesForSession } from '@/lib/match-preparation-notifications';
 import { syncSessionMatchFlow } from '@/lib/match-session-flow';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 
@@ -347,6 +348,7 @@ export async function POST(request: Request) {
     .eq('generated_match_id', normalizedMatchId);
 
   let autoStartedMatchIds: number[] = [];
+  let waitingMatchIds: number[] = [];
 
   if (matchRow.session_id) {
     try {
@@ -354,6 +356,8 @@ export async function POST(request: Request) {
         completedMatchId: normalizedMatchId,
       });
       autoStartedMatchIds = flowResult.activatedMatchIds;
+      const notificationResult = await notifyWaitingMatchesForSession(adminSupabase, matchRow.session_id);
+      waitingMatchIds = notificationResult.waitingMatchIds;
     } catch (error) {
       return NextResponse.json(
         { error: error instanceof Error ? error.message : '다음 경기 진행 처리에 실패했습니다.' },
@@ -366,6 +370,7 @@ export async function POST(request: Request) {
     {
       data: matchResultPayload,
       auto_started_match_ids: autoStartedMatchIds,
+      waiting_match_ids: waitingMatchIds,
       coinRules: {
         defaultWager: DEFAULT_MATCH_WAGER,
         maxWager: MAX_MATCH_WAGER,

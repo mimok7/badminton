@@ -10,7 +10,7 @@ import { formatNameWithCoins } from '@/lib/player-display';
 import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
 import { getSupabaseClient } from '@/lib/supabase';
 
-function getMatchStatusMeta(status?: string | null) {
+function getMatchStatusMeta(status?: string | null, options?: { isWaiting?: boolean }) {
   if (status === 'completed') {
     return {
       label: '완료',
@@ -32,8 +32,15 @@ function getMatchStatusMeta(status?: string | null) {
     };
   }
 
+  if (options?.isWaiting) {
+    return {
+      label: '대기',
+      chipClass: 'bg-blue-100 text-blue-700',
+    };
+  }
+
   return {
-    label: '대기',
+    label: '배정',
     chipClass: 'bg-slate-100 text-slate-700',
   };
 }
@@ -52,6 +59,46 @@ function getMatchOutcomeMeta(
   return isWinner
     ? { label: '승', icon: '🏆', chipClass: 'bg-emerald-100 text-emerald-700' }
     : { label: '패', icon: '✕', chipClass: 'bg-slate-100 text-slate-600' };
+}
+
+function getDisplayMatchLabel(match: ScheduledMatchView, fallbackOrder: number) {
+  const description = match.description?.trim();
+  if (description) {
+    return description.replace(/^\[일반 경기\]\s*/u, '');
+  }
+
+  if (typeof match.match_number === 'number' && match.match_number > 0) {
+    return `경기 #${match.match_number}`;
+  }
+
+  return `경기 #${fallbackOrder}`;
+}
+
+function getDisplayMatchSequence(match: ScheduledMatchView, fallbackOrder: number) {
+  const description = match.description?.trim();
+  if (description) {
+    const normalized = description.replace(/^\[일반 경기\]\s*/u, '');
+    const sequenceMatch = normalized.match(/(\d+-\d+)$/u);
+    if (sequenceMatch?.[1]) {
+      return sequenceMatch[1];
+    }
+  }
+
+  if (typeof match.match_number === 'number' && match.match_number > 0) {
+    return String(match.match_number);
+  }
+
+  return String(fallbackOrder);
+}
+
+function getCourtKey(match: ScheduledMatchView) {
+  const courtName = match.court_name?.trim();
+  if (courtName) return courtName;
+  if (typeof match.court_number === 'number' && match.court_number > 0) {
+    return `court:${match.court_number}`;
+  }
+
+  return `match:${match.id}`;
 }
 
 export default function TodayMatches() {
@@ -191,6 +238,21 @@ export default function TodayMatches() {
     [user?.id, profile?.id, profile?.user_id].filter((value): value is string => Boolean(value))
   );
 
+  const activeCourtKeys = new Set(
+    matches.filter((match) => match.status === 'in_progress').map((match) => getCourtKey(match))
+  );
+  const waitingMatchIds = new Set<string>();
+
+  activeCourtKeys.forEach((courtKey) => {
+    const nextScheduledMatch = matches.find(
+      (match) => match.status === 'scheduled' && getCourtKey(match) === courtKey
+    );
+
+    if (nextScheduledMatch) {
+      waitingMatchIds.add(nextScheduledMatch.id);
+    }
+  });
+
   const isPlayerInMatch = (match: ScheduledMatchView) => {
     return [
       match.team1_player1,
@@ -209,6 +271,8 @@ export default function TodayMatches() {
     }
     return null;
   };
+
+  const getCourtLabel = (match: ScheduledMatchView) => match.court_name || `코트 ${match.court_number || '미정'}`;
 
   const primaryMatch = matches.find((match) => match.status === 'in_progress')
     || matches.find((match) => match.status === 'scheduled')
@@ -370,7 +434,7 @@ export default function TodayMatches() {
                     {primaryMatch.status === 'in_progress' ? '현재 진행 경기' : '다음 시작 경기'}
                   </p>
                   <div className="mt-1 text-sm font-semibold text-white">
-                    코트 {primaryMatch.court_number || '미정'} · {primaryMatch.match_time || '시간 미정'}
+                    {getCourtLabel(primaryMatch)} · {primaryMatch.match_time || '시간 미정'}
                   </div>
                 </div>
                 {canStartPrimaryMatch ? (
@@ -408,7 +472,9 @@ export default function TodayMatches() {
           <div className="space-y-3">
             {matches.map((match, index) => {
               const inMatch = isPlayerInMatch(match);
-              const statusMeta = getMatchStatusMeta(match.status);
+              const statusMeta = getMatchStatusMeta(match.status, {
+                isWaiting: waitingMatchIds.has(match.id),
+              });
               const team1Outcome = getMatchOutcomeMeta(match.status, match.match_result?.winner ?? null, 'team1');
               const team2Outcome = getMatchOutcomeMeta(match.status, match.match_result?.winner ?? null, 'team2');
               const isEditable = Boolean(match.generated_match_id && match.status === 'in_progress');
@@ -417,6 +483,10 @@ export default function TodayMatches() {
                 isEditable &&
                 scoreDraft.team1.trim().length > 0 &&
                 scoreDraft.team2.trim().length > 0;
+
+              const matchOrder = match.match_number ?? index + 1;
+              const displayMatchLabel = getDisplayMatchLabel(match, matchOrder);
+              const displayMatchSequence = getDisplayMatchSequence(match, matchOrder);
 
               return (
                 <article
@@ -427,12 +497,12 @@ export default function TodayMatches() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className={`flex size-9 items-center justify-center rounded-full text-sm font-bold text-white ${inMatch ? 'bg-amber-500' : 'bg-slate-400'}`}>
-                        {index + 1}
+                      <div className={`flex min-w-[3rem] items-center justify-center rounded-full px-2 text-xs font-bold text-white ${inMatch ? 'bg-amber-500' : 'bg-slate-400'} h-9`}>
+                        {displayMatchSequence}
                       </div>
                       <div>
                         <h3 className="text-sm font-semibold text-slate-900">
-                          경기 #{index + 1}
+                          {displayMatchLabel}
                           {inMatch && (
                             <span className="ml-2 rounded-full bg-amber-200 px-2 py-1 text-[11px] font-medium text-amber-800">
                               내 경기
@@ -441,7 +511,7 @@ export default function TodayMatches() {
                         </h3>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
                           <span>⏰ {match.match_time || '시간 미정'}</span>
-                          <span>🏟️ 코트 {match.court_number || '미정'}</span>
+                          <span>🏟️ {getCourtLabel(match)}</span>
                         </div>
                       </div>
                     </div>

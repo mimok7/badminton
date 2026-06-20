@@ -3,6 +3,22 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getLevelScore } from '@/utils/match-helpers';
 import { GeneratedMatch, MatchSession } from '../types';
+import type { ScheduledMatchView } from '@/lib/scheduled-matches';
+
+type AssignedScheduleDetail = ScheduledMatchView & {
+  session_id: string | null;
+  match_number: number;
+  team1_player1_skill_level: string;
+  team1_player2_skill_level: string;
+  team2_player1_skill_level: string;
+  team2_player2_skill_level: string;
+  team1_player1_score: number;
+  team1_player2_score: number;
+  team2_player1_score: number;
+  team2_player2_score: number;
+  team1_total_score: number;
+  team2_total_score: number;
+};
 
 interface RegisteredScheduleSummary {
   id: string;
@@ -23,6 +39,7 @@ interface RegisteredScheduleSummary {
 interface MatchSessionStatusProps {
   matchSessions: MatchSession[];
   registeredSchedules?: RegisteredScheduleSummary[];
+  assignedScheduleDetails?: Record<string, AssignedScheduleDetail>;
   title?: string;
   onDeleteSession?: (sessionId: string) => void;
   onDeleteSessionMatch?: (sessionId: string, matchId: string) => void;
@@ -35,6 +52,7 @@ interface MatchSessionStatusProps {
 export default function MatchSessionStatus({
   matchSessions,
   registeredSchedules = [],
+  assignedScheduleDetails = {},
   title = '📅 오늘의 경기 일정',
   onDeleteSession,
   onDeleteSessionMatch,
@@ -55,6 +73,7 @@ export default function MatchSessionStatus({
   const [sessionMatches, setSessionMatches] = useState<GeneratedMatch[]>([]);
   const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string>('');
+  const [isAssignedMatchesModalOpen, setIsAssignedMatchesModalOpen] = useState(false);
   const detailsRef = useRef<HTMLDivElement | null>(null);
 
   const closeDetails = () => {
@@ -160,10 +179,51 @@ export default function MatchSessionStatus({
   const totalPlayerGames = Object.values(playerGameCounts).reduce((sum, count) => sum + count, 0);
   const totalPlayers = Object.keys(playerGameCounts).length;
 
+  const assignedScheduleRows = useMemo(() => {
+    return [...generatedSchedules]
+      .sort((a, b) => {
+        const matchOrderA = a.generated_match_id != null
+          ? assignedScheduleDetails[String(a.generated_match_id)]?.match_number ?? 9999
+          : 9999;
+        const matchOrderB = b.generated_match_id != null
+          ? assignedScheduleDetails[String(b.generated_match_id)]?.match_number ?? 9999
+          : 9999;
+        const matchOrderDiff = matchOrderA - matchOrderB;
+        if (matchOrderDiff !== 0) {
+          return matchOrderDiff;
+        }
+        const courtDiff = (a.court_number ?? 999) - (b.court_number ?? 999);
+        if (courtDiff !== 0) {
+          return courtDiff;
+        }
+        return (a.generated_match_id ?? 9999) - (b.generated_match_id ?? 9999);
+      })
+      .map((schedule) => ({
+        schedule,
+        match: schedule.generated_match_id != null
+          ? assignedScheduleDetails[String(schedule.generated_match_id)] ?? null
+          : null,
+      }));
+  }, [assignedScheduleDetails, generatedSchedules]);
+
+  const assignedCourtCount = useMemo(() => {
+    return new Set(
+      generatedSchedules
+        .map((schedule) => schedule.court_number)
+        .filter((courtNumber): courtNumber is number => typeof courtNumber === 'number' && courtNumber > 0)
+    ).size;
+  }, [generatedSchedules]);
+
   const renderPlayerLine = (name: string, skillLevel: string, score: number) => (
     <div className="text-sm text-gray-800">
       {name} <span className="font-medium">({(skillLevel || 'E2').toUpperCase()})</span>{' '}
       <span className="text-gray-500">{score.toFixed(1)}점</span>
+    </div>
+  );
+
+  const renderAssignedPlayer = (name: string | null | undefined, skillLevel: string, score: number) => (
+    <div className="truncate text-sm text-gray-800">
+      {name || '선수 미정'} <span className="text-gray-500">({skillLevel}) {score.toFixed(1)}점</span>
     </div>
   );
 
@@ -183,9 +243,9 @@ export default function MatchSessionStatus({
                 {originalSchedules.length > 0 && (
                   <>
                     <div className="mb-2 text-sm font-medium text-blue-900">등록된 오늘 원본 일정</div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 justify-items-start gap-3 sm:grid-cols-2">
                       {originalSchedules.map((schedule) => (
-                        <div key={schedule.id} className="p-3 bg-white rounded border">
+                        <div key={schedule.id} className="w-full max-w-md rounded border bg-white p-3">
                           <div className="font-medium text-gray-800">
                             {schedule.start_time} - {schedule.end_time}
                           </div>
@@ -194,40 +254,35 @@ export default function MatchSessionStatus({
                             인원: {schedule.current_participants ?? 0} / {schedule.max_participants ?? 0}명
                           </div>
                           <div className="mt-1 text-xs text-gray-500">상태: {schedule.status}</div>
+                          {generatedSchedules.length > 0 && (
+                            <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-sm font-semibold text-emerald-900">배정된 경기</div>
+                                  <div className="mt-1 text-xs text-emerald-800">
+                                    총 {generatedSchedules.length}경기
+                                    {assignedCourtCount > 0 ? ` · 코트 ${assignedCourtCount}개 사용` : ''}
+                                  </div>
+                                </div>
+                                <div className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                  {generatedSchedules.length}개
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setIsAssignedMatchesModalOpen(true)}
+                                className="mt-3 w-full rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-800 transition-colors hover:bg-emerald-100"
+                              >
+                                상세 대진표 보기
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </>
                 )}
 
-                {generatedSchedules.length > 0 && (
-                  <>
-                    <div className="mb-2 mt-4 text-sm font-medium text-emerald-900">DB에 배정된 오늘 경기 일정</div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      {generatedSchedules.map((schedule) => (
-                        <div key={schedule.id} className="rounded border border-emerald-200 bg-emerald-50 p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="font-medium text-emerald-900">
-                              코트 {schedule.court_number ?? '-'}
-                            </div>
-                            <div className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                              경기 #{schedule.generated_match_id ?? '-'}
-                            </div>
-                          </div>
-                          <div className="mt-1 text-sm text-gray-700">
-                            {schedule.scheduled_time || schedule.start_time || '시간 미정'}
-                            {schedule.end_time ? ` - ${schedule.end_time}` : ''}
-                          </div>
-                          <div className="text-sm text-gray-600">{schedule.location || '장소 미정'}</div>
-                          {schedule.description && (
-                            <div className="mt-1 text-xs text-gray-500">{schedule.description}</div>
-                          )}
-                          <div className="mt-1 text-xs text-emerald-800">상태: {schedule.status}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
               </div>
             )}
 
@@ -455,6 +510,106 @@ export default function MatchSessionStatus({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {isAssignedMatchesModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900">배정된 경기</h4>
+                <p className="mt-1 text-sm text-gray-500">오늘 DB에 연결된 배정 경기 목록입니다.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {onDeleteAllSessions && (
+                  <button
+                    type="button"
+                    onClick={onDeleteAllSessions}
+                    disabled={deletingAllSessions}
+                    className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {deletingAllSessions ? '전체 삭제 중...' : '배정 경기 전체 삭제'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsAssignedMatchesModalOpen(false)}
+                  className="rounded-md px-3 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
+              {generatedSchedules.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500">
+                  배정된 경기가 없습니다.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  {assignedScheduleRows.map(({ schedule, match }) => (
+                    <div key={schedule.id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="font-medium text-emerald-900">코트 {schedule.court_number ?? '-'}</div>
+                        <div className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                          경기 #{schedule.generated_match_id ?? '-'}
+                        </div>
+                      </div>
+                      <div className="mt-2 text-sm text-gray-700">
+                        {schedule.scheduled_time || schedule.start_time || '시간 미정'}
+                        {schedule.end_time ? ` - ${schedule.end_time}` : ''}
+                      </div>
+                      <div className="text-sm text-gray-600">{schedule.location || '장소 미정'}</div>
+                      {schedule.description && (
+                        <div className="mt-1 text-xs text-gray-500">{schedule.description}</div>
+                      )}
+                      <div className="mt-2 text-xs text-emerald-800">상태: {schedule.status}</div>
+
+                      {match ? (
+                        <div className="mt-3 rounded-lg border border-white/70 bg-white/80 p-3">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
+                              <div className="mb-1 text-xs font-semibold text-sky-700">
+                                팀 A · 합계 {match.team1_total_score.toFixed(1)}점
+                              </div>
+                              {renderAssignedPlayer(match.team1_player1_name, match.team1_player1_skill_level, match.team1_player1_score)}
+                              {renderAssignedPlayer(match.team1_player2_name, match.team1_player2_skill_level, match.team1_player2_score)}
+                            </div>
+                            <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
+                              <div className="mb-1 text-xs font-semibold text-rose-700">
+                                팀 B · 합계 {match.team2_total_score.toFixed(1)}점
+                              </div>
+                              {renderAssignedPlayer(match.team2_player1_name, match.team2_player1_skill_level, match.team2_player1_score)}
+                              {renderAssignedPlayer(match.team2_player2_name, match.team2_player2_skill_level, match.team2_player2_score)}
+                            </div>
+                          </div>
+                          <div className="mt-2 text-xs text-gray-500">
+                            매치 상태: {match.status}
+                          </div>
+                          {onDeleteSessionMatch && match.session_id && schedule.generated_match_id != null && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteSessionMatch(match.session_id as string, String(schedule.generated_match_id))}
+                              disabled={Boolean(deletingMatchIds[String(schedule.generated_match_id)])}
+                              className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {deletingMatchIds[String(schedule.generated_match_id)] ? '삭제 중...' : '이 경기 삭제'}
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mt-3 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-3 text-xs text-amber-700">
+                          해당 경기의 선수 대진표를 아직 불러오지 못했습니다.
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

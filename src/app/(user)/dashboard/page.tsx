@@ -6,7 +6,7 @@ import { useUser } from '@/hooks/useUser';
 import ClientDashboard from './ClientDashboard';
 
 export default function DashboardPage() {
-  const { user, loading, isAdmin } = useUser();
+  const { user, loading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
@@ -14,18 +14,7 @@ export default function DashboardPage() {
       router.replace('/login');
       return;
     }
-
-    if (
-      !loading &&
-      user &&
-      isAdmin &&
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(max-width: 768px)').matches
-    ) {
-      router.replace('/admin');
-    }
-  }, [isAdmin, loading, user, router]);
+  }, [loading, user, router]);
 
   return <ClientDashboard userId={user?.id ?? ''} email={user?.email ?? ''} />;
 }

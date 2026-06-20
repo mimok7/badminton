@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { isAdminRole, getProfileByUserId } from '@/lib/auth';
+import { getProfileByUserId, isAdminOrManagerRole } from '@/lib/auth';
 import { readCoinSettings } from '@/lib/coin-settings';
 import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER, type CoinSettlementMode } from '@/lib/coins';
+import { syncSessionMatchFlow } from '@/lib/match-session-flow';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 
 type MatchParticipantRow = {
@@ -150,10 +151,10 @@ export async function POST(request: Request) {
     matchRow.team2_player2_id,
   ].filter((value): value is string => Boolean(value));
 
-  const canManage = isAdminRole(currentProfile.role) || participantIds.includes(currentProfile.id);
+  const canManage = isAdminOrManagerRole(currentProfile.role) || participantIds.includes(currentProfile.id);
 
   if (!canManage) {
-    return NextResponse.json({ error: '이 경기의 참가자 또는 관리자만 결과를 저장할 수 있습니다.' }, { status: 403 });
+    return NextResponse.json({ error: '이 경기의 참가자 또는 관리자/매니저만 결과를 저장할 수 있습니다.' }, { status: 403 });
   }
 
   const { data: betRows, error: betError } = await adminSupabase
@@ -345,62 +346,26 @@ export async function POST(request: Request) {
     })
     .eq('generated_match_id', normalizedMatchId);
 
-  if (matchRow.session_id && typeof matchRow.match_number === 'number') {
-    const { data: sessionMatches, error: sessionMatchesError } = await adminSupabase
-      .from('generated_matches')
-      .select('id, match_number, status')
-      .eq('session_id', matchRow.session_id)
-      .order('match_number', { ascending: true });
+  let autoStartedMatchIds: number[] = [];
 
-    if (sessionMatchesError) {
-      return NextResponse.json({ error: sessionMatchesError.message }, { status: 500 });
-    }
-
-    const nextMatch = (sessionMatches || []).find(
-      (match) =>
-        match.match_number > matchRow.match_number! &&
-        match.status !== 'completed' &&
-        match.status !== 'cancelled'
-    );
-
-    const waitingMatchIds = (sessionMatches || [])
-      .filter(
-        (match) =>
-          match.id !== normalizedMatchId &&
-          match.id !== nextMatch?.id &&
-          match.status !== 'completed' &&
-          match.status !== 'cancelled'
-      )
-      .map((match) => match.id);
-
-    if (waitingMatchIds.length > 0) {
-      await adminSupabase
-        .from('generated_matches')
-        .update({ status: 'scheduled' })
-        .in('id', waitingMatchIds);
-
-      await adminSupabase
-        .from('match_schedules')
-        .update({ status: 'scheduled' })
-        .in('generated_match_id', waitingMatchIds);
-    }
-
-    if (nextMatch?.id) {
-      await adminSupabase
-        .from('generated_matches')
-        .update({ status: 'in_progress' })
-        .eq('id', nextMatch.id);
-
-      await adminSupabase
-        .from('match_schedules')
-        .update({ status: 'in_progress' })
-        .eq('generated_match_id', nextMatch.id);
+  if (matchRow.session_id) {
+    try {
+      const flowResult = await syncSessionMatchFlow(adminSupabase, matchRow.session_id, {
+        completedMatchId: normalizedMatchId,
+      });
+      autoStartedMatchIds = flowResult.activatedMatchIds;
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : '다음 경기 진행 처리에 실패했습니다.' },
+        { status: 500 }
+      );
     }
   }
 
   return NextResponse.json(
     {
       data: matchResultPayload,
+      auto_started_match_ids: autoStartedMatchIds,
       coinRules: {
         defaultWager: DEFAULT_MATCH_WAGER,
         maxWager: MAX_MATCH_WAGER,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { ExtendedPlayer } from '../types';
 
 interface AttendanceStatusProps {
@@ -8,6 +8,7 @@ interface AttendanceStatusProps {
   onStatusChange?: (playerId: string, status: ExtendedPlayer['status']) => Promise<void> | void;
   onBulkStatusChange?: (playerIds: string[], status: ExtendedPlayer['status']) => Promise<void> | void;
   disabled?: boolean;
+  headerActions?: ReactNode;
 }
 
 export default function AttendanceStatus({
@@ -15,6 +16,7 @@ export default function AttendanceStatus({
   onStatusChange,
   onBulkStatusChange,
   disabled = false,
+  headerActions,
 }: AttendanceStatusProps) {
   const formatPlayerScore = (score?: number) => {
     if (typeof score !== 'number' || !Number.isFinite(score)) {
@@ -27,7 +29,6 @@ export default function AttendanceStatus({
   const [filter, setFilter] = useState<'all' | 'present' | 'lesson' | 'absent'>('all');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [isPlayerListOpen, setIsPlayerListOpen] = useState(false);
-  const [listMode, setListMode] = useState<'all' | 'present'>('all');
 
   useEffect(() => {
     setSelectedPlayerIds([]);
@@ -36,7 +37,6 @@ export default function AttendanceStatus({
   useEffect(() => {
     if (!isPlayerListOpen) {
       setSelectedPlayerIds([]);
-      setListMode('all');
     }
   }, [isPlayerListOpen]);
 
@@ -141,15 +141,19 @@ export default function AttendanceStatus({
     setSelectedPlayerIds((prev) => prev.filter((id) => !targetIds.includes(id)));
   };
 
-  const openAllPlayersModal = () => {
-    setFilter('all');
-    setListMode('all');
-    setIsPlayerListOpen(true);
+  const formatGender = (gender?: string) => {
+    const normalized = String(gender || '').trim().toLowerCase();
+    if (['male', 'm', 'man', '남', '남성'].includes(normalized)) {
+      return '남';
+    }
+    if (['female', 'f', 'woman', '여', '여성'].includes(normalized)) {
+      return '여';
+    }
+    return '성별 미지정';
   };
 
-  const openPresentPlayersModal = () => {
-    setFilter('present');
-    setListMode('present');
+  const openPlayersModal = () => {
+    setFilter('all');
     setIsPlayerListOpen(true);
   };
 
@@ -163,18 +167,12 @@ export default function AttendanceStatus({
         <span className="font-bold text-green-600">{presentPlayers.length}명</span>
         <button
           type="button"
-          onClick={openPresentPlayersModal}
-          className="rounded-lg border border-green-200 bg-white px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-50"
-        >
-          오늘 출석회원 보기
-        </button>
-        <button
-          type="button"
-          onClick={openAllPlayersModal}
-          className="ml-auto rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50"
+          onClick={openPlayersModal}
+          className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50"
         >
           선수 목록 보기
         </button>
+        {headerActions}
       </div>
 
       <div className="mb-4">
@@ -221,14 +219,8 @@ export default function AttendanceStatus({
           <div className="flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b px-6 py-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {listMode === 'present' ? '오늘 출석회원' : '선수 목록'}
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {listMode === 'present'
-                    ? '오늘 출석 처리된 회원만 모아서 보여줍니다.'
-                    : '체크박스로 여러 명을 선택한 뒤 출석으로 일괄 변경할 수 있습니다.'}
-                </p>
+                <h3 className="text-lg font-semibold text-gray-900">선수 목록</h3>
+                <p className="mt-1 text-sm text-gray-500">체크박스로 여러 명을 선택한 뒤 출석으로 일괄 변경할 수 있습니다.</p>
               </div>
               <button
                 type="button"
@@ -319,7 +311,7 @@ export default function AttendanceStatus({
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">{player.name}</div>
                           <div className="truncate text-xs text-gray-500">
-                            {(player.skill_label || player.skill_level || 'N1').toUpperCase()} · {formatPlayerScore(player.score)}점
+                            {(player.skill_label || player.skill_level || 'N1').toUpperCase()} · {formatPlayerScore(player.score)}점 · {formatGender(player.gender)}
                           </div>
                         </div>
                         <span className={`rounded-full px-2 py-1 text-xs font-medium ${

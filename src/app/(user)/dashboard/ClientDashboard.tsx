@@ -8,6 +8,7 @@ import { ArrowRight, CalendarDays, LogOut, Shield, Swords, Target, Trophy, UserC
 import MatchNotifications from '@/components/MatchNotifications';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
+import type { CoinSettlementMode } from '@/lib/coins';
 import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
 import { getUserLevelDisplay } from '@/lib/level-display';
 import { formatCurrentUserNameWithCoins, formatNameWithCoins } from '@/lib/player-display';
@@ -139,7 +140,8 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const [topMatchScore1, setTopMatchScore1] = useState('');
   const [topMatchScore2, setTopMatchScore2] = useState('');
   const [topMatchResultSaving, setTopMatchResultSaving] = useState(false);
-  const [topMatchStartSaving, setTopMatchStartSaving] = useState(false);
+  const [topMatchDraftSaving, setTopMatchDraftSaving] = useState(false);
+  const [coinSettlementMode, setCoinSettlementMode] = useState<CoinSettlementMode | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -155,6 +157,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
           myMatches,
           allMatches,
           attendanceResponse,
+          coinSettingsResponse,
         ] = await Promise.all([
           supabase
             .from('attendances')
@@ -167,9 +170,11 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
           fetchScheduledMatchesForDate(supabase, today, userId),
           fetchScheduledMatchesForDate(supabase, today),
           fetch(`/api/attendance/status?date=${today}`),
+          fetch('/api/coin-settings', { credentials: 'include' }),
         ]);
 
         const attendancePayload = await attendanceResponse.json().catch(() => null);
+        const coinSettingsPayload = await coinSettingsResponse.json().catch(() => null);
 
         setTodayPlayersCount(playersCount || 0);
         setTodayMatchesCount(matchCount || 0);
@@ -181,6 +186,10 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         } else {
           setMyAttendanceStatus(null);
         }
+
+        if (coinSettingsResponse.ok) {
+          setCoinSettlementMode(coinSettingsPayload?.coinSettings?.settlementMode || null);
+        }
       } catch (error) {
         console.error('대시보드 조회 오류:', error);
         setTodayPlayersCount(0);
@@ -188,6 +197,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         setMyAttendanceStatus(null);
         setTodayAssignedMatches([]);
         setTodayAllMatches([]);
+        setCoinSettlementMode(null);
       } finally {
         setLoading(false);
       }
@@ -213,13 +223,16 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const topMatchOrder = topMatch
     ? todayAllMatches.findIndex((match) => match.id === topMatch.id) + 1
     : 0;
-  const topMatchStatusMeta = getMatchStatusMeta(topMatch?.status);
   const hasEditableTopMatch = Boolean(
     topMatch?.generated_match_id &&
       user?.id &&
       topMatch.status !== 'completed' &&
       topMatch.status !== 'cancelled',
   );
+  const canSaveTopMatchDraft = topMatchScore1.trim().length > 0 && topMatchScore2.trim().length > 0;
+  const canCompleteTopMatch = canSaveTopMatchDraft;
+  const showTopMatchBetCard = hasEditableTopMatch && topMatch?.status === 'scheduled' && coinSettlementMode === 'zero_sum';
+  const getTopMatchDraftKey = (matchId: number) => `dashboard-top-match-draft:${matchId}`;
 
   useEffect(() => {
     if (!topMatch?.generated_match_id) {
@@ -230,11 +243,13 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
       return;
     }
 
+    const matchId = topMatch.generated_match_id;
+
     const loadTopMatchState = async () => {
       try {
         const [betResponse, resultResponse] = await Promise.all([
-          fetch(`/api/match-bets?match_id=${topMatch.generated_match_id}`, { credentials: 'include' }),
-          fetch(`/api/match-results?match_id=${topMatch.generated_match_id}`, { credentials: 'include' }),
+          fetch(`/api/match-bets?match_id=${matchId}`, { credentials: 'include' }),
+          fetch(`/api/match-results?match_id=${matchId}`, { credentials: 'include' }),
         ]);
 
         const betPayload = await betResponse.json().catch(() => null);
@@ -252,10 +267,23 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
           setTopMatchResult(result);
           setTopMatchScore1(String(result.team1_score ?? ''));
           setTopMatchScore2(String(result.team2_score ?? ''));
+          window.localStorage.removeItem(getTopMatchDraftKey(matchId));
         } else {
           setTopMatchResult(null);
-          setTopMatchScore1('');
-          setTopMatchScore2('');
+          const savedDraft = window.localStorage.getItem(getTopMatchDraftKey(matchId));
+          if (savedDraft) {
+            try {
+              const parsed = JSON.parse(savedDraft) as { team1Score?: string; team2Score?: string };
+              setTopMatchScore1(parsed.team1Score ?? '');
+              setTopMatchScore2(parsed.team2Score ?? '');
+            } catch {
+              setTopMatchScore1('');
+              setTopMatchScore2('');
+            }
+          } else {
+            setTopMatchScore1('');
+            setTopMatchScore2('');
+          }
         }
       } catch (error) {
         console.error('상단 경기 상태 조회 오류:', error);
@@ -339,6 +367,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
 
   const handleTopMatchResultSave = async () => {
     if (!topMatch?.generated_match_id) return;
+    const matchId = topMatch.generated_match_id;
 
     const team1Score = Number(topMatchScore1);
     const team2Score = Number(topMatchScore2);
@@ -360,7 +389,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          match_id: topMatch.generated_match_id,
+          match_id: matchId,
           winner_team1: team1Score > team2Score,
           team1_score: team1Score,
           team2_score: team2Score,
@@ -379,6 +408,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         team2_score: team2Score,
         total_losing_pool: payload?.data?.total_losing_pool,
       });
+      window.localStorage.removeItem(getTopMatchDraftKey(matchId));
 
       await refreshTopMatchSummary();
     } catch (error) {
@@ -389,31 +419,24 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
     }
   };
 
-  const handleTopMatchStart = async () => {
+  const handleTopMatchDraftSave = async () => {
     if (!topMatch?.generated_match_id) return;
+    const matchId = topMatch.generated_match_id;
 
     try {
-      setTopMatchStartSaving(true);
-      const response = await fetch('/api/match-start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          match_id: topMatch.generated_match_id,
+      setTopMatchDraftSaving(true);
+      window.localStorage.setItem(
+        getTopMatchDraftKey(matchId),
+        JSON.stringify({
+          team1Score: topMatchScore1,
+          team2Score: topMatchScore2,
         }),
-      });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || '경기 시작 실패');
-      }
-
-      await refreshTopMatchSummary();
+      );
     } catch (error) {
-      console.error('상단 경기 시작 오류:', error);
-      alert(error instanceof Error ? error.message : '경기 시작 중 오류가 발생했습니다.');
+      console.error('상단 경기 임시 저장 오류:', error);
+      alert('점수 임시 저장 중 오류가 발생했습니다.');
     } finally {
-      setTopMatchStartSaving(false);
+      setTopMatchDraftSaving(false);
     }
   };
 
@@ -507,158 +530,188 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
           </div>
 
           {topMatch ? (
-            <div className="mt-4 rounded-[20px] bg-slate-50 p-4">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-800">
-                {topMatchOrder > 0 && (
-                  <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
-                    {topMatchOrder}번째 경기
-                  </span>
-                )}
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${topMatchStatusMeta.chipClass}`}>
-                  {topMatchStatusMeta.label}
-                </span>
-                <span className="font-medium text-slate-900">코트 {topMatch.court_number || '미정'}</span>
-                <span className="text-slate-400">·</span>
-                  <span>{topMatch.match_time || '시간 미정'}</span>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-blue-100 bg-white px-3 py-3 text-left">
-                  <div className="text-sm leading-6 text-slate-800">
-                    <div className="font-medium text-slate-900">
-                      {formatNameWithCoins(topMatch.team1_player1_name, topMatch.team1_player1_coin_balance)}
+            <div className="mt-4 space-y-3">
+              {prioritizedAssignedMatches.map((match) => {
+                const matchOrder = todayAllMatches.findIndex((item) => item.id === match.id) + 1;
+                const statusMeta = getMatchStatusMeta(match.status);
+                const isCurrentEditableMatch =
+                  topMatch.id === match.id && hasEditableTopMatch && match.status === 'in_progress';
+                const showBetCardForMatch =
+                  topMatch.id === match.id && showTopMatchBetCard;
+
+                return (
+                  <div key={match.id} className="rounded-[20px] bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-800">
+                      {matchOrder > 0 && (
+                        <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                          {matchOrder}번째 경기
+                        </span>
+                      )}
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusMeta.chipClass}`}>
+                        {statusMeta.label}
+                      </span>
+                      <span className="font-medium text-slate-900">코트 {match.court_number || '미정'}</span>
+                      <span className="text-slate-400">·</span>
+                      <span>{match.match_time || '시간 미정'}</span>
                     </div>
-                    <div className="font-medium text-slate-900">
-                      {formatNameWithCoins(topMatch.team1_player2_name, topMatch.team1_player2_coin_balance)}
-                    </div>
-                  </div>
-                  {hasEditableTopMatch && (
-                    <div className="mt-3">
-                      <input
-                        type="number"
-                        min={0}
-                        value={topMatchScore1}
-                        onChange={(event) => setTopMatchScore1(event.target.value)}
-                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-center text-base font-semibold text-slate-900"
-                      />
-                    </div>
-                  )}
-                  {!hasEditableTopMatch && topMatch.match_result?.team1_score !== undefined && (
-                    <div className="mt-3 text-center text-2xl font-bold text-blue-700">
-                      {topMatch.match_result.team1_score}
-                    </div>
-                  )}
-                </div>
-                <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-right">
-                  <div className="text-sm leading-6 text-slate-800">
-                    <div className="font-medium text-slate-900">
-                      {formatNameWithCoins(topMatch.team2_player1_name, topMatch.team2_player1_coin_balance)}
-                    </div>
-                    <div className="font-medium text-slate-900">
-                      {formatNameWithCoins(topMatch.team2_player2_name, topMatch.team2_player2_coin_balance)}
-                    </div>
-                  </div>
-                  {hasEditableTopMatch && (
-                    <div className="mt-3">
-                      <input
-                        type="number"
-                        min={0}
-                        value={topMatchScore2}
-                        onChange={(event) => setTopMatchScore2(event.target.value)}
-                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-center text-base font-semibold text-slate-900"
-                      />
-                    </div>
-                  )}
-                  {!hasEditableTopMatch && topMatch.match_result?.team2_score !== undefined && (
-                    <div className="mt-3 text-center text-2xl font-bold text-emerald-700">
-                      {topMatch.match_result.team2_score}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {hasEditableTopMatch && (
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm">
-                    경기 시작 {topMatchScore1 || '0'} : {topMatchScore2 || '0'}
-                  </div>
-                  {topMatch.status === 'scheduled' ? (
-                    <Button
-                      onClick={() => {
-                        void handleTopMatchStart();
-                      }}
-                      disabled={topMatchStartSaving}
-                      className="ml-auto rounded-xl"
-                    >
-                      {topMatchStartSaving ? '시작 중...' : '경기 시작'}
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => {
-                        void handleTopMatchResultSave();
-                      }}
-                      disabled={topMatchResultSaving}
-                      className="ml-auto rounded-xl"
-                    >
-                      {topMatchResultSaving ? '저장 중...' : '점수 저장'}
-                    </Button>
-                  )}
-                </div>
-              )}
-              {hasEditableTopMatch && topMatch.status === 'scheduled' && (
-                <div className="mt-3 space-y-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-amber-900">코인 배팅</p>
-                      <p className="text-xs text-amber-800">
-                        기본 {DEFAULT_MATCH_WAGER}코인, 최대 {MAX_MATCH_WAGER}코인
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-amber-700">
-                      현재 {topMatchBet}코인
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    {Array.from({ length: MAX_MATCH_WAGER }, (_, index) => {
-                      const wager = index + 1;
-                      const isActive = topMatchBet === wager;
-                      return (
-                        <button
-                          key={wager}
+
+                    {isCurrentEditableMatch ? (
+                      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5">
+                        <div className="rounded-[16px] border border-blue-100 bg-white px-2.5 py-2.5 text-left">
+                          <div className="text-sm leading-6 text-slate-800">
+                            <div className="truncate font-medium text-slate-900">
+                              {formatNameWithCoins(match.team1_player1_name, match.team1_player1_coin_balance)}
+                            </div>
+                            <div className="truncate font-medium text-slate-900">
+                              {formatNameWithCoins(match.team1_player2_name, match.team1_player2_coin_balance)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 px-0.5">
+                          <input
+                            type="number"
+                            min={0}
+                            inputMode="numeric"
+                            value={topMatchScore1}
+                            onChange={(event) => setTopMatchScore1(event.target.value)}
+                            className="h-9 w-11 rounded-lg border border-slate-300 bg-white px-1 text-center text-sm font-bold text-slate-900 outline-none transition focus:border-slate-900"
+                          />
+                          <span className="text-[11px] font-semibold text-slate-400">:</span>
+                          <input
+                            type="number"
+                            min={0}
+                            inputMode="numeric"
+                            value={topMatchScore2}
+                            onChange={(event) => setTopMatchScore2(event.target.value)}
+                            className="h-9 w-11 rounded-lg border border-slate-300 bg-white px-1 text-center text-sm font-bold text-slate-900 outline-none transition focus:border-slate-900"
+                          />
+                        </div>
+
+                        <div className="rounded-[16px] border border-emerald-100 bg-white px-2.5 py-2.5 text-right">
+                          <div className="text-sm leading-6 text-slate-800">
+                            <div className="truncate font-medium text-slate-900">
+                              {formatNameWithCoins(match.team2_player1_name, match.team2_player1_coin_balance)}
+                            </div>
+                            <div className="truncate font-medium text-slate-900">
+                              {formatNameWithCoins(match.team2_player2_name, match.team2_player2_coin_balance)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl border border-blue-100 bg-white px-3 py-3 text-left">
+                          <div className="text-sm leading-6 text-slate-800">
+                            <div className="font-medium text-slate-900">
+                              {formatNameWithCoins(match.team1_player1_name, match.team1_player1_coin_balance)}
+                            </div>
+                            <div className="font-medium text-slate-900">
+                              {formatNameWithCoins(match.team1_player2_name, match.team1_player2_coin_balance)}
+                            </div>
+                          </div>
+                          {match.match_result?.team1_score !== undefined ? (
+                            <div className="mt-3 text-center text-2xl font-bold text-blue-700">
+                              {match.match_result.team1_score}
+                            </div>
+                          ) : (
+                            <div className="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-center text-xs text-slate-500">
+                              {match.status === 'scheduled' ? '경기 완료후 입력' : '점수 대기'}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-right">
+                          <div className="text-sm leading-6 text-slate-800">
+                            <div className="font-medium text-slate-900">
+                              {formatNameWithCoins(match.team2_player1_name, match.team2_player1_coin_balance)}
+                            </div>
+                            <div className="font-medium text-slate-900">
+                              {formatNameWithCoins(match.team2_player2_name, match.team2_player2_coin_balance)}
+                            </div>
+                          </div>
+                          {match.match_result?.team2_score !== undefined ? (
+                            <div className="mt-3 text-center text-2xl font-bold text-emerald-700">
+                              {match.match_result.team2_score}
+                            </div>
+                          ) : (
+                            <div className="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-center text-xs text-slate-500">
+                              {match.status === 'scheduled' ? '경기 완료후 입력' : '점수 대기'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {isCurrentEditableMatch && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-700 shadow-sm">
+                          현재 점수 {topMatchScore1 || '0'} : {topMatchScore2 || '0'}
+                        </div>
+                        <Button
                           type="button"
-                          disabled={topMatchBetSaving || (profile?.coin_balance ?? 0) < wager}
+                          variant="outline"
                           onClick={() => {
-                            void handleTopMatchBetSave(wager);
+                            void handleTopMatchDraftSave();
                           }}
-                          className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                            isActive
-                              ? 'bg-amber-500 text-white'
-                              : 'border border-amber-300 bg-white text-amber-800 hover:bg-amber-100'
-                          } disabled:cursor-not-allowed disabled:opacity-40`}
+                          disabled={topMatchDraftSaving || !canSaveTopMatchDraft}
+                          className="ml-auto h-8 rounded-xl px-3 text-xs"
                         >
-                          {wager}코인
-                        </button>
-                      );
-                    })}
+                          {topMatchDraftSaving ? '저장 중...' : '저장'}
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            void handleTopMatchResultSave();
+                          }}
+                          disabled={topMatchResultSaving || !canCompleteTopMatch}
+                          className="h-8 rounded-xl px-3 text-xs"
+                        >
+                          {topMatchResultSaving ? '완료 처리 중...' : '완료'}
+                        </Button>
+                      </div>
+                    )}
+
+                    {showBetCardForMatch && (
+                      <div className="mt-3 space-y-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-amber-900">코인 배팅</p>
+                            <p className="text-xs text-amber-800">
+                              기본 {DEFAULT_MATCH_WAGER}코인, 최대 {MAX_MATCH_WAGER}코인
+                            </p>
+                          </div>
+                          <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-amber-700">
+                            현재 {topMatchBet}코인
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          {Array.from({ length: MAX_MATCH_WAGER }, (_, index) => {
+                            const wager = index + 1;
+                            const isActive = topMatchBet === wager;
+                            return (
+                              <button
+                                key={wager}
+                                type="button"
+                                disabled={topMatchBetSaving || (profile?.coin_balance ?? 0) < wager}
+                                onClick={() => {
+                                  void handleTopMatchBetSave(wager);
+                                }}
+                                className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                                  isActive
+                                    ? 'bg-amber-500 text-white'
+                                    : 'border border-amber-300 bg-white text-amber-800 hover:bg-amber-100'
+                                } disabled:cursor-not-allowed disabled:opacity-40`}
+                              >
+                                {wager}코인
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-              {topMatchResult?.score && (
-                <div className="mt-3">
-                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                    저장됨 {topMatchResult.score}
-                  </span>
-                </div>
-              )}
-              {topMatchResult?.winner && (
-                <p className="mt-2 text-xs text-slate-600">
-                  결과: {topMatchResult.winner === 'team1' ? '왼쪽 팀 승리' : '오른쪽 팀 승리'}
-                  {typeof topMatchResult.total_losing_pool === 'number' && ` · 패자 총 배팅 ${topMatchResult.total_losing_pool}코인 분배`}
-                </p>
-              )}
-              {todayAssignedMatches.length > 1 && (
-                <p className="mt-3 text-xs text-slate-500">
-                  추가로 {todayAssignedMatches.length - 1}경기가 더 있습니다.
-                </p>
-              )}
+                );
+              })}
             </div>
           ) : (
             <div className="mt-4 rounded-[20px] bg-slate-50 px-4 py-5 text-sm text-slate-600">

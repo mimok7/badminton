@@ -162,6 +162,12 @@ export default function UserManagementClient({
                 if (result?.error) {
                     alert(`사용자 삭제 실패: ${result.error}`);
                 } else {
+                    setMemberList((prev) => prev.filter((item) => item.id !== user.id));
+                    router.refresh();
+                    if (result?.warning) {
+                        alert(`사용자가 삭제되었습니다. ${result.warning}`);
+                        return;
+                    }
                     alert('사용자가 성공적으로 삭제되었습니다.');
                 }
             });

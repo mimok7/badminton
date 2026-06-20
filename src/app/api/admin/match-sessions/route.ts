@@ -150,7 +150,7 @@ export async function POST(request: Request) {
       .insert({
         session_name: sessionName,
         total_matches: matches.length,
-        assigned_matches: matches.length,
+        assigned_matches: 0,
         session_date: sessionDate,
       })
       .select()
@@ -213,6 +213,17 @@ export async function POST(request: Request) {
       });
     }
 
+    const { data: activeCourts, error: activeCourtsError } = await adminContext.adminSupabase
+      .from('courts')
+      .select('id, name, location, order_index')
+      .eq('is_active', true)
+      .order('order_index', { ascending: true, nullsFirst: true })
+      .order('name', { ascending: true });
+
+    if (activeCourtsError) {
+      console.error('Admin active courts query error:', activeCourtsError);
+    }
+
     const { data: baseSchedules, error: baseSchedulesError } = await adminContext.adminSupabase
       .from('match_schedules')
       .select('match_date, scheduled_date, start_time, end_time, scheduled_time, court_number, location')
@@ -243,18 +254,34 @@ export async function POST(request: Request) {
           location: '클럽 코트',
         }];
 
+    const configuredCourts = (activeCourts || []).map((court, index) => ({
+      court_number: index + 1,
+      location: court.location || court.name || '클럽 코트',
+    }));
+
     const schedulePayload = (createdGeneratedMatches || []).map((generatedMatch, index) => {
       const template = scheduleTemplates[index % scheduleTemplates.length];
+      const displayTime = template.scheduled_time || template.start_time || null;
+      const configuredCourt = configuredCourts.length > 0
+        ? configuredCourts[index % configuredCourts.length]
+        : null;
+
       return {
         generated_match_id: generatedMatch.id,
         schedule_source: 'generated' as const,
         match_date: template.match_date || sessionDate,
         scheduled_date: template.scheduled_date || template.match_date || sessionDate,
-        start_time: template.start_time,
-        end_time: template.end_time,
-        scheduled_time: template.scheduled_time || template.start_time,
-        court_number: template.court_number ?? ((index % Math.max(1, scheduleTemplates.length)) + 1),
-        location: template.location || '클럽 코트',
+        // Generated schedules can share the same venue and session window.
+        // Keep the display time, but avoid reusing the recurring slot's
+        // start/end pair because match_schedules has a unique slot constraint.
+        start_time: null,
+        end_time: null,
+        scheduled_time: displayTime,
+        court_number:
+          configuredCourt?.court_number
+          ?? template.court_number
+          ?? ((index % Math.max(1, configuredCourts.length || scheduleTemplates.length)) + 1),
+        location: configuredCourt?.location || template.location || '클럽 코트',
         max_participants: 4,
         current_participants: 0,
         status: 'scheduled',
@@ -264,13 +291,30 @@ export async function POST(request: Request) {
       };
     });
 
+    let scheduledCount = 0;
+
     if (schedulePayload.length > 0) {
-      const { error: scheduleInsertError } = await adminContext.adminSupabase
+      const { data: insertedSchedules, error: scheduleInsertError } = await adminContext.adminSupabase
         .from('match_schedules')
-        .insert(schedulePayload);
+        .insert(schedulePayload)
+        .select('id');
 
       if (scheduleInsertError) {
         console.error('Admin generated schedule insert error:', scheduleInsertError);
+        await adminContext.adminSupabase.from('generated_matches').delete().eq('session_id', sessionData.id);
+        await adminContext.adminSupabase.from('match_sessions').delete().eq('id', sessionData.id);
+        return NextResponse.json({ error: 'Failed to create generated schedules' }, { status: 500 });
+      }
+
+      const insertedCount = insertedSchedules?.length || 0;
+      scheduledCount = insertedCount;
+      const { error: sessionUpdateError } = await adminContext.adminSupabase
+        .from('match_sessions')
+        .update({ assigned_matches: insertedCount })
+        .eq('id', sessionData.id);
+
+      if (sessionUpdateError) {
+        console.error('Admin match session assigned count update error:', sessionUpdateError);
       }
     }
 
@@ -279,7 +323,7 @@ export async function POST(request: Request) {
       session: sessionData,
       session_name: sessionName,
       match_count: matches.length,
-      scheduled_count: schedulePayload.length,
+      scheduled_count: scheduledCount,
     });
   } catch (error) {
     console.error('Admin match sessions POST unexpected error:', error);

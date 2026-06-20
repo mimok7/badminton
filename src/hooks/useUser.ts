@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabase';
-import { type AppProfile, getRoleFromUser, getProfileByUserId, isAdminRole } from '@/lib/auth';
+import { type AppProfile, getRoleFromUser, getProfileByUserId, isAdminOrManagerRole } from '@/lib/auth';
 
 type Profile = AppProfile;
 
@@ -139,7 +139,7 @@ export function useUser() {
 
   // 파생 상태: 관리자 여부 (메모이제이션)
   const isAdmin = useMemo(
-    () => isAdminRole(profile?.role) || isAdminRole(getRoleFromUser(user)),
+    () => isAdminOrManagerRole(profile?.role) || isAdminOrManagerRole(getRoleFromUser(user)),
     [profile?.role, user]
   );
 

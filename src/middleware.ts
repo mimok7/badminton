@@ -7,7 +7,7 @@ import {
   DEFAULT_USER_REDIRECT,
   matchesRoutePrefix,
 } from '@/lib/route-access';
-import { getUserRole, isAdminRole } from '@/lib/auth';
+import { getUserRole, isAdminOrManagerRole } from '@/lib/auth';
 
 import type { NextRequest } from 'next/server';
 
@@ -68,7 +68,7 @@ export async function middleware(req: NextRequest) {
     if (user && isAuthRoute) {
       const role = await getUserRole(supabase, user);
       const url = req.nextUrl.clone();
-      url.pathname = isAdminRole(role) ? DEFAULT_ADMIN_REDIRECT : DEFAULT_USER_REDIRECT;
+      url.pathname = isAdminOrManagerRole(role) ? DEFAULT_ADMIN_REDIRECT : DEFAULT_USER_REDIRECT;
       return NextResponse.redirect(url);
     }
 
@@ -85,7 +85,7 @@ export async function middleware(req: NextRequest) {
 
     const role = await getUserRole(supabase, user);
 
-    if (!isAdminRole(role)) {
+    if (!isAdminOrManagerRole(role)) {
       const url = req.nextUrl.clone();
       url.pathname = '/unauthorized';
       return NextResponse.redirect(url);

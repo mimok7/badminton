@@ -118,3 +118,32 @@
  ✓ Compiled in 819ms (394 modules)
  GET /admin/players-today 200 in 90ms
  GET /manifest.webmanifest 200 in 66ms
+ GET /api/admin/level-info 200 in 282ms
+ GET /api/admin/level-info 200 in 401ms
+ GET /api/scheduled-matches?date=2026-06-20 200 in 235ms
+ ○ Compiling /admin/tournament-matches ...
+ ✓ Compiled /admin/tournament-matches in 1303ms (1044 modules)
+ GET /admin/tournament-matches 200 in 1602ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 1095ms (1052 modules)
+ GET /manifest.webmanifest 200 in 1266ms
+ GET /api/admin/level-info 200 in 1324ms
+ GET /api/admin/level-info 200 in 1403ms
+ GET /api/admin/tournaments 200 in 1512ms
+ GET /api/admin/team-assignments 200 in 1520ms
+ GET /api/admin/tournaments 200 in 147ms
+ GET /api/admin/team-assignments 200 in 162ms
+ GET /api/admin/tournaments 200 in 209ms
+ GET /api/admin/tournaments 200 in 180ms
+ GET /manifest.webmanifest 200 in 187ms
+ DELETE /api/admin/team-assignments 200 in 176ms
+ GET /api/admin/team-assignments 200 in 153ms
+ GET /api/admin/team-assignments 200 in 180ms
+ ○ Compiling /admin/tournament-bracket ...
+ ✓ Compiled /admin/tournament-bracket in 1488ms (1055 modules)
+ GET /admin/tournament-bracket?tournament=58b824e3-b705-4855-8431-960bdb331b2d 200 in 1764ms
+ ○ Compiling /api/scheduled-matches ...
+ ✓ Compiled /api/scheduled-matches in 658ms (674 modules)
+ GET /manifest.webmanifest 200 in 1055ms
+ GET /api/scheduled-matches?date=2026-06-20 200 in 1275ms
+ GET /api/scheduled-matches?date=2026-06-20 200 in 283ms

@@ -67,6 +67,14 @@ interface MemberOption {
   assignmentLabel: string;
 }
 
+interface AssignableProfile {
+  id: string;
+  user_id?: string | null;
+  username: string | null;
+  full_name: string | null;
+  skill_level: string | null;
+}
+
 const TEAM_TYPES = new Set(['2teams', '3teams', '4teams', 'pairs']);
 
 function normalizePlayerList(raw: unknown): string[] {
@@ -331,6 +339,50 @@ export default function TeamManagementPage() {
     }
   };
 
+  const fetchAssignmentLabelsByUserIds = async (userIds: string[]) => {
+    const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
+
+    if (uniqueUserIds.length === 0) {
+      return [];
+    }
+
+    const profileMatchFilter = uniqueUserIds
+      .map((userId) => `id.eq.${userId},user_id.eq.${userId}`)
+      .join(',');
+
+    const { data: profilesData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, user_id, username, full_name, skill_level')
+      .or(profileMatchFilter);
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    const profileMap = new Map<string, AssignableProfile>();
+
+    (profilesData || []).forEach((profile) => {
+      const normalizedProfile: AssignableProfile = {
+        id: profile.id,
+        user_id: profile.user_id,
+        username: profile.username,
+        full_name: profile.full_name,
+        skill_level: profile.skill_level,
+      };
+
+      profileMap.set(profile.id, normalizedProfile);
+
+      if (profile.user_id) {
+        profileMap.set(profile.user_id, normalizedProfile);
+      }
+    });
+
+    return uniqueUserIds
+      .map((userId) => profileMap.get(userId))
+      .filter((profile): profile is AssignableProfile => Boolean(profile))
+      .map(formatAssignmentLabel);
+  };
+
   // 오늘 출석한 선수들 조회
   const fetchTodayPlayers = async () => {
     try {
@@ -355,18 +407,14 @@ export default function TeamManagementPage() {
           return;
         }
 
-        const { data: profilesData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, username, full_name, skill_level')
-          .in('id', userIds);
-
-        if (profileError) {
+        let names: string[] = [];
+        try {
+          names = await fetchAssignmentLabelsByUserIds(userIds);
+        } catch (profileError) {
           console.error('선택 경기 프로필 조회 오류:', profileError);
           setTodayPlayers([]);
           return;
         }
-
-        const names = (profilesData || []).map(formatAssignmentLabel);
 
         setTodayPlayers(names);
         return;
@@ -1857,7 +1905,7 @@ export default function TeamManagementPage() {
 
   return (
     <div className="w-full px-2 py-2 sm:p-6">
-      <h1 className="mb-3 text-center text-xl font-bold sm:mb-4 sm:text-3xl">대회 팀 관리</h1>
+      <h1 className="mb-3 text-center text-xl font-bold sm:mb-4 sm:text-3xl">경기 팀 관리</h1>
 
       {/* 스케줄 선택 & 팀 구성 방식 - 한 행으로 배치 */}
       <div className="mb-4 rounded-lg bg-white p-3 shadow-md sm:mb-6 sm:p-6">

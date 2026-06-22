@@ -9,7 +9,7 @@ import MatchGenerationControls from '@/app/(admin)/players/components/MatchGener
 import GeneratedMatchesList from '@/app/(admin)/players/components/GeneratedMatchesList';
 import { ExtendedPlayer, MatchSession } from '@/app/(admin)/players/types';
 import { getSupabaseClient } from '@/lib/supabase';
-import { fetchTodayPlayers, fetchRegisteredPlayersForDate, calculatePlayerGameCounts, normalizeLevel } from '@/app/(admin)/players/utils';
+import { fetchTodayPlayers, fetchRegisteredPlayersForDate, calculatePlayerGameCounts, fetchProfilesByUserIds, normalizeLevel } from '@/app/(admin)/players/utils';
 import { Match } from '@/types';
 import { getKoreaDate } from '@/lib/date';
 import { getAdminLevelDisplay } from '@/lib/level-display';
@@ -262,30 +262,27 @@ export default function PlayersTodayPage() {
       let attendanceOnlyPlayers: ExtendedPlayer[] = [];
 
       if (attendanceOnlyUserIds.length > 0) {
-        const { data: profiles, error: profileErr } = await supabase
-          .from('profiles')
-          .select('id, username, full_name, skill_level, gender')
-          .in('id', attendanceOnlyUserIds);
-
-        if (profileErr) {
-          console.error('출석 전용 사용자 프로필 조회 오류:', profileErr);
-        } else {
+        try {
+          const profiles = await fetchProfilesByUserIds(attendanceOnlyUserIds);
           attendanceOnlyPlayers = (profiles || []).map((profile: any) => {
             const raw = (profile.skill_level || '').toString().toLowerCase();
             const normalized = normalizeLevel('', raw);
             const label = getAdminLevelDisplay(normalized);
-            const name = profile.full_name || profile.username || `선수-${String(profile.id).slice(0, 4)}`;
+            const playerId = profile.user_id || profile.id;
+            const name = profile.full_name || profile.username || `선수-${String(playerId).slice(0, 4)}`;
             return {
-              id: profile.id,
+              id: playerId,
               name,
               skill_level: normalized,
               skill_label: label,
               score: getLevelScoreFromCode(currentLevelInfoMap, normalized, 0),
               gender: profile.gender || '',
               skill_code: '',
-              status: (attendanceMap.get(profile.id) || 'present') as ExtendedPlayer['status'],
+              status: (attendanceMap.get(playerId) || 'present') as ExtendedPlayer['status'],
             } as ExtendedPlayer;
           });
+        } catch (profileErr) {
+          console.error('출석 전용 사용자 프로필 조회 오류:', profileErr);
         }
       }
 
@@ -547,20 +544,16 @@ export default function PlayersTodayPage() {
         )
       );
 
-      const { data: profileRows, error: profileRowsError } = profileIds.length > 0
-        ? await supabase
-            .from('profiles')
-            .select('id, skill_level')
-            .in('id', profileIds)
-        : { data: [], error: null };
+      const profileRows = profileIds.length > 0
+        ? await fetchProfilesByUserIds(profileIds)
+        : [];
 
-      if (profileRowsError) {
-        throw profileRowsError;
-      }
-
-      const profileSkillById = new Map(
-        (profileRows || []).map((row: any) => [row.id, normalizeLevel('', row.skill_level || 'e2')])
-      );
+      const profileSkillById = new Map<string, string>();
+      (profileRows || []).forEach((row: any) => {
+        const normalizedLevel = normalizeLevel('', row.skill_level || 'e2');
+        if (row.id) profileSkillById.set(row.id, normalizedLevel);
+        if (row.user_id) profileSkillById.set(row.user_id, normalizedLevel);
+      });
 
       const nextAssignedScheduleDetails = scheduledMatches.reduce<Record<string, AssignedScheduleDetail>>((acc, match) => {
         if (match.generated_match_id != null) {

@@ -61,7 +61,7 @@ export const fetchProfilesByUserIds = async (userIds: string[]) => {
     // 대시보드에서 성공했던 방식 사용: 전체 프로필 조회 후 필터링
     const { data: allProfilesData, error: allProfilesError } = await supabase
       .from('profiles')
-      .select('id, username, full_name, skill_level, gender, role');
+      .select('id, user_id, username, full_name, skill_level, gender, role');
       
     if (allProfilesError) {
       return [];
@@ -73,7 +73,7 @@ export const fetchProfilesByUserIds = async (userIds: string[]) => {
     
     // 요청된 사용자 ID들과 일치하는 프로필만 필터링
     const matchingProfiles = allProfilesData.filter(profile => 
-      userIds.includes(profile.id)
+      userIds.includes(profile.id) || (profile.user_id ? userIds.includes(profile.user_id) : false)
     );
     
     return matchingProfiles;
@@ -161,16 +161,12 @@ export const fetchGeneratedMatchesBySession = async (sessionId: string): Promise
     )
   );
 
-  const { data: profiles, error: profilesError } = await supabase
-    .from('profiles')
-    .select('id, username, full_name, skill_level')
-    .in('id', profileIds);
-
-  if (profilesError) {
-    throw profilesError;
-  }
-
-  const profileMap = new Map((profiles || []).map((profile) => [profile.id, profile]));
+  const profiles = await fetchProfilesByUserIds(profileIds);
+  const profileMap = new Map<string, any>();
+  (profiles || []).forEach((profile: any) => {
+    if (profile.id) profileMap.set(profile.id, profile);
+    if (profile.user_id) profileMap.set(profile.user_id, profile);
+  });
 
   const { data: schedules, error: schedulesError } = await supabase
     .from('match_schedules')
@@ -412,15 +408,7 @@ export const fetchRegisteredPlayersForDate = async (date: string): Promise<Exten
     if (userIds.length === 0) return [];
 
     // 3) 프로필 조회 (id 기준 매칭)
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, username, full_name, skill_level, gender')
-      .in('id', userIds);
-
-    if (profilesError) {
-      console.error('❌ 프로필 조회 오류:', profilesError);
-      return [];
-    }
+    const profiles = await fetchProfilesByUserIds(userIds);
 
     if (!profiles || profiles.length === 0) {
       console.log('참가자들의 프로필을 찾을 수 없습니다.');
@@ -434,7 +422,7 @@ export const fetchRegisteredPlayersForDate = async (date: string): Promise<Exten
       const label = getAdminLevelDisplay(normalized);
       const name = profile.full_name || profile.username || `선수-${String(profile.id).slice(0, 4)}`;
       return {
-        id: profile.id,
+        id: profile.user_id || profile.id,
         name,
         skill_level: normalized,
         skill_label: label,

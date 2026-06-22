@@ -14,7 +14,7 @@ interface MatchAssignmentNotification {
 }
 
 export default function MatchNotifications() {
-  const { user } = useUser();
+  const { user, profile } = useUser();
   const [notifications, setNotifications] = useState<MatchAssignmentNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const supabase = getSupabaseClient();
@@ -25,7 +25,8 @@ export default function MatchNotifications() {
     const checkForNewMatches = async () => {
       try {
         const today = new Date().toISOString().slice(0, 10);
-        const myProfile = await getProfileByUserId(supabase, user.id);
+        // useUser 훅에서 캐시되어 제공받는 profile 정보를 재사용하여 30초마다 발생하는 DB 중복 조회를 방지합니다.
+        const myProfile = profile;
 
         if (!myProfile?.id) {
           return;
@@ -117,7 +118,7 @@ export default function MatchNotifications() {
     const interval = setInterval(checkForNewMatches, 30000);
 
     return () => clearInterval(interval);
-  }, [user, supabase]);
+  }, [user, profile, supabase]);
 
   const markAsRead = (notificationId: string) => {
     setNotifications(prev =>

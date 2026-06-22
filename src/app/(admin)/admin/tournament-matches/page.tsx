@@ -737,8 +737,8 @@ export default function TournamentMatchesPage() {
       }
       
       // 경기 타입에 따른 대회 제목 생성
-      const matchTypeLabel = matchType === 'level_based' ? '레벨별' : matchType === 'mixed_doubles' ? '혼복' : '랜덤';
-      const tournamentTitle = `라뚱 대회 ${tournamentDate} ${roundNumber}회차 (${matchTypeLabel})`;
+      const matchTypeLabel = matchType === 'level_based' ? '레벨' : matchType === 'mixed_doubles' ? '혼복' : '랜덤';
+      const tournamentTitle = `대회경기 ${tournamentDate} ${roundNumber}회차 ${matchTypeLabel}`;
 
       const response = await fetch('/api/admin/tournaments', {
         method: 'POST',
@@ -1105,7 +1105,7 @@ export default function TournamentMatchesPage() {
         if (settingsChanged) {
           showGenerationNotice(
             'success',
-            `설정 변경으로 대진표를 새로 배정했습니다. 경기방식 ${matchType === 'level_based' ? '레벨별' : matchType === 'mixed_doubles' ? '혼복' : '랜덤'}, 회차 ${roundNumber}, 코트 ${numberOfCourts}개, 총 ${matches.length}경기입니다.`
+            `설정 변경으로 대진표를 새로 배정했습니다. 경기방식 ${matchType === 'level_based' ? '레벨' : matchType === 'mixed_doubles' ? '혼복' : '랜덤'}, 회차 ${roundNumber}, 코트 ${numberOfCourts}개, 총 ${matches.length}경기입니다.`
           );
         }
 
@@ -1327,7 +1327,7 @@ export default function TournamentMatchesPage() {
                 </div>
 
                 <div className="mt-3 text-xs text-blue-800 sm:mt-4 sm:text-sm">
-                  💡 대회명: <strong>라뚱 대회 {tournamentDate} {roundNumber}회차 ({matchType === 'level_based' ? '레벨별' : matchType === 'mixed_doubles' ? '혼복' : '랜덤'})</strong>
+                  💡 대회명: <strong>대회경기 {tournamentDate} {roundNumber}회차 {matchType === 'level_based' ? '레벨' : matchType === 'mixed_doubles' ? '혼복' : '랜덤'}</strong>
                 </div>
               </div>
 
@@ -1388,7 +1388,7 @@ export default function TournamentMatchesPage() {
                       className="mr-3"
                     />
                     <div>
-                      <div className="font-semibold text-gray-900">🎯 레벨별</div>
+                      <div className="font-semibold text-gray-900">🎯 레벨</div>
                       <div className="text-xs text-gray-600">실력별 그룹 매칭</div>
                     </div>
                   </label>

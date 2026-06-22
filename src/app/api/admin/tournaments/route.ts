@@ -6,9 +6,16 @@ import type { Player } from '@/types';
 
 type TeamAssignmentRow = {
   id: string;
+  assignment_date: string;
+  round_number: number;
+  title: string;
   team_type: string | null;
   racket_team: unknown;
   shuttle_team: unknown;
+  team1: unknown;
+  team2: unknown;
+  team3: unknown;
+  team4: unknown;
   pairs_data: unknown;
 };
 
@@ -43,7 +50,7 @@ async function recoverTournamentMatches(
 ) {
   const { data: assignment, error: assignmentError } = await adminSupabase
     .from('team_assignments')
-    .select('id, team_type, racket_team, shuttle_team, pairs_data')
+    .select('id, assignment_date, round_number, title, team_type, racket_team, shuttle_team, team1, team2, team3, team4, pairs_data')
     .eq('id', tournament.team_assignment_id)
     .maybeSingle();
 
@@ -121,6 +128,27 @@ async function recoverTournamentMatches(
   return { recovered: true, error: null };
 }
 
+async function fetchTeamAssignment(
+  adminSupabase: ReturnType<typeof getSupabaseAdminClient>,
+  assignmentId: string | null | undefined
+) {
+  if (!assignmentId) {
+    return null;
+  }
+
+  const { data, error } = await adminSupabase
+    .from('team_assignments')
+    .select('id, assignment_date, round_number, title, team_type, racket_team, shuttle_team, team1, team2, team3, team4, pairs_data')
+    .eq('id', assignmentId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+}
+
 async function requireAdminOrManager() {
   const supabase = await getSupabaseServerClient();
   const adminSupabase = getSupabaseAdminClient();
@@ -157,7 +185,9 @@ export async function GET(request: Request) {
     const { data, error } = await adminContext.adminSupabase
       .from('tournaments')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('round_number', { ascending: true })
+      .order('tournament_date', { ascending: true })
+      .order('created_at', { ascending: true });
 
     if (error) {
       if (error.code === '42P01') {
@@ -184,9 +214,13 @@ export async function GET(request: Request) {
         tournaments[0] ||
         null;
       const targetTournamentId = selectedTournament?.id || null;
+      const selectedTeamAssignment = await fetchTeamAssignment(
+        adminContext.adminSupabase,
+        selectedTournament?.team_assignment_id
+      );
 
       if (!targetTournamentId) {
-        return NextResponse.json({ tournaments, selectedTournament: null, matches: [] });
+        return NextResponse.json({ tournaments, selectedTournament: null, selectedTeamAssignment: null, matches: [] });
       }
 
       const { data: matchesData, error: matchesError } = await adminContext.adminSupabase
@@ -245,6 +279,7 @@ export async function GET(request: Request) {
       return NextResponse.json({
         tournaments,
         selectedTournament,
+        selectedTeamAssignment,
         matches: normalizedMatches,
       });
     }

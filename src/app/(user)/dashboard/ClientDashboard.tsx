@@ -57,8 +57,8 @@ const quickLinks = [
   },
   {
     href: '/tournament-bracket',
-    title: '대진표',
-    description: '토너먼트 대진표를 확인합니다.',
+    title: '대회 대진표',
+    description: '대회 대진표를 확인합니다.',
     icon: Trophy,
   },
 ];

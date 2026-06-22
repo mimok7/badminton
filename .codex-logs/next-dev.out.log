@@ -509,3 +509,19 @@
  ✓ Compiled in 743ms (396 modules)
  GET /admin/tournament-bracket 200 in 116ms
  GET /manifest.webmanifest 200 in 67ms
+ ✓ Compiled in 1198ms (396 modules)
+ GET /admin/tournament-bracket 200 in 123ms
+ GET /manifest.webmanifest 200 in 195ms
+ ✓ Compiled in 2.3s (396 modules)
+ GET /admin/tournament-bracket 200 in 389ms
+ GET /manifest.webmanifest 200 in 309ms
+ ○ Compiling / ...
+ ✓ Compiled / in 30.9s (948 modules)
+ GET / 307 in 39979ms
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 12.9s (1295 modules)
+ GET /login 500 in 14595ms
+ ✓ Compiled in 5.4s (549 modules)
+ ✓ Compiled in 2.3s (549 modules)
+ ✓ Compiled in 24.8s (549 modules)
+ ✓ Compiled in 4.6s (549 modules)

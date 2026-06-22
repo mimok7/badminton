@@ -736,7 +736,14 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   };
 
   const getPlayerStats = () => {
-    const playerStats: Record<string, { matches: number; wins: number; losses: number; draws: number }> = {};
+    const playerStats: Record<string, { matches: number; wins: number; losses: number; draws: number; teamLabel: string }> = {};
+    const playerToTeamLabel = new Map<string, string>();
+
+    if (selectedTournamentAssignment) {
+      getAssignmentTeamGroups(selectedTournamentAssignment).forEach((group) => {
+        group.players.forEach((player) => playerToTeamLabel.set(player.trim(), group.label));
+      });
+    }
 
     matches.forEach((match) => {
       if (!isResultMatch(match)) return;
@@ -745,7 +752,13 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
 
       match.team1.forEach((player) => {
         if (!playerStats[player]) {
-          playerStats[player] = { matches: 0, wins: 0, losses: 0, draws: 0 };
+          playerStats[player] = {
+            matches: 0,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            teamLabel: playerToTeamLabel.get(player.trim()) || '미지정',
+          };
         }
         playerStats[player].matches += 1;
         if (resolvedWinner === 'team1') playerStats[player].wins += 1;
@@ -755,7 +768,13 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
 
       match.team2.forEach((player) => {
         if (!playerStats[player]) {
-          playerStats[player] = { matches: 0, wins: 0, losses: 0, draws: 0 };
+          playerStats[player] = {
+            matches: 0,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            teamLabel: playerToTeamLabel.get(player.trim()) || '미지정',
+          };
         }
         playerStats[player].matches += 1;
         if (resolvedWinner === 'team2') playerStats[player].wins += 1;
@@ -843,10 +862,14 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     return teamStats;
   };
 
-  const playerStatsEntries = Object.entries(getPlayerStats()).sort(([, left], [, right]) => {
+  const playerStatsEntries = Object.entries(getPlayerStats()).sort(([leftName, left], [rightName, right]) => {
     const leftWinRate = left.matches > 0 ? left.wins / left.matches : 0;
     const rightWinRate = right.matches > 0 ? right.wins / right.matches : 0;
-    return rightWinRate - leftWinRate;
+    if (rightWinRate !== leftWinRate) {
+      return rightWinRate - leftWinRate;
+    }
+
+    return leftName.localeCompare(rightName, 'ko-KR');
   });
   const teamStatsEntries = Object.entries(getTeamStats()).sort(([, left], [, right]) => {
     const leftWinRate = left.matches > 0 ? left.wins / left.matches : 0;
@@ -1214,17 +1237,17 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                               <h3 className="text-base font-semibold text-slate-900">팀 구성별 결과</h3>
                               <span className="text-xs text-slate-500">{teamStatsEntries.length}개 팀</span>
                             </div>
-                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                               {teamStatsEntries.map(([teamName, stats]) => (
-                                <article key={teamName} className="rounded-[24px] border border-blue-100 bg-blue-50/40 px-4 py-4 shadow-sm">
+                                <article key={teamName} className="rounded-[24px] border border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 px-5 py-5 shadow-sm">
                                   <div className="flex items-start justify-between gap-3">
                                     <div>
-                                      <p className="text-base font-semibold text-slate-900">{teamName}</p>
-                                      <p className="mt-1 text-xs text-slate-500">승률 {stats.matches > 0 ? `${((stats.wins / stats.matches) * 100).toFixed(1)}%` : '0%'}</p>
+                                      <p className="text-lg font-semibold text-slate-900">{teamName}</p>
+                                      <p className="mt-1 text-sm text-slate-600">승률 {stats.matches > 0 ? `${((stats.wins / stats.matches) * 100).toFixed(1)}%` : '0%'}</p>
                                     </div>
-                                    <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm">{stats.matches}경기</div>
+                                    <div className="rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 shadow-sm">{stats.matches}경기</div>
                                   </div>
-                                  <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+                                  <div className="mt-5 grid grid-cols-3 gap-2 text-center text-sm">
                                     <div className="rounded-2xl bg-emerald-50 px-2 py-3">
                                       <p className="text-[11px] text-emerald-700">승</p>
                                       <p className="mt-1 font-semibold text-emerald-700">{stats.wins}</p>
@@ -1250,17 +1273,22 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                               <h3 className="text-base font-semibold text-slate-900">선수별 결과</h3>
                               <span className="text-xs text-slate-500">{playerStatsEntries.length}명</span>
                             </div>
-                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
                               {playerStatsEntries.map(([player, stats]) => (
-                                <article key={player} className="rounded-[24px] border border-slate-200 bg-slate-50/60 px-4 py-4 shadow-sm">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <p className="text-base font-semibold text-slate-900">{player}</p>
+                                <article key={player} className="rounded-[22px] border border-slate-200 bg-slate-50/60 px-3 py-3 shadow-sm">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <p className="text-base font-semibold text-slate-900">{player}</p>
+                                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 shadow-sm">
+                                          {stats.teamLabel}
+                                        </span>
+                                      </div>
                                       <p className="mt-1 text-xs text-slate-500">승률 {stats.matches > 0 ? `${((stats.wins / stats.matches) * 100).toFixed(1)}%` : '0%'}</p>
                                     </div>
-                                    <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm">{stats.matches}경기</div>
+                                    <div className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm">{stats.matches}경기</div>
                                   </div>
-                                  <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+                                  <div className="mt-3 grid grid-cols-3 gap-1.5 text-center text-sm">
                                     <div className="rounded-2xl bg-emerald-50 px-2 py-3">
                                       <p className="text-[11px] text-emerald-700">승</p>
                                       <p className="mt-1 font-semibold text-emerald-700">{stats.wins}</p>

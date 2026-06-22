@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS tournaments (
 CREATE TABLE IF NOT EXISTS tournament_matches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tournament_id UUID NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
-  round INTEGER NOT NULL, -- 라운드 (1, 2, 3...)
+  round INTEGER NOT NULL, -- 대진 내부 라운드 (1, 2, 3...)
   match_number INTEGER NOT NULL, -- 경기 번호
   team1 TEXT[] NOT NULL, -- 팀1 선수 목록
   team2 TEXT[] NOT NULL, -- 팀2 선수 목록
@@ -50,8 +50,8 @@ COMMENT ON COLUMN tournaments.total_teams IS '총 참가 팀 수';
 COMMENT ON COLUMN tournaments.matches_per_player IS '1인당 경기수';
 
 COMMENT ON COLUMN tournament_matches.tournament_id IS '대회 ID';
-COMMENT ON COLUMN tournament_matches.round IS '라운드 번호';
-COMMENT ON COLUMN tournament_matches.match_number IS '경기 번호';
+COMMENT ON COLUMN tournament_matches.round IS '대진 내부 라운드 번호 (대회 회차와 별개)';
+COMMENT ON COLUMN tournament_matches.match_number IS '대회 내 경기 순번';
 COMMENT ON COLUMN tournament_matches.team1 IS '팀1 선수 목록';
 COMMENT ON COLUMN tournament_matches.team2 IS '팀2 선수 목록';
 COMMENT ON COLUMN tournament_matches.court IS '코트 번호';

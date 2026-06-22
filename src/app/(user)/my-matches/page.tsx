@@ -37,7 +37,7 @@ export default function TodayMatches() {
 
   if (userLoading || loading) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-3xl mx-auto p-6">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -62,7 +62,7 @@ export default function TodayMatches() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto p-6">
+      <div className="max-w-3xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">🏆 오늘의 경기 일정</h1>

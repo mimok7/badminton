@@ -557,20 +557,20 @@ function MatchResultsPage() {
           </div>
         </div>
 
-        {/* 배정된 경기 목록 */}
+        {/* 배정된 게임 목록 */}
         <div className="rounded-lg bg-white shadow-sm">
           <div className="border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
-            <h3 className="text-base font-medium text-gray-900 sm:text-lg">배정된 경기 목록</h3>
-            <p className="mt-1 text-xs text-gray-500 sm:text-sm">총 {assignedMatches.length}개의 배정된 경기</p>
+            <h3 className="text-base font-medium text-gray-900 sm:text-lg">배정된 게임 목록</h3>
+            <p className="mt-1 text-xs text-gray-500 sm:text-sm">총 {assignedMatches.length}개의 배정된 게임</p>
           </div>
 
           {assignedMatches.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-4xl mb-4">🤷‍♂️</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">배정된 경기가 없습니다</h3>
-              <p className="text-gray-500 mb-4">경기를 생성하고 배정해보세요</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">배정된 게임이 없습니다</h3>
+              <p className="text-gray-500 mb-4">게임을 생성하고 배정해보세요</p>
               <Link href="/players">
-                <Button>경기 생성하러 가기</Button>
+                <Button>게임 생성하러 가기</Button>
               </Link>
             </div>
           ) : (

@@ -975,7 +975,7 @@ export default function PlayersTodayPage() {
   };
 
   const deleteTodaySession = async (sessionId: string) => {
-    if (!confirm('이 배정된 경기 세션을 삭제하시겠습니까? 세션에 포함된 경기들도 함께 삭제됩니다.')) {
+    if (!confirm('이 배정된 게임 세션을 삭제하시겠습니까? 세션에 포함된 게임들도 함께 삭제됩니다.')) {
       return;
     }
 
@@ -1047,7 +1047,7 @@ export default function PlayersTodayPage() {
       return;
     }
 
-    if (!confirm(`오늘 배정된 세션 ${sessionIdsToDelete.length}개를 모두 삭제하시겠습니까? 세션 내 경기들도 함께 삭제됩니다.`)) {
+    if (!confirm(`오늘 배정된 세션 ${sessionIdsToDelete.length}개를 모두 삭제하시겠습니까? 세션 내 게임들도 함께 삭제됩니다.`)) {
       return;
     }
 
@@ -1123,7 +1123,7 @@ export default function PlayersTodayPage() {
   };
 
   const handleDirectAssign = async () => {
-    if (matches.length === 0) { alert('배정할 경기가 없습니다.'); return; }
+    if (matches.length === 0) { alert('배정할 게임이 없습니다.'); return; }
     const today = getTodayLocal();
     setLoading(true);
     try {
@@ -1146,7 +1146,7 @@ export default function PlayersTodayPage() {
       }
 
       alert(
-        `✅ ${matches.length}개 경기가 오늘 경기로 배정되었습니다.\n` +
+        `✅ ${matches.length}개 게임이 오늘 경기로 배정되었습니다.\n` +
         `세션: ${payload?.session_name || '생성 완료'}\n` +
         `사용자 화면 노출용 일정 연결: ${payload?.scheduled_count ?? 0}건`
       );
@@ -1163,7 +1163,7 @@ export default function PlayersTodayPage() {
   return (
     <RequireAdmin>
       <div className="px-2 py-2 sm:p-6">
-        <h1 className="mb-3 text-lg font-bold sm:mb-4 sm:text-xl">오늘 경기 생성/배정</h1>
+        <h1 className="mb-3 text-lg font-bold sm:mb-4 sm:text-xl">오늘 게임 생성/배정</h1>
         <AttendanceStatus
           todayPlayers={effectiveTodayPlayers}
           onStatusChange={handleAttendanceStatusChange}

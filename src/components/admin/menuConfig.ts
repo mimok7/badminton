@@ -6,9 +6,9 @@ export const SECTIONS: MenuSection[] = [
     title: '🏸 경기 관리',
     items: [
       { label: '경기 일정', href: '/match-schedule', icon: '📅' },
-      { label: '오늘 경기', href: '/admin/players-today', icon: '⚡' },
-      { label: '예정 경기', href: '/admin/players-scheduled', icon: '⏳' },
-      { label: '경기 결과', href: '/match-results', icon: '🏆' },
+      { label: '오늘 게임', href: '/admin/players-today', icon: '⚡' },
+      { label: '예정 게임', href: '/admin/players-scheduled', icon: '⏳' },
+      { label: '게임 결과', href: '/match-results', icon: '🏆' },
     ],
     color: 'blue',
   },

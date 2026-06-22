@@ -63,25 +63,34 @@ async function getTodayChallengePool(adminSupabase: ReturnType<typeof getSupabas
     };
   }
 
-  const { data: activeSchedules, error: activeSchedulesError } = await adminSupabase
+  const { data: assignedSchedules, error: assignedSchedulesError } = await adminSupabase
     .from('match_schedules')
-    .select('id')
+    .select('id, generated_match_id, status')
     .eq('match_date', today)
-    .eq('status', 'in_progress');
+    .in('status', ['scheduled', 'in_progress']);
 
-  if (activeSchedulesError) {
-    throw new Error(activeSchedulesError.message);
+  if (assignedSchedulesError) {
+    throw new Error(assignedSchedulesError.message);
   }
 
-  const activeScheduleIds = (activeSchedules || []).map((schedule) => schedule.id);
+  const assignedScheduleIds = (assignedSchedules || [])
+    .map((schedule) => schedule.id)
+    .filter((value): value is string => Boolean(value));
+  const assignedGeneratedMatchIds = Array.from(
+    new Set(
+      (assignedSchedules || [])
+        .map((schedule) => schedule.generated_match_id)
+        .filter((value): value is number => typeof value === 'number'),
+    ),
+  );
 
   let blockedUserIds = new Set<string>();
 
-  if (activeScheduleIds.length > 0) {
+  if (assignedScheduleIds.length > 0) {
     const { data: activeParticipants, error: participantsError } = await adminSupabase
       .from('match_participants')
       .select('user_id')
-      .in('match_schedule_id', activeScheduleIds)
+      .in('match_schedule_id', assignedScheduleIds)
       .in('status', ['registered', 'attended']);
 
     if (participantsError) {
@@ -91,6 +100,28 @@ async function getTodayChallengePool(adminSupabase: ReturnType<typeof getSupabas
     blockedUserIds = new Set(
       (activeParticipants || []).map((participant) => participant.user_id).filter((value): value is string => Boolean(value)),
     );
+  }
+
+  if (assignedGeneratedMatchIds.length > 0) {
+    const { data: generatedMatches, error: generatedMatchesError } = await adminSupabase
+      .from('generated_matches')
+      .select('team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id')
+      .in('id', assignedGeneratedMatchIds);
+
+    if (generatedMatchesError) {
+      throw new Error(generatedMatchesError.message);
+    }
+
+    (generatedMatches || []).forEach((match) => {
+      [
+        match.team1_player1_id,
+        match.team1_player2_id,
+        match.team2_player1_id,
+        match.team2_player2_id,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .forEach((value) => blockedUserIds.add(value));
+    });
   }
 
   const { data: challengeRows, error: challengeRowsError } = await adminSupabase
@@ -307,7 +338,7 @@ export async function GET() {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '경기 제안 데이터를 불러오지 못했습니다.' },
+      { error: error instanceof Error ? error.message : '게임 제안 데이터를 불러오지 못했습니다.' },
       { status: 500 },
     );
   }
@@ -355,7 +386,7 @@ export async function POST(request: Request) {
 
     if (!eligibilityMap.has(currentProfile.id)) {
       return NextResponse.json(
-        { error: '현재 회원님은 아직 대기/진행중 경기가 있어 경기 제안을 할 수 없습니다.' },
+        { error: '현재 회원님은 아직 대기/진행중 게임이 있어 게임 제안을 할 수 없습니다.' },
         { status: 400 },
       );
     }
@@ -377,7 +408,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (existingChallenge) {
-      return NextResponse.json({ error: '같은 구성의 대기 중인 경기 제안이 이미 있습니다.' }, { status: 400 });
+      return NextResponse.json({ error: '같은 구성의 대기 중인 게임 제안이 이미 있습니다.' }, { status: 400 });
     }
 
     const { data: insertedChallenge, error: insertError } = await adminSupabase
@@ -394,7 +425,7 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError || !insertedChallenge) {
-      throw new Error(insertError?.message || '경기 제안 생성에 실패했습니다.');
+      throw new Error(insertError?.message || '게임 제안 생성에 실패했습니다.');
     }
 
     const challengerName = currentProfile.full_name || currentProfile.username || '회원';
@@ -406,8 +437,8 @@ export async function POST(request: Request) {
     await adminSupabase.from('notifications').insert(
       [partnerId, opponent1Id, opponent2Id].map((profileId) => ({
         user_id: profileId,
-        title: '새 경기 제안',
-        message: `${challengerName}님이 ${partnerName}님과 함께 ${opponentNames}님에게 경기 제안을 보냈습니다. 경기 제안 페이지에서 수락 또는 보류를 선택해주세요.`,
+        title: '새 게임 제안',
+        message: `${challengerName}님이 ${partnerName}님과 함께 ${opponentNames}님에게 게임 제안을 보냈습니다. 게임 제안 페이지에서 수락 또는 보류를 선택해주세요.`,
         type: 'general',
         is_read: false,
       })),
@@ -418,7 +449,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '경기 제안 생성 중 오류가 발생했습니다.' },
+      { error: error instanceof Error ? error.message : '게임 제안 생성 중 오류가 발생했습니다.' },
       { status: 500 },
     );
   }

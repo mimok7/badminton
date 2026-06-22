@@ -27,14 +27,14 @@ const ATTENDANCE_OPTIONS: Array<{ value: Exclude<AttendanceStatus, null>; label:
 const quickLinks = [
   {
     href: '/challenge',
-    title: '경기 제안',
-    description: '완료된 선수들과 다음 경기를 제안합니다.',
+    title: '게임 제안',
+    description: '완료된 선수들과 다음 게임을 제안합니다.',
     icon: Zap,
   },
   {
     href: '/today-matches',
-    title: '오늘 경기',
-    description: '배정된 경기와 코트를 확인합니다.',
+    title: '오늘 게임',
+    description: '배정된 게임과 코트를 확인합니다.',
     icon: Swords,
   },
   {
@@ -45,8 +45,8 @@ const quickLinks = [
   },
   {
     href: '/my-schedule',
-    title: '내 경기',
-    description: '내 일정과 기록을 한 번에 봅니다.',
+    title: '내 게임',
+    description: '내 일정과 게임 기록을 한 번에 봅니다.',
     icon: CalendarDays,
   },
   {
@@ -528,7 +528,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-500">오늘의 핵심</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">내 경기</h2>
+              <h2 className="mt-1 text-lg font-semibold text-slate-900">내 게임</h2>
             </div>
             <Link href="/today-matches" className="text-sm font-medium text-slate-700">
               전체 보기
@@ -550,7 +550,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-800">
                       {matchOrder > 0 && (
                         <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
-                          {matchOrder}번째 경기
+                          {matchOrder}번째 게임
                         </span>
                       )}
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusMeta.chipClass}`}>
@@ -622,7 +622,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                             </div>
                           ) : (
                             <div className="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-center text-xs text-slate-500">
-                              {match.status === 'scheduled' ? '경기 완료후 입력' : '점수 대기'}
+                              {match.status === 'scheduled' ? '게임 완료 후 입력' : '점수 대기'}
                             </div>
                           )}
                         </div>
@@ -642,7 +642,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                             </div>
                           ) : (
                             <div className="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-center text-xs text-slate-500">
-                              {match.status === 'scheduled' ? '경기 완료후 입력' : '점수 대기'}
+                              {match.status === 'scheduled' ? '게임 완료 후 입력' : '점수 대기'}
                             </div>
                           )}
                         </div>
@@ -721,7 +721,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
             </div>
           ) : (
             <div className="mt-4 rounded-[20px] bg-slate-50 px-4 py-5 text-sm text-slate-600">
-              아직 내 경기 배정이 없습니다. 전체 경기나 참가 신청부터 확인해보세요.
+              아직 내 게임 배정이 없습니다. 전체 게임이나 참가 신청부터 확인해보세요.
             </div>
           )}
         </section>

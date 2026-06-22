@@ -145,17 +145,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '경기 정보를 찾을 수 없습니다.' }, { status: 404 });
   }
 
-  const participantIds = [
-    matchRow.team1_player1_id,
-    matchRow.team1_player2_id,
-    matchRow.team2_player1_id,
-    matchRow.team2_player2_id,
-  ].filter((value): value is string => Boolean(value));
-
-  const canManage = isAdminOrManagerRole(currentProfile.role) || participantIds.includes(currentProfile.id);
+  const canManage = isAdminOrManagerRole(currentProfile.role);
 
   if (!canManage) {
-    return NextResponse.json({ error: '이 경기의 참가자 또는 관리자/매니저만 결과를 저장할 수 있습니다.' }, { status: 403 });
+    return NextResponse.json({ error: '점수 저장은 관리자 또는 매니저만 가능합니다.' }, { status: 403 });
   }
 
   const { data: betRows, error: betError } = await adminSupabase

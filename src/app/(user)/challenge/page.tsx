@@ -180,7 +180,7 @@ export default function ChallengePage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb] px-4">
         <div className="rounded-full bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-          경기 제안 페이지를 불러오는 중입니다
+          게임 제안 페이지를 불러오는 중입니다
         </div>
       </div>
     );
@@ -193,9 +193,9 @@ export default function ChallengePage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs text-slate-300">Challenge Match</p>
-              <h1 className="mt-1 text-2xl font-semibold">경기 제안</h1>
+              <h1 className="mt-1 text-2xl font-semibold">게임 제안</h1>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                오늘 참가 선수 중 현재 대기나 진행중 경기가 없는 선수에게 경기 제안을 할 수 있습니다.
+                오늘 참가 선수 중 현재 대기나 진행중 게임이 없는 선수에게 게임 제안을 할 수 있습니다.
               </p>
             </div>
             <Link
@@ -219,7 +219,7 @@ export default function ChallengePage() {
         <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500">새 경기 제안</p>
+              <p className="text-xs text-slate-500">새 게임 제안</p>
               <h2 className="mt-1 text-lg font-semibold text-slate-900">파트너와 상대 선택</h2>
             </div>
             <div className="flex items-center gap-2">
@@ -242,8 +242,8 @@ export default function ChallengePage() {
           {payload && !payload.currentProfile.eligible ? (
             <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700">
               {payload.currentProfile.ineligible_reason === 'challenge_pending_or_accepted'
-                ? '현재 대기 또는 수락 상태의 경기 제안에 포함되어 있어 지금은 새 경기 제안을 만들 수 없습니다. (보류 상태가 되면 다시 후보에 표시됩니다.)'
-                : '현재 진행중인 경기에 포함되어 있어 지금은 경기 제안을 할 수 없습니다.'}
+                ? '현재 대기 또는 수락 상태의 게임 제안에 포함되어 있어 지금은 새 게임 제안을 만들 수 없습니다. (보류 상태가 되면 다시 후보에 표시됩니다.)'
+                : '현재 대기 또는 진행중인 배정 게임에 포함되어 있어 지금은 게임 제안을 할 수 없습니다.'}
             </div>
           ) : (
             <div className="mt-4 space-y-4">
@@ -308,7 +308,7 @@ export default function ChallengePage() {
               </div>
 
               <Button onClick={handleCreateChallenge} disabled={saving} className="h-12 w-full rounded-2xl">
-                {saving ? '경기 제안 보내는 중...' : '경기 제안 보내기'}
+                {saving ? '게임 제안 보내는 중...' : '게임 제안 보내기'}
               </Button>
             </div>
           )}
@@ -317,7 +317,7 @@ export default function ChallengePage() {
         <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500">받은 경기 제안</p>
+              <p className="text-xs text-slate-500">받은 게임 제안</p>
               <h2 className="mt-1 text-lg font-semibold text-slate-900">수락 또는 보류</h2>
             </div>
             <Users className="size-4 text-slate-400" />
@@ -326,14 +326,14 @@ export default function ChallengePage() {
           <div className="mt-4 space-y-3">
             {(payload?.incomingChallenges || []).length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                받은 경기 제안이 없습니다.
+                받은 게임 제안이 없습니다.
               </div>
             ) : (
               payload?.incomingChallenges.map((challenge) => (
                 <article key={challenge.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-sm font-semibold text-slate-900">
-                      {challenge.challenger?.name}님의 경기 제안
+                      {challenge.challenger?.name}님의 게임 제안
                     </div>
                     <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusChip(challenge.status)}`}>
                       {getResponseLabel(challenge.status)}
@@ -377,7 +377,7 @@ export default function ChallengePage() {
         <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500">보낸 경기 제안</p>
+              <p className="text-xs text-slate-500">보낸 게임 제안</p>
               <h2 className="mt-1 text-lg font-semibold text-slate-900">응답 상태 확인</h2>
             </div>
             <Swords className="size-4 text-slate-400" />
@@ -386,14 +386,14 @@ export default function ChallengePage() {
           <div className="mt-4 space-y-3">
             {(payload?.outgoingChallenges || []).length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                아직 보낸 경기 제안이 없습니다.
+                아직 보낸 게임 제안이 없습니다.
               </div>
             ) : (
               payload?.outgoingChallenges.map((challenge) => (
                 <article key={challenge.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-sm font-semibold text-slate-900">
-                      {challenge.partner?.name} 파트너 경기 제안
+                      {challenge.partner?.name} 파트너 게임 제안
                     </div>
                     <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusChip(challenge.status)}`}>
                       {getResponseLabel(challenge.status)}

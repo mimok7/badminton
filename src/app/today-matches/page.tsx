@@ -68,10 +68,10 @@ function getDisplayMatchLabel(match: ScheduledMatchView, fallbackOrder: number) 
   }
 
   if (typeof match.match_number === 'number' && match.match_number > 0) {
-    return `경기 #${match.match_number}`;
+    return `게임 #${match.match_number}`;
   }
 
-  return `경기 #${fallbackOrder}`;
+  return `게임 #${fallbackOrder}`;
 }
 
 function getDisplayMatchSequence(match: ScheduledMatchView, fallbackOrder: number) {
@@ -164,7 +164,7 @@ export default function TodayMatches() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb] px-4">
         <div className="rounded-full bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-          오늘 경기를 불러오는 중입니다
+          오늘 게임을 불러오는 중입니다
         </div>
       </div>
     );
@@ -178,7 +178,7 @@ export default function TodayMatches() {
             <div className="text-5xl">🔐</div>
             <h1 className="mt-4 text-xl font-semibold text-slate-900">로그인이 필요합니다</h1>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              오늘 배정된 경기를 보려면 먼저 로그인해 주세요.
+              오늘 배정된 게임을 보려면 먼저 로그인해 주세요.
             </p>
             <div className="mt-5 flex gap-2">
               <button
@@ -202,37 +202,6 @@ export default function TodayMatches() {
   }
 
   const canManageMatches = isAdminOrManagerRole(profile?.role);
-
-  if (!canManageMatches) {
-    return (
-      <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
-        <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-4 px-4 py-6 text-center">
-          <section className="w-full rounded-[24px] bg-white px-5 py-8 shadow-sm">
-            <div className="text-5xl">🛡️</div>
-            <h1 className="mt-4 text-xl font-semibold text-slate-900">관리자 전용 페이지</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              오늘 경기 관리와 점수 입력은 관리자 또는 매니저만 사용할 수 있습니다.
-            </p>
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => router.push('/admin')}
-                className="flex-1 rounded-full bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
-              >
-                관리자 홈
-              </button>
-              <Link
-                href="/dashboard"
-                className="flex-1 rounded-full border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-              >
-                대시보드
-              </Link>
-            </div>
-          </section>
-        </div>
-      </div>
-    );
-  }
 
   const myParticipantIds = new Set(
     [user?.id, profile?.id, profile?.user_id].filter((value): value is string => Boolean(value))
@@ -300,13 +269,13 @@ export default function TodayMatches() {
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(payload?.error || '경기 시작에 실패했습니다.');
+        throw new Error(payload?.error || '게임 시작에 실패했습니다.');
       }
 
       await loadTodayMatches();
     } catch (error) {
-      console.error('오늘 경기 시작 오류:', error);
-      alert(error instanceof Error ? error.message : '경기 시작 중 오류가 발생했습니다.');
+      console.error('오늘 게임 시작 오류:', error);
+      alert(error instanceof Error ? error.message : '게임 시작 중 오류가 발생했습니다.');
     } finally {
       setStartSaving(false);
     }
@@ -377,7 +346,7 @@ export default function TodayMatches() {
 
       await loadTodayMatches();
     } catch (error) {
-      console.error('경기 결과 저장 오류:', error);
+      console.error('게임 결과 저장 오류:', error);
       alert(error instanceof Error ? error.message : '점수 저장 중 오류가 발생했습니다.');
     } finally {
       setSavingMatchId(null);
@@ -391,7 +360,7 @@ export default function TodayMatches() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs text-slate-300">Today Matches</p>
-              <h1 className="mt-1 text-2xl font-semibold">🏸 오늘의 경기</h1>
+              <h1 className="mt-1 text-2xl font-semibold">🏸 오늘의 게임</h1>
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 {new Date().toLocaleDateString('ko-KR', {
                   year: 'numeric',
@@ -411,11 +380,11 @@ export default function TodayMatches() {
 
           <div className="mt-5 grid grid-cols-3 gap-2 text-center">
             <div className="rounded-2xl bg-white/8 px-2 py-3">
-              <p className="text-[11px] text-slate-300">총 경기</p>
+              <p className="text-[11px] text-slate-300">총 게임</p>
               <p className="mt-1 text-lg font-semibold">{matches.length}</p>
             </div>
             <div className="rounded-2xl bg-white/8 px-2 py-3">
-              <p className="text-[11px] text-slate-300">내 경기</p>
+              <p className="text-[11px] text-slate-300">내 게임</p>
               <p className="mt-1 text-lg font-semibold">{matches.filter(isPlayerInMatch).length}</p>
             </div>
             <div className="rounded-2xl bg-white/8 px-2 py-3">
@@ -426,12 +395,18 @@ export default function TodayMatches() {
             </div>
           </div>
 
+          <div className="mt-4 rounded-[20px] bg-white/8 px-3 py-3 text-xs leading-5 text-slate-200">
+            {canManageMatches
+              ? '점수 입력과 게임 시작은 매니저 이상 권한으로 사용할 수 있습니다.'
+              : '모든 회원이 오늘 게임을 볼 수 있으며, 점수 입력과 게임 시작은 매니저 이상만 가능합니다.'}
+          </div>
+
           {primaryMatch && (
             <div className="mt-4 rounded-[22px] bg-white/8 px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] text-slate-300">
-                    {primaryMatch.status === 'in_progress' ? '현재 진행 경기' : '다음 시작 경기'}
+                    {primaryMatch.status === 'in_progress' ? '현재 진행 게임' : '다음 시작 게임'}
                   </p>
                   <div className="mt-1 text-sm font-semibold text-white">
                     {getCourtLabel(primaryMatch)} · {primaryMatch.match_time || '시간 미정'}
@@ -450,7 +425,7 @@ export default function TodayMatches() {
                       ? '처리 중...'
                       : primaryMatch.status === 'in_progress'
                         ? '진행중'
-                        : '경기 시작'}
+                        : '게임 시작'}
                   </button>
                 ) : (
                   <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-medium text-slate-200">
@@ -465,8 +440,8 @@ export default function TodayMatches() {
         {matches.length === 0 ? (
           <section className="rounded-[24px] bg-white px-4 py-10 text-center shadow-sm">
             <div className="text-5xl">🏸</div>
-            <h3 className="mt-4 text-lg font-semibold text-slate-900">오늘 배정된 경기가 없습니다</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">관리자가 경기를 배정하면 여기에 표시됩니다.</p>
+            <h3 className="mt-4 text-lg font-semibold text-slate-900">오늘 배정된 게임이 없습니다</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-500">관리자가 게임을 배정하면 여기에 표시됩니다.</p>
           </section>
         ) : (
           <div className="space-y-3">
@@ -477,7 +452,11 @@ export default function TodayMatches() {
               });
               const team1Outcome = getMatchOutcomeMeta(match.status, match.match_result?.winner ?? null, 'team1');
               const team2Outcome = getMatchOutcomeMeta(match.status, match.match_result?.winner ?? null, 'team2');
-              const isEditable = Boolean(match.generated_match_id && match.status === 'in_progress');
+              const isEditable = Boolean(
+                canManageMatches &&
+                match.generated_match_id &&
+                match.status === 'in_progress'
+              );
               const scoreDraft = scoreDrafts[match.id] ?? { team1: '', team2: '' };
               const canSaveScore =
                 isEditable &&
@@ -505,7 +484,7 @@ export default function TodayMatches() {
                           {displayMatchLabel}
                           {inMatch && (
                             <span className="ml-2 rounded-full bg-amber-200 px-2 py-1 text-[11px] font-medium text-amber-800">
-                              내 경기
+                              내 게임
                             </span>
                           )}
                         </h3>

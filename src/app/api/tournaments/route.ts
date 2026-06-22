@@ -167,6 +167,17 @@ async function fetchTeamAssignment(assignmentId: string | null | undefined) {
   };
 }
 
+async function fetchTeamAssignmentsByTournament(tournaments: TournamentRow[]) {
+  const entries = await Promise.all(
+    tournaments.map(async (tournament) => {
+      const assignment = await fetchTeamAssignment(tournament.team_assignment_id);
+      return [tournament.id, assignment] as const;
+    })
+  );
+
+  return Object.fromEntries(entries);
+}
+
 async function recoverTournamentMatches(tournament: TournamentRow) {
   if (!tournament.team_assignment_id) {
     return { recovered: false };
@@ -298,6 +309,7 @@ export async function GET(request: Request) {
     const metricsByTournament = Object.fromEntries(
       tournaments.map((tournament) => [tournament.id, getTournamentMetricsFromMatches(groupedMatches.get(tournament.id) || [])])
     );
+    const teamAssignmentsByTournament = await fetchTeamAssignmentsByTournament(tournaments);
 
     if (includeMatches === '1' || includeMatches === 'true') {
       const selectedTournament =
@@ -309,9 +321,11 @@ export async function GET(request: Request) {
         return NextResponse.json({
           tournaments,
           metricsByTournament,
+          teamAssignmentsByTournament,
           selectedTournament: null,
           selectedTeamAssignment: null,
           matches: [],
+          allMatches: normalizeMatches((allMatchesData || []) as MatchRow[]),
         });
       }
 
@@ -336,13 +350,15 @@ export async function GET(request: Request) {
       return NextResponse.json({
         tournaments,
         metricsByTournament,
+        teamAssignmentsByTournament,
         selectedTournament,
         selectedTeamAssignment,
         matches: normalizeMatches(matches),
+        allMatches: normalizeMatches((allMatchesData || []) as MatchRow[]),
       });
     }
 
-    return NextResponse.json({ tournaments, metricsByTournament });
+    return NextResponse.json({ tournaments, metricsByTournament, teamAssignmentsByTournament });
   } catch (error) {
     return NextResponse.json(
       { error: 'Unexpected server error', message: error instanceof Error ? error.message : String(error) },

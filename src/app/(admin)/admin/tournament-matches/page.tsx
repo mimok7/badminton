@@ -91,6 +91,12 @@ interface Tournament {
   matches?: Match[];
 }
 
+type TeamParticipantsModalState = {
+  title: string;
+  subtitle?: string;
+  teams: { name: string; players: string[] }[];
+} | null;
+
 type PlayerGenderMap = Record<string, string>;
 type GenerationNotice = {
   type: 'success' | 'error';
@@ -406,6 +412,7 @@ export default function TournamentMatchesPage() {
   const [roundNumber, setRoundNumber] = useState(1);
   const [matchType, setMatchType] = useState<'level_based' | 'random' | 'mixed_doubles'>('random');
   const [numberOfCourts, setNumberOfCourts] = useState(4);
+  const [teamParticipantsModal, setTeamParticipantsModal] = useState<TeamParticipantsModalState>(null);
   const [levelInfoMap, setLevelInfoMap] = useState<LevelInfoMap>({});
   const [playerGenderMap, setPlayerGenderMap] = useState<PlayerGenderMap>({});
   const [generationNotice, setGenerationNotice] = useState<GenerationNotice>(null);
@@ -613,6 +620,36 @@ export default function TournamentMatchesPage() {
     }
 
     return teams;
+  };
+
+  const getTeamTypeLabel = (teamType: TeamAssignment['team_type'] | string) => (
+    {
+      '2teams': '2팀전',
+      '3teams': '3팀전',
+      '4teams': '4팀전',
+      'pairs': '페어전',
+    }[teamType] || teamType
+  );
+
+  const openAssignmentParticipantsModal = (assignment: TeamAssignment) => {
+    const teams = getTeamsFromAssignment(assignment);
+    setTeamParticipantsModal({
+      title: `${assignment.title} 참가자`,
+      subtitle: `${assignment.assignment_date} · ${getTeamTypeLabel(assignment.team_type)}`,
+      teams,
+    });
+  };
+
+  const openTournamentAssignmentModal = (tournament: Tournament) => {
+    const linkedAssignment = teamAssignments.find((assignment) => assignment.id === tournament.team_assignment_id) || null;
+
+    setTeamParticipantsModal({
+      title: `${tournament.title} 배정현황`,
+      subtitle: linkedAssignment
+        ? `${linkedAssignment.assignment_date} · ${getTeamTypeLabel(linkedAssignment.team_type)}`
+        : '연결된 팀 구성을 찾을 수 없습니다.',
+      teams: linkedAssignment ? getTeamsFromAssignment(linkedAssignment) : [],
+    });
   };
 
   // 경기 일정 생성 (1인당 경기수 기반) - 4명씩 나누어 생성
@@ -1194,12 +1231,7 @@ export default function TournamentMatchesPage() {
           <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {teamAssignments.map((assignment) => {
               const teams = getTeamsFromAssignment(assignment);
-              const teamTypeLabel = {
-                '2teams': '2팀전',
-                '3teams': '3팀전',
-                '4teams': '4팀전',
-                'pairs': '페어전'
-              }[assignment.team_type] || assignment.team_type;
+              const teamTypeLabel = getTeamTypeLabel(assignment.team_type);
 
               return (
                 <div
@@ -1222,6 +1254,12 @@ export default function TournamentMatchesPage() {
                   </div>
 
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => openAssignmentParticipantsModal(assignment)}
+                      className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
+                    >
+                      참가자
+                    </button>
                     <button
                       onClick={() => handlePreviewMatches(assignment)}
                       className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
@@ -1733,6 +1771,12 @@ export default function TournamentMatchesPage() {
                   </div>
                   <div className="flex gap-2">
                     <button
+                      onClick={() => openTournamentAssignmentModal(tournament)}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      배정현황
+                    </button>
+                    <button
                       onClick={() => handleManageMatches(tournament)}
                       className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                     >
@@ -1751,6 +1795,58 @@ export default function TournamentMatchesPage() {
           </div>
         )}
       </div>
+
+      {teamParticipantsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[24px] bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">{teamParticipantsModal.title}</h3>
+                {teamParticipantsModal.subtitle && (
+                  <p className="mt-1 text-sm text-slate-500">{teamParticipantsModal.subtitle}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setTeamParticipantsModal(null)}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="max-h-[calc(90vh-88px)] overflow-y-auto p-5">
+              {teamParticipantsModal.teams.length === 0 ? (
+                <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-5 text-sm text-yellow-800">
+                  표시할 배정 팀 정보가 없습니다.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {teamParticipantsModal.teams.map((team) => (
+                    <div key={team.name} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <div className="text-base font-semibold text-slate-900">{team.name}</div>
+                        <div className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-500">
+                          {team.players.length}명
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {team.players.map((player) => (
+                          <div
+                            key={`${team.name}-${player}`}
+                            className="rounded-xl bg-white px-3 py-2 text-sm text-slate-800 shadow-sm"
+                          >
+                            {player}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 안내 */}
       <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 sm:mt-8 sm:p-6">

@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation';
 import { RequireAdmin } from '@/components/AuthGuard';
 import {
   decorateDescriptionForScheduleSource,
-  getScheduleSourceLabel,
   inferScheduleSource,
-  normalizeScheduleSource,
   type MatchScheduleSource,
 } from '@/lib/match-schedule-source';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -132,7 +130,7 @@ export default function MatchSchedulePage() {
   const fetchSchedules = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/match-schedules', {
+      const response = await fetch('/api/admin/match-schedules?schedule_source=recurring', {
         method: 'GET',
         cache: 'no-store',
       });
@@ -216,7 +214,7 @@ export default function MatchSchedulePage() {
     }
 
     try {
-      const scheduleSource = normalizeScheduleSource(newSchedule.schedule_source);
+      const scheduleSource: MatchScheduleSource = 'recurring';
       const response = await fetch('/api/admin/match-schedules', {
         method: 'POST',
         headers: {
@@ -301,7 +299,7 @@ export default function MatchSchedulePage() {
       end_time: editForm.end_time,
       location: editForm.location,
       max_participants: editForm.max_participants,
-      description: decorateDescriptionForScheduleSource(editForm.description, normalizeScheduleSource(editForm.schedule_source)),
+      description: decorateDescriptionForScheduleSource(editForm.description, 'recurring'),
       updated_by: user?.id
     } as any;
 
@@ -313,7 +311,7 @@ export default function MatchSchedulePage() {
         },
         body: JSON.stringify({
           ...payload,
-          schedule_source: normalizeScheduleSource(editForm.schedule_source),
+          schedule_source: 'recurring',
         }),
       });
 
@@ -887,22 +885,8 @@ export default function MatchSchedulePage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  경기 유형
-                </label>
-                <select
-                  value={newSchedule.schedule_source}
-                  onChange={(e) => setNewSchedule({
-                    ...newSchedule,
-                    schedule_source: normalizeScheduleSource(e.target.value),
-                  })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="recurring">정기모임</option>
-                  <option value="tournament">대회 경기</option>
-                  <option value="generated">일반 경기</option>
-                </select>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                이 페이지에서는 경기 일정만 관리합니다. 게임은 표시하지 않습니다.
               </div>
 
               <div>
@@ -981,7 +965,7 @@ export default function MatchSchedulePage() {
                                     🕐 {schedule.start_time} - {schedule.end_time}
                                   </h4>
                                   <span className={`px-3 py-1 rounded text-sm font-semibold ${getScheduleSourceBadgeClass(schedule.schedule_source)}`}>
-                                    {schedule.schedule_source === 'tournament' ? '🏆 대회 경기' : `${getScheduleSourceLabel(schedule.schedule_source)}`}
+                                    정기 경기
                                   </span>
                                   <span className={`px-3 py-1 rounded text-sm ${getStatusColor(schedule.status)}`}>
                                     {getStatusText(schedule.status)}
@@ -1235,20 +1219,8 @@ export default function MatchSchedulePage() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">경기 유형</label>
-                <select
-                  value={editForm.schedule_source}
-                  onChange={(e) => setEditForm({
-                    ...editForm,
-                    schedule_source: normalizeScheduleSource(e.target.value),
-                  })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="recurring">정기모임</option>
-                  <option value="tournament">대회 경기</option>
-                  <option value="generated">일반 경기</option>
-                </select>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                이 페이지에서는 정기 경기 일정만 수정합니다.
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">경기 설명</label>

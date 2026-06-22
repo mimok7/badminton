@@ -23,6 +23,8 @@ type AttendanceSummary = Record<
 >;
 
 type TabKey = 'overview' | 'members' | 'attendance' | 'create';
+type MemberSortKey = 'member' | 'role' | 'level' | 'levelCode' | 'score' | 'gender';
+type SortDirection = 'asc' | 'desc';
 
 function formatAdminLevelLabel(option?: LevelOption) {
     if (!option) {
@@ -66,6 +68,8 @@ export default function UserManagementClient({
     const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'manager' | 'user'>('all');
     const [genderFilter, setGenderFilter] = useState<'all' | 'M' | 'F' | 'O' | 'unset'>('all');
     const [levelFilter, setLevelFilter] = useState<string>('all');
+    const [sortKey, setSortKey] = useState<MemberSortKey>('member');
+    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
     const [memberList, setMemberList] = useState<AdminUser[]>(users);
     const [newMember, setNewMember] = useState({
         full_name: '',
@@ -307,6 +311,80 @@ export default function UserManagementClient({
         });
     }, [genderFilter, levelFilter, memberList, roleFilter, searchQuery, levelOptionsFromDb]);
 
+    const getRoleSortWeight = (role?: string | null) => {
+        const normalizedRole = String(role || '').trim().toLowerCase();
+        if (normalizedRole === 'admin') return 0;
+        if (normalizedRole === 'manager') return 1;
+        return 2;
+    };
+
+    const getGenderSortWeight = (gender?: string | null) => {
+        const normalizedGender = String(gender || '').trim().toUpperCase();
+        if (normalizedGender === 'M') return 0;
+        if (normalizedGender === 'F') return 1;
+        if (normalizedGender === 'O') return 2;
+        return 3;
+    };
+
+    const sortedUsers = useMemo(() => {
+        const directionFactor = sortDirection === 'asc' ? 1 : -1;
+
+        return [...filteredUsers].sort((left, right) => {
+            let comparison = 0;
+
+            if (sortKey === 'member') {
+                comparison = (left.full_name || left.username || left.email || '').localeCompare(
+                    right.full_name || right.username || right.email || '',
+                    'ko',
+                    { sensitivity: 'base' }
+                );
+            } else if (sortKey === 'role') {
+                comparison = getRoleSortWeight(left.role) - getRoleSortWeight(right.role);
+            } else if (sortKey === 'level') {
+                comparison = sortLevelCodes(normalizeSkillLevel(left.skill_level), normalizeSkillLevel(right.skill_level));
+            } else if (sortKey === 'levelCode') {
+                comparison = normalizeSkillLevel(left.skill_level).localeCompare(
+                    normalizeSkillLevel(right.skill_level),
+                    'ko',
+                    { sensitivity: 'base' }
+                );
+            } else if (sortKey === 'score') {
+                comparison = (getLevelOptionMeta(normalizeSkillLevel(right.skill_level))?.score ?? -Infinity)
+                    - (getLevelOptionMeta(normalizeSkillLevel(left.skill_level))?.score ?? -Infinity);
+            } else if (sortKey === 'gender') {
+                comparison = getGenderSortWeight(left.gender) - getGenderSortWeight(right.gender);
+            }
+
+            if (comparison !== 0) {
+                return comparison * directionFactor;
+            }
+
+            return (left.full_name || left.username || left.email || '').localeCompare(
+                right.full_name || right.username || right.email || '',
+                'ko',
+                { sensitivity: 'base' }
+            );
+        });
+    }, [filteredUsers, sortDirection, sortKey, levelOptionsFromDb]);
+
+    const toggleSort = (nextKey: MemberSortKey) => {
+        if (sortKey === nextKey) {
+            setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+            return;
+        }
+
+        setSortKey(nextKey);
+        setSortDirection('asc');
+    };
+
+    const getSortIndicator = (targetKey: MemberSortKey) => {
+        if (sortKey !== targetKey) {
+            return '↕';
+        }
+
+        return sortDirection === 'asc' ? '↑' : '↓';
+    };
+
     const dirtyUserIds = useMemo(
         () => memberList.filter((user) => hasPendingChanges(user)).map((user) => user.id),
         [memberList, draftsByUserId]
@@ -441,19 +519,52 @@ export default function UserManagementClient({
                 <table className="min-w-full text-sm">
                     <thead className="bg-slate-100 text-slate-600">
                         <tr>
-                            <th className="px-4 py-3 text-left font-semibold">회원</th>
-                            <th className="px-4 py-3 text-left font-semibold">역할</th>
-                            <th className="px-4 py-3 text-left font-semibold">급수</th>
-                            <th className="px-4 py-3 text-left font-semibold">성별</th>
-                            <th className="px-4 py-3 text-left font-semibold">이메일</th>
+                            <th className="px-4 py-3 text-left font-semibold">
+                                <button type="button" onClick={() => toggleSort('member')} className="inline-flex items-center gap-1 hover:text-slate-900">
+                                    회원
+                                    <span className="text-xs">{getSortIndicator('member')}</span>
+                                </button>
+                            </th>
+                            <th className="px-4 py-3 text-left font-semibold">
+                                <button type="button" onClick={() => toggleSort('role')} className="inline-flex items-center gap-1 hover:text-slate-900">
+                                    역할
+                                    <span className="text-xs">{getSortIndicator('role')}</span>
+                                </button>
+                            </th>
+                            <th className="px-4 py-3 text-left font-semibold">
+                                <button type="button" onClick={() => toggleSort('level')} className="inline-flex items-center gap-1 hover:text-slate-900">
+                                    급수
+                                    <span className="text-xs">{getSortIndicator('level')}</span>
+                                </button>
+                            </th>
+                            <th className="px-4 py-3 text-left font-semibold">
+                                <button type="button" onClick={() => toggleSort('levelCode')} className="inline-flex items-center gap-1 hover:text-slate-900">
+                                    레벨
+                                    <span className="text-xs">{getSortIndicator('levelCode')}</span>
+                                </button>
+                            </th>
+                            <th className="px-4 py-3 text-left font-semibold">
+                                <button type="button" onClick={() => toggleSort('score')} className="inline-flex items-center gap-1 hover:text-slate-900">
+                                    점수
+                                    <span className="text-xs">{getSortIndicator('score')}</span>
+                                </button>
+                            </th>
+                            <th className="px-4 py-3 text-left font-semibold">
+                                <button type="button" onClick={() => toggleSort('gender')} className="inline-flex items-center gap-1 hover:text-slate-900">
+                                    성별
+                                    <span className="text-xs">{getSortIndicator('gender')}</span>
+                                </button>
+                            </th>
                             <th className="px-4 py-3 text-right font-semibold">작업</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                        {filteredUsers.map((user) => {
+                        {sortedUsers.map((user) => {
                             const draft = getDraft(user);
                             const isDirty = hasPendingChanges(user);
                             const normalizedRole = user.role === 'admin' ? 'admin' : normalizeEditableRole(user.role);
+                            const currentLevelCode = normalizeSkillLevel(draft.skill_level) || levelOptionsFromDb[0]?.code || '';
+                            const currentLevelOption = getLevelOptionMeta(currentLevelCode);
 
                             return (
                                 <tr key={user.id} className={isDirty ? 'bg-amber-50/60' : 'bg-white'}>
@@ -488,7 +599,7 @@ export default function UserManagementClient({
                                     </td>
                                     <td className="px-4 py-3 align-top">
                                         <select
-                                            value={normalizeSkillLevel(draft.skill_level) || levelOptionsFromDb[0]?.code || ''}
+                                            value={currentLevelCode}
                                             onChange={(e) => updateDraft(user.id, { skill_level: e.target.value })}
                                             disabled={isPending}
                                             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -504,6 +615,16 @@ export default function UserManagementClient({
                                         </select>
                                     </td>
                                     <td className="px-4 py-3 align-top">
+                                        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+                                            {currentLevelCode || '-'}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 align-top">
+                                        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+                                            {typeof currentLevelOption?.score === 'number' ? currentLevelOption.score : '-'}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 align-top">
                                         <select
                                             value={draft.gender ?? ''}
                                             onChange={(e) => updateDraft(user.id, { gender: e.target.value })}
@@ -514,9 +635,6 @@ export default function UserManagementClient({
                                             <option value="F">여성</option>
                                             <option value="O">기타</option>
                                         </select>
-                                    </td>
-                                    <td className="px-4 py-3 align-top text-slate-500">
-                                        <div className="max-w-[240px] break-all">{user.email}</div>
                                     </td>
                                     <td className="px-4 py-3 align-top">
                                         <div className="flex items-center justify-end gap-2">

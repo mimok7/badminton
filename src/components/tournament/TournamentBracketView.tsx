@@ -21,6 +21,8 @@ interface Match {
   score_team1?: number | null;
   score_team2?: number | null;
   winner?: 'team1' | 'team2' | 'draw' | null;
+  referee_id?: string | null;
+  referee_name?: string | null;
 }
 
 interface Tournament {
@@ -461,6 +463,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   const [userActiveTab, setUserActiveTab] = useState<UserTournamentTab>('bracket');
   const [playerSearchQuery, setPlayerSearchQuery] = useState('');
   const [submittedPlayerSearchQuery, setSubmittedPlayerSearchQuery] = useState('');
+  const [refereeDrafts, setRefereeDrafts] = useState<Record<string, string>>({});
   const [rankingCriteria, setRankingCriteria] = useState<string[]>([
     'winRate',
     'pointsDiff',
@@ -859,6 +862,76 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     if (!adminMode) return;
     setAdminActiveTab('overview');
   }, [adminMode, tournamentQueryId]);
+
+  // Realtime 구독 - 점수 실시간 갱신
+  useEffect(() => {
+    if (!selectedTournament?.id) return;
+    if (!supabase || !supabase.channel) return;
+
+    const channel = supabase
+      .channel(`tournament-scores-${selectedTournament.id}`)
+      .on(
+        'postgres_changes' as any,
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tournament_matches',
+          filter: `tournament_id=eq.${selectedTournament.id}`,
+        },
+        (payload: any) => {
+          const updated = payload.new;
+          if (!updated?.id) return;
+          setMatches((prev) =>
+            prev.map((m) =>
+              m.id === updated.id
+                ? {
+                    ...m,
+                    score_team1: updated.score_team1 ?? m.score_team1,
+                    score_team2: updated.score_team2 ?? m.score_team2,
+                    status: updated.status ?? m.status,
+                    winner: updated.winner ?? m.winner,
+                    referee_name: updated.referee_name ?? m.referee_name,
+                    referee_id: updated.referee_id ?? m.referee_id,
+                  }
+                : m
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedTournament?.id, supabase]);
+
+  // 심판 배정 함수
+  const assignReferee = async (matchId: string, refereeName: string) => {
+    try {
+      const response = await fetch('/api/admin/tournaments', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match_id: matchId,
+          referee_name: refereeName || null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('심판 배정에 실패했습니다.');
+      }
+
+      // 로컬 상태 업데이트
+      setMatches((prev) =>
+        prev.map((m) =>
+          m.id === matchId ? { ...m, referee_name: refereeName || null } : m
+        )
+      );
+    } catch (error) {
+      console.error('심판 배정 오류:', error);
+      alert('심판 배정에 실패했습니다.');
+    }
+  };
 
   useEffect(() => {
     setScoreDrafts(
@@ -1576,6 +1649,45 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                           저장
                                         </button>
                                       </div>
+
+                                      {/* 심판 배정 + 점수판 링크 */}
+                                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                                        <div className="flex flex-1 items-center gap-1.5">
+                                          <span className="text-xs font-medium text-slate-500 whitespace-nowrap">심판:</span>
+                                          <select
+                                            value={refereeDrafts[match.id!] ?? match.referee_name ?? ''}
+                                            onChange={(e) => {
+                                              const value = e.target.value;
+                                              if (match.id) {
+                                                setRefereeDrafts((prev) => ({ ...prev, [match.id!]: value }));
+                                                void assignReferee(match.id, value);
+                                              }
+                                            }}
+                                            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none"
+                                          >
+                                            <option value="">선택 안함</option>
+                                            {(() => {
+                                              const allPlayers = new Set<string>();
+                                              matches.forEach((m) => {
+                                                m.team1.forEach((p) => allPlayers.add(p.replace(/\([^)]*\)$/, '').trim()));
+                                                m.team2.forEach((p) => allPlayers.add(p.replace(/\([^)]*\)$/, '').trim()));
+                                              });
+                                              return Array.from(allPlayers).sort((a, b) => a.localeCompare(b, 'ko-KR')).map((player) => (
+                                                <option key={player} value={player}>{player}</option>
+                                              ));
+                                            })()}
+                                          </select>
+                                        </div>
+                                        {match.id && (
+                                          <Link
+                                            href={`/scoreboard/${match.id}`}
+                                            target="_blank"
+                                            className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700"
+                                          >
+                                            📋 점수판
+                                          </Link>
+                                        )}
+                                      </div>
                                     </article>
                                   );
                                 })}
@@ -1959,8 +2071,30 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                     </div>
 
                                     {!isCompleted && (
-                                      <div className="mt-4 rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
-                                        점수 등록 전입니다.
+                                      <div className="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-slate-50 px-3 py-3">
+                                        <span className="text-sm text-slate-500">
+                                          {match.status === 'in_progress' ? (
+                                            <span className="flex items-center gap-1.5">
+                                              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-rose-500" />
+                                              <span className="font-medium text-slate-700">실시간 진행중 {match.score_team1 ?? 0} : {match.score_team2 ?? 0}</span>
+                                            </span>
+                                          ) : (
+                                            '점수 등록 전입니다.'
+                                          )}
+                                        </span>
+                                        {match.id && (
+                                          <Link
+                                            href={`/scoreboard/${match.id}`}
+                                            className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700"
+                                          >
+                                            {match.status === 'in_progress' ? '🔴 LIVE 보기' : '📋 점수판'}
+                                          </Link>
+                                        )}
+                                      </div>
+                                    )}
+                                    {match.referee_name && (
+                                      <div className="mt-2 text-xs text-slate-400 text-center">
+                                        심판: <span className="font-medium text-slate-600">{match.referee_name}</span>
                                       </div>
                                     )}
                                   </article>

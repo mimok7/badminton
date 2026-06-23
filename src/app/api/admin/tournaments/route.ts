@@ -420,10 +420,54 @@ export async function PATCH(request: Request) {
 
     const payload = await request.json().catch(() => null);
     const matchId = typeof payload?.match_id === 'string' ? payload.match_id : '';
+
+    if (!matchId) {
+      return NextResponse.json({ error: 'match_id is required' }, { status: 400 });
+    }
+
+    // 심판 배정 모드 (referee_name이 있고 점수가 없는 경우)
+    const hasRefereeUpdate = 'referee_name' in (payload || {});
     const scoreTeam1 = typeof payload?.score_team1 === 'number' ? payload.score_team1 : null;
     const scoreTeam2 = typeof payload?.score_team2 === 'number' ? payload.score_team2 : null;
 
-    if (!matchId || scoreTeam1 == null || scoreTeam2 == null) {
+    if (hasRefereeUpdate && scoreTeam1 == null && scoreTeam2 == null) {
+      // 심판 배정만 업데이트
+      const refereeName = typeof payload?.referee_name === 'string' ? payload.referee_name : null;
+      const refereeId = typeof payload?.referee_id === 'string' ? payload.referee_id : null;
+
+      const updateData: Record<string, unknown> = {
+        referee_name: refereeName,
+      };
+
+      if (refereeId) {
+        updateData.referee_id = refereeId;
+      }
+
+      const { data, error } = await adminContext.adminSupabase
+        .from('tournament_matches')
+        .update(updateData)
+        .eq('id', matchId)
+        .select('*')
+        .single();
+
+      if (error) {
+        return NextResponse.json(
+          {
+            error: 'Failed to assign referee',
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+          },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ success: true, match: data });
+    }
+
+    // 점수 업데이트 모드
+    if (scoreTeam1 == null || scoreTeam2 == null) {
       return NextResponse.json({ error: 'Invalid score payload' }, { status: 400 });
     }
 

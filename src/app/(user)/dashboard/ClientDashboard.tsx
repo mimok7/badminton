@@ -52,8 +52,8 @@ const quickLinks = [
   },
   {
     href: '/profile',
-    title: '프로필',
-    description: '내 정보와 레벨을 관리합니다.',
+    title: '회원 목록',
+    description: '회원 목록과 내 정보를 관리합니다.',
     icon: UserCircle2,
   },
   {

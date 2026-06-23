@@ -245,3 +245,26 @@ export async function createMember(payload: CreateMemberPayload) {
     revalidatePath('/admin/members');
     return { success: true, member: data };
 }
+
+export async function updateRatingSettings(startDate: string | null, endDate: string | null) {
+    if (!(await isAdmin())) {
+        return { error: '설정 권한이 없습니다.' };
+    }
+
+    const { error } = await (supabaseAdmin as any)
+        .from('member_rating_settings')
+        .upsert({
+            id: 1,
+            start_date: startDate ? new Date(startDate).toISOString() : null,
+            end_date: endDate ? new Date(endDate).toISOString() : null,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+
+    if (error) {
+        return { error: error.message };
+    }
+
+    revalidatePath('/admin/members');
+    revalidatePath('/profile');
+    return { success: true };
+}

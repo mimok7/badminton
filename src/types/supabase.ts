@@ -596,6 +596,7 @@ export type Database = {
   role: string;
   skill_level: string;
   gender: string | null;
+  avatar_url: string | null;
   coin_balance: number;
   coin_wins: number;
   coin_losses: number;
@@ -612,6 +613,7 @@ export type Database = {
   role?: string;
   skill_level?: string;
   gender?: string | null;
+  avatar_url?: string | null;
   coin_balance?: number;
   coin_wins?: number;
   coin_losses?: number;
@@ -628,6 +630,7 @@ export type Database = {
   role?: string | null;
   skill_level?: string | null;
   gender?: string | null;
+  avatar_url?: string | null;
   coin_balance?: number | null;
   coin_wins?: number | null;
   coin_losses?: number | null;

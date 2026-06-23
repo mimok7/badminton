@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
+import { Search, Camera, User, X } from 'lucide-react';
+import { AvatarCropModal } from '@/components/profile/AvatarCropModal';
 import {
   Form,
   FormControl,
@@ -35,14 +37,95 @@ import { getLevelNameFromCode } from '@/lib/level-info';
 
 const formSchema = z.object({
   username: z.string().min(2, { message: '닉네임은 2자 이상이어야 합니다.' }),
-  skill_level: z.enum(SKILL_LEVEL_GROUP_CODES),
+  gender: z.string().nullable().or(z.literal('')),
 });
 
 export default function ProfilePage() {
   const { user, profile, loading: userLoading } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const [members, setMembers] = useState<any[]>([]);
+  const [myVotes, setMyVotes] = useState<Record<string, string>>({});
+  const [draftVotes, setDraftVotes] = useState<Record<string, string>>({});
+  const [modifiedVotes, setModifiedVotes] = useState<Record<string, string>>({});
+  const [ratingSettings, setRatingSettings] = useState<{ start_date: string | null; end_date: string | null } | null>(null);
+  const [allVotes, setAllVotes] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [allLevels, setAllLevels] = useState<any[]>([]);
+  const [isSavingRatings, setIsSavingRatings] = useState(false);
   const supabase = getSupabaseClient();
+
+  // 프로필 사진 업로드 관련 상태
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [isCropOpen, setIsCropOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 회원 사진 확대 팝업을 위한 상태
+  const [activePhotoUrl, setActivePhotoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (profile) {
+      setAvatarUrl(profile.avatar_url || null);
+    }
+  }, [profile]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setAvatarFile(e.target.files[0]);
+      setIsCropOpen(true);
+    }
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    if (!user) return;
+    setIsCropOpen(false);
+    setIsUploadingAvatar(true);
+
+    try {
+      // FormData로 서버 API에 파일 전송 (service_role 권한으로 업로드)
+      const formData = new FormData();
+      const file = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' });
+      formData.append('file', file);
+      formData.append('userId', user.id);
+
+      const response = await fetch('/api/upload-avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || '업로드에 실패했습니다.');
+      }
+
+      const publicUrl = result.publicUrl;
+
+      // profiles 테이블 갱신 (avatar_url 필드)
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(publicUrl);
+      alert('프로필 사진이 변경되었습니다.');
+      
+      // 상태 동기화를 위해 프로필 데이터 재조회
+      await loadRatingData(user.id);
+    } catch (err: any) {
+      console.error('Avatar upload error:', err);
+      alert(`프로필 사진 업로드 실패: ${err.message || '알 수 없는 오류'}`);
+    } finally {
+      setIsUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setAvatarFile(null);
+    }
+  };
   const levelInfoMap = useLevelInfoMap();
   const displayName = formatCurrentUserNameWithCoins(profile?.full_name || profile?.username || '회원', profile?.coin_balance);
   const levelLabel = profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정');
@@ -62,7 +145,7 @@ export default function ProfilePage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       username: '',
-      skill_level: 'D1',
+      gender: '',
     },
   });
 
@@ -73,13 +156,295 @@ export default function ProfilePage() {
     }
 
     if (profile) {
-      const level = getSkillLevelGroupCode(profile.skill_level) as SkillLevelGroupCode;
       form.reset({
         username: profile.username || '',
-        skill_level: level,
+        gender: profile.gender || '',
       });
     }
   }, [user, profile, userLoading, router, form]);
+
+  const loadRatingData = async (currentUserId: string) => {
+    setLoadingData(true);
+    let resolvedMembers: any[] = [];
+    try {
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, username, email, skill_level, gender, avatar_url');
+      
+      const collator = new Intl.Collator('ko');
+      resolvedMembers = (profilesData || []).slice().sort((a: any, b: any) => {
+        const aName = a.full_name || a.username || a.email || '';
+        const bName = b.full_name || b.username || b.email || '';
+        return collator.compare(aName, bName);
+      });
+      setMembers(resolvedMembers);
+    } catch (err) {
+      console.error('Error loading members:', err);
+    }
+
+    try {
+      const { data: levelsData } = await supabase
+        .from('level_info')
+        .select('code, name, score, description')
+        .order('score', { ascending: false, nullsFirst: false });
+      if (levelsData) {
+        setAllLevels(levelsData);
+      }
+    } catch (err) {
+      console.error('Error loading level info:', err);
+    }
+
+    try {
+      const { data: settingsData, error: settingsError } = await (supabase as any)
+        .from('member_rating_settings')
+        .select('start_date, end_date')
+        .eq('id', 1)
+        .maybeSingle();
+      if (settingsError) {
+        console.warn('API Error loading rating settings (Fallback applied):', settingsError.message);
+        setRatingSettings({ start_date: null, end_date: null });
+      } else if (settingsData) {
+        setRatingSettings(settingsData);
+      } else {
+        setRatingSettings({ start_date: null, end_date: null });
+      }
+    } catch (err) {
+      console.error('Unhandled exception loading rating settings:', err);
+      setRatingSettings({ start_date: null, end_date: null });
+    }
+
+    try {
+      const { data: votesData } = await (supabase as any)
+        .from('member_level_votes')
+        .select('voter_id, subject_id, skill_level');
+
+      if (votesData) {
+        setAllVotes(votesData);
+        const userVotesMap: Record<string, string> = {};
+        votesData.forEach((vote: any) => {
+          if (vote.voter_id === currentUserId) {
+            userVotesMap[vote.subject_id] = vote.skill_level;
+          }
+        });
+        setMyVotes(userVotesMap);
+
+        const initialDrafts: Record<string, string> = {};
+        resolvedMembers.forEach((m: any) => {
+          initialDrafts[m.id] = userVotesMap[m.id] || m.skill_level || '';
+        });
+        setDraftVotes(initialDrafts);
+      }
+    } catch (err) {
+      console.error('Error loading rating votes:', err);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadRatingData(user.id);
+    }
+  }, [user]);
+
+  const handleDraftVote = (subjectId: string, levelCode: string) => {
+    setDraftVotes((prev) => ({
+      ...prev,
+      [subjectId]: levelCode,
+    }));
+
+    const originalVal = myVotes[subjectId] || members.find((m) => m.id === subjectId)?.skill_level || '';
+    if (levelCode === originalVal) {
+      setModifiedVotes((prev) => {
+        const next = { ...prev };
+        delete next[subjectId];
+        return next;
+      });
+    } else {
+      setModifiedVotes((prev) => ({
+        ...prev,
+        [subjectId]: levelCode,
+      }));
+    }
+  };
+
+  const handleResetToDefault = (subjectId: string, originalLevel: string) => {
+    setDraftVotes((prev) => ({
+      ...prev,
+      [subjectId]: originalLevel || '',
+    }));
+
+    const originalVal = myVotes[subjectId] || originalLevel || '';
+    const targetVal = originalLevel || '';
+    if (targetVal === originalVal) {
+      setModifiedVotes((prev) => {
+        const next = { ...prev };
+        delete next[subjectId];
+        return next;
+      });
+    } else {
+      setModifiedVotes((prev) => ({
+        ...prev,
+        [subjectId]: targetVal,
+      }));
+    }
+  };
+
+  const saveRatings = async () => {
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    if (isSubmitted) {
+      alert('이미 이번 기간의 평가를 완료하셨습니다.');
+      return;
+    }
+
+    const confirmSave = window.confirm(
+      '평가를 저장하시겠습니까? 저장 후에는 이번 기간 동안 평가를 수정하거나 추가로 제출할 수 없습니다.'
+    );
+    if (!confirmSave) return;
+
+    setIsSavingRatings(true);
+    try {
+      const promises: any[] = [];
+
+      for (const subjectId of Object.keys(modifiedVotes)) {
+        const val = modifiedVotes[subjectId];
+        const oldVal = myVotes[subjectId] || '';
+
+        if (val === '') {
+          if (oldVal !== '') {
+            promises.push(
+              (supabase as any)
+                .from('member_level_votes')
+                .delete()
+                .eq('voter_id', user.id)
+                .eq('subject_id', subjectId)
+            );
+          }
+        } else {
+          promises.push(
+            (supabase as any)
+              .from('member_level_votes')
+              .upsert(
+                {
+                  voter_id: user.id,
+                  subject_id: subjectId,
+                  skill_level: val,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: 'voter_id, subject_id' }
+              )
+          );
+        }
+      }
+
+      if (promises.length === 0) {
+        alert('변경 사항이 없습니다.');
+        setIsSavingRatings(false);
+        return;
+      }
+
+      const results = await Promise.all(promises);
+      const failed = results.filter((r) => r.error);
+
+      if (failed.length > 0) {
+        console.error('일부 평가 저장 실패:', failed);
+        alert('일부 평가가 저장되지 않았습니다. 잠시 후 다시 시도해 주세요.');
+      } else {
+        alert('모든 변경 사항이 성공적으로 저장되었습니다.');
+        setModifiedVotes({});
+      }
+
+      await loadRatingData(user.id);
+    } catch (err) {
+      console.error('Error saving ratings:', err);
+      alert('저장 중 알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsSavingRatings(false);
+    }
+  };
+
+  const isRatingPeriodActive = () => {
+    if (!ratingSettings) return false;
+    if (!ratingSettings.start_date || !ratingSettings.end_date) return false;
+    const now = new Date();
+    const start = new Date(ratingSettings.start_date);
+    const end = new Date(ratingSettings.end_date);
+    return now >= start && now <= end;
+  };
+
+  const formatPeriodDate = (isoString: string | null) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const hasDraftChanges = () => {
+    return Object.keys(modifiedVotes).length > 0;
+  };
+
+  const getFilteredLevelsForMember = (memberSkillLevel: string) => {
+    if (!memberSkillLevel) return allLevels;
+    const targetIndex = allLevels.findIndex(
+      (lvl) => lvl.code.toLowerCase() === memberSkillLevel.toLowerCase()
+    );
+    if (targetIndex === -1) {
+      return allLevels;
+    }
+    const startIndex = Math.max(0, targetIndex - 3);
+    const endIndex = Math.min(allLevels.length - 1, targetIndex + 1);
+    return allLevels.slice(startIndex, endIndex + 1);
+  };
+
+  const filteredMembers = members.filter((m) => {
+    const name = (m.full_name || m.username || m.email || '').toLowerCase();
+    return name.includes(searchQuery.toLowerCase());
+  });
+
+  const getFullLevelLabel = (code: string) => {
+    const lvl = allLevels.find(l => l.code.toLowerCase() === code.toLowerCase());
+    return lvl?.description || lvl?.name || code;
+  };
+
+  const getMemberStats = (memberId: string) => {
+    const memberVotes = allVotes.filter((v) => v.subject_id === memberId);
+    const totalVotes = memberVotes.length;
+
+    if (totalVotes === 0) {
+      return { totalVotes, avgScore: null, nearestLevelName: '평가 없음 (-)' };
+    }
+
+    let sumScore = 0;
+    memberVotes.forEach((v) => {
+      const normalizedCode = v.skill_level.toLowerCase();
+      const score = levelInfoMap[normalizedCode]?.score ?? 0;
+      sumScore += score;
+    });
+
+    const avgScore = sumScore / totalVotes;
+
+    let closestCode = '';
+    let minDiff = Infinity;
+    allLevels.forEach((level) => {
+      const normalizedOption = level.code.toLowerCase();
+      const optionScore = levelInfoMap[normalizedOption]?.score ?? 0;
+      const diff = Math.abs(optionScore - avgScore);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestCode = level.code;
+      }
+    });
+
+    const nearestLevelName = getLevelNameFromCode(levelInfoMap, closestCode, closestCode);
+    return {
+      totalVotes,
+      avgScore: Number(avgScore.toFixed(1)),
+      nearestLevelName,
+    };
+  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
@@ -101,6 +466,8 @@ export default function ProfilePage() {
     }
   }
 
+  const isSubmitted = Object.keys(myVotes).length > 0;
+
   if (userLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb] px-4">
@@ -115,46 +482,62 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
         <section className="rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5 sm:py-6">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs text-slate-300">안녕하세요</p>
-              <h1 className="mt-1 text-2xl font-semibold">{displayName}</h1>
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">레벨 {levelLabel}</span>
-                <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">{roleLabel}</span>
-                <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-amber-100">코인 {profile?.coin_balance ?? 0}</span>
-              </div>
+          <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6">
+            {/* 프로필 이미지 업로더 (사각 모서리 타원 모양 - rounded-[32px]) */}
+            <div className="relative shrink-0">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingAvatar}
+                className="group relative flex size-24 items-center justify-center overflow-hidden rounded-[32px] bg-slate-800 border-2 border-white/20 transition-all duration-300 hover:border-white/40 focus:outline-none"
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="Profile Avatar"
+                    className="size-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                ) : (
+                  <User className="size-10 text-slate-400 transition-transform duration-300 group-hover:scale-105" />
+                )}
+                
+                {/* 카메라 호버 오버레이 */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  <Camera className="size-5 text-white animate-in fade-in duration-200" />
+                  <span className="mt-1 text-[10px] text-white font-medium">사진 변경</span>
+                </div>
+                
+                {/* 업로드 로딩 중 오버레이 */}
+                {isUploadingAvatar && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                    <span className="size-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  </div>
+                )}
+              </button>
             </div>
-            <Link href="/dashboard" className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15">
-              홈
-            </Link>
-          </div>
 
-          <div className="mt-5 rounded-[22px] bg-white/8 px-4 py-4">
-            <p className="text-sm text-slate-300">오늘의 상태</p>
-            <p className="mt-1 text-lg font-semibold text-white">{genderLabel} · {levelLabel}</p>
-            <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-              <div className="rounded-2xl bg-white/8 px-2 py-3">
-                <p className="text-[11px] text-slate-300">역할</p>
-                <p className="mt-1 text-sm font-semibold text-white">{roleLabel}</p>
-              </div>
-              <div className="rounded-2xl bg-white/8 px-2 py-3">
-                <p className="text-[11px] text-slate-300">성별</p>
-                <p className="mt-1 text-sm font-semibold text-white">{genderLabel}</p>
-              </div>
-              <div className="rounded-2xl bg-white/8 px-2 py-3">
-                <p className="text-[11px] text-slate-300">급수</p>
-                <p className="mt-1 text-sm font-semibold text-white">{levelLabel}</p>
-              </div>
-              <div className="rounded-2xl bg-white/8 px-2 py-3">
-                <p className="text-[11px] text-slate-300">코인</p>
-                <p className="mt-1 text-sm font-semibold text-white">{profile?.coin_balance ?? 0}</p>
-              </div>
-              <div className="rounded-2xl bg-white/8 px-2 py-3">
-                <p className="text-[11px] text-slate-300">승 / 패</p>
-                <p className="mt-1 text-sm font-semibold text-white">
-                  {profile?.coin_wins ?? 0} / {profile?.coin_losses ?? 0}
-                </p>
+            {/* 회원 상세 정보 */}
+            <div className="flex-1 w-full text-center sm:text-left">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs text-slate-300">안녕하세요</p>
+                  <h1 className="mt-1 text-2xl font-semibold">{displayName}</h1>
+                  <div className="mt-3 flex flex-wrap justify-center sm:justify-start items-center gap-2 text-xs">
+                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">레벨 {levelLabel}</span>
+                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">{roleLabel}</span>
+                    <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-amber-100">코인 {profile?.coin_balance ?? 0}</span>
+                  </div>
+                </div>
+                <Link href="/dashboard" className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15 self-center sm:self-start">
+                  홈
+                </Link>
               </div>
             </div>
           </div>
@@ -163,29 +546,26 @@ export default function ProfilePage() {
         <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
           <div>
             <p className="text-xs text-slate-500">프로필 수정</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">급수 변경</h2>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900">성별 변경</h2>
           </div>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="mt-4 space-y-5">
               <FormField
                 control={form.control}
-                name="skill_level"
+                name="gender"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium text-slate-700">급수 선택</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <FormLabel className="text-sm font-medium text-slate-700">성별 선택</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
                       <FormControl>
                         <SelectTrigger className="h-12 rounded-2xl border-slate-300 bg-white">
-                          <SelectValue placeholder="급수를 선택하세요" />
+                          <SelectValue placeholder="성별을 선택하세요" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {levelOptions.map((option) => (
-                          <SelectItem key={option.code} value={option.code}>
-                            {option.name}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="male">남성</SelectItem>
+                        <SelectItem value="female">여성</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -193,28 +573,205 @@ export default function ProfilePage() {
                 )}
               />
 
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex flex-col">
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="h-12 flex-1 rounded-2xl bg-[#0f172a] text-base font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                  className="h-12 w-full rounded-2xl bg-[#0f172a] text-base font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
                 >
                   {isSubmitting ? '업데이트 중...' : '프로필 업데이트'}
                 </Button>
-                <Link href="/dashboard" className="flex-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-12 w-full rounded-2xl border-slate-300 text-base font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    대시보드로
-                  </Button>
-                </Link>
               </div>
             </form>
           </Form>
         </section>
+
+        {/* 회원 레벨 섹션 */}
+        <section className="rounded-[24px] bg-white px-4 py-5 shadow-sm sm:px-5 sm:py-6">
+          <div className="mb-4">
+            {isRatingPeriodActive() ? (
+              <>
+                <p className="text-xs text-slate-500">회원 레벨</p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">회원 상호 급수 평가</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  클럽 회원들의 배드민턴 실력에 대해 서로 의견을 공유하는 공간입니다.
+                </p>
+              </>
+            ) : (
+              <h2 className="text-lg font-semibold text-slate-900">회원 목록</h2>
+            )}
+          </div>
+          
+          {/* 평가 기간 관련 배너 및 저장 배너 */}
+          {!isRatingPeriodActive() && (
+            <div className="mb-4 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-amber-800 text-center font-medium text-sm">
+              ⚠️ 현재는 상호 급수 평가 기간이 아닙니다. (조회만 가능)
+              {ratingSettings?.start_date && ratingSettings?.end_date && (
+                <span className="block mt-1 text-xs text-amber-700 font-normal">
+                  평가 가능 기간: {formatPeriodDate(ratingSettings.start_date)} ~ {formatPeriodDate(ratingSettings.end_date)}
+                </span>
+              )}
+            </div>
+          )}
+
+          {isSubmitted && isRatingPeriodActive() && (
+            <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-800 text-center font-medium text-sm">
+              ✓ 이번 평가 기간의 상호 급수 평가가 이미 완료되었습니다. (추가 제출 및 수정 불가)
+            </div>
+          )}
+
+          {hasDraftChanges() && !isSubmitted && isRatingPeriodActive() && (
+            <div className="mb-4 flex flex-col gap-2 rounded-2xl bg-indigo-50 border border-indigo-100 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs text-indigo-950 font-medium">수정된 평가 내용이 있습니다. 저장 버튼을 눌러 한 번에 반영하세요.</span>
+              <button
+                type="button"
+                onClick={saveRatings}
+                disabled={isSavingRatings}
+                className="inline-flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-4 py-2 transition-colors disabled:opacity-50 shrink-0"
+              >
+                {isSavingRatings ? '저장 중...' : '평가 저장'}
+              </button>
+            </div>
+          )}
+
+          <div className="mb-4 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="회원 이름 검색..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-11 w-full rounded-2xl border border-slate-200 pl-9 pr-4 text-sm focus:border-slate-400 focus:outline-none bg-slate-50/50"
+                />
+              </div>
+
+              {loadingData ? (
+                <div className="text-center py-8 text-sm text-slate-500 bg-slate-50 rounded-xl border border-slate-100">
+                  평가 데이터를 불러오는 중입니다...
+                </div>
+              ) : filteredMembers.length === 0 ? (
+                <div className="text-center py-8 text-sm text-slate-500 bg-slate-50 rounded-xl border border-slate-100">
+                  검색 결과와 일치하는 회원이 없습니다.
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-slate-100 bg-white">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 font-semibold text-xs border-b border-slate-100">
+                          <th className="px-4 py-3">회원</th>
+                          <th className="px-4 py-3">내 평가</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {filteredMembers.map((m) => {
+                          const isSelf = m.id === user?.id;
+                          const currentVote = draftVotes[m.id] || '';
+
+                          return (
+                            <tr key={m.id} className="hover:bg-slate-50/30 transition-colors">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                  {/* 회원 프로필 이미지 (사각 모서리 타원 모양 - rounded-xl) */}
+                                  <button
+                                    type="button"
+                                    onClick={() => m.avatar_url && setActivePhotoUrl(m.avatar_url)}
+                                    disabled={!m.avatar_url}
+                                    className={`relative size-9 shrink-0 overflow-hidden rounded-[12px] bg-slate-100 border border-slate-100 flex items-center justify-center ${m.avatar_url ? 'cursor-pointer hover:opacity-80 transition-opacity' : 'cursor-default'}`}
+                                  >
+                                    {m.avatar_url ? (
+                                      <img
+                                        src={m.avatar_url}
+                                        alt={m.full_name || 'Avatar'}
+                                        className="size-full object-cover"
+                                      />
+                                    ) : (
+                                      <User className="size-4 text-slate-400" />
+                                    )}
+                                  </button>
+                                  <div className="font-semibold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                                    <span>
+                                      {m.full_name || m.username || '회원'}
+                                      ({m.gender === 'male' || m.gender === 'M' ? '남' : m.gender === 'female' || m.gender === 'F' ? '여' : '미설정'})
+                                    </span>
+                                    {isSelf && (
+                                      <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                                        본인
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                {isSelf ? (
+                                  <span className="text-xs text-slate-400 italic">본인 평가는 불가능합니다</span>
+                                ) : (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <select
+                                      value={currentVote}
+                                      onChange={(e) => handleDraftVote(m.id, e.target.value)}
+                                      disabled={isSelf || isSubmitted || isSavingRatings || !isRatingPeriodActive()}
+                                      className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-slate-300 w-full max-w-[200px] disabled:bg-slate-50 disabled:text-slate-400"
+                                    >
+                                      <option value="">평가 미선택</option>
+                                      {getFilteredLevelsForMember(m.skill_level).map((opt) => (
+                                        <option key={opt.code} value={opt.code}>
+                                          {opt.description || opt.name || opt.code}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+        </section>
       </div>
+
+      {avatarFile && (
+        <AvatarCropModal
+          imageFile={avatarFile}
+          isOpen={isCropOpen}
+          onClose={() => {
+            setIsCropOpen(false);
+            setAvatarFile(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }}
+          onCropComplete={handleCropComplete}
+        />
+      )}
+
+      {/* 회원사진 확대 라이트박스 모달 */}
+      {activePhotoUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 cursor-pointer animate-in fade-in duration-200"
+          onClick={() => setActivePhotoUrl(null)}
+        >
+          <div
+            className="relative max-w-sm w-full rounded-[32px] overflow-hidden bg-white p-2 shadow-2xl animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={activePhotoUrl}
+              alt="Zoomed Member"
+              className="w-full h-auto aspect-square object-cover rounded-[24px]"
+            />
+            <button
+              type="button"
+              onClick={() => setActivePhotoUrl(null)}
+              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-colors focus:outline-none"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

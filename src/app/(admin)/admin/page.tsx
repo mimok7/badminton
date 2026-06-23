@@ -52,8 +52,16 @@ export default function AdminPage() {
             href="/admin/tournament-matches"
             className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-amber-400 hover:bg-amber-50 sm:p-4"
           >
-            <h3 className="text-sm font-medium text-gray-900 sm:text-base">🎪 대회경기</h3>
+            <h3 className="text-sm font-medium text-gray-900 sm:text-base">🎪 대회 경기</h3>
             <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">대회를 생성하고 경기 일정을 관리하세요</p>
+          </Link>
+
+          <Link
+            href="/admin/pair-tournament-settings"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-yellow-400 hover:bg-yellow-50 sm:p-4"
+          >
+            <h3 className="text-sm font-medium text-gray-900 sm:text-base">👥 페어 대회</h3>
+            <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">페어전 전용 설정으로 그룹별 대회를 생성하세요</p>
           </Link>
 
           <Link

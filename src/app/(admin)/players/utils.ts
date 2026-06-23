@@ -1,9 +1,10 @@
 export { supabase } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 import { getKoreaDate } from '@/lib/date';
-import { AvailableDate, ExtendedPlayer, GeneratedMatch, LEVEL_LABELS } from './types';
+import { AvailableDate, ExtendedPlayer, GeneratedMatch } from './types';
 import type { Database } from '@/types/supabase';
-import { getAdminLevelDisplay } from '@/lib/level-display';
+import { getAdminLevelDisplay, getNormalizedSkillCode } from '@/lib/level-display';
+import { fetchLevelInfoMap, getLevelScoreFromCode } from '@/lib/level-info';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 type GeneratedMatchRow = Database['public']['Tables']['generated_matches']['Row'];
@@ -11,48 +12,9 @@ type MatchScheduleRow = Database['public']['Tables']['match_schedules']['Row'];
 const normalizeAttendanceStatus = (value: string | null | undefined): ExtendedPlayer['status'] =>
   value === 'present' || value === 'lesson' || value === 'absent' ? value : 'absent';
 
-// 레벨별 점수 매핑 (높은 숫자가 높은 실력)
-export const getLevelScore = (level: string): number => {
-  const scores: Record<string, number> = {
-    'a1': 100, 'a2': 95,
-    'b1': 90, 'b2': 85,
-    'c1': 80, 'c2': 75,
-    'd1': 70, 'd2': 65,
-    'e1': 60, 'e2': 55,
-    'n': 50
-  };
-  return scores[level.toLowerCase()] || 50;
-};
-
 export function normalizeLevel(skill_code: string | null | undefined, skill_level?: string | null | undefined): string {
-  const code = (skill_code || '').toLowerCase();
-  if (code) {
-    // A1, A2, B1, B2, C1, C2, D1, D2, E1, E2 형태로 정확히 매칭
-    if (['a1', 'a2', 'b1', 'b2', 'c1', 'c2', 'd1', 'd2', 'e1', 'e2'].includes(code)) {
-      return code;
-    }
-    // 기존 A, B, C, D, E 형태는 하위 레벨로 변환 (A -> A2, B -> B2 등)
-    if (code.startsWith('a')) return 'a2';
-    if (code.startsWith('b')) return 'b2';
-    if (code.startsWith('c')) return 'c2';
-    if (code.startsWith('d')) return 'd2';
-    if (code.startsWith('e')) return 'e2';
-    return code;
-  }
-  
-  const level = (skill_level || '').toLowerCase();
-  // 정확한 레벨 코드가 있으면 그대로 사용
-  if (['a1', 'a2', 'b1', 'b2', 'c1', 'c2', 'd1', 'd2', 'e1', 'e2'].includes(level)) {
-    return level;
-  }
-  // 기존 단일 레벨은 하위 레벨로 변환
-  if (level === 'a') return 'a2';
-  if (level === 'b') return 'b2';
-  if (level === 'c') return 'c2';
-  if (level === 'd') return 'd2';
-  if (level === 'e') return 'e2';
-  
-  return "e2"; // 기본값을 E2로 설정
+  const normalized = getNormalizedSkillCode(skill_code || skill_level || undefined, 'E2');
+  return normalized.toLowerCase();
 }
 
 // 대시보드에서 성공한 방식을 재사용한 프로필 조회 함수
@@ -162,6 +124,7 @@ export const fetchGeneratedMatchesBySession = async (sessionId: string): Promise
   );
 
   const profiles = await fetchProfilesByUserIds(profileIds);
+  const levelInfoMap = await fetchLevelInfoMap(supabase);
   const profileMap = new Map<string, any>();
   (profiles || []).forEach((profile: any) => {
     if (profile.id) profileMap.set(profile.id, profile);
@@ -191,18 +154,22 @@ export const fetchGeneratedMatchesBySession = async (sessionId: string): Promise
     team1_player1: {
       name: getProfileName(profileMap.get(match.team1_player1_id || '') || null, '선수1'),
       skill_level: profileMap.get(match.team1_player1_id || '')?.skill_level || 'E2',
+      score: getLevelScoreFromCode(levelInfoMap, profileMap.get(match.team1_player1_id || '')?.skill_level, 0),
     },
     team1_player2: {
       name: getProfileName(profileMap.get(match.team1_player2_id || '') || null, '선수2'),
       skill_level: profileMap.get(match.team1_player2_id || '')?.skill_level || 'E2',
+      score: getLevelScoreFromCode(levelInfoMap, profileMap.get(match.team1_player2_id || '')?.skill_level, 0),
     },
     team2_player1: {
       name: getProfileName(profileMap.get(match.team2_player1_id || '') || null, '선수3'),
       skill_level: profileMap.get(match.team2_player1_id || '')?.skill_level || 'E2',
+      score: getLevelScoreFromCode(levelInfoMap, profileMap.get(match.team2_player1_id || '')?.skill_level, 0),
     },
     team2_player2: {
       name: getProfileName(profileMap.get(match.team2_player2_id || '') || null, '선수4'),
       skill_level: profileMap.get(match.team2_player2_id || '')?.skill_level || 'E2',
+      score: getLevelScoreFromCode(levelInfoMap, profileMap.get(match.team2_player2_id || '')?.skill_level, 0),
     },
     is_scheduled: scheduledIds.has(match.id),
   }));

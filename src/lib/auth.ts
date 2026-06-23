@@ -17,7 +17,9 @@ export type AppProfile = Pick<
   | 'coin_wins'
   | 'coin_losses'
   | 'coin_updated_at'
->;
+> & {
+  skill_level_name?: string | null;
+};
 
 type ProfileLookupClient = Pick<SupabaseClient<Database, any, any>, 'from'>;
 
@@ -78,7 +80,23 @@ export async function getProfileByUserId(
 ): Promise<AppProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, user_id, username, full_name, email, role, skill_level, gender, created_at, updated_at, coin_balance, coin_wins, coin_losses, coin_updated_at')
+    .select(`
+      id,
+      user_id,
+      username,
+      full_name,
+      email,
+      role,
+      skill_level,
+      gender,
+      created_at,
+      updated_at,
+      coin_balance,
+      coin_wins,
+      coin_losses,
+      coin_updated_at,
+      level_info:level_info!skill_level(name)
+    `)
     .or(`user_id.eq.${userId},id.eq.${userId}`)
     .order('updated_at', { ascending: false });
 
@@ -87,7 +105,17 @@ export async function getProfileByUserId(
     return null;
   }
 
-  const profiles = Array.isArray(data) ? (data as AppProfile[]) : data ? [data as AppProfile] : [];
+  const profiles = Array.isArray(data)
+    ? (data as any[]).map((profile) => ({
+        ...profile,
+        skill_level_name: profile?.level_info?.name || null,
+      })) as AppProfile[]
+    : data
+      ? [{
+          ...(data as any),
+          skill_level_name: (data as any)?.level_info?.name || null,
+        } as AppProfile]
+      : [];
 
   if (profiles.length === 0) {
     return null;

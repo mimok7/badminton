@@ -2,29 +2,37 @@ import { Player, Team, Match } from '@/types';
 
 // 레벨별 점수 매핑
 export const LEVEL_SCORES: Record<string, number> = {
-  // Lowest to highest: E2(1), E1(2), D2(3), D1(4), C2(5), C1(6), B2(7), B1(8), A2(9), A1(10)
-  E2: 1,
-  E1: 2,
-  D2: 3,
-  D1: 4,
-  C2: 5,
-  C1: 6,
-  B2: 7,
-  B1: 8,
-  A2: 9,
-  A1: 10,
-  // Fallback short labels map to their nearest equivalent
-  A: 10,
-  B: 8,
-  C: 6,
-  D: 4,
-  E: 2,
-  N: 1,
+  // Mirrors current public.level_info.score ordering.
+  A3: 95,
+  A2: 92,
+  A1: 89,
+  B3: 86,
+  B2: 83,
+  B1: 80,
+  C3: 77,
+  C2: 74,
+  C1: 71,
+  D3: 68,
+  D2: 65,
+  D1: 62,
+  E3: 59,
+  E2: 56,
+  E1: 53,
+  N3: 50,
+  N2: 47,
+  N1: 44,
+  // Fallback legacy single-letter labels map to the middle tier.
+  A: 92,
+  B: 83,
+  C: 74,
+  D: 65,
+  E: 56,
+  N: 47,
 };
 
 export function getLevelScore(level?: string): number {
   const lv = (level || 'E2').toUpperCase();
-  return LEVEL_SCORES[lv] ?? 1;
+  return LEVEL_SCORES[lv] ?? 56;
 }
 
 export function getPlayerLevelScore(player: Player): number {
@@ -59,7 +67,7 @@ export function getTeamMatchScore(team1: Team, team2: Team): number {
 }
 
 // Maximum allowed team score difference when enforcing strict balance
-export const MAX_TEAM_SCORE_DIFF = 1;
+export const MAX_TEAM_SCORE_DIFF = 6;
 
 export function getTeamFairnessScore(team: Team): number {
   const totalScore = getTeamScore(team);

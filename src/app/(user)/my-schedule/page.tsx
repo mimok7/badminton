@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
 import Link from 'next/link';
 import { NotificationService } from '@/utils/notification-service';
-import { getUserLevelDisplay } from '@/lib/level-display';
 import { getProfileByUserId } from '@/lib/auth';
 import { formatCurrentUserNameWithCoins, formatNameWithCoins } from '@/lib/player-display';
 import { fetchScheduledMatchesForDate } from '@/lib/scheduled-matches';
+import { useLevelInfoMap } from '@/hooks/useLevelInfoMap';
+import { getLevelNameFromCode } from '@/lib/level-info';
 import {
   fetchMyTournamentMatches,
   normalizeTournamentPlayerName,
@@ -171,6 +172,7 @@ export default function MySchedulePage() {
   const { user, profile, loading: userLoading, isAdmin } = useUser();
   const router = useRouter();
   const supabase = getSupabaseClient();
+  const levelInfoMap = useLevelInfoMap();
   
   // 모든 상태를 상단에 선언
   const [loading, setLoading] = useState(true);
@@ -401,32 +403,32 @@ export default function MySchedulePage() {
               username: match.team1_player1_name,
               full_name: match.team1_player1_name,
               coin_balance: match.team1_player1_coin_balance ?? null,
-              skill_level: 'E2',
-              skill_level_name: getUserLevelDisplay('E2'),
+              skill_level: match.team1_player1_skill_level || 'E2',
+              skill_level_name: match.team1_player1_skill_level_name || getLevelNameFromCode(levelInfoMap, match.team1_player1_skill_level || 'E2', match.team1_player1_skill_level || 'E2') || (match.team1_player1_skill_level || 'E2'),
             },
             team1_player2: {
               id: match.team1_player2 || undefined,
               username: match.team1_player2_name,
               full_name: match.team1_player2_name,
               coin_balance: match.team1_player2_coin_balance ?? null,
-              skill_level: 'E2',
-              skill_level_name: getUserLevelDisplay('E2'),
+              skill_level: match.team1_player2_skill_level || 'E2',
+              skill_level_name: match.team1_player2_skill_level_name || getLevelNameFromCode(levelInfoMap, match.team1_player2_skill_level || 'E2', match.team1_player2_skill_level || 'E2') || (match.team1_player2_skill_level || 'E2'),
             },
             team2_player1: {
               id: match.team2_player1 || undefined,
               username: match.team2_player1_name,
               full_name: match.team2_player1_name,
               coin_balance: match.team2_player1_coin_balance ?? null,
-              skill_level: 'E2',
-              skill_level_name: getUserLevelDisplay('E2'),
+              skill_level: match.team2_player1_skill_level || 'E2',
+              skill_level_name: match.team2_player1_skill_level_name || getLevelNameFromCode(levelInfoMap, match.team2_player1_skill_level || 'E2', match.team2_player1_skill_level || 'E2') || (match.team2_player1_skill_level || 'E2'),
             },
             team2_player2: {
               id: match.team2_player2 || undefined,
               username: match.team2_player2_name,
               full_name: match.team2_player2_name,
               coin_balance: match.team2_player2_coin_balance ?? null,
-              skill_level: 'E2',
-              skill_level_name: getUserLevelDisplay('E2'),
+              skill_level: match.team2_player2_skill_level || 'E2',
+              skill_level_name: match.team2_player2_skill_level_name || getLevelNameFromCode(levelInfoMap, match.team2_player2_skill_level || 'E2', match.team2_player2_skill_level || 'E2') || (match.team2_player2_skill_level || 'E2'),
             },
           },
         });
@@ -500,7 +502,7 @@ export default function MySchedulePage() {
                 full_name: '미정', 
                 coin_balance: null,
                 skill_level: 'E2',
-                skill_level_name: getUserLevelDisplay('E2')
+                skill_level_name: getLevelNameFromCode(levelInfoMap, 'E2', 'E2') || 'E2'
               };
               return {
                 id: playerData.id,
@@ -509,7 +511,7 @@ export default function MySchedulePage() {
                 full_name: playerData.full_name || playerData.username || '미정',
                 coin_balance: playerData.coin_balance ?? null,
                 skill_level: playerData.skill_level || 'E2',
-                skill_level_name: playerData.level_info?.name || getUserLevelDisplay(playerData.skill_level || 'E2')
+                skill_level_name: playerData.level_info?.name || getLevelNameFromCode(levelInfoMap, playerData.skill_level || 'E2', playerData.skill_level || 'E2') || (playerData.skill_level || 'E2')
               };
             };
 
@@ -694,7 +696,7 @@ export default function MySchedulePage() {
     if (player?.skill_level_name) {
       return player.skill_level_name;
     }
-    return getUserLevelDisplay(player?.skill_level);
+    return getLevelNameFromCode(levelInfoMap, player?.skill_level, player?.skill_level || '미지정');
   };
 
   const fetchTournamentMatches = async () => {
@@ -843,7 +845,7 @@ export default function MySchedulePage() {
 
   const formatTournamentTitle = (title?: string | null, matchType?: string | null) => {
     const cleaned = String(title || '')
-      .replace(/라뚱\s*/g, '')
+      .replace(/라뚱\s*대회?|대회경기/gu, '대회 경기')
       .replace(/\((레벨별|레벨 랜덤|레벨랜덤|랜덤|리그전|단판 토너먼트)\)\s*$/i, '')
       .trim();
 
@@ -1308,7 +1310,7 @@ export default function MySchedulePage() {
                     {formatCurrentUserNameWithCoins(profile?.full_name || profile?.username || '회원', profile?.coin_balance)}
                   </span>
                   <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] tracking-[0.12em] text-white/90">
-                    {getUserLevelDisplay(profile?.skill_level)}
+                    {profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정')}
                   </span>
                 </div>
                 <h1 className="text-2xl font-semibold tracking-tight">내 일정</h1>

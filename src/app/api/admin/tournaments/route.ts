@@ -465,3 +465,66 @@ export async function PATCH(request: Request) {
     );
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const adminContext = await requireAdminOrManager();
+
+    if ('error' in adminContext) {
+      return adminContext.error;
+    }
+
+    const payload = await request.json().catch(() => null);
+    const tournamentId = typeof payload?.tournamentId === 'string' ? payload.tournamentId : '';
+
+    if (!tournamentId) {
+      return NextResponse.json({ error: 'Invalid tournament id' }, { status: 400 });
+    }
+
+    const { error: matchesDeleteError } = await adminContext.adminSupabase
+      .from('tournament_matches')
+      .delete()
+      .eq('tournament_id', tournamentId);
+
+    if (matchesDeleteError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to delete tournament matches',
+          code: matchesDeleteError.code,
+          message: matchesDeleteError.message,
+          details: matchesDeleteError.details,
+          hint: matchesDeleteError.hint,
+        },
+        { status: 500 }
+      );
+    }
+
+    const { error: tournamentDeleteError } = await adminContext.adminSupabase
+      .from('tournaments')
+      .delete()
+      .eq('id', tournamentId);
+
+    if (tournamentDeleteError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to delete tournament',
+          code: tournamentDeleteError.code,
+          message: tournamentDeleteError.message,
+          details: tournamentDeleteError.details,
+          hint: tournamentDeleteError.hint,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, tournamentId });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: 'Unexpected server error',
+        message: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}

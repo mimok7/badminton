@@ -4,7 +4,7 @@ import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-
 import { isUserAdmin } from '@/lib/auth'
 import UserManagementClient from './UserManagementClient'
 import type { Database } from '@/types/supabase'
-import { SKILL_LEVEL_SELECT_OPTIONS } from '@/lib/skill-levels'
+import { SKILL_LEVEL_CODES } from '@/lib/skill-levels'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,10 +105,10 @@ export default async function AdminMembersPage({
   const levelOptions = levelOptionsFromDb.length > 0
     ? levelOptionsFromDb
     : [
-      ...SKILL_LEVEL_SELECT_OPTIONS.map((option, index) => ({
-        code: option.code,
-        description: option.name,
-        score: SKILL_LEVEL_SELECT_OPTIONS.length - index,
+      ...SKILL_LEVEL_CODES.map((code, index) => ({
+        code,
+        description: code,
+        score: SKILL_LEVEL_CODES.length - index,
       })),
       { code: 'O', description: '기타', score: null },
     ]

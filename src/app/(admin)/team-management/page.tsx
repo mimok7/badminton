@@ -254,6 +254,9 @@ export default function TeamManagementPage() {
   const [showCustomEditor, setShowCustomEditor] = useState(false);
   const [selectedRoundForModal, setSelectedRoundForModal] = useState<RoundSummary | null>(null);
   const [pairGroups, setPairGroups] = useState<{groupName: string; players: string[]}[]>([]);
+  const [selectedPairPlayer, setSelectedPairPlayer] = useState<string | null>(null);
+  const [activePairGroupIndex, setActivePairGroupIndex] = useState<number | null>(null);
+  const [selectedManualPlayer, setSelectedManualPlayer] = useState<string | null>(null);
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const playerMetaByLabel = useMemo(
@@ -305,6 +308,82 @@ export default function TeamManagementPage() {
     return normalizeGender(playerMetaByLabel.get(playerName)?.gender);
   };
 
+  const getCustomManualTeamNames = () => {
+    const customTeamCount = Math.min(4, Math.max(2, teamConfig.numTeams || 2));
+    return Array.from({ length: customTeamCount }, (_, index) => `team${index + 1}` as TeamName);
+  };
+
+  const getManualTeamType = (): TeamConfigType => {
+    if (teamConfig.type !== 'custom') {
+      return teamConfig.type;
+    }
+
+    const customTeamCount = Math.min(4, Math.max(2, teamConfig.numTeams || 2));
+    return customTeamCount === 4 ? '4teams' : customTeamCount === 3 ? '3teams' : '2teams';
+  };
+
+  const getManualTeamOptions = () => {
+    if (teamConfig.type === '4teams') {
+      return [
+        { key: 'team1' as TeamName, label: '팀 1', box: 'bg-blue-50 border-blue-200', text: 'text-blue-700', active: 'bg-blue-200 border-blue-400', button: 'bg-blue-600 hover:bg-blue-700' },
+        { key: 'team2' as TeamName, label: '팀 2', box: 'bg-green-50 border-green-200', text: 'text-green-700', active: 'bg-green-200 border-green-400', button: 'bg-green-600 hover:bg-green-700' },
+        { key: 'team3' as TeamName, label: '팀 3', box: 'bg-purple-50 border-purple-200', text: 'text-purple-700', active: 'bg-purple-200 border-purple-400', button: 'bg-purple-600 hover:bg-purple-700' },
+        { key: 'team4' as TeamName, label: '팀 4', box: 'bg-orange-50 border-orange-200', text: 'text-orange-700', active: 'bg-orange-200 border-orange-400', button: 'bg-orange-600 hover:bg-orange-700' },
+      ];
+    }
+
+    if (teamConfig.type === '3teams') {
+      return [
+        { key: 'team1' as TeamName, label: '팀 1', box: 'bg-blue-50 border-blue-200', text: 'text-blue-700', active: 'bg-blue-200 border-blue-400', button: 'bg-blue-600 hover:bg-blue-700' },
+        { key: 'team2' as TeamName, label: '팀 2', box: 'bg-green-50 border-green-200', text: 'text-green-700', active: 'bg-green-200 border-green-400', button: 'bg-green-600 hover:bg-green-700' },
+        { key: 'team3' as TeamName, label: '팀 3', box: 'bg-purple-50 border-purple-200', text: 'text-purple-700', active: 'bg-purple-200 border-purple-400', button: 'bg-purple-600 hover:bg-purple-700' },
+      ];
+    }
+
+    if (teamConfig.type === 'custom') {
+      return getCustomManualTeamNames().map((teamName, index) => {
+        const palette = [
+          { box: 'bg-blue-50 border-blue-200', text: 'text-blue-700', active: 'bg-blue-200 border-blue-400', button: 'bg-blue-600 hover:bg-blue-700' },
+          { box: 'bg-green-50 border-green-200', text: 'text-green-700', active: 'bg-green-200 border-green-400', button: 'bg-green-600 hover:bg-green-700' },
+          { box: 'bg-purple-50 border-purple-200', text: 'text-purple-700', active: 'bg-purple-200 border-purple-400', button: 'bg-purple-600 hover:bg-purple-700' },
+          { box: 'bg-orange-50 border-orange-200', text: 'text-orange-700', active: 'bg-orange-200 border-orange-400', button: 'bg-orange-600 hover:bg-orange-700' },
+        ][index];
+
+        return {
+          key: teamName,
+          label: `팀 ${index + 1}`,
+          ...palette,
+        };
+      });
+    }
+
+    return [
+      { key: 'racket' as TeamName, label: '라켓팀', box: 'bg-blue-50 border-blue-200', text: 'text-blue-700', active: 'bg-blue-200 border-blue-400', button: 'bg-blue-600 hover:bg-blue-700' },
+      { key: 'shuttle' as TeamName, label: '셔틀팀', box: 'bg-purple-50 border-purple-200', text: 'text-purple-700', active: 'bg-purple-200 border-purple-400', button: 'bg-purple-600 hover:bg-purple-700' },
+    ];
+  };
+
+  const getTeamPlayerGridClassName = (type: TeamConfigType) => {
+    if (type === '4teams') {
+      return 'grid grid-cols-1 gap-2 sm:grid-cols-2';
+    }
+
+    if (type === '3teams') {
+      return 'grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3';
+    }
+
+    return 'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4';
+  };
+
+  const getPlayerCardClassName = (isSelected: boolean, isOtherTeam: boolean, activeClassName: string, idleClassName: string) =>
+    `min-h-[40px] rounded border px-2 py-1.5 text-center text-sm leading-tight transition-colors ${
+      isSelected
+        ? `${activeClassName} font-semibold`
+        : isOtherTeam
+        ? 'bg-gray-100 border-gray-300 text-gray-400'
+        : `${idleClassName} cursor-pointer`
+    }`;
+
   const fetchMemberPlayers = async () => {
     try {
       const [profilesResult, levelInfoResult] = await Promise.all([
@@ -327,7 +406,7 @@ export default function TeamManagementPage() {
       setMemberPlayers((profilesData || []).map((profile) => ({
         id: profile.id,
         fullName: profile.full_name || profile.username || `선수-${profile.id.substring(0, 4)}`,
-        levelName: getLevelNameFromCode(levelInfoResult, profile.skill_level, '미지정'),
+        levelName: getLevelNameFromCode(levelInfoResult, profile.skill_level, '미지정') || '미지정',
         skillCode: String(profile.skill_level || '').toUpperCase(),
         gender: String(profile.gender || ''),
         score: getLevelScoreFromCode(levelInfoResult, profile.skill_level, getLegacyLevelScore(profile.skill_level || '')),
@@ -652,6 +731,8 @@ export default function TeamManagementPage() {
         if (schedule?.match_date) titleDate = schedule.match_date;
       }
 
+      const effectiveTeamType = getManualTeamType();
+
       // 팀 구성 방식 라벨 생성
       const getTeamTypeLabel = (type: string) => {
         switch(type) {
@@ -664,7 +745,7 @@ export default function TeamManagementPage() {
         }
       };
 
-      const roundTitle = `라뚱대회 ${titleDate} ${getTeamTypeLabel(teamConfig.type)}`;
+      const roundTitle = `대회 경기 ${titleDate} ${teamConfig.type === 'custom' ? `수동배정 ${getTeamTypeLabel(effectiveTeamType)}` : getTeamTypeLabel(teamConfig.type)}`;
       let dbSaveSucceeded = false;
 
       // 팀별로 분리
@@ -676,7 +757,7 @@ export default function TeamManagementPage() {
       let team4Players: string[] = [];
       let pairGroupDataForSave: Array<{ groupName: string; pairNames: string[] }> = [];
 
-      if (teamConfig.type === '3teams' || teamConfig.type === '4teams') {
+      if (effectiveTeamType === '3teams' || effectiveTeamType === '4teams') {
         // 3팀, 4팀 모드 - team1, team2, team3, team4 사용
         team1Players = Object.entries(assignments)
           .filter(([_, team]) => team === 'team1')
@@ -688,7 +769,7 @@ export default function TeamManagementPage() {
           .filter(([_, team]) => team === 'team3')
           .map(([name, _]) => name);
         
-        if (teamConfig.type === '4teams') {
+        if (effectiveTeamType === '4teams') {
           team4Players = Object.entries(assignments)
             .filter(([_, team]) => team === 'team4')
             .map(([name, _]) => name);
@@ -713,7 +794,7 @@ export default function TeamManagementPage() {
           assignment_date: titleDate,
           round_number: currentRound,
           title: roundTitle,
-          team_type: teamConfig.type,
+          team_type: effectiveTeamType,
           racket_team: [],
           shuttle_team: [],
           team1: [],
@@ -754,11 +835,11 @@ export default function TeamManagementPage() {
             pairs: pairsData,
             groups: pairGroupDataForSave,
           };
-        } else if (teamConfig.type === '3teams') {
+        } else if (effectiveTeamType === '3teams') {
           insertData.team1 = team1Players;
           insertData.team2 = team2Players;
           insertData.team3 = team3Players;
-        } else if (teamConfig.type === '4teams') {
+        } else if (effectiveTeamType === '4teams') {
           insertData.team1 = team1Players;
           insertData.team2 = team2Players;
           insertData.team3 = team3Players;
@@ -836,7 +917,7 @@ export default function TeamManagementPage() {
         total_players: Object.keys(assignments).length,
         title: roundTitle,
         assignment_date: titleDate,
-        team_type: teamConfig.type
+        team_type: effectiveTeamType
       };
       
       // pairs 모드일 때 pairs_data 추가
@@ -1078,8 +1159,23 @@ export default function TeamManagementPage() {
       return allocated;
     };
 
+    const getConfiguredTeamNames = (): TeamName[] => {
+      if (teamConfig.type === '4teams') {
+        return ['team1', 'team2', 'team3', 'team4'];
+      }
+
+      if (teamConfig.type === '3teams') {
+        return ['team1', 'team2', 'team3'];
+      }
+
+      return ['racket', 'shuttle'];
+    };
+
     const buildBalancedAssignments = (teamNames: TeamName[]) => {
-      const players = shufflePlayers(playerPool)
+      const shuffledPlayerOrder = shufflePlayers(playerPool);
+      const shuffledOrderMap = new Map(shuffledPlayerOrder.map((player, index) => [player, index]));
+
+      const players = playerPool
         .map((player) => ({
           name: player,
           score: getPlayerScore(player),
@@ -1089,18 +1185,23 @@ export default function TeamManagementPage() {
           if (b.score !== a.score) {
             return b.score - a.score;
           }
-          return a.name.localeCompare(b.name, 'ko');
+          return (shuffledOrderMap.get(a.name) || 0) - (shuffledOrderMap.get(b.name) || 0);
         });
 
-      const totalScore = players.reduce((sum, player) => sum + player.score, 0);
-      const totalMale = players.filter((player) => player.gender === 'M').length;
-      const totalFemale = players.filter((player) => player.gender === 'F').length;
-      const totalUnknownGender = players.length - totalMale - totalFemale;
-      const targetSizes = distributeByWeight(players.length, teamNames.map(() => 1));
+      const playersWithTiers = players.map((player, index) => ({
+        ...player,
+        tier: Math.floor(index / Math.max(teamNames.length, 1)),
+      }));
+
+      const totalScore = playersWithTiers.reduce((sum, player) => sum + player.score, 0);
+      const totalMale = playersWithTiers.filter((player) => player.gender === 'M').length;
+      const totalFemale = playersWithTiers.filter((player) => player.gender === 'F').length;
+      const totalUnknownGender = playersWithTiers.length - totalMale - totalFemale;
+      const targetSizes = distributeByWeight(playersWithTiers.length, teamNames.map(() => 1));
       const targetMaleCounts = distributeByWeight(totalMale, targetSizes);
       const targetFemaleCounts = distributeByWeight(totalFemale, targetSizes);
       const targetUnknownCounts = distributeByWeight(totalUnknownGender, targetSizes);
-      const averageScorePerPlayer = players.length > 0 ? totalScore / players.length : 0;
+      const averageScorePerPlayer = playersWithTiers.length > 0 ? totalScore / playersWithTiers.length : 0;
       const targetScores = targetSizes.map((size) => averageScorePerPlayer * size);
 
       type BalancedTeamState = {
@@ -1115,6 +1216,7 @@ export default function TeamManagementPage() {
         targetFemale: number;
         targetUnknown: number;
         targetScore: number;
+        tierCounts: Record<number, number>;
       };
 
       const teams: BalancedTeamState[] = teamNames.map((name, index) => ({
@@ -1129,6 +1231,7 @@ export default function TeamManagementPage() {
         targetFemale: targetFemaleCounts[index] || 0,
         targetUnknown: targetUnknownCounts[index] || 0,
         targetScore: targetScores[index] || 0,
+        tierCounts: {},
       }));
 
       const evaluateTeams = (candidateTeams: BalancedTeamState[]) => {
@@ -1150,13 +1253,18 @@ export default function TeamManagementPage() {
           const femaleDiff = team.femaleCount - team.targetFemale;
           const unknownDiff = team.unknownCount - team.targetUnknown;
           const sizeDiff = team.players.length - team.targetSize;
+          const tierPenalty = Object.values(team.tierCounts).reduce((tierSum, count) => {
+            const overflow = Math.max(0, count - 1);
+            return tierSum + (overflow * overflow * 18000);
+          }, 0);
 
           return sum
             + (sizeDiff * sizeDiff * 300000)
             + (maleDiff * maleDiff * 30000)
             + (femaleDiff * femaleDiff * 30000)
             + (unknownDiff * unknownDiff * 8000)
-            + (scoreDiff * scoreDiff * 40);
+            + (scoreDiff * scoreDiff * 40)
+            + tierPenalty;
         }, 0)
           + (sizeRange * 500000)
           + (maleRange * 100000)
@@ -1169,18 +1277,20 @@ export default function TeamManagementPage() {
         sourceTeams.map((team) => ({
           ...team,
           players: [...team.players],
+          tierCounts: { ...team.tierCounts },
         }));
 
       const applyPlayerToTeam = (
         sourceTeams: BalancedTeamState[],
         teamIndex: number,
-        player: { name: string; score: number; gender: 'M' | 'F' | 'O' | '' }
+        player: { name: string; score: number; gender: 'M' | 'F' | 'O' | ''; tier: number }
       ) => {
         const nextTeams = cloneTeams(sourceTeams);
         const team = nextTeams[teamIndex];
 
         team.players.push(player.name);
         team.score += player.score;
+        team.tierCounts[player.tier] = (team.tierCounts[player.tier] || 0) + 1;
         if (player.gender === 'M') {
           team.maleCount += 1;
         } else if (player.gender === 'F') {
@@ -1195,13 +1305,19 @@ export default function TeamManagementPage() {
       const removePlayerFromTeam = (
         sourceTeams: BalancedTeamState[],
         teamIndex: number,
-        player: { name: string; score: number; gender: 'M' | 'F' | 'O' | '' }
+        player: { name: string; score: number; gender: 'M' | 'F' | 'O' | ''; tier: number }
       ) => {
         const nextTeams = cloneTeams(sourceTeams);
         const team = nextTeams[teamIndex];
 
         team.players = team.players.filter((name) => name !== player.name);
         team.score -= player.score;
+        const nextTierCount = (team.tierCounts[player.tier] || 0) - 1;
+        if (nextTierCount > 0) {
+          team.tierCounts[player.tier] = nextTierCount;
+        } else {
+          delete team.tierCounts[player.tier];
+        }
         if (player.gender === 'M') {
           team.maleCount -= 1;
         } else if (player.gender === 'F') {
@@ -1213,9 +1329,9 @@ export default function TeamManagementPage() {
         return nextTeams;
       };
 
-      const playerMap = new Map(players.map((player) => [player.name, player]));
+      const playerMap = new Map(playersWithTiers.map((player) => [player.name, player]));
 
-      players.forEach((player) => {
+      playersWithTiers.forEach((player) => {
         let bestTeamIndex = -1;
         let bestPenalty = Number.POSITIVE_INFINITY;
 
@@ -1359,16 +1475,36 @@ export default function TeamManagementPage() {
     };
 
     const assignBalancedTeamNames = (teamNames: TeamName[]) => {
-      const balancedTeams = buildBalancedAssignments(teamNames);
-      const result: Record<string, TeamName> = {};
+      const currentAssignmentsForPool = playerPool.reduce<Record<string, TeamName>>((acc, player) => {
+        const currentTeam = assignments[player];
+        if (currentTeam) {
+          acc[player] = currentTeam;
+        }
+        return acc;
+      }, {});
 
-      balancedTeams.forEach((team) => {
-        team.players.forEach((player) => {
-          result[player] = team.name;
+      let bestAssignments: Record<string, TeamName> | null = null;
+
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const balancedTeams = buildBalancedAssignments(teamNames);
+        const candidateAssignments: Record<string, TeamName> = {};
+
+        balancedTeams.forEach((team) => {
+          team.players.forEach((player) => {
+            candidateAssignments[player] = team.name;
+          });
         });
-      });
 
-      return result;
+        if (!areAssignmentsEqual(candidateAssignments, currentAssignmentsForPool)) {
+          return candidateAssignments;
+        }
+
+        if (!bestAssignments) {
+          bestAssignments = candidateAssignments;
+        }
+      }
+
+      return bestAssignments || {};
     };
 
     const forceDifferentAssignments = (source: Record<string, TeamName>) => {
@@ -1388,44 +1524,40 @@ export default function TeamManagementPage() {
         return acc;
       }, {});
 
-      const bucketKeys = Object.keys(teamBuckets);
+      const configuredTeamNames = teamConfig.type === 'pairs'
+        ? Object.keys(teamBuckets).sort((left, right) => {
+            const leftNumber = Number(String(left).replace(/\D/g, '')) || 0;
+            const rightNumber = Number(String(right).replace(/\D/g, '')) || 0;
+            return leftNumber - rightNumber;
+          })
+        : getConfiguredTeamNames().filter((team) => Array.isArray(teamBuckets[String(team)]) && teamBuckets[String(team)].length > 0);
 
       if (teamConfig.type === 'pairs') {
-        if (bucketKeys.length >= 2) {
-          const firstTeam = bucketKeys[0];
-          const secondTeam = bucketKeys[1];
-          const firstPlayer = teamBuckets[firstTeam][0];
-          const secondPlayer = teamBuckets[secondTeam][0];
-          next[firstPlayer] = secondTeam as TeamName;
-          next[secondPlayer] = firstTeam as TeamName;
+        if (configuredTeamNames.length >= 2) {
+          const rotatedPlayers = configuredTeamNames.map((teamName) => teamBuckets[teamName][0]).filter(Boolean);
+          rotatedPlayers.forEach((player, index) => {
+            next[player] = configuredTeamNames[(index + 1) % configuredTeamNames.length] as TeamName;
+          });
           return next;
         }
 
-        const onlyTeam = bucketKeys[0] || 'pair1';
+        const onlyTeam = configuredTeamNames[0] || 'pair1';
         const onlyTeamNumber = Number(String(onlyTeam).replace(/\D/g, '')) || 1;
         const fallbackTeam = `pair${onlyTeamNumber + 1}` as TeamName;
         next[players[0]] = fallbackTeam;
         return next;
       }
 
-      if (bucketKeys.length >= 2) {
-        const firstTeam = bucketKeys[0];
-        const secondTeam = bucketKeys[1];
-        const firstPlayer = teamBuckets[firstTeam][0];
-        const secondPlayer = teamBuckets[secondTeam][0];
-        next[firstPlayer] = secondTeam as TeamName;
-        next[secondPlayer] = firstTeam as TeamName;
+      if (configuredTeamNames.length >= 2) {
+        const rotatedPlayers = configuredTeamNames.map((teamName) => teamBuckets[String(teamName)][0]).filter(Boolean);
+        rotatedPlayers.forEach((player, index) => {
+          next[player] = configuredTeamNames[(index + 1) % configuredTeamNames.length] as TeamName;
+        });
         return next;
       }
 
-      const defaultTeams: TeamName[] =
-        teamConfig.type === '4teams'
-          ? ['team1', 'team2', 'team3', 'team4']
-          : teamConfig.type === '3teams'
-          ? ['team1', 'team2', 'team3']
-          : ['racket', 'shuttle'];
-
-      const onlyTeam = bucketKeys[0] as TeamName | undefined;
+      const defaultTeams = getConfiguredTeamNames();
+      const onlyTeam = configuredTeamNames[0] as TeamName | undefined;
       const nextTeam = defaultTeams.find((team) => team !== onlyTeam) || defaultTeams[0];
       next[players[0]] = nextTeam;
       return next;
@@ -1618,8 +1750,7 @@ export default function TeamManagementPage() {
         
       default:
         // 기본: 2팀 - 선수를 무작위로 섞어서 절반씩 배정
-        const registeredPlayers = Object.keys(assignments);
-        const shuffled = [...registeredPlayers].sort(() => Math.random() - 0.5);
+        const shuffled = [...playerPool].sort(() => Math.random() - 0.5);
         const defaultHalf = Math.ceil(shuffled.length / 2);
         shuffled.forEach((player, index) => {
           newAssignments[player] = index < defaultHalf ? 'racket' : 'shuttle';
@@ -1632,6 +1763,8 @@ export default function TeamManagementPage() {
 
     setAssignments(resolvedAssignments);
     setShowCustomEditor(false);
+    setSelectedPairPlayer(null);
+    setActivePairGroupIndex(null);
   };
 
   // 팀 배정 변경
@@ -1674,6 +1807,32 @@ export default function TeamManagementPage() {
     }));
   };
 
+  const unassignPlayer = (playerName: string) => {
+    setAssignments((prev) => {
+      const next = { ...prev };
+      delete next[playerName];
+      return next;
+    });
+  };
+
+  const resetCurrentAssignments = () => {
+    setAssignments({});
+    setSelectedPairPlayer(null);
+    setActivePairGroupIndex(null);
+    setSelectedManualPlayer(null);
+    setShowCustomEditor(false);
+  };
+
+  const startCustomManualAssignment = (numTeams: number) => {
+    setAssignments({});
+    setSelectedPairPlayer(null);
+    setActivePairGroupIndex(null);
+    setSelectedManualPlayer(null);
+    setPairGroups([]);
+    setTeamConfig({ type: 'custom', numTeams });
+    setShowCustomEditor(true);
+  };
+
   const movePairPlayerToGroup = (playerName: string, targetGroupIndex: number) => {
     setPairGroups((prev) => {
       if (targetGroupIndex < 0 || targetGroupIndex >= prev.length) {
@@ -1695,6 +1854,104 @@ export default function TeamManagementPage() {
 
       return movedPlayers;
     });
+  };
+
+  const getPairGroupIndexForPlayer = (playerName: string) => {
+    return pairGroups.findIndex((group) => group.players.includes(playerName));
+  };
+
+  const handlePairManualAdjustment = (playerName: string) => {
+    if (!showCustomEditor || teamConfig.type !== 'pairs') {
+      return;
+    }
+
+    const playerGroupIndex = getPairGroupIndexForPlayer(playerName);
+
+    if (activePairGroupIndex == null) {
+      alert('먼저 조정할 그룹의 수동배정 버튼을 선택해주세요.');
+      return;
+    }
+
+    if (playerGroupIndex !== activePairGroupIndex) {
+      alert('현재 선택한 그룹 안에서만 수동 배정할 수 있습니다.');
+      return;
+    }
+
+    if (!selectedPairPlayer) {
+      setSelectedPairPlayer(playerName);
+      return;
+    }
+
+    if (selectedPairPlayer === playerName) {
+      setSelectedPairPlayer(null);
+      return;
+    }
+
+    const selectedGroupIndex = getPairGroupIndexForPlayer(selectedPairPlayer);
+    const targetGroupIndex = getPairGroupIndexForPlayer(playerName);
+
+    if (
+      selectedGroupIndex < 0 ||
+      targetGroupIndex < 0 ||
+      selectedGroupIndex !== targetGroupIndex ||
+      selectedGroupIndex !== activePairGroupIndex
+    ) {
+      alert('페어 수동 조정은 같은 그룹 안에서만 가능합니다.');
+      return;
+    }
+
+    setAssignments((prev) => {
+      const sourcePair = prev[selectedPairPlayer];
+      const targetPair = prev[playerName];
+
+      if (!sourcePair || !targetPair || sourcePair === targetPair) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [selectedPairPlayer]: targetPair,
+        [playerName]: sourcePair,
+      };
+    });
+
+    setSelectedPairPlayer(null);
+  };
+
+  const handleTeamManualAdjustment = (playerName: string) => {
+    if (!showCustomEditor || teamConfig.type === 'pairs') {
+      return;
+    }
+
+    const currentTeam = assignments[playerName];
+    if (!currentTeam) {
+      return;
+    }
+
+    if (!selectedManualPlayer) {
+      setSelectedManualPlayer(playerName);
+      return;
+    }
+
+    if (selectedManualPlayer === playerName) {
+      setSelectedManualPlayer(null);
+      return;
+    }
+
+    const selectedPlayerTeam = assignments[selectedManualPlayer];
+    const targetPlayerTeam = assignments[playerName];
+
+    if (!selectedPlayerTeam || !targetPlayerTeam || selectedPlayerTeam === targetPlayerTeam) {
+      return;
+    }
+
+    setAssignments((prev) => ({
+      ...prev,
+      [selectedManualPlayer]: targetPlayerTeam,
+      [playerName]: selectedPlayerTeam,
+    }));
+
+    setSelectedManualPlayer(null);
   };
 
   const toggleManualPlayer = (playerName: string) => {
@@ -1936,6 +2193,7 @@ export default function TeamManagementPage() {
                 onClick={() => {
                   setTeamConfig({ type: '2teams' });
                   setPairGroups([]);
+                  setShowCustomEditor(false);
                 }}
                 className={`rounded-lg border-2 p-2.5 transition-all sm:p-3 ${
                   teamConfig.type === '2teams'
@@ -1952,6 +2210,7 @@ export default function TeamManagementPage() {
                 onClick={() => {
                   setTeamConfig({ type: '3teams' });
                   setPairGroups([]);
+                  setShowCustomEditor(false);
                 }}
                 className={`rounded-lg border-2 p-2.5 transition-all sm:p-3 ${
                   teamConfig.type === '3teams'
@@ -1968,6 +2227,7 @@ export default function TeamManagementPage() {
                 onClick={() => {
                   setTeamConfig({ type: '4teams' });
                   setPairGroups([]);
+                  setShowCustomEditor(false);
                 }}
                 className={`rounded-lg border-2 p-2.5 transition-all sm:p-3 ${
                   teamConfig.type === '4teams'
@@ -1981,7 +2241,10 @@ export default function TeamManagementPage() {
               </button>
               
               <button
-                onClick={() => setTeamConfig({ type: 'pairs', numLevelGroups: 2 })}
+                onClick={() => {
+                  setTeamConfig({ type: 'pairs', numLevelGroups: 2 });
+                  setShowCustomEditor(false);
+                }}
                 className={`rounded-lg border-2 p-2.5 transition-all sm:p-3 ${
                   teamConfig.type === 'pairs'
                     ? 'border-green-500 bg-green-50 shadow-md'
@@ -1995,8 +2258,7 @@ export default function TeamManagementPage() {
               
               <button
                 onClick={() => {
-                  setTeamConfig({ type: 'custom' });
-                  setPairGroups([]);
+                  startCustomManualAssignment(2);
                 }}
                 className={`rounded-lg border-2 p-2.5 transition-all sm:p-3 ${
                   teamConfig.type === 'custom'
@@ -2105,6 +2367,38 @@ export default function TeamManagementPage() {
             </div>
           </div>
         )}
+
+        {teamConfig.type === 'custom' && (
+          <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3 sm:mt-4 sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-semibold text-orange-900">✏️ 수동 배정 설정</h3>
+                <p className="mt-1 text-sm text-orange-800">
+                  배정 대상 회원 전체를 미배정 상태로 표시한 뒤, 처음부터 원하는 팀으로 직접 배정할 수 있습니다.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {[2, 3, 4].map((numTeams) => {
+                  const isSelected = (teamConfig.numTeams || 2) === numTeams;
+                  return (
+                    <button
+                      key={numTeams}
+                      type="button"
+                      onClick={() => startCustomManualAssignment(numTeams)}
+                      className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                        isSelected
+                          ? 'bg-orange-600 text-white'
+                          : 'border border-orange-300 bg-white text-orange-800 hover:bg-orange-100'
+                      }`}
+                    >
+                      {numTeams}팀
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 현재 출석자 및 팀 배정 섹션 */}
@@ -2166,13 +2460,34 @@ export default function TeamManagementPage() {
           <>
 
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:gap-4">
-              <button
-                onClick={autoAssignTeams}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
-              >
-                <span>🎲</span>
-                <span>자동 배정</span>
-              </button>
+              {teamConfig.type !== 'custom' && (
+                <button
+                  onClick={autoAssignTeams}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
+                >
+                  <span>🎲</span>
+                  <span>자동 배정</span>
+                </button>
+              )}
+              {teamConfig.type !== 'pairs' && (
+                <button
+                  onClick={() => {
+                    setShowCustomEditor((prev) => {
+                      const next = !prev;
+                      if (!next) {
+                        setSelectedPairPlayer(null);
+                        setActivePairGroupIndex(null);
+                        setSelectedManualPlayer(null);
+                      }
+                      return next;
+                    });
+                  }}
+                  className={`${showCustomEditor ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-500 hover:bg-orange-600'} text-white px-4 py-2 rounded flex items-center gap-2`}
+                >
+                  <span>✏️</span>
+                  <span>{showCustomEditor ? '수동배정 닫기' : '수동배정'}</span>
+                </button>
+              )}
               <button
                 onClick={saveTeamAssignments}
                 className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
@@ -2183,7 +2498,8 @@ export default function TeamManagementPage() {
               </button>
               {Object.keys(assignments).length > 0 && (
                 <button
-                  onClick={() => setAssignments({})}
+                  onClick={resetCurrentAssignments}
+                  title="현재 화면의 팀 배정 결과와 수동배정 선택 상태를 초기화합니다."
                   className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded flex items-center gap-2"
                 >
                   <span>🔄</span>
@@ -2191,9 +2507,103 @@ export default function TeamManagementPage() {
                 </button>
               )}
             </div>
+
+            {Object.keys(assignments).length > 0 && (
+              <p className="mb-4 text-xs text-gray-500">
+                `초기화`는 현재 화면의 팀 배정 결과를 모두 비우고, 수동배정 모드와 선택 중인 페어 조정 상태도 함께 닫습니다. 선수 목록과 팀 구성 방식은 유지됩니다.
+              </p>
+            )}
             
-            {/* 3팀 모드 */}
-            {teamConfig.type === '3teams' ? (
+            {/* 수동 배정 모드 */}
+            {showCustomEditor && teamConfig.type !== 'pairs' ? (
+              (() => {
+                const manualTeamOptions = getManualTeamOptions();
+                const unassignedPlayers = sortPlayers(playerPool.filter((player) => !assignments[player]));
+                const teamLayoutType = manualTeamOptions.length === 4 ? '4teams' : manualTeamOptions.length === 3 ? '3teams' : '2teams';
+
+                return (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900">
+                      사용자 정의 수동 배정 모드입니다. 배정 대상 회원 전체가 미배정 상태로 시작하며, 아래 `미배정 선수`에서 원하는 팀으로 직접 넣어 처음부터 팀을 구성할 수 있습니다. 이미 배정된 선수는 카드에서 선택 후 다른 팀 선수와 맞교환할 수 있습니다.
+                      {selectedManualPlayer && <span className="ml-2 font-semibold">선택 선수: {selectedManualPlayer}</span>}
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <h3 className="mb-3 text-lg font-semibold text-gray-700">미배정 선수 ({unassignedPlayers.length}명)</h3>
+                      {unassignedPlayers.length === 0 ? (
+                        <div className="rounded border border-dashed border-gray-300 bg-white p-3 text-center text-sm text-gray-500">
+                          모든 선수가 팀에 배정되었습니다.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
+                          {unassignedPlayers.map((player) => (
+                            <div key={player} className="min-w-0 rounded-md border border-gray-200 bg-white p-2">
+                              <div className="truncate text-center text-xs font-medium text-gray-900 sm:text-sm">{player}</div>
+                              <div className="mt-1.5 grid grid-cols-2 gap-1">
+                                {manualTeamOptions.map((teamOption, index) => (
+                                  <button
+                                    key={`${player}-${teamOption.key}`}
+                                    type="button"
+                                    onClick={() => assignPlayerToTeam(player, teamOption.key)}
+                                    className={`rounded px-1 py-0.5 text-[10px] font-semibold text-white transition-colors ${teamOption.button} ${manualTeamOptions.length === 3 && index === 2 ? 'col-span-2' : ''}`}
+                                  >
+                                    {teamOption.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className={`grid grid-cols-1 gap-4 ${manualTeamOptions.length === 2 ? 'lg:grid-cols-2' : manualTeamOptions.length === 3 ? 'xl:grid-cols-3' : 'md:grid-cols-2 xl:grid-cols-4'}`}>
+                      {manualTeamOptions.map((teamOption) => {
+                        const teamPlayers = sortPlayers(
+                          Object.entries(assignments)
+                            .filter(([, assignedTeam]) => assignedTeam === teamOption.key)
+                            .map(([player]) => player)
+                        );
+
+                        return (
+                          <div key={String(teamOption.key)} className={`rounded-lg border p-4 ${teamOption.box}`}>
+                            <h3 className={`mb-3 text-lg font-semibold ${teamOption.text}`}>
+                              {teamOption.label} ({teamPlayers.length}명)
+                              <span className="ml-2 text-sm font-normal">점수: {getTeamScore(teamOption.key).toFixed(1)}</span>
+                              <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary(teamOption.key).male} · 여 {getTeamGenderSummary(teamOption.key).female}</span>
+                            </h3>
+                            {teamPlayers.length === 0 ? (
+                              <div className="rounded border border-dashed border-gray-300 bg-white/80 p-3 text-center text-sm text-gray-500">
+                                아직 배정된 선수가 없습니다.
+                              </div>
+                            ) : (
+                              <div className={getTeamPlayerGridClassName(teamLayoutType)}>
+                                {teamPlayers.map((player) => (
+                                  <div
+                                    key={player}
+                                    className={`rounded border px-2 py-2 text-center text-sm font-medium cursor-pointer transition-colors ${
+                                      selectedManualPlayer === player
+                                        ? 'border-orange-500 bg-orange-100 ring-1 ring-orange-300'
+                                        : teamOption.active
+                                    }`}
+                                    onClick={() => handleTeamManualAdjustment(player)}
+                                  >
+                                    <div>{player}</div>
+                                    <div className="mt-1 text-[10px] text-slate-600">
+                                      {selectedManualPlayer === player ? '선택됨' : selectedManualPlayer ? '눌러서 맞교환' : '눌러서 선택'}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()
+            ) : teamConfig.type === '3teams' ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* 팀 1 */}
                 <div className="border rounded-lg p-4 bg-blue-50">
@@ -2202,17 +2612,16 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team1').toFixed(1)}</span>
                     <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team1').male} · 여 {getTeamGenderSummary('team1').female}</span>
                   </h3>
-                  <div className="space-y-2">
+                  <div className={getTeamPlayerGridClassName('3teams')}>
                     {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
-                        className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
-                          assignments[player] === 'team1' 
-                            ? 'bg-blue-200 border-blue-400 font-semibold' 
-                            : assignments[player]
-                            ? 'bg-gray-100 border-gray-300 text-gray-400'
-                            : 'bg-white border-gray-200 hover:bg-blue-100'
-                        }`}
+                        className={getPlayerCardClassName(
+                          assignments[player] === 'team1',
+                          Boolean(assignments[player] && assignments[player] !== 'team1'),
+                          'bg-blue-200 border-blue-400',
+                          'bg-white border-gray-200 hover:bg-blue-100'
+                        )}
                         onClick={() => assignPlayerToTeam(player, 'team1')}
                       >
                         {player}
@@ -2228,17 +2637,16 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team2').toFixed(1)}</span>
                     <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team2').male} · 여 {getTeamGenderSummary('team2').female}</span>
                   </h3>
-                  <div className="space-y-2">
+                  <div className={getTeamPlayerGridClassName('3teams')}>
                     {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
-                        className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
-                          assignments[player] === 'team2' 
-                            ? 'bg-green-200 border-green-400 font-semibold' 
-                            : assignments[player]
-                            ? 'bg-gray-100 border-gray-300 text-gray-400'
-                            : 'bg-white border-gray-200 hover:bg-green-100'
-                        }`}
+                        className={getPlayerCardClassName(
+                          assignments[player] === 'team2',
+                          Boolean(assignments[player] && assignments[player] !== 'team2'),
+                          'bg-green-200 border-green-400',
+                          'bg-white border-gray-200 hover:bg-green-100'
+                        )}
                         onClick={() => assignPlayerToTeam(player, 'team2')}
                       >
                         {player}
@@ -2254,17 +2662,16 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team3').toFixed(1)}</span>
                     <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team3').male} · 여 {getTeamGenderSummary('team3').female}</span>
                   </h3>
-                  <div className="space-y-2">
+                  <div className={getTeamPlayerGridClassName('3teams')}>
                     {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
-                        className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
-                          assignments[player] === 'team3' 
-                            ? 'bg-purple-200 border-purple-400 font-semibold' 
-                            : assignments[player]
-                            ? 'bg-gray-100 border-gray-300 text-gray-400'
-                            : 'bg-white border-gray-200 hover:bg-purple-100'
-                        }`}
+                        className={getPlayerCardClassName(
+                          assignments[player] === 'team3',
+                          Boolean(assignments[player] && assignments[player] !== 'team3'),
+                          'bg-purple-200 border-purple-400',
+                          'bg-white border-gray-200 hover:bg-purple-100'
+                        )}
                         onClick={() => assignPlayerToTeam(player, 'team3')}
                       >
                         {player}
@@ -2282,6 +2689,16 @@ export default function TeamManagementPage() {
                     (배정 대상 {playerPool.length}명 → {Math.ceil(playerPool.length / 2)}개 페어)
                   </p>
                 </div>
+
+                {showCustomEditor && (
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900">
+                    각 그룹의 `수동배정` 버튼을 눌러 그 그룹만 조정할 수 있습니다. 같은 그룹 안에서 선수 한 명을 먼저 선택한 뒤, 교환할 다른 선수를 누르면 두 선수의 페어가 서로 바뀝니다.
+                    {activePairGroupIndex != null && pairGroups[activePairGroupIndex] && (
+                      <span className="ml-2 font-semibold">현재 조정 그룹: {pairGroups[activePairGroupIndex].groupName}</span>
+                    )}
+                    {selectedPairPlayer && <span className="ml-2 font-semibold">선택 선수: {selectedPairPlayer}</span>}
+                  </div>
+                )}
                 
                 {/* 그룹별로 선수 표시 */}
                 {pairGroups.length > 0 && (
@@ -2397,9 +2814,29 @@ export default function TeamManagementPage() {
                         
                         return (
                           <div key={groupIdx} className={`border-2 ${colors.border} rounded-lg p-4 ${colors.bg}`}>
-                            <h4 className={`font-bold mb-3 ${colors.text} text-base ${colors.title} p-2 rounded`}>
-                              {pairGroups[groupIdx].groupName} - {groupPairs.length}개 페어
-                            </h4>
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <h4 className={`font-bold ${colors.text} text-base ${colors.title} p-2 rounded`}>
+                                {pairGroups[groupIdx].groupName} - {groupPairs.length}개 페어
+                              </h4>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowCustomEditor((prev) => {
+                                    const shouldOpen = activePairGroupIndex !== groupIdx || !prev;
+                                    setSelectedPairPlayer(null);
+                                    setActivePairGroupIndex(shouldOpen ? groupIdx : null);
+                                    return shouldOpen;
+                                  });
+                                }}
+                                className={`rounded-lg px-3 py-2 text-xs font-semibold text-white transition-colors ${
+                                  showCustomEditor && activePairGroupIndex === groupIdx
+                                    ? 'bg-orange-700 hover:bg-orange-800'
+                                    : 'bg-orange-500 hover:bg-orange-600'
+                                }`}
+                              >
+                                {showCustomEditor && activePairGroupIndex === groupIdx ? '수동배정 닫기' : '수동배정'}
+                              </button>
+                            </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                               {groupPairs.map(([pairName, players]) => {
                                 const pairScore = players.reduce((sum, player) => sum + getPlayerScore(player), 0);
@@ -2414,9 +2851,19 @@ export default function TeamManagementPage() {
                                       {players.map((player, idx) => (
                                         <div 
                                           key={player}
-                                          className={`p-2 rounded border ${colors.border} bg-white font-medium text-xs`}
+                                          className={`p-2 rounded border font-medium text-xs ${
+                                            showCustomEditor && activePairGroupIndex === groupIdx
+                                              ? `cursor-pointer transition-colors hover:bg-white ${selectedPairPlayer === player ? 'border-orange-500 bg-orange-100 ring-1 ring-orange-300' : `${colors.border} bg-white`}`
+                                              : `${colors.border} bg-white`
+                                          }`}
+                                          onClick={() => handlePairManualAdjustment(player)}
                                         >
                                           {idx + 1}. {player}
+                                          {showCustomEditor && activePairGroupIndex === groupIdx && (
+                                            <div className="mt-1 text-[10px] text-slate-500">
+                                              {selectedPairPlayer === player ? '선택됨' : selectedPairPlayer ? '눌러서 교환' : '눌러서 선택'}
+                                            </div>
+                                          )}
                                         </div>
                                       ))}
                                       {players.length === 1 && (
@@ -2465,17 +2912,16 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team1').toFixed(1)}</span>
                     <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team1').male} · 여 {getTeamGenderSummary('team1').female}</span>
                   </h3>
-                  <div className="space-y-2">
+                  <div className={getTeamPlayerGridClassName('4teams')}>
                     {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
-                        className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
-                          assignments[player] === 'team1' 
-                            ? 'bg-blue-200 border-blue-400 font-semibold' 
-                            : assignments[player]
-                            ? 'bg-gray-100 border-gray-300 text-gray-400'
-                            : 'bg-white border-gray-200 hover:bg-blue-100'
-                        }`}
+                        className={getPlayerCardClassName(
+                          assignments[player] === 'team1',
+                          Boolean(assignments[player] && assignments[player] !== 'team1'),
+                          'bg-blue-200 border-blue-400',
+                          'bg-white border-gray-200 hover:bg-blue-100'
+                        )}
                         onClick={() => assignPlayerToTeam(player, 'team1')}
                       >
                         {player}
@@ -2491,17 +2937,16 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team2').toFixed(1)}</span>
                     <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team2').male} · 여 {getTeamGenderSummary('team2').female}</span>
                   </h3>
-                  <div className="space-y-2">
+                  <div className={getTeamPlayerGridClassName('4teams')}>
                     {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
-                        className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
-                          assignments[player] === 'team2' 
-                            ? 'bg-green-200 border-green-400 font-semibold' 
-                            : assignments[player]
-                            ? 'bg-gray-100 border-gray-300 text-gray-400'
-                            : 'bg-white border-gray-200 hover:bg-green-100'
-                        }`}
+                        className={getPlayerCardClassName(
+                          assignments[player] === 'team2',
+                          Boolean(assignments[player] && assignments[player] !== 'team2'),
+                          'bg-green-200 border-green-400',
+                          'bg-white border-gray-200 hover:bg-green-100'
+                        )}
                         onClick={() => assignPlayerToTeam(player, 'team2')}
                       >
                         {player}
@@ -2517,17 +2962,16 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team3').toFixed(1)}</span>
                     <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team3').male} · 여 {getTeamGenderSummary('team3').female}</span>
                   </h3>
-                  <div className="space-y-2">
+                  <div className={getTeamPlayerGridClassName('4teams')}>
                     {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
-                        className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
-                          assignments[player] === 'team3' 
-                            ? 'bg-purple-200 border-purple-400 font-semibold' 
-                            : assignments[player]
-                            ? 'bg-gray-100 border-gray-300 text-gray-400'
-                            : 'bg-white border-gray-200 hover:bg-purple-100'
-                        }`}
+                        className={getPlayerCardClassName(
+                          assignments[player] === 'team3',
+                          Boolean(assignments[player] && assignments[player] !== 'team3'),
+                          'bg-purple-200 border-purple-400',
+                          'bg-white border-gray-200 hover:bg-purple-100'
+                        )}
                         onClick={() => assignPlayerToTeam(player, 'team3')}
                       >
                         {player}
@@ -2543,17 +2987,16 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team4').toFixed(1)}</span>
                     <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team4').male} · 여 {getTeamGenderSummary('team4').female}</span>
                   </h3>
-                  <div className="space-y-2">
+                  <div className={getTeamPlayerGridClassName('4teams')}>
                     {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
-                        className={`p-2 rounded border cursor-pointer transition-colors text-sm ${
-                          assignments[player] === 'team4' 
-                            ? 'bg-orange-200 border-orange-400 font-semibold' 
-                            : assignments[player]
-                            ? 'bg-gray-100 border-gray-300 text-gray-400'
-                            : 'bg-white border-gray-200 hover:bg-orange-100'
-                        }`}
+                        className={getPlayerCardClassName(
+                          assignments[player] === 'team4',
+                          Boolean(assignments[player] && assignments[player] !== 'team4'),
+                          'bg-orange-200 border-orange-400',
+                          'bg-white border-gray-200 hover:bg-orange-100'
+                        )}
                         onClick={() => assignPlayerToTeam(player, 'team4')}
                       >
                         {player}
@@ -2572,17 +3015,16 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('racket').toFixed(1)}</span>
                     <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('racket').male} · 여 {getTeamGenderSummary('racket').female}</span>
                   </h3>
-                  <div className="space-y-2">
+                  <div className={getTeamPlayerGridClassName('2teams')}>
                     {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
-                        className={`p-2 rounded border cursor-pointer transition-colors ${
-                          assignments[player] === 'racket' 
-                            ? 'bg-blue-100 border-blue-300' 
-                            : assignments[player] === 'shuttle'
-                            ? 'bg-gray-100 border-gray-300'
-                            : 'bg-white border-gray-200 hover:bg-blue-50'
-                        }`}
+                        className={getPlayerCardClassName(
+                          assignments[player] === 'racket',
+                          assignments[player] === 'shuttle',
+                          'bg-blue-100 border-blue-300',
+                          'bg-white border-gray-200 hover:bg-blue-50'
+                        )}
                         onClick={() => togglePlayerTeam(player)}
                       >
                         {player}
@@ -2598,17 +3040,16 @@ export default function TeamManagementPage() {
                     <span className="ml-2 text-sm font-normal">점수: {getTeamScore('shuttle').toFixed(1)}</span>
                     <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('shuttle').male} · 여 {getTeamGenderSummary('shuttle').female}</span>
                   </h3>
-                  <div className="space-y-2">
+                  <div className={getTeamPlayerGridClassName('2teams')}>
                     {sortPlayers(playerPool).map(player => (
                       <div 
                         key={player}
-                        className={`p-2 rounded border cursor-pointer transition-colors ${
-                          assignments[player] === 'shuttle' 
-                            ? 'bg-purple-100 border-purple-300' 
-                            : assignments[player] === 'racket'
-                            ? 'bg-gray-100 border-gray-300'
-                            : 'bg-white border-gray-200 hover:bg-purple-50'
-                        }`}
+                        className={getPlayerCardClassName(
+                          assignments[player] === 'shuttle',
+                          assignments[player] === 'racket',
+                          'bg-purple-100 border-purple-300',
+                          'bg-white border-gray-200 hover:bg-purple-50'
+                        )}
                         onClick={() => togglePlayerTeam(player)}
                       >
                         {player}

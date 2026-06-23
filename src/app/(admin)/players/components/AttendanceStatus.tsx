@@ -71,11 +71,14 @@ export default function AttendanceStatus({
   }
 
   const levelCounts: Record<string, number> = {};
+  const levelScoreByCode: Record<string, number> = {};
   const presentPlayers = todayPlayers.filter((player) => player.status === 'present');
 
   todayPlayers.forEach((player) => {
-    const level = (player.skill_label || player.skill_level || 'N1').toUpperCase();
+    const level = (player.skill_level || 'N1').toUpperCase();
     levelCounts[level] = (levelCounts[level] || 0) + 1;
+    const score = typeof player.score === 'number' && Number.isFinite(player.score) ? player.score : Number.NEGATIVE_INFINITY;
+    levelScoreByCode[level] = Math.max(levelScoreByCode[level] ?? Number.NEGATIVE_INFINITY, score);
   });
 
   const sortedPlayers = todayPlayers.slice().sort((a, b) => {
@@ -180,12 +183,11 @@ export default function AttendanceStatus({
         <div className="flex flex-wrap gap-2 text-xs">
           {Object.entries(levelCounts)
             .sort(([a], [b]) => {
-              const order = ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3', 'E1', 'E2', 'E3', 'N1', 'N2', 'N3'];
-              const indexA = order.indexOf(a);
-              const indexB = order.indexOf(b);
-              if (indexA === -1) return 1;
-              if (indexB === -1) return -1;
-              return indexA - indexB;
+              const scoreDiff = (levelScoreByCode[b] ?? Number.NEGATIVE_INFINITY) - (levelScoreByCode[a] ?? Number.NEGATIVE_INFINITY);
+              if (scoreDiff !== 0) {
+                return scoreDiff;
+              }
+              return a.localeCompare(b, 'ko', { sensitivity: 'base' });
             })
             .map(([level, count]) => (
               <span key={level} className="rounded border bg-blue-50 px-2 py-1 text-blue-700">

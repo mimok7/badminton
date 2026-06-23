@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
-import { getUserLevelDisplay } from '@/lib/level-display';
+import { useLevelInfoMap } from '@/hooks/useLevelInfoMap';
+import { getLevelNameFromCode } from '@/lib/level-info';
 
 export default function UnauthorizedPage() {
   const { user, profile, isAdmin } = useUser();
+  const levelInfoMap = useLevelInfoMap();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -29,7 +31,7 @@ export default function UnauthorizedPage() {
             <div className="text-sm text-gray-600 space-y-1">
               <p><span className="font-medium">사용자:</span> {profile.full_name || profile.username || '이름 없음'}</p>
               <p><span className="font-medium">권한:</span> {isAdmin ? '관리자' : '일반 사용자'}</p>
-              <p><span className="font-medium">레벨:</span> {getUserLevelDisplay(profile.skill_level)}</p>
+              <p><span className="font-medium">레벨:</span> {profile.skill_level_name || getLevelNameFromCode(levelInfoMap, profile.skill_level, profile.skill_level || '미지정')}</p>
             </div>
           </div>
         )}

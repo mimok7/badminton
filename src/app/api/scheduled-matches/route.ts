@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { getKoreaDate } from '@/lib/date';
 import type { ScheduledMatchView } from '@/lib/scheduled-matches';
+import { getLevelNameFromCode, type LevelInfoMap } from '@/lib/level-info';
 
 type ProfileRow = {
   id: string;
   user_id: string | null;
   username: string | null;
   full_name: string | null;
+  skill_level: string | null;
   gender: string | null;
   coin_balance: number | null;
 };
@@ -127,7 +129,7 @@ export async function GET(request: Request) {
 
     const { data: profiles, error: profilesError } = await adminSupabase
       .from('profiles')
-      .select('id, user_id, username, full_name, gender, coin_balance');
+      .select('id, user_id, username, full_name, skill_level, gender, coin_balance');
 
     if (profilesError) {
       console.error('Scheduled matches profiles error:', profilesError);
@@ -139,6 +141,25 @@ export async function GET(request: Request) {
       if (profile.id) profileMap.set(profile.id, profile);
       if (profile.user_id) profileMap.set(profile.user_id, profile);
     });
+
+    const { data: levelRows, error: levelRowsError } = await adminSupabase
+      .from('level_info')
+      .select('code, name, score');
+
+    if (levelRowsError) {
+      console.error('Scheduled matches level info error:', levelRowsError);
+      return NextResponse.json({ error: 'Failed to load level info' }, { status: 500 });
+    }
+
+    const levelInfoMap = (levelRows || []).reduce<LevelInfoMap>((acc, row: any) => {
+      if (row.code) {
+        acc[String(row.code).trim().toLowerCase()] = {
+          name: row.name || row.code,
+          score: Number(row.score ?? 0),
+        };
+      }
+      return acc;
+    }, {});
 
     const filterIds = userId
       ? Array.from(
@@ -229,6 +250,14 @@ export async function GET(request: Request) {
         team1_player2_name: getProfileName(profileMap.get(team1Player2Id || '') || null, '선수2'),
         team2_player1_name: getProfileName(profileMap.get(team2Player1Id || '') || null, '선수3'),
         team2_player2_name: getProfileName(profileMap.get(team2Player2Id || '') || null, '선수4'),
+        team1_player1_skill_level: profileMap.get(team1Player1Id || '')?.skill_level ?? null,
+        team1_player2_skill_level: profileMap.get(team1Player2Id || '')?.skill_level ?? null,
+        team2_player1_skill_level: profileMap.get(team2Player1Id || '')?.skill_level ?? null,
+        team2_player2_skill_level: profileMap.get(team2Player2Id || '')?.skill_level ?? null,
+        team1_player1_skill_level_name: getLevelNameFromCode(levelInfoMap, profileMap.get(team1Player1Id || '')?.skill_level, null),
+        team1_player2_skill_level_name: getLevelNameFromCode(levelInfoMap, profileMap.get(team1Player2Id || '')?.skill_level, null),
+        team2_player1_skill_level_name: getLevelNameFromCode(levelInfoMap, profileMap.get(team2Player1Id || '')?.skill_level, null),
+        team2_player2_skill_level_name: getLevelNameFromCode(levelInfoMap, profileMap.get(team2Player2Id || '')?.skill_level, null),
         team1_player1_coin_balance: profileMap.get(team1Player1Id || '')?.coin_balance ?? null,
         team1_player2_coin_balance: profileMap.get(team1Player2Id || '')?.coin_balance ?? null,
         team2_player1_coin_balance: profileMap.get(team2Player1Id || '')?.coin_balance ?? null,

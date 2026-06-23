@@ -18,7 +18,23 @@ interface TeamAssignment {
   team3?: string[];
   team4?: string[];
   pairs_data?: Record<string, string[]>;
+  pair_groups?: PairGroupDefinition[];
 }
+
+type PairGroupDefinition = {
+  groupName: string;
+  pairNames: string[];
+};
+
+type PairTournamentFormat = 'round_robin' | 'knockout' | 'round_robin_knockout';
+
+type PairGroupSetting = {
+  groupName: string;
+  pairNames: string[];
+  format: PairTournamentFormat;
+  roundRobinRepeats: number;
+  knockoutQualifiers: number;
+};
 
 const isValidTeamType = (value: string): value is TeamAssignment['team_type'] => {
   return value === '2teams' || value === '3teams' || value === '4teams' || value === 'pairs';
@@ -45,20 +61,68 @@ const toPairsData = (value: unknown): Record<string, string[]> => {
   );
 };
 
-const normalizeTeamAssignment = (assignment: any): TeamAssignment => ({
-  id: assignment.id,
-  round_number: assignment.round_number,
-  assignment_date: assignment.assignment_date,
-  title: assignment.title,
-  team_type: isValidTeamType(assignment.team_type) ? assignment.team_type : '2teams',
-  racket_team: toStringArray(assignment.racket_team),
-  shuttle_team: toStringArray(assignment.shuttle_team),
-  team1: toStringArray(assignment.team1),
-  team2: toStringArray(assignment.team2),
-  team3: toStringArray(assignment.team3),
-  team4: toStringArray(assignment.team4),
-  pairs_data: toPairsData(assignment.pairs_data),
-});
+const toPairGroupDefinitions = (value: unknown): PairGroupDefinition[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+
+      const group = item as { groupName?: unknown; pairNames?: unknown };
+      const groupName = String(group.groupName || '').trim();
+      const pairNames = toStringArray(group.pairNames)
+        .map((pairName) => pairName.trim())
+        .filter((pairName) => /^pair\d+$/i.test(pairName));
+
+      if (!groupName || pairNames.length === 0) {
+        return null;
+      }
+
+      return {
+        groupName,
+        pairNames: Array.from(new Set(pairNames)),
+      };
+    })
+    .filter((group): group is PairGroupDefinition => Boolean(group));
+};
+
+const parsePairsPayload = (value: unknown): { pairsData: Record<string, string[]>; pairGroups: PairGroupDefinition[] } => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      pairsData: toPairsData(value),
+      pairGroups: [],
+    };
+  }
+
+  const raw = value as { pairs?: unknown; groups?: unknown };
+
+  return {
+    pairsData: toPairsData(raw.pairs ?? value),
+    pairGroups: toPairGroupDefinitions(raw.groups),
+  };
+};
+
+const normalizeTeamAssignment = (assignment: any): TeamAssignment => {
+  const parsedPairs = parsePairsPayload(assignment.pairs_data);
+
+  return {
+    id: assignment.id,
+    round_number: assignment.round_number,
+    assignment_date: assignment.assignment_date,
+    title: assignment.title,
+    team_type: isValidTeamType(assignment.team_type) ? assignment.team_type : '2teams',
+    racket_team: toStringArray(assignment.racket_team),
+    shuttle_team: toStringArray(assignment.shuttle_team),
+    team1: toStringArray(assignment.team1),
+    team2: toStringArray(assignment.team2),
+    team3: toStringArray(assignment.team3),
+    team4: toStringArray(assignment.team4),
+    pairs_data: parsedPairs.pairsData,
+    pair_groups: parsedPairs.pairGroups,
+  };
+};
 
 interface Match {
   id?: string;
@@ -91,6 +155,12 @@ interface Tournament {
   matches?: Match[];
 }
 
+type PairEntry = {
+  name: string;
+  players: string[];
+  totalScore: number;
+};
+
 type TeamParticipantsModalState = {
   title: string;
   subtitle?: string;
@@ -102,6 +172,18 @@ type GenerationNotice = {
   type: 'success' | 'error';
   text: string;
 } | null;
+
+type TeamLockedPlayer = {
+  name: string;
+  score: number;
+  gender: string;
+};
+
+type TeamLockedPair = {
+  sourceTeam: string;
+  players: [TeamLockedPlayer, TeamLockedPlayer];
+  totalScore: number;
+};
 
 export default function TournamentMatchesPage() {
   const supabase = getSupabaseClient();
@@ -204,6 +286,220 @@ export default function TournamentMatchesPage() {
     });
 
     return counts;
+  };
+
+  const getPairEntriesFromAssignment = (assignment: TeamAssignment | null): PairEntry[] => {
+    if (!assignment?.pairs_data) {
+      return [];
+    }
+
+    return Object.entries(assignment.pairs_data)
+      .map(([pairName, players]) => ({
+        name: pairName,
+        players,
+        totalScore: players.reduce((sum, player) => sum + getPlayerScore(player), 0),
+      }))
+      .filter((pair) => pair.players.length > 0)
+      .sort((left, right) => {
+        const scoreDiff = right.totalScore - left.totalScore;
+        if (Math.abs(scoreDiff) > 0.0001) {
+          return scoreDiff;
+        }
+
+        return left.name.localeCompare(right.name, 'ko', { sensitivity: 'base' });
+      });
+  };
+
+  const getPairGroupsFromAssignment = (assignment: TeamAssignment | null) => {
+    const pairEntries = getPairEntriesFromAssignment(assignment);
+    const pairMap = new Map(pairEntries.map((pair) => [pair.name, pair]));
+
+    if (!assignment || pairEntries.length === 0) {
+      return [];
+    }
+
+    if (assignment.pair_groups && assignment.pair_groups.length > 0) {
+      return assignment.pair_groups
+        .map((group) => ({
+          groupName: group.groupName,
+          pairs: group.pairNames
+            .map((pairName) => pairMap.get(pairName))
+            .filter((pair): pair is PairEntry => Boolean(pair)),
+        }))
+        .filter((group) => group.pairs.length > 0);
+    }
+
+    return [
+      {
+        groupName: '페어 그룹',
+        pairs: pairEntries,
+      },
+    ];
+  };
+
+  const initializePairGroupSettings = (assignment: TeamAssignment | null) => {
+    const groups = getPairGroupsFromAssignment(assignment);
+
+    setPairGroupSettings(
+      groups.map((group) => ({
+        groupName: group.groupName,
+        pairNames: group.pairs.map((pair) => pair.name),
+        format: 'round_robin',
+        roundRobinRepeats: 1,
+        knockoutQualifiers: Math.min(4, Math.max(2, group.pairs.length >= 4 ? 4 : group.pairs.length)),
+      }))
+    );
+  };
+
+  const updatePairGroupSetting = (
+    groupName: string,
+    updater: (current: PairGroupSetting) => PairGroupSetting
+  ) => {
+    setPairGroupSettings((prev) =>
+      prev.map((group) => (group.groupName === groupName ? updater(group) : group))
+    );
+  };
+
+  const buildTeamLockedPairsForRound = (
+    teams: { name: string; players: string[] }[],
+    playerPool: Map<string, TeamLockedPlayer>,
+    playerMatchCount: Record<string, number>,
+    pairMatchCount: Record<string, number>,
+    mode: 'level_based' | 'random' | 'mixed_doubles'
+  ): TeamLockedPair[] => {
+    const roundPairs: TeamLockedPair[] = [];
+
+    teams.forEach((team) => {
+      const uniqueTeamPlayers = [...new Set(team.players)]
+        .map((name) => playerPool.get(name))
+        .filter((player): player is TeamLockedPlayer => Boolean(player));
+
+      if (uniqueTeamPlayers.length < 2) {
+        return;
+      }
+
+      const sortedPlayers = [...uniqueTeamPlayers].sort((left, right) => {
+        const matchDiff = (playerMatchCount[left.name] || 0) - (playerMatchCount[right.name] || 0);
+        if (matchDiff !== 0) {
+          return matchDiff;
+        }
+
+        if (mode === 'random') {
+          return Math.random() < 0.5 ? -1 : 1;
+        }
+
+        return right.score - left.score;
+      });
+
+      const available = [...sortedPlayers];
+
+      const takePreferredPartnerIndex = (anchor: TeamLockedPlayer, pool: TeamLockedPlayer[]) => {
+        if (pool.length === 0) {
+          return -1;
+        }
+
+        if (mode === 'mixed_doubles') {
+          const anchorGender = normalizeGender(anchor.gender);
+          const mixedIndex = pool.findIndex((candidate) => {
+            const candidateGender = normalizeGender(candidate.gender);
+            return anchorGender && candidateGender && anchorGender !== candidateGender;
+          });
+
+          if (mixedIndex >= 0) {
+            return mixedIndex;
+          }
+        }
+
+        let bestIndex = 0;
+        let bestValue = Number.POSITIVE_INFINITY;
+
+        pool.forEach((candidate, index) => {
+          const nextPairScore = anchor.score + candidate.score;
+          const pairKey = [anchor.name, candidate.name].sort((a, b) => a.localeCompare(b, 'ko')).join('::');
+          const pairUsed = pairMatchCount[pairKey] || 0;
+          const scoreGap = mode === 'level_based'
+            ? Math.abs(anchor.score - candidate.score)
+            : Math.abs(nextPairScore - anchor.score);
+          const value = pairUsed * 1000 + scoreGap;
+
+          if (value < bestValue) {
+            bestValue = value;
+            bestIndex = index;
+          }
+        });
+
+        return bestIndex;
+      };
+
+      while (available.length >= 2) {
+        const anchor = mode === 'level_based' ? available.shift()! : available.pop()!;
+        const partnerIndex = takePreferredPartnerIndex(anchor, available);
+
+        if (partnerIndex < 0) {
+          break;
+        }
+
+        const [partner] = available.splice(partnerIndex, 1);
+
+        roundPairs.push({
+          sourceTeam: team.name,
+          players: [anchor, partner],
+          totalScore: anchor.score + partner.score,
+        });
+      }
+    });
+
+    return roundPairs;
+  };
+
+  const matchTeamLockedPairs = (
+    pairs: TeamLockedPair[],
+    numberOfCourts: number
+  ) => {
+    const matches: Array<{ left: TeamLockedPair; right: TeamLockedPair }> = [];
+    const used = new Set<number>();
+
+    const sortedPairs = [...pairs].sort((left, right) => right.totalScore - left.totalScore);
+
+    for (let index = 0; index < sortedPairs.length && matches.length < numberOfCourts; index += 1) {
+      if (used.has(index)) {
+        continue;
+      }
+
+      const current = sortedPairs[index];
+      let bestOpponentIndex = -1;
+      let bestDiff = Number.POSITIVE_INFINITY;
+
+      for (let opponentIndex = index + 1; opponentIndex < sortedPairs.length; opponentIndex += 1) {
+        if (used.has(opponentIndex)) {
+          continue;
+        }
+
+        const opponent = sortedPairs[opponentIndex];
+        if (opponent.sourceTeam === current.sourceTeam) {
+          continue;
+        }
+
+        const diff = Math.abs(current.totalScore - opponent.totalScore);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestOpponentIndex = opponentIndex;
+        }
+      }
+
+      if (bestOpponentIndex < 0) {
+        continue;
+      }
+
+      used.add(index);
+      used.add(bestOpponentIndex);
+      matches.push({
+        left: current,
+        right: sortedPairs[bestOpponentIndex],
+      });
+    }
+
+    return matches;
   };
 
   const handleManualPlayerChange = (
@@ -412,6 +708,7 @@ export default function TournamentMatchesPage() {
   const [roundNumber, setRoundNumber] = useState(1);
   const [matchType, setMatchType] = useState<'level_based' | 'random' | 'mixed_doubles'>('random');
   const [numberOfCourts, setNumberOfCourts] = useState(4);
+  const [pairGroupSettings, setPairGroupSettings] = useState<PairGroupSetting[]>([]);
   const [teamParticipantsModal, setTeamParticipantsModal] = useState<TeamParticipantsModalState>(null);
   const [levelInfoMap, setLevelInfoMap] = useState<LevelInfoMap>({});
   const [playerGenderMap, setPlayerGenderMap] = useState<PlayerGenderMap>({});
@@ -750,6 +1047,185 @@ export default function TournamentMatchesPage() {
     return matches;
   };
 
+  const createPairMatch = (
+    team1Pair: PairEntry,
+    team2Pair: PairEntry,
+    matchNumber: number,
+    round: number,
+    courtNumber: number
+  ): Match => ({
+    tournament_id: '',
+    round,
+    match_number: matchNumber,
+    team1: team1Pair.players,
+    team2: team2Pair.players,
+    team1_levels: [team1Pair.totalScore],
+    team2_levels: [team2Pair.totalScore],
+    court: `Court ${courtNumber}`,
+    status: 'pending',
+  });
+
+  const createRoundRobinMatchesForPairs = (
+    pairs: PairEntry[],
+    repeatCount: number,
+    roundOffset: number,
+    matchNumberOffset: number,
+    courtCount: number
+  ) => {
+    const matches: Match[] = [];
+    let nextMatchNumber = matchNumberOffset;
+    let nextRound = roundOffset;
+
+    for (let repeat = 0; repeat < repeatCount; repeat += 1) {
+      for (let leftIndex = 0; leftIndex < pairs.length; leftIndex += 1) {
+        for (let rightIndex = leftIndex + 1; rightIndex < pairs.length; rightIndex += 1) {
+          matches.push(
+            createPairMatch(
+              pairs[leftIndex],
+              pairs[rightIndex],
+              nextMatchNumber++,
+              nextRound,
+              ((nextMatchNumber - 2) % courtCount) + 1
+            )
+          );
+        }
+      }
+      nextRound += 1;
+    }
+
+    return matches;
+  };
+
+  const createKnockoutOpeningMatchesForPairs = (
+    pairs: PairEntry[],
+    roundOffset: number,
+    matchNumberOffset: number,
+    courtCount: number
+  ) => {
+    const seededPairs = [...pairs].sort((left, right) => right.totalScore - left.totalScore);
+    const matches: Match[] = [];
+    let nextMatchNumber = matchNumberOffset;
+
+    for (let leftIndex = 0, rightIndex = seededPairs.length - 1; leftIndex < rightIndex; leftIndex += 1, rightIndex -= 1) {
+      matches.push(
+        createPairMatch(
+          seededPairs[leftIndex],
+          seededPairs[rightIndex],
+          nextMatchNumber++,
+          roundOffset,
+          ((nextMatchNumber - 2) % courtCount) + 1
+        )
+      );
+    }
+
+    return matches;
+  };
+
+  const buildPairTournamentMatches = (assignment: TeamAssignment) => {
+    const pairGroups = getPairGroupsFromAssignment(assignment);
+    const courtCount = Math.max(1, numberOfCourts);
+    const configuredGroups =
+      pairGroupSettings.length > 0
+        ? pairGroupSettings
+        : pairGroups.map((group) => ({
+            groupName: group.groupName,
+            pairNames: group.pairs.map((pair) => pair.name),
+            format: 'round_robin' as const,
+            roundRobinRepeats: 1,
+            knockoutQualifiers: Math.min(4, Math.max(2, group.pairs.length >= 4 ? 4 : group.pairs.length)),
+          }));
+
+    const matches: Match[] = [];
+    let roundCursor = 1;
+    let matchNumberCursor = 1;
+
+    configuredGroups.forEach((groupConfig) => {
+      const sourceGroup = pairGroups.find((group) => group.groupName === groupConfig.groupName);
+      if (!sourceGroup) {
+        return;
+      }
+
+      const configuredPairs = sourceGroup.pairs.filter((pair) => groupConfig.pairNames.includes(pair.name));
+      if (configuredPairs.length < 2) {
+        return;
+      }
+
+      if (groupConfig.format === 'round_robin') {
+        const roundRobinMatches = createRoundRobinMatchesForPairs(
+          configuredPairs,
+          Math.max(1, groupConfig.roundRobinRepeats),
+          roundCursor,
+          matchNumberCursor,
+          courtCount
+        );
+        matches.push(...roundRobinMatches);
+        roundCursor += Math.max(1, groupConfig.roundRobinRepeats);
+        matchNumberCursor += roundRobinMatches.length;
+        return;
+      }
+
+      if (groupConfig.format === 'knockout') {
+        const knockoutMatches = createKnockoutOpeningMatchesForPairs(
+          configuredPairs,
+          roundCursor,
+          matchNumberCursor,
+          courtCount
+        );
+        matches.push(...knockoutMatches);
+        roundCursor += knockoutMatches.length > 0 ? 1 : 0;
+        matchNumberCursor += knockoutMatches.length;
+        return;
+      }
+
+      const roundRobinMatches = createRoundRobinMatchesForPairs(
+        configuredPairs,
+        Math.max(1, groupConfig.roundRobinRepeats),
+        roundCursor,
+        matchNumberCursor,
+        courtCount
+      );
+      matches.push(...roundRobinMatches);
+      roundCursor += Math.max(1, groupConfig.roundRobinRepeats);
+      matchNumberCursor += roundRobinMatches.length;
+
+      const qualifiers = [...configuredPairs]
+        .sort((left, right) => right.totalScore - left.totalScore)
+        .slice(0, Math.max(2, Math.min(groupConfig.knockoutQualifiers, configuredPairs.length)));
+
+      const knockoutMatches = createKnockoutOpeningMatchesForPairs(
+        qualifiers,
+        roundCursor,
+        matchNumberCursor,
+        courtCount
+      );
+      matches.push(...knockoutMatches);
+      roundCursor += knockoutMatches.length > 0 ? 1 : 0;
+      matchNumberCursor += knockoutMatches.length;
+    });
+
+    return matches;
+  };
+
+  const getPairFormatLabel = (format: PairTournamentFormat) => {
+    if (format === 'knockout') return '토너먼트';
+    if (format === 'round_robin_knockout') return '리그후 토너먼트';
+    return '풀리그';
+  };
+
+  const getPairSettingsSummary = () =>
+    pairGroupSettings
+      .map((group) => {
+        const base = `${group.groupName}:${getPairFormatLabel(group.format)}`;
+        if (group.format === 'round_robin') {
+          return `${base} ${group.roundRobinRepeats}회`;
+        }
+        if (group.format === 'round_robin_knockout') {
+          return `${base} 리그 ${group.roundRobinRepeats}회 + ${group.knockoutQualifiers}강`;
+        }
+        return base;
+      })
+      .join(' / ');
+
   // 대회 생성 및 경기 저장
   const createTournament = async () => {
     if (!selectedAssignment) {
@@ -774,8 +1250,15 @@ export default function TournamentMatchesPage() {
       }
       
       // 경기 타입에 따른 대회 제목 생성
-      const matchTypeLabel = matchType === 'level_based' ? '레벨' : matchType === 'mixed_doubles' ? '혼복' : '랜덤';
-      const tournamentTitle = `대회경기 ${tournamentDate} ${roundNumber}회차 ${matchTypeLabel}`;
+      const matchTypeLabel =
+        selectedAssignment.team_type === 'pairs'
+          ? `페어 ${getPairSettingsSummary() || '풀리그'}`
+          : matchType === 'level_based'
+          ? '레벨'
+          : matchType === 'mixed_doubles'
+          ? '혼복'
+          : '랜덤';
+      const tournamentTitle = `대회 경기 ${tournamentDate} ${roundNumber}회차 ${matchTypeLabel}`;
 
       const response = await fetch('/api/admin/tournaments', {
         method: 'POST',
@@ -787,11 +1270,11 @@ export default function TournamentMatchesPage() {
             title: tournamentTitle,
             tournament_date: tournamentDate,
             round_number: roundNumber,
-            match_type: matchType,
+            match_type: selectedAssignment.team_type === 'pairs' ? 'pairs_custom' : matchType,
             team_assignment_id: selectedAssignment.id,
             team_type: selectedAssignment.team_type,
             total_teams: teams.length,
-            matches_per_player: matchesPerPlayer,
+            matches_per_player: selectedAssignment.team_type === 'pairs' ? 1 : matchesPerPlayer,
           },
           matches,
         }),
@@ -829,6 +1312,7 @@ export default function TournamentMatchesPage() {
     setGeneratedMatches([]);
     setIsManualEditing(false);
     setGenerationNotice(null);
+    initializePairGroupSettings(assignment);
     autoGenerationContextRef.current = {
       initialized: false,
       lastSignature: '',
@@ -877,7 +1361,10 @@ export default function TournamentMatchesPage() {
   };
 
   const buildGeneratedMatches = async (assignment: TeamAssignment): Promise<Match[]> => {
-      // 선수 데이터 추출
+      if (assignment.team_type === 'pairs') {
+        return buildPairTournamentMatches(assignment);
+      }
+
       const teams = getTeamsFromAssignment(assignment);
       const allPlayerNames = teams.flatMap(team => team.players);
 
@@ -885,36 +1372,25 @@ export default function TournamentMatchesPage() {
         throw new Error('최소 4명의 선수가 필요합니다.');
       }
 
-      // 점수 기반 정렬: 선수들의 점수를 계산하여 내림차순 정렬
-      const playersWithScores = allPlayerNames.map(name => ({
+      const playersWithScores = [...new Set(allPlayerNames)].map(name => ({
         name,
         score: getPlayerScore(name),
         gender: getPlayerGender(name),
       })).sort((a, b) => b.score - a.score);
+
+      const playerPool = new Map<string, TeamLockedPlayer>(
+        playersWithScores.map((player) => [player.name, player])
+      );
 
       console.log('📈 선수 점수 순위:');
       playersWithScores.forEach((p, idx) => {
         console.log(`${idx + 1}. ${p.name}: ${p.score}점`);
       });
 
-      // Player 형태로 변환 (match-utils 호환) - 점수 정렬 순서 유지
-      const playersForMatch = playersWithScores.map((p, idx) => {
-        const extractedLevel = extractLevelFromName(p.name);
-        return {
-          id: `player-${Date.now()}-${idx}`,
-          name: p.name,
-          skill_level: extractedLevel,  // 실제 레벨 사용
-          score: p.score, // match-utils에서 DB 점수를 우선 사용
-          skill_label: `${extractedLevel.toUpperCase()} 레벨`,
-          gender: p.gender,
-          skill_code: ''
-        };
-      });
-
       const effectiveMatchesPerPlayer = matchType === 'mixed_doubles' ? 1 : matchesPerPlayer;
 
       if (matchType === 'mixed_doubles') {
-        const playersWithoutGender = playersForMatch.filter((player) => !normalizeGender(player.gender));
+        const playersWithoutGender = playersWithScores.filter((player) => !normalizeGender(player.gender));
         if (playersWithoutGender.length > 0) {
           console.warn(
             '혼복 성별 미지정 선수:',
@@ -923,98 +1399,61 @@ export default function TournamentMatchesPage() {
         }
       }
 
-      // matchType에 따라 적절한 함수 선택
-      let importedFunc: any;
-      
-      if (matchType === 'level_based') {
-        const module = await import('@/utils/match-utils');
-        importedFunc = module.createBalancedDoublesMatches;
-      } else if (matchType === 'random') {
-        const module = await import('@/utils/match-utils');
-        importedFunc = module.createRandomBalancedDoublesMatches;
-      } else if (matchType === 'mixed_doubles') {
-        const module = await import('@/utils/match-utils');
-        importedFunc = module.createMixedAndSameSexDoublesMatches;
-      } else {
-        const module = await import('@/utils/match-utils');
-        importedFunc = module.createBalancedDoublesMatches;
-      }
+      const maxCourts = numberOfCourts > 0 ? numberOfCourts : Math.max(4, Math.ceil(playersWithScores.length / 4));
+      const playerMatchCount: Record<string, number> = Object.fromEntries(
+        playersWithScores.map((player) => [player.name, 0])
+      );
+      const pairMatchCount: Record<string, number> = {};
+      const convertedMatches: Match[] = [];
+      const totalRounds = Math.max(1, effectiveMatchesPerPlayer);
 
-      // 목표 경기 수 계산
-      const targetMatches = Math.ceil((playersForMatch.length * effectiveMatchesPerPlayer) / 4);
+      for (let round = 1; round <= totalRounds; round += 1) {
+        const pairsForRound = buildTeamLockedPairsForRound(
+          teams,
+          playerPool,
+          playerMatchCount,
+          pairMatchCount,
+          matchType
+        );
+        const matchedPairs = matchTeamLockedPairs(pairsForRound, maxCourts);
 
-      // 재시도 로직: 최대 4회 시도하며 코트 수를 점진적으로 증가
-      let utilitiesMatches: any[] = [];
-      let attempts = 0;
-      let maxCourts = numberOfCourts > 0 ? numberOfCourts : Math.max(4, Math.ceil(playersForMatch.length / 4));
+        matchedPairs.forEach(({ left, right }) => {
+          const team1Players = left.players.map((player) => player.name);
+          const team2Players = right.players.map((player) => player.name);
+          const team1Levels = left.players.map((player) => player.score);
+          const team2Levels = right.players.map((player) => player.score);
 
-      while (attempts < 4) {
-        utilitiesMatches = importedFunc(playersForMatch, maxCourts, effectiveMatchesPerPlayer)
-          .map((m: any, i: number) => ({ ...m, court: (i % maxCourts) + 1 }));
+          convertedMatches.push({
+            tournament_id: '',
+            round,
+            match_number: convertedMatches.length + 1,
+            team1: team1Players,
+            team2: team2Players,
+            team1_levels: team1Levels,
+            team2_levels: team2Levels,
+            court: `Court ${((convertedMatches.length) % maxCourts) + 1}`,
+            status: 'pending' as const,
+          });
 
-        // 경기 수 확인
-        const playerMatchCount: Record<string, number> = {};
-        playersForMatch.forEach(p => playerMatchCount[p.id] = 0);
-        utilitiesMatches.forEach(match => {
-          playerMatchCount[match.team1.player1.id] = (playerMatchCount[match.team1.player1.id] || 0) + 1;
-          playerMatchCount[match.team1.player2.id] = (playerMatchCount[match.team1.player2.id] || 0) + 1;
-          playerMatchCount[match.team2.player1.id] = (playerMatchCount[match.team2.player1.id] || 0) + 1;
-          playerMatchCount[match.team2.player2.id] = (playerMatchCount[match.team2.player2.id] || 0) + 1;
+          [...left.players, ...right.players].forEach((player) => {
+            playerMatchCount[player.name] = (playerMatchCount[player.name] || 0) + 1;
+          });
+
+          const leftKey = left.players.map((player) => player.name).sort((a, b) => a.localeCompare(b, 'ko')).join('::');
+          const rightKey = right.players.map((player) => player.name).sort((a, b) => a.localeCompare(b, 'ko')).join('::');
+          pairMatchCount[leftKey] = (pairMatchCount[leftKey] || 0) + 1;
+          pairMatchCount[rightKey] = (pairMatchCount[rightKey] || 0) + 1;
         });
-
-        const missing = playersForMatch.filter(p => (playerMatchCount[p.id] || 0) < effectiveMatchesPerPlayer);
-
-        // 조건: 목표 경기 이상 + 모든 선수가 최소 경기 달성
-        if (utilitiesMatches.length >= targetMatches && missing.length === 0) {
-          break;
-        }
-
-        attempts += 1;
-        maxCourts = Math.min(playersForMatch.length, maxCourts + 2);
       }
 
-      // 최종 검증: 모든 선수가 포함되었는지 확인
-      const finalPlayerMatchCount: Record<string, number> = {};
-      playersForMatch.forEach(p => finalPlayerMatchCount[p.id] = 0);
-      utilitiesMatches.forEach(match => {
-        finalPlayerMatchCount[match.team1.player1.id] = (finalPlayerMatchCount[match.team1.player1.id] || 0) + 1;
-        finalPlayerMatchCount[match.team1.player2.id] = (finalPlayerMatchCount[match.team1.player2.id] || 0) + 1;
-        finalPlayerMatchCount[match.team2.player1.id] = (finalPlayerMatchCount[match.team2.player1.id] || 0) + 1;
-        finalPlayerMatchCount[match.team2.player2.id] = (finalPlayerMatchCount[match.team2.player2.id] || 0) + 1;
-      });
-      
-      const stillMissing = playersForMatch.filter(p => (finalPlayerMatchCount[p.id] || 0) < effectiveMatchesPerPlayer);
-      
+      const stillMissing = playersWithScores.filter((player) => (playerMatchCount[player.name] || 0) < effectiveMatchesPerPlayer);
+
       if (stillMissing.length > 0) {
-        const missingNames = stillMissing.map(p => p.name).join(', ');
-        console.warn(`⚠️ ${stillMissing.length}명의 선수가 목표 경기수에 도달하지 못했습니다:`, missingNames);
-        console.warn(`생성된 경기: ${utilitiesMatches.length}개, 목표: ${targetMatches}개`);
+        console.warn(
+          `⚠️ ${stillMissing.length}명의 선수가 목표 경기수에 도달하지 못했습니다:`,
+          stillMissing.map((player) => player.name).join(', ')
+        );
       }
-
-      // match-utils의 Match를 tournament-matches의 Match로 변환
-      const convertedMatches: Match[] = utilitiesMatches.map((m: any, idx: number) => {
-        // 선수 이름에서 레벨 추출 후 점수로 변환
-        const team1Levels = [
-          getLevelScore(extractLevelFromName(m.team1.player1.name)),
-          getLevelScore(extractLevelFromName(m.team1.player2.name))
-        ];
-        const team2Levels = [
-          getLevelScore(extractLevelFromName(m.team2.player1.name)),
-          getLevelScore(extractLevelFromName(m.team2.player2.name))
-        ];
-
-        return {
-          tournament_id: '',
-          round: roundNumber,
-          match_number: idx + 1,
-          team1: [m.team1.player1.name, m.team1.player2.name],
-          team2: [m.team2.player1.name, m.team2.player2.name],
-          team1_levels: team1Levels,
-          team2_levels: team2Levels,
-          court: `Court ${m.court || ((idx % maxCourts) + 1)}`,
-          status: 'pending' as const
-        };
-      });
 
       // 🎯 createBalancedDoublesMatches가 이미 팀 점수 균등을 고려하므로
       // 추가 최적화 없이 결과 사용 (players-today 방식과 동일)
@@ -1066,14 +1505,13 @@ export default function TournamentMatchesPage() {
       // 전체 참가자 통계 출력
       console.log('📊 경기 생성 완료:');
       console.log(`- 타입: ${matchType}`);
-      console.log(`- 총 선수: ${playersForMatch.length}명`);
+      console.log(`- 총 선수: ${playersWithScores.length}명`);
       console.log(`- 생성된 경기: ${optimizedMatches.length}개`);
-      console.log(`- 목표 경기수: ${targetMatches}개`);
       console.log(`- 1인당 목표: ${effectiveMatchesPerPlayer}경기`);
       
       // 경기 수 분포 출력
       const distribution: Record<number, number> = {};
-      Object.values(finalPlayerMatchCount).forEach((count: number) => {
+      Object.values(playerMatchCount).forEach((count: number) => {
         distribution[count] = (distribution[count] || 0) + 1;
       });
       console.log('- 경기 수 분포:', distribution);
@@ -1127,6 +1565,7 @@ export default function TournamentMatchesPage() {
       numberOfCourts,
       roundNumber,
       matchesPerPlayer,
+      pairGroupSettings,
     });
 
     const assignmentChanged = autoGenerationContextRef.current.lastAssignmentId !== selectedAssignment.id;
@@ -1159,7 +1598,7 @@ export default function TournamentMatchesPage() {
           showGenerationNotice('error', error?.message || '설정 변경 후 자동 배정 중 오류가 발생했습니다.');
         }
       });
-  }, [showCreateModal, selectedAssignment, matchType, numberOfCourts, roundNumber, matchesPerPlayer]);
+  }, [showCreateModal, selectedAssignment, matchType, numberOfCourts, roundNumber, matchesPerPlayer, pairGroupSettings]);
 
   // 경기 관리 - 대진표 페이지로 이동
   const handleManageMatches = async (tournament: Tournament) => {
@@ -1174,12 +1613,19 @@ export default function TournamentMatchesPage() {
     }
 
     try {
-      const { error } = await supabase
-        .from('tournaments')
-        .delete()
-        .eq('id', tournamentId);
+      const response = await fetch('/api/admin/tournaments', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tournamentId }),
+      });
 
-      if (error) throw error;
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.message || payload?.error || '대회 삭제에 실패했습니다.');
+      }
 
       alert('대회가 삭제되었습니다.');
       fetchTournaments();
@@ -1188,6 +1634,10 @@ export default function TournamentMatchesPage() {
       alert('대회 삭제 중 오류가 발생했습니다.');
     }
   };
+
+  const standardTeamAssignments = teamAssignments.filter((assignment) => assignment.team_type !== 'pairs');
+  const pairTeamAssignments = teamAssignments.filter((assignment) => assignment.team_type === 'pairs');
+  const standardTournaments = tournaments.filter((tournament) => tournament.team_type !== 'pairs');
 
   return (
     <div className="w-full px-2 py-2 sm:p-6">
@@ -1214,10 +1664,19 @@ export default function TournamentMatchesPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             <span className="ml-3 text-gray-600">데이터 로딩 중...</span>
           </div>
-        ) : teamAssignments.length === 0 ? (
+        ) : standardTeamAssignments.length === 0 ? (
           <div className="text-center py-8 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
-            <p className="mb-3 font-semibold text-yellow-900 text-lg">⚠️ 등록된 팀 구성이 없습니다</p>
-            <p className="text-sm text-yellow-800 mb-4">먼저 "팀 관리" 메뉴에서 팀을 구성해주세요.</p>
+            <p className="mb-3 font-semibold text-yellow-900 text-lg">⚠️ 일반 팀전 구성이 없습니다</p>
+            <p className="text-sm text-yellow-800 mb-4">일반 팀전은 이 페이지에서, 페어전은 전용 페이지에서 생성합니다.</p>
+            {pairTeamAssignments.length > 0 && (
+              <button
+                type="button"
+                onClick={() => router.push('/admin/pair-tournament-settings')}
+                className="mb-4 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+              >
+                페어 대회 페이지로 이동
+              </button>
+            )}
             <details className="text-left inline-block text-sm text-gray-700 bg-white p-3 rounded border border-gray-300">
               <summary className="cursor-pointer font-semibold mb-2">📱 확인 사항</summary>
               <ul className="list-disc list-inside space-y-1 ml-2">
@@ -1229,7 +1688,7 @@ export default function TournamentMatchesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {teamAssignments.map((assignment) => {
+            {standardTeamAssignments.map((assignment) => {
               const teams = getTeamsFromAssignment(assignment);
               const teamTypeLabel = getTeamTypeLabel(assignment.team_type);
 
@@ -1277,6 +1736,18 @@ export default function TournamentMatchesPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+        {pairTeamAssignments.length > 0 && (
+          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            페어전 팀 구성 {pairTeamAssignments.length}건은 전용 페이지에서 관리합니다.
+            <button
+              type="button"
+              onClick={() => router.push('/admin/pair-tournament-settings')}
+              className="ml-3 rounded-lg bg-amber-600 px-3 py-2 font-medium text-white transition-colors hover:bg-amber-700"
+            >
+              페어 대회 페이지
+            </button>
           </div>
         )}
       </div>
@@ -1360,12 +1831,12 @@ export default function TournamentMatchesPage() {
                   </div>
 
                   <div className="text-sm text-purple-800 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
-                    기본 경기수: 선수당 1경기
+                    {selectedAssignment.team_type === 'pairs' ? '페어전은 그룹별 경기 방식으로 경기 수가 결정됩니다.' : '기본 경기수: 선수당 1경기'}
                   </div>
                 </div>
 
                 <div className="mt-3 text-xs text-blue-800 sm:mt-4 sm:text-sm">
-                  💡 대회명: <strong>대회경기 {tournamentDate} {roundNumber}회차 {matchType === 'level_based' ? '레벨' : matchType === 'mixed_doubles' ? '혼복' : '랜덤'}</strong>
+                  💡 대회명: <strong>대회 경기 {tournamentDate} {roundNumber}회차 {selectedAssignment.team_type === 'pairs' ? `페어 ${getPairSettingsSummary() || '풀리그'}` : matchType === 'level_based' ? '레벨' : matchType === 'mixed_doubles' ? '혼복' : '랜덤'}</strong>
                 </div>
               </div>
 
@@ -1406,7 +1877,109 @@ export default function TournamentMatchesPage() {
                 </div>
               </div>
 
-              {/* 경기 타입 선택 */}
+              {selectedAssignment.team_type === 'pairs' ? (
+                <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:mb-6 sm:p-4">
+                  <label className="mb-3 block text-sm font-medium text-gray-700">
+                    그룹별 경기 방식
+                  </label>
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 sm:text-sm">
+                      토너먼트와 리그후 토너먼트는 현재 생성 시점 기준으로 오프닝 라운드를 배정합니다. 리그후 토너먼트는 리그 경기 후 상위 시드 기준 본선 첫 라운드를 함께 생성합니다.
+                    </div>
+                    {pairGroupSettings.map((group) => (
+                      <div key={group.groupName} className="rounded-lg border border-slate-200 bg-white p-4">
+                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="text-sm font-semibold text-slate-900">{group.groupName}</div>
+                            <div className="text-xs text-slate-500">{group.pairNames.length}개 페어</div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {([
+                              ['round_robin', '풀리그'],
+                              ['knockout', '토너먼트'],
+                              ['round_robin_knockout', '리그후 토너먼트'],
+                            ] as Array<[PairTournamentFormat, string]>).map(([format, label]) => (
+                              <button
+                                key={`${group.groupName}-${format}`}
+                                type="button"
+                                onClick={() =>
+                                  updatePairGroupSetting(group.groupName, (current) => ({
+                                    ...current,
+                                    format,
+                                  }))
+                                }
+                                className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors sm:text-sm ${
+                                  group.format === format
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'border border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          {group.format !== 'knockout' && (
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-slate-600">풀리그 반복 횟수</label>
+                              <div className="flex gap-2">
+                                {[1, 2, 3].map((repeat) => (
+                                  <button
+                                    key={`${group.groupName}-repeat-${repeat}`}
+                                    type="button"
+                                    onClick={() =>
+                                      updatePairGroupSetting(group.groupName, (current) => ({
+                                        ...current,
+                                        roundRobinRepeats: repeat,
+                                      }))
+                                    }
+                                    className={`h-9 w-9 rounded text-sm font-semibold ${
+                                      group.roundRobinRepeats === repeat
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                    }`}
+                                  >
+                                    {repeat}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {group.format === 'round_robin_knockout' && (
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-slate-600">본선 진출 페어 수</label>
+                              <div className="flex gap-2">
+                                {[2, 4, 8]
+                                  .filter((value) => value <= group.pairNames.length)
+                                  .map((qualifiers) => (
+                                    <button
+                                      key={`${group.groupName}-qualifier-${qualifiers}`}
+                                      type="button"
+                                      onClick={() =>
+                                        updatePairGroupSetting(group.groupName, (current) => ({
+                                          ...current,
+                                          knockoutQualifiers: qualifiers,
+                                        }))
+                                      }
+                                      className={`rounded px-3 py-2 text-sm font-semibold ${
+                                        group.knockoutQualifiers === qualifiers
+                                          ? 'bg-rose-600 text-white'
+                                          : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                      }`}
+                                    >
+                                      {qualifiers}강
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
               <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:mb-6 sm:p-4">
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   경기 타입
@@ -1470,6 +2043,7 @@ export default function TournamentMatchesPage() {
                   </label>
                 </div>
               </div>
+              )}
 
               {/* 경기 생성/재생성 버튼 */}
               <div className="mb-4 sm:mb-6">
@@ -1747,7 +2321,7 @@ export default function TournamentMatchesPage() {
       <div className="rounded-lg bg-white p-3 shadow-md sm:p-6">
         <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-xl">📊 생성된 대회</h2>
         
-        {tournaments.length === 0 ? (
+        {standardTournaments.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <div className="text-5xl mb-4">🏆</div>
             <p>아직 생성된 대회가 없습니다.</p>
@@ -1755,7 +2329,7 @@ export default function TournamentMatchesPage() {
           </div>
         ) : (
           <div className="space-y-3 sm:space-y-4">
-            {tournaments.map((tournament) => (
+            {standardTournaments.map((tournament) => (
               <div
                 key={tournament.id}
                 className="rounded-lg border border-gray-200 p-3 transition-shadow hover:shadow-md sm:p-4"

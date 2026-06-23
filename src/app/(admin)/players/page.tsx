@@ -17,7 +17,6 @@ import {
 
 import { 
   supabase,
-  getLevelScore,
   normalizeLevel,
   calculatePlayerGameCounts,
   fetchTodayPlayers,

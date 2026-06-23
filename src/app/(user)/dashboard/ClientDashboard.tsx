@@ -7,10 +7,11 @@ import { ArrowRight, CalendarDays, LogOut, Shield, Swords, Target, Trophy, UserC
 
 import MatchNotifications from '@/components/MatchNotifications';
 import { Button } from '@/components/ui/button';
+import { useLevelInfoMap } from '@/hooks/useLevelInfoMap';
 import { useUser } from '@/hooks/useUser';
 import type { CoinSettlementMode } from '@/lib/coins';
 import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
-import { getUserLevelDisplay } from '@/lib/level-display';
+import { getLevelNameFromCode } from '@/lib/level-info';
 import { formatCurrentUserNameWithCoins, formatNameWithCoins } from '@/lib/player-display';
 import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -130,6 +131,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const router = useRouter();
   const supabase = getSupabaseClient();
   const { user, profile, isAdmin: userIsAdmin } = useUser();
+  const levelInfoMap = useLevelInfoMap();
 
   const [loading, setLoading] = useState(true);
   const [todayPlayersCount, setTodayPlayersCount] = useState(0);
@@ -217,7 +219,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
 
   const rawDisplayName = profile?.full_name || profile?.username || email.split('@')[0];
   const displayName = rawDisplayName;
-  const levelLabel = getUserLevelDisplay(profile?.skill_level);
+  const levelLabel = profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정');
   const prioritizedAssignedMatches = [...todayAssignedMatches].sort((left, right) => {
     const statusDiff = getMatchStatusPriority(left.status) - getMatchStatusPriority(right.status);
     if (statusDiff !== 0) return statusDiff;

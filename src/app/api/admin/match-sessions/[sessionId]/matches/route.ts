@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { getUserRole } from '@/lib/auth';
+import { getLevelScoreFromCode, type LevelInfoMap } from '@/lib/level-info';
 
 async function requireAdmin() {
   const supabase = await getSupabaseServerClient();
@@ -75,6 +76,25 @@ export async function GET(
 
     const profileMap = new Map((profiles || []).map((profile) => [profile.id, profile]));
 
+    const { data: levelRows, error: levelError } = await adminContext.adminSupabase
+      .from('level_info')
+      .select('code, name, score');
+
+    if (levelError) {
+      console.error('Admin level info for generated matches GET error:', levelError);
+      return NextResponse.json({ error: 'Failed to load level info' }, { status: 500 });
+    }
+
+    const levelInfoMap = (levelRows || []).reduce<LevelInfoMap>((acc, row: any) => {
+      if (row.code) {
+        acc[String(row.code).trim().toLowerCase()] = {
+          name: row.name || row.code,
+          score: Number(row.score ?? 0),
+        };
+      }
+      return acc;
+    }, {});
+
     const { data: schedules, error: schedulesError } = await adminContext.adminSupabase
       .from('match_schedules')
       .select('generated_match_id')
@@ -104,18 +124,22 @@ export async function GET(
       team1_player1: {
         name: getProfileName(profileMap.get(match.team1_player1_id || '') || null, '선수1'),
         skill_level: profileMap.get(match.team1_player1_id || '')?.skill_level || 'E2',
+        score: getLevelScoreFromCode(levelInfoMap, profileMap.get(match.team1_player1_id || '')?.skill_level, 0),
       },
       team1_player2: {
         name: getProfileName(profileMap.get(match.team1_player2_id || '') || null, '선수2'),
         skill_level: profileMap.get(match.team1_player2_id || '')?.skill_level || 'E2',
+        score: getLevelScoreFromCode(levelInfoMap, profileMap.get(match.team1_player2_id || '')?.skill_level, 0),
       },
       team2_player1: {
         name: getProfileName(profileMap.get(match.team2_player1_id || '') || null, '선수3'),
         skill_level: profileMap.get(match.team2_player1_id || '')?.skill_level || 'E2',
+        score: getLevelScoreFromCode(levelInfoMap, profileMap.get(match.team2_player1_id || '')?.skill_level, 0),
       },
       team2_player2: {
         name: getProfileName(profileMap.get(match.team2_player2_id || '') || null, '선수4'),
         skill_level: profileMap.get(match.team2_player2_id || '')?.skill_level || 'E2',
+        score: getLevelScoreFromCode(levelInfoMap, profileMap.get(match.team2_player2_id || '')?.skill_level, 0),
       },
       is_scheduled: scheduledIds.has(match.id),
     }));

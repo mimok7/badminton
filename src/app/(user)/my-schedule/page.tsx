@@ -1299,7 +1299,7 @@ export default function MySchedulePage() {
 
   return (
     <div className="min-h-screen bg-[#f5f7fb]">
-      <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-4">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
         <div className="overflow-hidden rounded-[28px] bg-[#0f172a] text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
           <div className="px-4 py-5">
             <div className="flex items-start justify-between gap-3">

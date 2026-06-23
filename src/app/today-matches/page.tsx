@@ -173,7 +173,7 @@ export default function TodayMatches() {
   if (!user) {
     return (
       <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
-        <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-4 px-4 py-6 text-center">
+        <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center gap-4 px-4 py-6 text-center">
           <section className="w-full rounded-[24px] bg-white px-5 py-8 shadow-sm">
             <div className="text-5xl">🔐</div>
             <h1 className="mt-4 text-xl font-semibold text-slate-900">로그인이 필요합니다</h1>
@@ -355,7 +355,7 @@ export default function TodayMatches() {
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
         <section className="rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5 sm:py-6">
           <div className="flex items-start justify-between gap-3">
             <div>

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { RequireAdmin } from '@/components/AuthGuard';
-import { LEVEL_LABELS } from '@/app/(admin)/players/types';
 import AttendanceStatus from '@/app/(admin)/players/components/AttendanceStatus';
 import MatchSessionStatus from '@/app/(admin)/players/components/MatchSessionStatus';
 import MatchGenerationControls from '@/app/(admin)/players/components/MatchGenerationControls';
@@ -1177,6 +1176,7 @@ export default function PlayersTodayPage() {
           matchSessions={matchSessions}
           registeredSchedules={todaySchedules}
           assignedScheduleDetails={assignedScheduleDetails}
+          levelInfoMap={levelInfoMap}
           onDeleteSession={deleteTodaySession}
           onDeleteSessionMatch={deleteSessionMatch}
           onDeleteAllSessions={deleteAllTodaySessions}

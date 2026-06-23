@@ -24,6 +24,14 @@ export interface ScheduledMatchView {
   team1_player2_name: string;
   team2_player1_name: string;
   team2_player2_name: string;
+  team1_player1_skill_level?: string | null;
+  team1_player2_skill_level?: string | null;
+  team2_player1_skill_level?: string | null;
+  team2_player2_skill_level?: string | null;
+  team1_player1_skill_level_name?: string | null;
+  team1_player2_skill_level_name?: string | null;
+  team2_player1_skill_level_name?: string | null;
+  team2_player2_skill_level_name?: string | null;
   team1_player1_coin_balance?: number | null;
   team1_player2_coin_balance?: number | null;
   team2_player1_coin_balance?: number | null;

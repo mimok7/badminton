@@ -11,7 +11,7 @@ export type LevelInfoMeta = {
 export type LevelNameMap = Record<string, string>;
 export type LevelInfoMap = Record<string, LevelInfoMeta>;
 
-function normalizeLevelCode(value?: string | null) {
+export function normalizeLevelCode(value?: string | null) {
   const normalized = String(value || '').trim().toLowerCase();
 
   switch (normalized) {
@@ -94,7 +94,7 @@ export async function fetchLevelInfoMap(
 export function getLevelNameFromCode(
   levelMap: LevelInfoMap,
   skillLevel?: string | null,
-  fallback = '미지정'
+  fallback: string | null = '미지정'
 ) {
   const normalized = normalizeLevelCode(skillLevel);
   return levelMap[normalized]?.name || fallback;
@@ -111,4 +111,38 @@ export function getLevelScoreFromCode(
 
 export function normalizeLevelCodeForDisplay(skillLevel?: string | null) {
   return normalizeLevelCode(skillLevel);
+}
+
+export function compareLevelCodes(
+  levelMap: LevelInfoMap,
+  left?: string | null,
+  right?: string | null
+) {
+  const normalizedLeft = normalizeLevelCode(left);
+  const normalizedRight = normalizeLevelCode(right);
+  const leftScore = levelMap[normalizedLeft]?.score ?? Number.NEGATIVE_INFINITY;
+  const rightScore = levelMap[normalizedRight]?.score ?? Number.NEGATIVE_INFINITY;
+
+  if (leftScore !== rightScore) {
+    return rightScore - leftScore;
+  }
+
+  return normalizedLeft.localeCompare(normalizedRight, 'ko', { sensitivity: 'base' });
+}
+
+export function getLevelDisplayText(
+  levelMap: LevelInfoMap,
+  skillLevel?: string | null,
+  fallback = '미지정'
+) {
+  const normalized = normalizeLevelCode(skillLevel);
+
+  if (!normalized) {
+    return fallback;
+  }
+
+  const code = normalized.toUpperCase();
+  const name = levelMap[normalized]?.name;
+
+  return name ? `${code} · ${name}` : code;
 }

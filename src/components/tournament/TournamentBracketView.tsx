@@ -49,7 +49,13 @@ interface TeamAssignment {
   team3?: string[];
   team4?: string[];
   pairs_data?: Record<string, string[]>;
+  pair_groups?: PairGroupDefinition[];
 }
+
+type PairGroupDefinition = {
+  groupName: string;
+  pairNames: string[];
+};
 
 type ScoreDraft = {
   score1: string;
@@ -72,11 +78,26 @@ type TournamentMetrics = {
 
 type TeamAssignmentMap = Record<string, TeamAssignment | null>;
 
+type MatchGroupSection = {
+  groupName: string;
+  matches: Match[];
+};
+
+function extractPairGroupLabel(court: string) {
+  const match = court.trim().match(/^\[(.+?)\]\s*Court\s*(.+)$/i);
+  return match?.[1]?.trim() || '';
+}
+
 function formatCourtLabel(court: string) {
   const trimmedCourt = court.trim();
 
   if (!trimmedCourt) {
     return '코트 미정';
+  }
+
+  const groupedCourtMatch = trimmedCourt.match(/^\[(.+?)\]\s*Court\s*(.+)$/i);
+  if (groupedCourtMatch?.[2]) {
+    return `코트 ${groupedCourtMatch[2].trim()}`;
   }
 
   const courtNumberMatch = trimmedCourt.match(/^Court\s*(.+)$/i);
@@ -92,7 +113,7 @@ function formatCourtLabel(court: string) {
 }
 
 function formatTournamentTitle(title: string) {
-  return title.replace(/^라뚱 대회/, '대회경기').replace(/\s*\([^)]*\)\s*$/, '');
+  return title.replace(/^라뚱\s*대회|^대회경기/u, '대회 경기').replace(/\s*\([^)]*\)\s*$/, '');
 }
 
 function getMatchTypeLabel(matchType: string) {
@@ -129,6 +150,17 @@ function getTeamKey(players: string[]) {
 
 function getAssignmentTeamGroups(teamAssignment: TeamAssignment) {
   if (teamAssignment.team_type === 'pairs') {
+    const pairMap = new Map(Object.entries(teamAssignment.pairs_data || {}));
+
+    if (teamAssignment.pair_groups && teamAssignment.pair_groups.length > 0) {
+      return teamAssignment.pair_groups
+        .map((group) => ({
+          label: group.groupName,
+          players: group.pairNames.flatMap((pairName) => pairMap.get(pairName) || []),
+        }))
+        .filter((group) => group.players.length > 0);
+    }
+
     return Object.entries(teamAssignment.pairs_data || {})
       .map(([label, players]) => ({ label, players }))
       .filter((group) => group.players.length > 0);
@@ -156,12 +188,49 @@ function toStringArray(value: Json | null | undefined): string[] {
 function toPairsRecord(value: Json | null | undefined): Record<string, string[]> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
 
+  const rawPairs = (value as { pairs?: Json | null }).pairs;
+  const source =
+    rawPairs && typeof rawPairs === 'object' && !Array.isArray(rawPairs)
+      ? rawPairs
+      : value;
+
   return Object.fromEntries(
-    Object.entries(value).map(([key, raw]) => [
-      key,
-      Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [],
-    ])
+    Object.entries(source)
+      .filter(([key]) => /^pair\d+$/i.test(key))
+      .map(([key, raw]) => [
+        key,
+        Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [],
+      ])
   );
+}
+
+function toPairGroups(value: Json | null | undefined): PairGroupDefinition[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+
+  const rawGroups = (value as { groups?: Json | null }).groups;
+  if (!Array.isArray(rawGroups)) return [];
+
+  return rawGroups
+    .map((group) => {
+      if (!group || typeof group !== 'object' || Array.isArray(group)) {
+        return null;
+      }
+
+      const groupName = String((group as { groupName?: unknown }).groupName || '').trim();
+      const pairNames = Array.isArray((group as { pairNames?: unknown }).pairNames)
+        ? (group as { pairNames: unknown[] }).pairNames
+            .filter((item): item is string => typeof item === 'string')
+            .map((pairName) => pairName.trim())
+            .filter(Boolean)
+        : [];
+
+      if (!groupName || pairNames.length === 0) {
+        return null;
+      }
+
+      return { groupName, pairNames };
+    })
+    .filter((group): group is PairGroupDefinition => Boolean(group));
 }
 
 function mapTeamAssignmentRow(team: {
@@ -191,6 +260,7 @@ function mapTeamAssignmentRow(team: {
     team3: toStringArray(team.team3),
     team4: toStringArray(team.team4),
     pairs_data: toPairsRecord(team.pairs_data),
+    pair_groups: toPairGroups(team.pairs_data),
   };
 }
 
@@ -208,6 +278,22 @@ function mapTeamAssignmentMap(value: unknown): TeamAssignmentMap {
       return [tournamentId, mapTeamAssignmentRow(teamAssignment as Parameters<typeof mapTeamAssignmentRow>[0])];
     })
   );
+}
+
+function groupMatchesByPairGroup(matches: Match[]): MatchGroupSection[] {
+  const grouped = new Map<string, Match[]>();
+
+  matches.forEach((match) => {
+    const groupName = extractPairGroupLabel(match.court) || '기타 그룹';
+    const current = grouped.get(groupName) || [];
+    current.push(match);
+    grouped.set(groupName, current);
+  });
+
+  return Array.from(grouped.entries()).map(([groupName, groupedMatches]) => ({
+    groupName,
+    matches: groupedMatches,
+  }));
 }
 
 export default function TournamentBracketView({ adminMode = false }: TournamentBracketViewProps) {
@@ -238,6 +324,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     level_based: { label: '레벨', badge: 'bg-blue-100 text-blue-700' },
     mixed_doubles: { label: '혼복', badge: 'bg-rose-100 text-rose-700' },
     random: { label: '랜덤', badge: 'bg-emerald-100 text-emerald-700' },
+    pairs_custom: { label: '페어전', badge: 'bg-amber-100 text-amber-700' },
   };
 
   const getTodayLocal = () => getKoreaDate();
@@ -618,14 +705,19 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       return [];
     }
 
-    const players = uniquePlayers.map((name, index) => ({
-      id: `player-${index}-${Date.now()}`,
-      name,
-      skill_level: 'e2',
-      skill_label: 'E2 (초급)',
-      skill_code: 'e2',
-      gender: 'mixed' as const,
-    }));
+    const players = uniquePlayers.map((name, index) => {
+      const extractedLevelMatch = name.match(/\(([^)]+)\)(?!.*\()$/);
+      const extractedLevel = extractedLevelMatch?.[1]?.trim().toLowerCase() || 'e2';
+
+      return {
+        id: `player-${index}-${Date.now()}`,
+        name,
+        skill_level: extractedLevel,
+        skill_label: extractedLevel.toUpperCase(),
+        skill_code: extractedLevel,
+        gender: 'mixed' as const,
+      };
+    });
 
     let generatedMatches: any[] = [];
 
@@ -714,7 +806,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       }
 
       const matchTypeLabel = getMatchTypeLabel(matchType);
-      const tournamentTitle = `대회경기 ${selectedTeam.round_number}회차 ${matchTypeLabel}`;
+      const tournamentTitle = `대회 경기 ${selectedTeam.round_number}회차 ${matchTypeLabel}`;
       const teamCount = getTeamCountFromAssignment(selectedTeam);
       const { data: tournamentData, error: tournamentError } = await supabase
         .from('tournaments')
@@ -985,6 +1077,8 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   const selectedTournamentMetrics = selectedTournament
     ? getTournamentMetrics(selectedTournament.id) || getTournamentMetricsFromMatches(matches)
     : null;
+  const isPairCustomTournament = selectedTournament?.match_type === 'pairs_custom';
+  const groupedMatchSections = isPairCustomTournament ? groupMatchesByPairGroup(matches) : [];
   const userTabs = [
     { key: 'bracket' as const, label: '대진표' },
     { key: 'results' as const, label: '경기결과' },
@@ -1104,98 +1198,118 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                       {matches.length === 0 ? (
                         <p className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 py-10 text-center text-sm text-slate-500">경기가 없습니다.</p>
                       ) : (
-                        <div className="grid gap-4 xl:grid-cols-4">
-                          {matches.map((match, index) => {
-                            const isCompleted = match.status === 'completed';
-                            const isPending = match.status === 'pending';
-                            const displayRound = getTournamentDisplayRound(selectedTournament);
-                            const displayMatchNumber = getDisplayMatchNumber(match, index);
-                            const draft = match.id ? scoreDrafts[match.id] : undefined;
-                            const score1Value = draft?.score1 ?? (match.score_team1 != null ? String(match.score_team1) : '');
-                            const score2Value = draft?.score2 ?? (match.score_team2 != null ? String(match.score_team2) : '');
-                            const hasBothScores = score1Value.trim() !== '' && score2Value.trim() !== '';
-                            const parsedScore1 = hasBothScores ? parseInt(score1Value, 10) || 0 : null;
-                            const parsedScore2 = hasBothScores ? parseInt(score2Value, 10) || 0 : null;
-                            const hasScoreChanged =
-                              parsedScore1 !== match.score_team1 ||
-                              parsedScore2 !== match.score_team2 ||
-                              match.status !== 'completed';
-
-                            return (
-                              <article key={match.id || `match-view-${index}`} className={`rounded-[24px] border p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
-                                <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-6">
+                          {(isPairCustomTournament ? groupedMatchSections : [{ groupName: '', matches }]).map((section) => (
+                            <section key={section.groupName || 'all-matches'} className="space-y-3">
+                              {section.groupName && (
+                                <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
                                   <div>
-                                    <p className="text-sm font-semibold text-slate-900">{displayRound}회차 - {displayMatchNumber}경기</p>
-                                    <p className="mt-1 text-xs text-slate-500">{formatCourtLabel(match.court)}</p>
+                                    <p className="text-sm font-semibold text-amber-900">{section.groupName}</p>
+                                    <p className="text-xs text-amber-700">{section.matches.length}경기</p>
                                   </div>
-                                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
-                                    {isCompleted ? '완료' : isPending ? '대기중' : '진행중'}
-                                  </span>
                                 </div>
+                              )}
+                              <div className="grid gap-4 xl:grid-cols-4">
+                                {section.matches.map((match, index) => {
+                                  const isCompleted = match.status === 'completed';
+                                  const isPending = match.status === 'pending';
+                                  const displayRound = getTournamentDisplayRound(selectedTournament);
+                                  const displayMatchNumber = getDisplayMatchNumber(match, index);
+                                  const draft = match.id ? scoreDrafts[match.id] : undefined;
+                                  const score1Value = draft?.score1 ?? (match.score_team1 != null ? String(match.score_team1) : '');
+                                  const score2Value = draft?.score2 ?? (match.score_team2 != null ? String(match.score_team2) : '');
+                                  const hasBothScores = score1Value.trim() !== '' && score2Value.trim() !== '';
+                                  const parsedScore1 = hasBothScores ? parseInt(score1Value, 10) || 0 : null;
+                                  const parsedScore2 = hasBothScores ? parseInt(score2Value, 10) || 0 : null;
+                                  const hasScoreChanged =
+                                    parsedScore1 !== match.score_team1 ||
+                                    parsedScore2 !== match.score_team2 ||
+                                    match.status !== 'completed';
+                                  const pairGroupLabel = extractPairGroupLabel(match.court);
 
-                                <div className="mt-4 grid grid-cols-2 items-stretch gap-3 text-sm">
-                                  <div className="rounded-2xl bg-white px-3 py-3 text-slate-800">
-                                    <span className="text-xs font-medium text-blue-600">팀1</span>
-                                    <div className="mt-1 font-medium">{match.team1.join(', ')}</div>
-                                  </div>
-                                  <div className="rounded-2xl bg-white px-3 py-3 text-slate-800">
-                                    <span className="text-xs font-medium text-rose-600">팀2</span>
-                                    <div className="mt-1 font-medium">{match.team2.join(', ')}</div>
-                                  </div>
-                                </div>
+                                  return (
+                                    <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-[24px] border p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                          <p className="text-sm font-semibold text-slate-900">{displayRound}회차 - {displayMatchNumber}경기</p>
+                                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                            {pairGroupLabel && (
+                                              <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
+                                            )}
+                                            <span>{formatCourtLabel(match.court)}</span>
+                                          </div>
+                                        </div>
+                                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
+                                          {isCompleted ? '완료' : isPending ? '대기중' : '진행중'}
+                                        </span>
+                                      </div>
 
-                                <div className="mt-4 flex w-full items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2.5">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={score1Value}
-                                    onChange={(event) => {
-                                      if (!match.id) return;
-                                      setScoreDrafts((prev) => ({
-                                        ...prev,
-                                        [match.id!]: {
-                                          score1: event.target.value,
-                                          score2: prev[match.id!]?.score2 ?? score2Value,
-                                        },
-                                      }));
-                                    }}
-                                    className="w-16 rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                                  />
-                                  <span className="text-sm font-bold text-slate-500">vs</span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={score2Value}
-                                    onChange={(event) => {
-                                      if (!match.id) return;
-                                      setScoreDrafts((prev) => ({
-                                        ...prev,
-                                        [match.id!]: {
-                                          score1: prev[match.id!]?.score1 ?? score1Value,
-                                          score2: event.target.value,
-                                        },
-                                      }));
-                                    }}
-                                    className="w-16 rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                                  />
-                                  <button
-                                    onClick={() => {
-                                      if (!match.id || parsedScore1 == null || parsedScore2 == null) return;
-                                      void updateMatchScore(match.id, parsedScore1, parsedScore2);
-                                    }}
-                                    disabled={!hasBothScores || !hasScoreChanged}
-                                    className={`ml-auto rounded-xl px-3 py-1.5 text-sm font-medium text-white ${
-                                      !hasBothScores || !hasScoreChanged
-                                        ? 'cursor-not-allowed bg-slate-300'
-                                        : 'bg-emerald-600 hover:bg-emerald-700'
-                                    }`}
-                                  >
-                                    저장
-                                  </button>
-                                </div>
-                              </article>
-                            );
-                          })}
+                                      <div className="mt-4 grid grid-cols-2 items-stretch gap-3 text-sm">
+                                        <div className="rounded-2xl bg-white px-3 py-3 text-slate-800">
+                                          <span className="text-xs font-medium text-blue-600">팀1</span>
+                                          <div className="mt-1 font-medium">{match.team1.join(', ')}</div>
+                                        </div>
+                                        <div className="rounded-2xl bg-white px-3 py-3 text-slate-800">
+                                          <span className="text-xs font-medium text-rose-600">팀2</span>
+                                          <div className="mt-1 font-medium">{match.team2.join(', ')}</div>
+                                        </div>
+                                      </div>
+
+                                      <div className="mt-4 flex w-full items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2.5">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={score1Value}
+                                          onChange={(event) => {
+                                            if (!match.id) return;
+                                            setScoreDrafts((prev) => ({
+                                              ...prev,
+                                              [match.id!]: {
+                                                score1: event.target.value,
+                                                score2: prev[match.id!]?.score2 ?? score2Value,
+                                              },
+                                            }));
+                                          }}
+                                          className="w-16 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                        />
+                                        <span className="text-sm font-bold text-slate-500">vs</span>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={score2Value}
+                                          onChange={(event) => {
+                                            if (!match.id) return;
+                                            setScoreDrafts((prev) => ({
+                                              ...prev,
+                                              [match.id!]: {
+                                                score1: prev[match.id!]?.score1 ?? score1Value,
+                                                score2: event.target.value,
+                                              },
+                                            }));
+                                          }}
+                                          className="w-16 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                        />
+                                        <button
+                                          onClick={() => {
+                                            if (!match.id || parsedScore1 == null || parsedScore2 == null) return;
+                                            void updateMatchScore(match.id, parsedScore1, parsedScore2);
+                                          }}
+                                          disabled={!hasBothScores || !hasScoreChanged}
+                                          className={`ml-auto rounded-xl px-3 py-1.5 text-sm font-medium text-white ${
+                                            !hasBothScores || !hasScoreChanged
+                                              ? 'cursor-not-allowed bg-slate-300'
+                                              : 'bg-emerald-600 hover:bg-emerald-700'
+                                          }`}
+                                        >
+                                          저장
+                                        </button>
+                                      </div>
+                                    </article>
+                                  );
+                                })}
+                              </div>
+                            </section>
+                          ))}
                         </div>
                       )}
                     </section>
@@ -1391,49 +1505,67 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                     {matches.length === 0 ? (
                       <p className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 py-10 text-center text-sm text-slate-500">경기가 없습니다.</p>
                     ) : (
-                      <div className="grid gap-4">
-                        {matches.map((match, index) => {
-                          const isCompleted = match.status === 'completed';
-                          const isPending = match.status === 'pending';
-                          const displayRound = getTournamentDisplayRound(selectedTournament);
-                          const displayMatchNumber = getDisplayMatchNumber(match, index);
-                          return (
-                            <article key={match.id || `match-view-${index}`} className={`rounded-[24px] border p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className="text-sm font-semibold text-slate-900">{displayRound}회차-{displayMatchNumber}경기</p>
-                                  <p className="mt-1 text-xs text-slate-500">{formatCourtLabel(match.court)}</p>
-                                </div>
-                                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
-                                  {isCompleted ? '완료' : isPending ? '대기중' : '진행중'}
-                                </span>
+                      <div className="space-y-6">
+                        {(isPairCustomTournament ? groupedMatchSections : [{ groupName: '', matches }]).map((section) => (
+                          <section key={section.groupName || 'all-user-matches'} className="space-y-3">
+                            {section.groupName && (
+                              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                                <p className="text-sm font-semibold text-amber-900">{section.groupName}</p>
+                                <p className="text-xs text-amber-700">{section.matches.length}경기</p>
                               </div>
+                            )}
+                            <div className="grid gap-4">
+                              {section.matches.map((match, index) => {
+                                const isCompleted = match.status === 'completed';
+                                const isPending = match.status === 'pending';
+                                const displayRound = getTournamentDisplayRound(selectedTournament);
+                                const displayMatchNumber = getDisplayMatchNumber(match, index);
+                                const pairGroupLabel = extractPairGroupLabel(match.court);
+                                return (
+                                  <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-[24px] border p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div>
+                                        <p className="text-sm font-semibold text-slate-900">{displayRound}회차-{displayMatchNumber}경기</p>
+                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                          {pairGroupLabel && (
+                                            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
+                                          )}
+                                          <span>{formatCourtLabel(match.court)}</span>
+                                        </div>
+                                      </div>
+                                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
+                                        {isCompleted ? '완료' : isPending ? '대기중' : '진행중'}
+                                      </span>
+                                    </div>
 
-                              <div className="mt-4 grid grid-cols-[minmax(0,1fr)_84px_minmax(0,1fr)] items-stretch gap-2 sm:gap-3">
-                                <div className="flex min-w-0 flex-col justify-center rounded-2xl bg-white px-3 py-4 text-left text-slate-800">
-                                  <span className="text-xs font-medium text-blue-600">팀1</span>
-                                  <div className="mt-1 whitespace-pre-line text-sm font-medium leading-6 sm:text-base">{match.team1.join('\n')}</div>
-                                </div>
-                                <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-900 px-2 py-4 text-center text-white">
-                                  <div className="text-[11px] font-medium text-slate-300">{isCompleted ? '점수' : '매치'}</div>
-                                  <div className="mt-1 text-lg font-semibold sm:text-xl">
-                                    {isCompleted ? `${match.score_team1 ?? 0} : ${match.score_team2 ?? 0}` : 'VS'}
-                                  </div>
-                                </div>
-                                <div className="flex min-w-0 flex-col justify-center rounded-2xl bg-white px-3 py-4 text-right text-slate-800">
-                                  <span className="text-xs font-medium text-rose-600">팀2</span>
-                                  <div className="mt-1 whitespace-pre-line text-sm font-medium leading-6 sm:text-base">{match.team2.join('\n')}</div>
-                                </div>
-                              </div>
+                                    <div className="mt-4 grid grid-cols-[minmax(0,1fr)_84px_minmax(0,1fr)] items-stretch gap-2 sm:gap-3">
+                                      <div className="flex min-w-0 flex-col justify-center rounded-2xl bg-white px-3 py-4 text-left text-slate-800">
+                                        <span className="text-xs font-medium text-blue-600">팀1</span>
+                                        <div className="mt-1 whitespace-pre-line text-sm font-medium leading-6 sm:text-base">{match.team1.join('\n')}</div>
+                                      </div>
+                                      <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-900 px-2 py-4 text-center text-white">
+                                        <div className="text-[11px] font-medium text-slate-300">{isCompleted ? '점수' : '매치'}</div>
+                                        <div className="mt-1 text-lg font-semibold sm:text-xl">
+                                          {isCompleted ? `${match.score_team1 ?? 0} : ${match.score_team2 ?? 0}` : 'VS'}
+                                        </div>
+                                      </div>
+                                      <div className="flex min-w-0 flex-col justify-center rounded-2xl bg-white px-3 py-4 text-right text-slate-800">
+                                        <span className="text-xs font-medium text-rose-600">팀2</span>
+                                        <div className="mt-1 whitespace-pre-line text-sm font-medium leading-6 sm:text-base">{match.team2.join('\n')}</div>
+                                      </div>
+                                    </div>
 
-                              {!isCompleted && (
-                                <div className="mt-4 rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
-                                  점수 등록 전입니다.
-                                </div>
-                              )}
-                            </article>
-                          );
-                        })}
+                                    {!isCompleted && (
+                                      <div className="mt-4 rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
+                                        점수 등록 전입니다.
+                                      </div>
+                                    )}
+                                  </article>
+                                );
+                              })}
+                            </div>
+                          </section>
+                        ))}
                       </div>
                     )}
                   </section>

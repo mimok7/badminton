@@ -17,6 +17,7 @@ export const SECTIONS: MenuSection[] = [
     items: [
       { label: '팀 관리', href: '/team-management', icon: '🤝' },
       { label: '대회 경기', href: '/admin/tournament-matches', icon: '🎪' },
+      { label: '페어 대회', href: '/admin/pair-tournament-settings', icon: '👥' },
       { label: '대진표', href: '/admin/tournament-bracket', icon: '📊' },
     ],
     color: 'purple',

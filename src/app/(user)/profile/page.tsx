@@ -25,13 +25,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  SKILL_LEVEL_GROUP_SELECT_OPTIONS,
   SKILL_LEVEL_GROUP_CODES,
   getSkillLevelGroupCode,
   type SkillLevelGroupCode,
 } from '@/lib/skill-levels';
-import { getUserLevelDisplay } from '@/lib/level-display';
 import { formatCurrentUserNameWithCoins } from '@/lib/player-display';
+import { useLevelInfoMap } from '@/hooks/useLevelInfoMap';
+import { getLevelNameFromCode } from '@/lib/level-info';
 
 const formSchema = z.object({
   username: z.string().min(2, { message: '닉네임은 2자 이상이어야 합니다.' }),
@@ -43,8 +43,13 @@ export default function ProfilePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const supabase = getSupabaseClient();
+  const levelInfoMap = useLevelInfoMap();
   const displayName = formatCurrentUserNameWithCoins(profile?.full_name || profile?.username || '회원', profile?.coin_balance);
-  const levelLabel = getUserLevelDisplay(profile?.skill_level);
+  const levelLabel = profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정');
+  const levelOptions = SKILL_LEVEL_GROUP_CODES.map((code) => ({
+    code,
+    name: getLevelNameFromCode(levelInfoMap, code, code) || code,
+  }));
   const roleLabel = profile?.role === 'admin' ? '관리자' : '일반 회원';
   const genderLabel =
     profile?.gender === 'male' || profile?.gender === 'M'
@@ -176,7 +181,7 @@ export default function ProfilePage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {SKILL_LEVEL_GROUP_SELECT_OPTIONS.map((option) => (
+                        {levelOptions.map((option) => (
                           <SelectItem key={option.code} value={option.code}>
                             {option.name}
                           </SelectItem>

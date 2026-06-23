@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { getLevelScore } from '@/utils/match-utils';
 import { getSupabaseClient } from '@/lib/supabase';
 import { NotificationService } from '@/utils/notification-service';
 import { MatchSession, GeneratedMatch, AvailableDate } from '../types';
+import { getLevelScoreFromCode, type LevelInfoMap } from '@/lib/level-info';
 
 interface MatchAssignmentManagerProps {
   matchSessions: MatchSession[];
@@ -16,6 +16,7 @@ interface MatchAssignmentManagerProps {
   availableDates: AvailableDate[];
   selectedAssignDate: string;
   setSelectedAssignDate: (date: string) => void;
+  levelInfoMap?: LevelInfoMap;
   loading: boolean;
   onFetchGeneratedMatches: (sessionId: string) => Promise<void>;
   onBulkAssign: () => Promise<void>;
@@ -31,6 +32,7 @@ export default function MatchAssignmentManager({
   availableDates,
   selectedAssignDate,
   setSelectedAssignDate,
+  levelInfoMap = {},
   loading,
   onFetchGeneratedMatches,
   onBulkAssign
@@ -260,6 +262,14 @@ export default function MatchAssignmentManager({
     );
   };
 
+  const getPlayerScore = (player: GeneratedMatch['team1_player1']) => {
+    if (typeof player.score === 'number' && Number.isFinite(player.score)) {
+      return player.score;
+    }
+
+    return getLevelScoreFromCode(levelInfoMap, player.skill_level, 0);
+  };
+
   return (
     <div className="mt-8">
       <h2 className="text-xl font-bold text-gray-900 mb-4">📋 경기 배정 관리</h2>
@@ -392,12 +402,12 @@ export default function MatchAssignmentManager({
                         {match.match_number}
                       </td>
                       <td className="border border-gray-200 px-4 py-3 text-center text-sm text-blue-700">
-                        <div className="font-semibold text-blue-900 mb-1">합계: {getLevelScore(match.team1_player1.skill_level) + getLevelScore(match.team1_player2.skill_level)}</div>
+                        <div className="font-semibold text-blue-900 mb-1">합계: {getPlayerScore(match.team1_player1) + getPlayerScore(match.team1_player2)}</div>
                         {getPlayerNameDisplay(match.team1_player1.name, match.team1_player1.skill_level)},<br />
                         {getPlayerNameDisplay(match.team1_player2.name, match.team1_player2.skill_level)}
                       </td>
                       <td className="border border-gray-200 px-4 py-3 text-center text-sm text-red-700">
-                        <div className="font-semibold text-red-900 mb-1">합계: {getLevelScore(match.team2_player1.skill_level) + getLevelScore(match.team2_player2.skill_level)}</div>
+                        <div className="font-semibold text-red-900 mb-1">합계: {getPlayerScore(match.team2_player1) + getPlayerScore(match.team2_player2)}</div>
                         {getPlayerNameDisplay(match.team2_player1.name, match.team2_player1.skill_level)},<br />
                         {getPlayerNameDisplay(match.team2_player2.name, match.team2_player2.skill_level)}
                       </td>

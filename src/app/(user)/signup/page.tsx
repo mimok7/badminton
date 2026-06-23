@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase';
-import { getUserLevelDisplay } from '@/lib/level-display';
+import { fetchLevelInfoMap, getLevelNameFromCode } from '@/lib/level-info';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,12 +25,15 @@ export default function SignupPage() {
   // 가입 가능한 placeholder 프로필만 조회한다.
   const fetchNames = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, username, user_id, skill_level')
-        .is('user_id', null)
-        .not('username', 'is', null)
-        .order('username', { ascending: true });
+      const [{ data, error }, levelInfoMap] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, username, user_id, skill_level')
+          .is('user_id', null)
+          .not('username', 'is', null)
+          .order('username', { ascending: true }),
+        fetchLevelInfoMap(supabase),
+      ]);
 
       if (error) {
         console.error('이름 목록 조회 오류:', error);
@@ -48,7 +51,7 @@ export default function SignupPage() {
               id: row.id,
               username: row.username,
               skill_level: row.skill_level || 'E2',
-              skill_label: getUserLevelDisplay(row.skill_level),
+              skill_label: getLevelNameFromCode(levelInfoMap, row.skill_level, row.skill_level || '미지정'),
             };
           })
           .filter((row): row is ProfileOption => row !== null)

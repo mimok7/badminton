@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getLevelScore } from '@/utils/match-helpers';
 import { GeneratedMatch, MatchSession } from '../types';
 import type { ScheduledMatchView } from '@/lib/scheduled-matches';
+import { getLevelScoreFromCode, type LevelInfoMap } from '@/lib/level-info';
 
 type AssignedScheduleDetail = ScheduledMatchView & {
   session_id: string | null;
@@ -41,6 +42,7 @@ interface MatchSessionStatusProps {
   matchSessions: MatchSession[];
   registeredSchedules?: RegisteredScheduleSummary[];
   assignedScheduleDetails?: Record<string, AssignedScheduleDetail>;
+  levelInfoMap?: LevelInfoMap;
   title?: string;
   onDeleteSession?: (sessionId: string) => void;
   onDeleteSessionMatch?: (sessionId: string, matchId: string) => void;
@@ -54,6 +56,7 @@ export default function MatchSessionStatus({
   matchSessions,
   registeredSchedules = [],
   assignedScheduleDetails = {},
+  levelInfoMap = {},
   title = '📅 오늘의 경기 일정',
   onDeleteSession,
   onDeleteSessionMatch,
@@ -62,6 +65,9 @@ export default function MatchSessionStatus({
   deletingSessionIds = {},
   deletingMatchIds = {},
 }: MatchSessionStatusProps) {
+  const resolveLevelScore = (skillLevel?: string | null) =>
+    getLevelScoreFromCode(levelInfoMap, skillLevel, getLevelScore(skillLevel || 'E2'));
+
   const parseGeneratedSequence = (description?: string | null) => {
     const normalized = description?.replace(/^\[일반 경기\]\s*/u, '').trim() || '';
     const matched = normalized.match(/^(?:\d{4}-\d{2}-\d{2}[_\s]+)?(\d+)-(\d+)$/u);
@@ -159,10 +165,10 @@ export default function MatchSessionStatus({
 
   const detailRows = useMemo(() => {
     return sessionMatches.map((match) => {
-      const team1Player1Score = getLevelScore(match.team1_player1.skill_level);
-      const team1Player2Score = getLevelScore(match.team1_player2.skill_level);
-      const team2Player1Score = getLevelScore(match.team2_player1.skill_level);
-      const team2Player2Score = getLevelScore(match.team2_player2.skill_level);
+      const team1Player1Score = resolveLevelScore(match.team1_player1.skill_level);
+      const team1Player2Score = resolveLevelScore(match.team1_player2.skill_level);
+      const team2Player1Score = resolveLevelScore(match.team2_player1.skill_level);
+      const team2Player2Score = resolveLevelScore(match.team2_player2.skill_level);
       const team1Score = team1Player1Score + team1Player2Score;
       const team2Score = team2Player1Score + team2Player2Score;
 
@@ -177,7 +183,7 @@ export default function MatchSessionStatus({
         diff: Math.abs(team1Score - team2Score),
       };
     });
-  }, [sessionMatches]);
+  }, [sessionMatches, levelInfoMap]);
 
   const averageScoreDiff = detailRows.length > 0
     ? detailRows.reduce((sum, row) => sum + row.diff, 0) / detailRows.length

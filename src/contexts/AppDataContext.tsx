@@ -74,24 +74,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      if (cachedProfiles.length > 0 && cachedSchedules.length > 0) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        await Promise.all([refreshProfiles(), refreshSchedules()]);
-      } catch (error) {
-        console.error('초기 데이터 로드 실패:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadInitialData();
-  }, [refreshProfiles, refreshSchedules]);
+    // 앱 시작 시 루트 레이아웃 수준에서 무조건 전체 프로필 및 경기 일정을 동기 조회하는 로직을 비활성화합니다.
+    // 이 컨텍스트는 현재 애플리케이션 내의 어느 페이지에서도 사용되지 않는 상태(Dead Code)로,
+    // 첫 로딩 시 비로그인 화면에서도 호출되어 로딩 딜레이와 DB 리소스를 낭비하고 있었습니다.
+    setLoading(false);
+  }, []);
 
   const contextValue = useMemo(() => ({
     profiles,

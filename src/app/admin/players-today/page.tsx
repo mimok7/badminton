@@ -7,6 +7,7 @@ import AttendanceStatus from '@/app/players/components/AttendanceStatus';
 import MatchSessionStatus from '@/app/players/components/MatchSessionStatus';
 import MatchGenerationControls from '@/app/players/components/MatchGenerationControls';
 import GeneratedMatchesList from '@/app/players/components/GeneratedMatchesList';
+import TeamBasedMatchGeneration from '@/app/players/components/TeamBasedMatchGeneration';
 import { ExtendedPlayer, MatchSession } from '@/app/players/types';
 import { getSupabaseClient } from '@/lib/supabase';
 import { fetchTodayPlayers, fetchRegisteredPlayersForDate, calculatePlayerGameCounts, normalizeLevel } from '@/app/players/utils';
@@ -31,8 +32,11 @@ export default function PlayersTodayPage() {
   const [playerGameCounts, setPlayerGameCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [assignType, setAssignType] = useState<'today' | 'scheduled'>('today');
-  const [sessionMode, setSessionMode] = useState<'레벨' | '랜덤' | '혼복'>('레벨');
+  const [sessionMode, setSessionMode] = useState<'레벨' | '랜덤' | '혼복' | '수동'>('레벨');
   const [perPlayerMinGames, setPerPlayerMinGames] = useState<number>(1);
+  const [isManualEditing, setIsManualEditing] = useState(false);
+  const [availableTeams, setAvailableTeams] = useState<Array<{round: number; title?: string; racket: string[]; shuttle: string[]}>>([]);
+  const [selectedTeamRound, setSelectedTeamRound] = useState<number | null>(null);
 
   // 로컬(KST) 기준 YYYY-MM-DD 반환 (타임존 문제 해결)
   const getTodayLocal = () => {
@@ -156,18 +160,20 @@ export default function PlayersTodayPage() {
       await refreshAttendanceData();
       await fetchMatchSessions();
       await fetchTodaySchedules();
+      await fetchTodayTeams();
       console.log('페이지 초기 로딩 완료');
     };
     init();
   }, []);
 
-  // 포커스 시 갱신: 오늘 세션/일정 재조회
+  // 포커스 시 갱신: 오늘 세션/일정/팀 구성 재조회
   useEffect(() => {
     const onFocus = () => {
       console.log('페이지 포커스 - 데이터 갱신');
       refreshAttendanceData().catch(err => console.error('포커스 갱신 오류:', err));
       fetchMatchSessions();
       fetchTodaySchedules();
+      fetchTodayTeams();
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -240,6 +246,102 @@ export default function PlayersTodayPage() {
       setMatchSessions(data || []);
     } catch (e) {
       console.error('세션 조회 오류:', e);
+    }
+  };
+
+  const fetchTodayTeams = async () => {
+    try {
+      const today = getTodayLocal();
+      console.log('🔍 팀 구성 조회 시작 - 날짜:', today);
+      
+      // 1. 먼저 DB에서 조회 시도 (새로운 JSONB 구조)
+      const { data, error } = await supabase
+        .from('team_assignments')
+        .select('*')
+        .eq('assignment_date', today)
+        .order('round_number', { ascending: true });
+
+      let teamsData: any[] = [];
+
+      if (error) {
+        console.log('⚠️ DB 조회 오류:', error.message);
+        console.log('📦 로컬 스토리지에서 조회 시도...');
+      } else if (data && data.length > 0) {
+        console.log('✅ DB에서', data.length, '건 조회됨 (JSONB 구조)');
+        
+        // JSONB 구조를 배열로 변환
+        teamsData = data.map(row => ({
+          round: row.round_number,
+          title: row.title,
+          racket: Array.isArray(row.racket_team) ? row.racket_team : [],
+          shuttle: Array.isArray(row.shuttle_team) ? row.shuttle_team : [],
+          team_type: row.team_type
+        }));
+      } else {
+        console.log('📦 DB에 데이터 없음. 로컬 스토리지에서 조회 시도...');
+      }
+
+      // 2. DB에서 데이터가 없으면 로컬 스토리지에서 조회 (구 방식)
+      if (teamsData.length === 0) {
+        const localData = localStorage.getItem('badminton_team_assignments');
+        if (localData) {
+          try {
+            const allAssignments = JSON.parse(localData);
+            console.log('📦 로컬 스토리지 전체 데이터:', allAssignments.length, '건');
+            
+            // 오늘 날짜 데이터만 필터링
+            const todayAssignments = allAssignments.filter((assignment: any) => {
+              const assignmentDate = assignment.assignment_date || 
+                                     assignment.created_at?.slice(0, 10) || 
+                                     new Date(assignment.created_at).toISOString().slice(0, 10);
+              return assignmentDate === today;
+            });
+            
+            console.log('📦 오늘 날짜 데이터:', todayAssignments.length, '건 필터링됨');
+            
+            // 회차별로 그룹화 (구 방식)
+            const teamsMap: Record<number, {round: number; title?: string; racket: string[]; shuttle: string[]}> = {};
+            
+            todayAssignments.forEach((assignment: any) => {
+              if (!teamsMap[assignment.round_number]) {
+                teamsMap[assignment.round_number] = {
+                  round: assignment.round_number,
+                  title: assignment.round_title,
+                  racket: [],
+                  shuttle: []
+                };
+              }
+              
+              if (assignment.team_type === 'racket') {
+                teamsMap[assignment.round_number].racket.push(assignment.player_name);
+              } else if (assignment.team_type === 'shuttle') {
+                teamsMap[assignment.round_number].shuttle.push(assignment.player_name);
+              }
+            });
+            
+            teamsData = Object.values(teamsMap);
+          } catch (parseError) {
+            console.error('로컬 스토리지 파싱 오류:', parseError);
+          }
+        } else {
+          console.log('📦 로컬 스토리지에도 데이터 없음');
+        }
+      }
+
+      // 3. 최종 데이터 설정
+      if (teamsData.length > 0) {
+        setAvailableTeams(teamsData);
+        console.log('✅ 최종 팀 구성:', teamsData.length, '개 회차');
+        teamsData.forEach(team => {
+          console.log(`  - ${team.round}회차 (${team.title}): 라켓팀 ${team.racket.length}명, 셔틀팀 ${team.shuttle.length}명`);
+        });
+      } else {
+        console.log('❌ 오늘 날짜의 팀 구성이 없습니다.');
+        setAvailableTeams([]);
+      }
+    } catch (e) {
+      console.error('팀 구성 조회 실패:', e);
+      setAvailableTeams([]);
     }
   };
 
@@ -437,6 +539,154 @@ export default function PlayersTodayPage() {
     finally { setLoading(false); }
   };
 
+  const handleManualAssign = () => {
+    if (!todayPlayers) return;
+    const present = todayPlayers.filter(p => p.status === 'present');
+    if (present.length < 4) { alert('최소 4명의 출석자가 필요합니다.'); return; }
+
+    // target matches 계산 및 빈 슬롯 생성
+    const targetMatches = Math.ceil((present.length * perPlayerMinGames) / 4);
+    const emptyMatches: any[] = Array.from({ length: Math.max(1, targetMatches) }).map((_, i) => ({
+      id: `manual-empty-${Date.now()}-${i}`,
+      team1: { player1: null, player2: null },
+      team2: { player1: null, player2: null },
+      court: i + 1
+    }));
+
+    setMatches(emptyMatches);
+    setSessionMode('수동');
+    setPlayerGameCounts({});
+    setIsManualEditing(true);
+  };
+
+  const handleManualMatchChange = (nextMatches: any[]) => {
+    setMatches(nextMatches);
+    // 실시간으로 경기 수 업데이트
+    const counts = calculatePlayerGameCounts(nextMatches.filter(m => 
+      m.team1?.player1 && m.team1?.player2 && m.team2?.player1 && m.team2?.player2
+    ));
+    setPlayerGameCounts(counts);
+  };
+
+  const handleTeamBasedGeneration = async () => {
+    setLoading(true);
+    try {
+      let allPlayers: any[] = [];
+
+      if (!selectedTeamRound) {
+        // 팀 구성을 선택하지 않은 경우: 출석한 선수 전체로 생성
+        if (!todayPlayers) {
+          alert('출석 데이터를 불러오는 중입니다.');
+          return;
+        }
+        
+        const present = todayPlayers.filter(p => p.status === 'present');
+        if (present.length < 4) {
+          alert('최소 4명의 출석자가 필요합니다.');
+          return;
+        }
+
+        allPlayers = present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }));
+        console.log('📊 팀 구분 없이 출석자 전체로 경기 생성:', allPlayers.length, '명');
+      } else {
+        // 팀 구성을 선택한 경우: 해당 팀의 선수들로 생성
+        const selectedTeam = availableTeams.find(t => t.round === selectedTeamRound);
+        if (!selectedTeam) {
+          alert('선택한 팀 구성을 찾을 수 없습니다.');
+          return;
+        }
+
+        // 팀 구성에서 선수 이름을 파싱하여 ExtendedPlayer 형태로 변환
+        const parsePlayerName = (nameWithLevel: string) => {
+          const match = nameWithLevel.match(/^(.+)\(([A-Z0-9]+)\)$/);
+          if (match) {
+            return { name: match[1], level: match[2].toLowerCase() };
+          }
+          return { name: nameWithLevel, level: 'e2' };
+        };
+
+        const racketPlayers = selectedTeam.racket.map((p, idx) => {
+          const parsed = parsePlayerName(p);
+          return {
+            id: `racket-${idx}-${Date.now()}`,
+            name: parsed.name,
+            skill_level: parsed.level,
+            skill_label: `${parsed.level.toUpperCase()} 레벨`,
+            gender: '',
+            skill_code: '',
+            status: 'present' as const
+          };
+        });
+
+        const shuttlePlayers = selectedTeam.shuttle.map((p, idx) => {
+          const parsed = parsePlayerName(p);
+          return {
+            id: `shuttle-${idx}-${Date.now()}`,
+            name: parsed.name,
+            skill_level: parsed.level,
+            skill_label: `${parsed.level.toUpperCase()} 레벨`,
+            gender: '',
+            skill_code: '',
+            status: 'present' as const
+          };
+        });
+
+        allPlayers = [...racketPlayers, ...shuttlePlayers];
+        console.log('📊 선택한 팀 구성으로 경기 생성:', selectedTeam.round, '회차,', allPlayers.length, '명');
+      }
+
+      if (allPlayers.length < 4) {
+        alert('최소 4명의 선수가 필요합니다.');
+        return;
+      }
+
+      const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
+      const targetMatches = Math.ceil((allPlayers.length * perPlayerMinGames) / 4);
+      
+      let generated: any[] = [];
+      let attempts = 0;
+      let maxCourts = Math.max(4, Math.ceil(allPlayers.length / 4));
+      
+      while (attempts < 4) {
+        generated = createBalancedDoublesMatches(allPlayers, maxCourts, perPlayerMinGames)
+          .map((m: any, i: number) => ({ ...m, court: i + 1 }));
+        
+        const counts = calculatePlayerGameCounts(generated);
+        const missing = allPlayers.filter(p => (counts[p.id] || 0) < perPlayerMinGames);
+        
+        if (generated.length >= targetMatches && missing.length === 0) {
+          break;
+        }
+        
+        attempts += 1;
+        maxCourts = Math.min(allPlayers.length, maxCourts + 2);
+      }
+      
+      const finalCounts = calculatePlayerGameCounts(generated);
+      
+      console.log('✅ 경기 생성 완료:');
+      console.log(`- 총 선수: ${allPlayers.length}명`);
+      console.log(`- 생성된 경기: ${generated.length}개`);
+      console.log(`- 목표 경기수: ${targetMatches}개`);
+      
+      setMatches(generated);
+      setSessionMode(selectedTeamRound ? '팀구성' as any : '레벨');
+      setPlayerGameCounts(finalCounts);
+    } catch (e) {
+      console.error('팀 기반 경기 생성 중 오류:', e);
+      alert('팀 기반 경기 생성 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualMatchesCreate = (manualMatches: Match[]) => {
+    setMatches(manualMatches);
+    setSessionMode('수동');
+    setPlayerGameCounts(calculatePlayerGameCounts(manualMatches));
+    console.log(`✅ 수동 배정: ${manualMatches.length}개 경기 생성 완료`);
+  };
+
   const handleDirectAssign = async () => {
     if (matches.length === 0) { alert('배정할 경기가 없습니다.'); return; }
   const today = getTodayLocal();
@@ -537,6 +787,16 @@ export default function PlayersTodayPage() {
         </div>
         
         <MatchSessionStatus matchSessions={matchSessions} />
+        
+        {/* 팀 구성 기반 경기 생성 */}
+        <TeamBasedMatchGeneration
+          availableTeams={availableTeams}
+          selectedTeamRound={selectedTeamRound}
+          onTeamSelect={setSelectedTeamRound}
+          onGenerateMatches={handleTeamBasedGeneration}
+          perPlayerMinGames={perPlayerMinGames}
+        />
+        
         <MatchGenerationControls
           todayPlayers={todayPlayers}
           perPlayerMinGames={perPlayerMinGames}
@@ -544,15 +804,25 @@ export default function PlayersTodayPage() {
           onGenerateByLevel={handleAssignByLevel}
           onGenerateRandom={handleAssignRandom}
           onGenerateMixed={handleAssignMixed}
+          onManualAssign={handleManualAssign}
         />
-  <GeneratedMatchesList
+        
+        {/* 생성된 경기 목록 (수동 배정 모드 포함) */}
+        <GeneratedMatchesList
           matches={matches}
           playerGameCounts={playerGameCounts}
           assignType={assignType}
           setAssignType={setAssignType}
           loading={loading}
-          onClearMatches={() => { setMatches([]); setPlayerGameCounts({}); }}
+          onClearMatches={() => { 
+            setMatches([]); 
+            setPlayerGameCounts({}); 
+            setIsManualEditing(false); 
+          }}
           onAssignMatches={handleDirectAssign}
+          isManualMode={isManualEditing}
+          presentPlayers={todayPlayers?.filter(p => p.status === 'present') || []}
+          onManualMatchChange={handleManualMatchChange}
         />
       </div>
     </RequireAdmin>

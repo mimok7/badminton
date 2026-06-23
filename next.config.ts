@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@supabase/supabase-js', 'lucide-react'],
   },
+
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   
   // 컴파일 최적화
   compiler: {

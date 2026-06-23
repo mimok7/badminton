@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
+import { getProfileByUserId } from '@/lib/auth';
 
 interface MatchAssignmentNotification {
   id: string;
@@ -13,10 +14,10 @@ interface MatchAssignmentNotification {
 }
 
 export default function MatchNotifications() {
-  const { user } = useUser();
+  const { user, profile } = useUser();
   const [notifications, setNotifications] = useState<MatchAssignmentNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseClient();
 
   useEffect(() => {
     if (!user) return;
@@ -24,17 +25,68 @@ export default function MatchNotifications() {
     const checkForNewMatches = async () => {
       try {
         const today = new Date().toISOString().slice(0, 10);
+        // useUser 훅에서 캐시되어 제공받는 profile 정보를 재사용하여 30초마다 발생하는 DB 중복 조회를 방지합니다.
+        const myProfile = profile;
+
+        if (!myProfile?.id) {
+          return;
+        }
         
-        // 오늘 배정된 경기 중 내가 참여한 경기가 있는지 확인
-        const { data: todayMatches, error } = await supabase
+        const recentThreshold = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+        const { data: recentSchedules, error: schedulesError } = await supabase
           .from('match_schedules')
-          .select('id, created_at, status')
+          .select('id, created_at, status, generated_match_id')
           .eq('match_date', today)
           .eq('status', 'scheduled')
-          .or(`team1_player1.eq.${user.id},team1_player2.eq.${user.id},team2_player1.eq.${user.id},team2_player2.eq.${user.id}`)
-          .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString()); // 최근 5분 내
+          .gte('created_at', recentThreshold)
+          .not('generated_match_id', 'is', null);
 
-        if (!error && todayMatches && todayMatches.length > 0) {
+        if (schedulesError || !recentSchedules || recentSchedules.length === 0) {
+          if (schedulesError) {
+            console.error('경기 일정 조회 오류:', schedulesError);
+          }
+          return;
+        }
+
+        const generatedMatchIds = recentSchedules
+          .map((schedule) => schedule.generated_match_id)
+          .filter((id): id is number => typeof id === 'number');
+
+        if (generatedMatchIds.length === 0) {
+          return;
+        }
+
+        const { data: generatedMatches, error: matchesError } = await supabase
+          .from('generated_matches')
+          .select('id, team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id')
+          .in('id', generatedMatchIds);
+
+        if (matchesError || !generatedMatches) {
+          if (matchesError) {
+            console.error('배정 경기 조회 오류:', matchesError);
+          }
+          return;
+        }
+
+        const matchMap = new Map(generatedMatches.map((match) => [match.id, match]));
+        const todayMatches = recentSchedules.filter((schedule) => {
+          const generatedMatch = typeof schedule.generated_match_id === 'number'
+            ? matchMap.get(schedule.generated_match_id)
+            : null;
+
+          return Boolean(
+            generatedMatch &&
+              [
+                generatedMatch.team1_player1_id,
+                generatedMatch.team1_player2_id,
+                generatedMatch.team2_player1_id,
+                generatedMatch.team2_player2_id,
+              ].includes(myProfile.id)
+          );
+        });
+
+        if (todayMatches.length > 0) {
           // 새로운 경기 배정 알림 생성
           const newNotifications = todayMatches.map(match => ({
             id: `match_${match.id}`,
@@ -66,7 +118,7 @@ export default function MatchNotifications() {
     const interval = setInterval(checkForNewMatches, 30000);
 
     return () => clearInterval(interval);
-  }, [user, supabase]);
+  }, [user, profile, supabase]);
 
   const markAsRead = (notificationId: string) => {
     setNotifications(prev =>

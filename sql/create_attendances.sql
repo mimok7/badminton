@@ -39,7 +39,7 @@ CREATE POLICY "Admins can view all attendances" ON attendances
     FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM profiles
-            WHERE profiles.id = auth.uid()
+            WHERE (profiles.user_id = auth.uid() OR profiles.id = auth.uid())
             AND profiles.role = 'admin'
         )
     );
@@ -49,7 +49,7 @@ CREATE POLICY "Admins can update all attendances" ON attendances
     FOR UPDATE USING (
         EXISTS (
             SELECT 1 FROM profiles
-            WHERE profiles.id = auth.uid()
+            WHERE (profiles.user_id = auth.uid() OR profiles.id = auth.uid())
             AND profiles.role = 'admin'
         )
     );

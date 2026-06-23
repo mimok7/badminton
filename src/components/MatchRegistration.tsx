@@ -1,31 +1,37 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
+import { getProfileByUserId } from '@/lib/auth';
+import { formatNameWithCoins } from '@/lib/player-display';
+import type { Database } from '@/types/supabase';
 
 interface MatchSchedule {
   id: string;
-  match_date: string;
-  start_time: string;
-  end_time: string;
-  location: string;
+  match_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
   max_participants: number;
   current_participants: number;
-  status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
+  status: string;
   description?: string;
 }
 
 interface Participant {
   id: string;
   user_id: string;
-  status: 'registered' | 'cancelled' | 'attended' | 'absent';
+  status: string;
   registered_at: string;
   profile?: {
-    username?: string;
-    full_name?: string;
-    skill_level?: string;
+    username?: string | null;
+    full_name?: string | null;
+    skill_level?: string | null;
+    coin_balance?: number | null;
   };
 }
+
+type MatchParticipantRow = Database['public']['Tables']['match_participants']['Row'];
 
 interface MatchRegistrationProps {
   schedule: MatchSchedule;
@@ -38,22 +44,31 @@ export default function MatchRegistration({
   currentUserId, 
   onRegistrationChange 
 }: MatchRegistrationProps) {
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseClient();
+  const [resolvedParticipantId, setResolvedParticipantId] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(false);
   const [userRegistration, setUserRegistration] = useState<Participant | null>(null);
+  const formatMatchDate = (value: string | null, options: Intl.DateTimeFormatOptions) =>
+    value ? new Date(value).toLocaleDateString('ko-KR', options) : '날짜 미정';
 
   // 참가자 목록 조회
   const fetchParticipants = async () => {
     try {
       console.log('👥 참가자 목록 조회:', schedule.id);
 
+      let participantId = currentUserId ?? null;
+      if (currentUserId) {
+        const profile = await getProfileByUserId(supabase, currentUserId);
+        participantId = profile?.id ?? currentUserId;
+        setResolvedParticipantId(participantId);
+      } else {
+        setResolvedParticipantId(null);
+      }
+
       const { data, error } = await supabase
         .from('match_participants')
-        .select(`
-          *,
-          profile:profiles(username, full_name, skill_level)
-        `)
+        .select('id, user_id, status, registered_at, match_schedule_id')
         .eq('match_schedule_id', schedule.id)
         .eq('status', 'registered')
         .order('registered_at', { ascending: true });
@@ -63,12 +78,58 @@ export default function MatchRegistration({
         return;
       }
 
-      console.log('✅ 참가자 조회 완료:', data?.length || 0, '명');
-      setParticipants(data || []);
+      const participantRows = (data || []) as Pick<
+        MatchParticipantRow,
+        'id' | 'user_id' | 'status' | 'registered_at' | 'match_schedule_id'
+      >[];
+
+      const userIds = Array.from(new Set(participantRows.map((participant) => participant.user_id)));
+      let profileMap = new Map<string, Participant['profile']>();
+
+      if (userIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, user_id, username, full_name, skill_level, coin_balance')
+          .or(
+            userIds
+              .map((userId) => `id.eq.${userId},user_id.eq.${userId}`)
+              .join(',')
+          );
+
+        if (profilesError) {
+          console.error('❌ 프로필 조회 오류:', profilesError);
+        } else {
+          profileMap = new Map(
+            (profiles || [])
+              .flatMap((profile) => {
+                const value = {
+                  username: profile.username || undefined,
+                  full_name: profile.full_name || undefined,
+                  skill_level: profile.skill_level || undefined,
+                  coin_balance: profile.coin_balance ?? undefined,
+                };
+                return [profile.id, profile.user_id]
+                  .filter((key): key is string => typeof key === 'string' && key.length > 0)
+                  .map((key) => [key, value] as const);
+              })
+          );
+        }
+      }
+
+      const formattedParticipants: Participant[] = participantRows.map((participant) => ({
+        id: participant.id,
+        user_id: participant.user_id,
+        status: participant.status,
+        registered_at: participant.registered_at,
+        profile: profileMap.get(participant.user_id),
+      }));
+
+      console.log('✅ 참가자 조회 완료:', formattedParticipants.length, '명');
+      setParticipants(formattedParticipants);
 
       // 현재 사용자의 등록 상태 확인
-      if (currentUserId) {
-        const userParticipant = data?.find(p => p.user_id === currentUserId);
+      if (participantId) {
+        const userParticipant = formattedParticipants.find((participant) => participant.user_id === participantId);
         setUserRegistration(userParticipant || null);
       }
     } catch (error) {
@@ -82,7 +143,9 @@ export default function MatchRegistration({
 
   // 경기 참가 신청
   const handleRegister = async () => {
-    if (!currentUserId) {
+    const participantId = resolvedParticipantId ?? currentUserId;
+
+    if (!participantId) {
       alert('로그인이 필요합니다.');
       return;
     }
@@ -101,11 +164,50 @@ export default function MatchRegistration({
       setLoading(true);
       console.log('📝 경기 참가 신청:', schedule.id, currentUserId);
 
+      // 1. 프로필 존재 여부 확인
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', participantId)
+        .maybeSingle();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('❌ 프로필 확인 오류:', profileError);
+      }
+
+      // 프로필이 없으면 에러 메시지 (회원가입 페이지로 유도)
+      if (!profileData) {
+        alert('프로필 정보가 없습니다. 프로필 설정 페이지에서 정보를 등록해주세요.');
+        window.location.href = '/profile';
+        return;
+      }
+
+      // 2. 먼저 이미 등록되어 있는지 확인
+      const { data: existingData, error: checkError } = await supabase
+        .from('match_participants')
+        .select('id')
+        .eq('match_schedule_id', schedule.id)
+        .eq('user_id', participantId)
+        .eq('status', 'registered')
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('❌ 등록 확인 오류:', checkError);
+        alert('등록 확인 중 오류가 발생했습니다.');
+        return;
+      }
+
+      if (existingData) {
+        alert('이미 참가 신청하셨습니다.');
+        return;
+      }
+
+      // 3. 등록 진행
       const { error } = await supabase
         .from('match_participants')
         .insert([{
           match_schedule_id: schedule.id,
-          user_id: currentUserId,
+          user_id: participantId,
           status: 'registered'
         }]);
 
@@ -113,6 +215,8 @@ export default function MatchRegistration({
         console.error('❌ 참가 신청 오류:', error);
         if (error.code === '23505') { // unique constraint violation
           alert('이미 참가 신청하셨습니다.');
+        } else if (error.code === '23503') { // foreign key violation
+          alert('프로필 정보가 올바르지 않습니다. 프로필 페이지에서 정보를 확인해주세요.');
         } else {
           alert('참가 신청 중 오류가 발생했습니다.');
         }
@@ -167,14 +271,14 @@ export default function MatchRegistration({
   };
 
   // 날짜가 지났는지 확인
-  const isPastDate = new Date(schedule.match_date) < new Date();
+  const isPastDate = schedule.match_date ? new Date(schedule.match_date) < new Date() : false;
 
   return (
     <div className="bg-white rounded-lg border p-6">
       <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-xl font-semibold text-gray-900">
-            {new Date(schedule.match_date).toLocaleDateString('ko-KR', {
+            {formatMatchDate(schedule.match_date, {
               year: 'numeric',
               month: 'long',
               day: 'numeric',
@@ -273,7 +377,10 @@ export default function MatchRegistration({
                     {index + 1}.
                   </span>
                   <span className="font-medium">
-                    {participant.profile?.username || participant.profile?.full_name || '이름 없음'}
+                    {formatNameWithCoins(
+                      participant.profile?.full_name || participant.profile?.username || '이름 없음',
+                      participant.profile?.coin_balance,
+                    )}
                   </span>
                   {participant.profile?.skill_level && (
                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">

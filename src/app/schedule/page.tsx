@@ -1,20 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 import { RequireAuth } from '@/components/AuthGuard';
+import type { Database } from '@/types/supabase';
 
 interface MatchSession {
   id: string;
   session_date: string;
   session_name: string;
-  status: 'draft' | 'scheduled' | 'active' | 'completed' | 'cancelled';
+  status: string;
   total_matches: number;
   assigned_matches: number;
 }
 
 interface GeneratedMatch {
-  id: string;
+  id: number;
   match_number: number;
   team1_player1: { id: string; name: string; skill_level: string; };
   team1_player2: { id: string; name: string; skill_level: string; };
@@ -24,21 +25,25 @@ interface GeneratedMatch {
   is_scheduled: boolean;
   schedule?: {
     id: string;
-    court_number: number;
-    scheduled_time: string;
+    court_number: number | null;
+    scheduled_time: string | null;
     status: string;
   };
 }
 
+type ProfileRow = Database['public']['Tables']['profiles']['Row'];
+type GeneratedMatchRow = Database['public']['Tables']['generated_matches']['Row'];
+type MatchScheduleInsert = Database['public']['Tables']['match_schedules']['Insert'];
+
 function ScheduleManagePage() {
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseClient();
   const [sessions, setSessions] = useState<MatchSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<MatchSession | null>(null);
   const [generatedMatches, setGeneratedMatches] = useState<GeneratedMatch[]>([]);
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [bulkAssignMode, setBulkAssignMode] = useState(false);
-  const [selectedMatches, setSelectedMatches] = useState<Set<string>>(new Set());
+  const [selectedMatches, setSelectedMatches] = useState<Set<number>>(new Set());
   const [bulkStartTime, setBulkStartTime] = useState<string>('09:00');
   const [bulkCourtCount, setBulkCourtCount] = useState<number>(4);
   const [bulkMatchDuration, setBulkMatchDuration] = useState<number>(30);
@@ -69,7 +74,10 @@ function ScheduleManagePage() {
         .limit(10);
 
       if (error) throw error;
-      setSessions(data || []);
+      setSessions((data || []).map((session) => ({
+        ...session,
+        status: session.status || 'draft',
+      })));
     } catch (error) {
       console.error('세션 조회 오류:', error);
     }
@@ -82,45 +90,78 @@ function ScheduleManagePage() {
       
       const { data: matchesData, error } = await supabase
         .from('generated_matches')
-        .select(`
-          *,
-          team1_player1:profiles!team1_player1_id(id, username, full_name, skill_level),
-          team1_player2:profiles!team1_player2_id(id, username, full_name, skill_level),
-          team2_player1:profiles!team2_player1_id(id, username, full_name, skill_level),
-          team2_player2:profiles!team2_player2_id(id, username, full_name, skill_level),
-          match_schedules(id, court_number, scheduled_time, status)
-        `)
+        .select('id, match_number, match_type, team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id')
         .eq('session_id', sessionId)
         .order('match_number');
 
       if (error) throw error;
 
-      const formattedMatches: GeneratedMatch[] = (matchesData || []).map(match => ({
+      const rows = (matchesData || []) as Pick<
+        GeneratedMatchRow,
+        'id' | 'match_number' | 'match_type' | 'team1_player1_id' | 'team1_player2_id' | 'team2_player1_id' | 'team2_player2_id'
+      >[];
+
+      const playerIds = Array.from(
+        new Set(
+          rows.flatMap((match) => [
+            match.team1_player1_id,
+            match.team1_player2_id,
+            match.team2_player1_id,
+            match.team2_player2_id,
+          ]).filter((id): id is string => Boolean(id))
+        )
+      );
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, skill_level')
+        .in('id', playerIds);
+
+      if (profilesError) throw profilesError;
+
+      const profileMap = new Map<string, Pick<ProfileRow, 'id' | 'username' | 'full_name' | 'skill_level'>>(
+        (profiles || []).map((profile) => [profile.id, profile])
+      );
+
+      const { data: schedules, error: schedulesError } = await supabase
+        .from('match_schedules')
+        .select('id, generated_match_id, court_number, scheduled_time, status')
+        .in('generated_match_id', rows.map((match) => match.id));
+
+      if (schedulesError) throw schedulesError;
+
+      const scheduleMap = new Map(
+        (schedules || [])
+          .filter((schedule) => typeof schedule.generated_match_id === 'number')
+          .map((schedule) => [schedule.generated_match_id as number, schedule])
+      );
+
+      const getPlayerInfo = (profileId: string | null | undefined, fallbackName: string) => {
+        const profile = profileId ? profileMap.get(profileId) : null;
+        return {
+          id: profile?.id || '',
+          name: profile?.full_name || profile?.username || fallbackName,
+          skill_level: profile?.skill_level || 'E2',
+        };
+      };
+
+      const formattedMatches: GeneratedMatch[] = rows.map((match) => ({
         id: match.id,
         match_number: match.match_number,
-        team1_player1: {
-          id: match.team1_player1?.id || '',
-          name: match.team1_player1?.username || match.team1_player1?.full_name || '선수1',
-          skill_level: match.team1_player1?.skill_level || 'E2'
-        },
-        team1_player2: {
-          id: match.team1_player2?.id || '',
-          name: match.team1_player2?.username || match.team1_player2?.full_name || '선수2',
-          skill_level: match.team1_player2?.skill_level || 'E2'
-        },
-        team2_player1: {
-          id: match.team2_player1?.id || '',
-          name: match.team2_player1?.username || match.team2_player1?.full_name || '선수3',
-          skill_level: match.team2_player1?.skill_level || 'E2'
-        },
-        team2_player2: {
-          id: match.team2_player2?.id || '',
-          name: match.team2_player2?.username || match.team2_player2?.full_name || '선수4',
-          skill_level: match.team2_player2?.skill_level || 'E2'
-        },
+        team1_player1: getPlayerInfo(match.team1_player1_id, '선수1'),
+        team1_player2: getPlayerInfo(match.team1_player2_id, '선수2'),
+        team2_player1: getPlayerInfo(match.team2_player1_id, '선수3'),
+        team2_player2: getPlayerInfo(match.team2_player2_id, '선수4'),
         match_type: match.match_type,
-        is_scheduled: match.match_schedules && match.match_schedules.length > 0,
-        schedule: match.match_schedules?.[0] || undefined
+        is_scheduled: scheduleMap.has(match.id),
+        schedule: scheduleMap.get(match.id)
+          ? {
+              id: scheduleMap.get(match.id)!.id,
+              court_number: scheduleMap.get(match.id)!.court_number,
+              scheduled_time: scheduleMap.get(match.id)!.scheduled_time,
+              status: scheduleMap.get(match.id)!.status,
+            }
+          : undefined,
       }));
 
       setGeneratedMatches(formattedMatches);
@@ -153,7 +194,7 @@ function ScheduleManagePage() {
       setLoading(true);
       const [hours, minutes] = bulkStartTime.split(':').map(Number);
       let currentTimeInMinutes = hours * 60 + minutes;
-      const scheduleInserts = [];
+      const scheduleInserts: MatchScheduleInsert[] = [];
       let assignedCount = 0;
 
       for (let i = 0; i < matchesToAssign.length; i++) {
@@ -224,7 +265,7 @@ function ScheduleManagePage() {
   };
 
   // 개별 선택/해제
-  const handleMatchSelect = (matchId: string) => {
+  const handleMatchSelect = (matchId: number) => {
     const newSelected = new Set(selectedMatches);
     if (newSelected.has(matchId)) {
       newSelected.delete(matchId);

@@ -6,10 +6,9 @@ export const SECTIONS: MenuSection[] = [
     title: '🏸 경기 관리',
     items: [
       { label: '경기 일정', href: '/match-schedule', icon: '📅' },
-      { label: '오늘 경기', href: '/admin/players-today', icon: '⚡' },
-      { label: '예정 경기', href: '/admin/players-scheduled', icon: '⏳' },
-      { label: '경기 결과', href: '/match-results', icon: '🏆' },
-      { label: '경기 배정', href: '/match-assignment', icon: '🎯' },
+      { label: '오늘 게임', href: '/admin/players-today', icon: '⚡' },
+      { label: '예정 게임', href: '/admin/players-scheduled', icon: '⏳' },
+      { label: '게임 결과', href: '/match-results', icon: '🏆' },
     ],
     color: 'blue',
   },
@@ -18,15 +17,17 @@ export const SECTIONS: MenuSection[] = [
     items: [
       { label: '팀 관리', href: '/team-management', icon: '🤝' },
       { label: '대회 경기', href: '/admin/tournament-matches', icon: '🎪' },
-      { label: '대진표', href: '/tournament-bracket', icon: '📊' },
+      { label: '페어 대회', href: '/admin/pair-tournament-settings', icon: '👥' },
+      { label: '대진표', href: '/admin/tournament-bracket', icon: '📊' },
     ],
     color: 'purple',
   },
   {
     title: '👥 회원 관리',
     items: [
-      { label: '회원 관리', href: '/admin/members', icon: '👥' },
-      { label: '출석 관리', href: '/admin/attendance', icon: '✅' },
+      { label: '회원 운영', href: '/admin/members', icon: '👥' },
+      { label: '출석 현황', href: '/admin/members?tab=attendance', icon: '✅' },
+      { label: '코인 관리', href: '/admin/coins', icon: '🪙' },
       { label: '전체 출석', href: '/attendance-all-test', icon: '🧪' },
     ],
     color: 'green',
@@ -43,7 +44,6 @@ export const SECTIONS: MenuSection[] = [
   {
     title: '⚙️ 시스템 관리',
     items: [
-      { label: '백업관리', href: '/admin/backup', icon: '💾' },
       { label: '시스템', href: '/database-test', icon: '🔧' },
     ],
     color: 'orange',

@@ -4,6 +4,7 @@ export interface Player {
   skill_level?: string;
   skill_label?: string;
   skill_code?: string;
+  score?: number;
   gender?: 'M' | 'F' | string;
 }
 
@@ -80,3 +81,5 @@ export interface MatchResultData {
   recorded_by: string;
   notes?: string;
 }
+
+export type { Database, Json } from './supabase';

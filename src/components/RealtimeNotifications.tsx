@@ -2,12 +2,12 @@
 
 import { useEffect, useRef } from 'react';
 import { useUser } from '@/hooks/useUser';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/lib/supabase';
 import { NotificationService } from '@/utils/notification-service';
 
 export default function RealtimeNotifications() {
   const { user } = useUser();
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseClient();
   const channelRef = useRef<any>(null);
 
   useEffect(() => {

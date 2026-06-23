@@ -4,12 +4,24 @@ import { useEffect } from 'react';
 
 export default function PerformanceMonitor() {
   useEffect(() => {
+    const debugEnabled = process.env.NEXT_PUBLIC_ENABLE_DEBUG_LOGS === 'true';
+
+    if (!debugEnabled) {
+      return;
+    }
+
     // 페이지 로드 시간 측정
     const measurePageLoad = () => {
       if (typeof window !== 'undefined' && window.performance) {
-        const loadTime = window.performance.timing.loadEventEnd - window.performance.timing.navigationStart;
-        const domContentLoaded = window.performance.timing.domContentLoadedEventEnd - window.performance.timing.navigationStart;
-        
+        const navigationEntry = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+
+        if (!navigationEntry) {
+          return;
+        }
+
+        const loadTime = Math.round(navigationEntry.loadEventEnd);
+        const domContentLoaded = Math.round(navigationEntry.domContentLoadedEventEnd);
+
         console.log(`📊 성능 지표:
           - 페이지 로드 시간: ${loadTime}ms
           - DOM 콘텐츠 로드 시간: ${domContentLoaded}ms

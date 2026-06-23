@@ -13,6 +13,7 @@ This is a Next.js 15 project using the App Router, TypeScript, and Supabase for 
 - **Players/Matchmaking**: `/players` allows for attendance check and random match generation, using local state and custom logic.
 - **Navigation**: Uses Next.js `useRouter` for navigation and session refresh after login/signup.
 - **Styling**: Tailwind CSS utility classes are used throughout for styling.
+- **User Pages Design**: All user-facing pages, including `/today-matches`, should follow the dashboard visual language for consistent layout, spacing, cards, and typography, and must be optimized for mobile first.
 
 ## Developer Workflows
 - **Build**: Standard Next.js build (`next build`).

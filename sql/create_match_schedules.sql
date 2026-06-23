@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS match_schedules (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL
+    updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    UNIQUE(match_date, start_time, end_time, location)
 );
 
 -- 인덱스 생성
@@ -36,7 +37,7 @@ CREATE POLICY "Users can update their own match schedules" ON match_schedules
         auth.uid() = created_by OR 
         EXISTS (
             SELECT 1 FROM profiles 
-            WHERE profiles.id = auth.uid() 
+            WHERE (profiles.user_id = auth.uid() OR profiles.id = auth.uid())
             AND profiles.role = 'admin'
         )
     );
@@ -47,7 +48,7 @@ CREATE POLICY "Users can delete their own match schedules" ON match_schedules
         auth.uid() = created_by OR 
         EXISTS (
             SELECT 1 FROM profiles 
-            WHERE profiles.id = auth.uid() 
+            WHERE (profiles.user_id = auth.uid() OR profiles.id = auth.uid())
             AND profiles.role = 'admin'
         )
     );

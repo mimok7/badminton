@@ -1,0 +1,2003 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@/hooks/useUser';
+import { getSupabaseClient } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
+import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
+import Link from 'next/link';
+import { NotificationService } from '@/utils/notification-service';
+import { getProfileByUserId } from '@/lib/auth';
+import { formatCurrentUserNameWithCoins, formatNameWithCoins } from '@/lib/player-display';
+import { fetchScheduledMatchesForDate } from '@/lib/scheduled-matches';
+import { useLevelInfoMap } from '@/hooks/useLevelInfoMap';
+import { getLevelNameFromCode } from '@/lib/level-info';
+import {
+  fetchMyTournamentMatches,
+  normalizeTournamentPlayerName,
+  type MyTournamentMatchView,
+} from '@/lib/tournament-matches';
+
+const tournamentNamesMatch = (candidate: string, teamMember: string) =>
+  Boolean(candidate && teamMember) &&
+  (candidate === teamMember || candidate.includes(teamMember) || teamMember.includes(candidate));
+
+// 경기 결과 표시 컴포넌트
+function MatchResultDisplay({ selectedMatch, user, supabase }: {
+  selectedMatch: MatchSchedule;
+  user: any;
+  supabase: any;
+}) {
+  const [matchResult, setMatchResult] = useState<any>(null);
+  
+  useEffect(() => {
+    const fetchMatchResult = async () => {
+      if (!selectedMatch?.id.startsWith('generated_')) return;
+      
+      const generatedMatchId = selectedMatch.id.replace('generated_', '');
+      const { data, error } = await supabase
+        .from('generated_matches')
+        .select('match_result, status')
+        .eq('id', generatedMatchId)
+        .single();
+        
+      if (!error && data?.match_result) {
+        setMatchResult(data.match_result);
+      }
+    };
+    
+    fetchMatchResult();
+  }, [selectedMatch?.id]);
+  
+  if (!matchResult) {
+    return (
+      <div className="text-center text-gray-500">
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500 mx-auto mb-2"></div>
+        결과 조회 중...
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-2 text-sm">
+      <div className="flex justify-between items-center">
+        <span className="font-medium">승부 결과:</span>
+        <span className="font-bold text-green-700">
+          {matchResult.winner === 'team1' ? '🏆 라켓팀 승리' : '🏆 셔틀팀 승리'}
+        </span>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="font-medium">점수:</span>
+        <span className="font-mono text-green-700 font-bold">
+          {matchResult.score}
+        </span>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="font-medium">완료 시간:</span>
+        <span className="text-green-600 text-xs">
+          {new Date(matchResult.completed_at).toLocaleString('ko-KR')}
+        </span>
+      </div>
+      {matchResult.recorded_by && (
+        <div className="text-xs text-gray-500 mt-2 text-center">
+          결과 기록자: {matchResult.recorded_by === user.id ? '나' : '다른 참가자'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface MatchSchedule {
+  id: string;
+  match_date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  description: string;
+  kind?: 'registration' | 'assigned';
+  generated_match?: {
+    id: string | number;
+    session_id?: string | null;
+    match_number: number;
+    session_name: string;
+    team1_player1: {
+      id?: string;
+      user_id?: string;
+      username?: string;
+      full_name?: string;
+      coin_balance?: number | null;
+      skill_level: string;
+      skill_level_name: string;
+    };
+    team1_player2: {
+      id?: string;
+      user_id?: string;
+      username?: string;
+      full_name?: string;
+      coin_balance?: number | null;
+      skill_level: string;
+      skill_level_name: string;
+    };
+    team2_player1: {
+      id?: string;
+      user_id?: string;
+      username?: string;
+      full_name?: string;
+      coin_balance?: number | null;
+      skill_level: string;
+      skill_level_name: string;
+    };
+    team2_player2: {
+      id?: string;
+      user_id?: string;
+      username?: string;
+      full_name?: string;
+      coin_balance?: number | null;
+      skill_level: string;
+      skill_level_name: string;
+    };
+  };
+}
+
+interface MyScheduleStats {
+  totalMatches: number;
+  upcomingMatches: number;
+  completedMatches: number;
+  winRate: number;
+  wins: number;
+  losses: number;
+}
+
+interface MatchRecord {
+  id: string;
+  matchNumber: number;
+  date: string;
+  result: 'win' | 'loss' | 'pending';
+  score: string;
+  teammates: string[];
+  opponents: string[];
+  isUserTeam1: boolean;
+}
+
+interface MatchBetState {
+  myProfileId: string | null;
+  bets: Record<string, number>;
+}
+
+type MatchCenterTab = 'upcoming' | 'results' | 'tournaments';
+
+export default function MySchedulePage() {
+  const { user, profile, loading: userLoading, isAdmin } = useUser();
+  const router = useRouter();
+  const supabase = getSupabaseClient();
+  const levelInfoMap = useLevelInfoMap();
+  
+  // 모든 상태를 상단에 선언
+  const [loading, setLoading] = useState(true);
+  const [myMatches, setMyMatches] = useState<MatchSchedule[]>([]);
+  const [matchRecords, setMatchRecords] = useState<MatchRecord[]>([]);
+  const [filteredRecords, setFilteredRecords] = useState<MatchRecord[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<MatchCenterTab>('upcoming');
+  const [tournamentMatches, setTournamentMatches] = useState<MyTournamentMatchView[]>([]);
+  const [allTournamentMatchCount, setAllTournamentMatchCount] = useState(0);
+  const [stats, setStats] = useState<MyScheduleStats>({ 
+    totalMatches: 0, 
+    upcomingMatches: 0, 
+    completedMatches: 0,
+    winRate: 0,
+    wins: 0,
+    losses: 0
+  });
+  const [selectedMatch, setSelectedMatch] = useState<MatchSchedule | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [modalMode, setModalMode] = useState<'schedule' | 'complete'>('schedule');
+  const [matchStatus, setMatchStatus] = useState<'scheduled' | 'in_progress' | 'completed' | 'cancelled'>('scheduled');
+  const [matchResult, setMatchResult] = useState({
+    winner: '' as 'team1' | 'team2' | '',
+    score: ''
+  });
+  
+  // 각 경기의 결과 입력 상태를 추적하는 state
+  const [matchResultStates, setMatchResultStates] = useState<Record<string, boolean | null>>({});
+  const [selectedMatchBetState, setSelectedMatchBetState] = useState<MatchBetState>({ myProfileId: null, bets: {} });
+  const [savingBet, setSavingBet] = useState(false);
+
+  const getTodayLocal = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  useEffect(() => {
+    const syncTabFromUrl = () => {
+      const requestedTab = new URLSearchParams(window.location.search).get('tab');
+      if (requestedTab === 'upcoming' || requestedTab === 'results' || requestedTab === 'tournaments') {
+        setActiveTab(requestedTab);
+      }
+    };
+
+    syncTabFromUrl();
+    window.addEventListener('popstate', syncTabFromUrl);
+
+    return () => {
+      window.removeEventListener('popstate', syncTabFromUrl);
+    };
+  }, []);
+
+  // 경기 결과 상태 확인 함수
+  const checkMatchResult = async (matchId: string) => {
+    if (!matchId.startsWith('generated_')) return null;
+    
+    try {
+      const generatedMatchId = matchId.replace('generated_', '');
+      const { data, error } = await supabase
+        .from('generated_matches')
+        .select('match_result')
+        .eq('id', Number(generatedMatchId))
+        .single();
+        
+      return !error && data?.match_result ? true : false;
+    } catch (error) {
+      console.error('경기 결과 확인 실패:', error);
+      return null;
+    }
+  };
+
+  // 모든 경기의 결과 상태 업데이트
+  const updateMatchResultStates = async () => {
+    const states: Record<string, boolean | null> = {};
+    
+    for (const match of myMatches) {
+      if (match.generated_match && match.status === 'in_progress') {
+        const hasResult = await checkMatchResult(match.id);
+        states[match.id] = hasResult;
+      }
+    }
+    
+    setMatchResultStates(states);
+  };
+
+  const loadSelectedMatchBets = async (match: MatchSchedule | null) => {
+    if (!match?.generated_match) {
+      setSelectedMatchBetState({ myProfileId: null, bets: {} });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/match-bets?match_id=${Number(match.generated_match.id)}`, {
+        credentials: 'include',
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || '배팅 정보 조회 실패');
+      }
+
+      const bets = Object.fromEntries(
+        (payload?.bets || []).map((item: { profile_id: string; wager_amount: number }) => [
+          item.profile_id,
+          item.wager_amount ?? DEFAULT_MATCH_WAGER,
+        ])
+      );
+
+      setSelectedMatchBetState({
+        myProfileId: payload?.my_profile_id || null,
+        bets,
+      });
+    } catch (error) {
+      console.error('배팅 정보 조회 실패:', error);
+      setSelectedMatchBetState({ myProfileId: profile?.id || null, bets: {} });
+    }
+  };
+
+  const saveMyMatchBet = async (wagerAmount: number) => {
+    if (!selectedMatch?.generated_match) return;
+
+    try {
+      setSavingBet(true);
+      const response = await fetch('/api/match-bets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          match_id: Number(selectedMatch.generated_match.id),
+          wager_amount: wagerAmount,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || '배팅 저장 실패');
+      }
+
+      setSelectedMatchBetState((prev) => ({
+        myProfileId: prev.myProfileId || profile?.id || null,
+        bets: {
+          ...prev.bets,
+          [payload.profile_id]: payload.wager_amount,
+        },
+      }));
+    } catch (error) {
+      console.error('배팅 저장 실패:', error);
+      alert(error instanceof Error ? error.message : '배팅 저장 중 오류가 발생했습니다.');
+    } finally {
+      setSavingBet(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchMySchedule();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && profile) {
+      fetchTournamentMatches();
+    }
+  }, [user, profile]);
+
+  // 경기 목록이 변경될 때마다 결과 상태 업데이트
+  useEffect(() => {
+    if (myMatches.length > 0) {
+      updateMatchResultStates();
+    }
+  }, [myMatches.length]); // 의존성을 단순화
+
+  useEffect(() => {
+    if (showDetailsModal && selectedMatch?.generated_match) {
+      loadSelectedMatchBets(selectedMatch);
+      return;
+    }
+
+    setSelectedMatchBetState({ myProfileId: profile?.id || null, bets: {} });
+  }, [showDetailsModal, selectedMatch?.id, profile?.id]);
+
+  // 내 경기 조회 함수
+  const fetchMySchedule = async () => {
+    if (!user) return;
+    
+    console.log('🔍 내 경기 일정 조회 시작...');
+    setLoading(true);
+
+    try {
+      const matchesWithDetails: MatchSchedule[] = [];
+      const myProfile = profile || await getProfileByUserId(supabase, user.id);
+      const participantIds = Array.from(
+        new Set([myProfile?.id, myProfile?.user_id, user.id].filter((value): value is string => Boolean(value)))
+      );
+      const todayLocal = getTodayLocal();
+
+      const todayAssignedMatches = await fetchScheduledMatchesForDate(supabase, todayLocal, user.id);
+      const assignedScheduleIds = new Set<string>();
+
+      todayAssignedMatches.forEach((match, index) => {
+        if (!match.generated_match_id) {
+          return;
+        }
+
+        const syntheticId = `generated_${match.generated_match_id}`;
+        assignedScheduleIds.add(syntheticId);
+
+        matchesWithDetails.push({
+          id: syntheticId,
+          match_date: match.match_date || todayLocal,
+          start_time: match.match_time || '시간 미정',
+          end_time: match.match_time || '시간 미정',
+          location: match.court_name || `코트 ${match.court_number || '미정'}`,
+          status: (match.status || 'scheduled') as 'scheduled' | 'in_progress' | 'completed' | 'cancelled',
+          description: '오늘 배정 경기',
+          kind: 'assigned',
+          generated_match: {
+            id: match.generated_match_id,
+            session_id: null,
+            match_number: match.match_number ?? index + 1,
+            session_name: '오늘 배정 경기',
+            team1_player1: {
+              id: match.team1_player1 || undefined,
+              username: match.team1_player1_name,
+              full_name: match.team1_player1_name,
+              coin_balance: match.team1_player1_coin_balance ?? null,
+              skill_level: match.team1_player1_skill_level || 'E2',
+              skill_level_name: match.team1_player1_skill_level_name || getLevelNameFromCode(levelInfoMap, match.team1_player1_skill_level || 'E2', match.team1_player1_skill_level || 'E2') || (match.team1_player1_skill_level || 'E2'),
+            },
+            team1_player2: {
+              id: match.team1_player2 || undefined,
+              username: match.team1_player2_name,
+              full_name: match.team1_player2_name,
+              coin_balance: match.team1_player2_coin_balance ?? null,
+              skill_level: match.team1_player2_skill_level || 'E2',
+              skill_level_name: match.team1_player2_skill_level_name || getLevelNameFromCode(levelInfoMap, match.team1_player2_skill_level || 'E2', match.team1_player2_skill_level || 'E2') || (match.team1_player2_skill_level || 'E2'),
+            },
+            team2_player1: {
+              id: match.team2_player1 || undefined,
+              username: match.team2_player1_name,
+              full_name: match.team2_player1_name,
+              coin_balance: match.team2_player1_coin_balance ?? null,
+              skill_level: match.team2_player1_skill_level || 'E2',
+              skill_level_name: match.team2_player1_skill_level_name || getLevelNameFromCode(levelInfoMap, match.team2_player1_skill_level || 'E2', match.team2_player1_skill_level || 'E2') || (match.team2_player1_skill_level || 'E2'),
+            },
+            team2_player2: {
+              id: match.team2_player2 || undefined,
+              username: match.team2_player2_name,
+              full_name: match.team2_player2_name,
+              coin_balance: match.team2_player2_coin_balance ?? null,
+              skill_level: match.team2_player2_skill_level || 'E2',
+              skill_level_name: match.team2_player2_skill_level_name || getLevelNameFromCode(levelInfoMap, match.team2_player2_skill_level || 'E2', match.team2_player2_skill_level || 'E2') || (match.team2_player2_skill_level || 'E2'),
+            },
+          },
+        });
+      });
+
+      // 2. 내가 배정받은 경기 조회 (generated_matches 기반)
+      console.log('내 프로필 조회:', { myProfile, userId: user.id });
+
+      if (participantIds.length > 0) {
+        const participantMatchFilter = participantIds
+          .map((participantId) =>
+            [
+              `team1_player1_id.eq.${participantId}`,
+              `team1_player2_id.eq.${participantId}`,
+              `team2_player1_id.eq.${participantId}`,
+              `team2_player2_id.eq.${participantId}`,
+            ].join(',')
+          )
+          .join(',');
+
+        const { data: assignedMatches, error: assignedError } = await supabase
+          .from('generated_matches')
+          .select(`
+            *,
+            team1_player1:profiles!team1_player1_id(
+              id, user_id, username, full_name, coin_balance, skill_level,
+              level_info:level_info!skill_level(name)
+            ),
+            team1_player2:profiles!team1_player2_id(
+              id, user_id, username, full_name, coin_balance, skill_level,
+              level_info:level_info!skill_level(name)
+            ),
+            team2_player1:profiles!team2_player1_id(
+              id, user_id, username, full_name, coin_balance, skill_level,
+              level_info:level_info!skill_level(name)
+            ),
+            team2_player2:profiles!team2_player2_id(
+              id, user_id, username, full_name, coin_balance, skill_level,
+              level_info:level_info!skill_level(name)
+            ),
+            match_sessions(
+              id,
+              session_name,
+              session_date
+            )
+          `)
+          .or(participantMatchFilter)
+          .order('match_number', { ascending: true }); // 경기 순서 유지
+
+        console.log('배정형 경기 조회 결과:', { 
+          data: assignedMatches, 
+          error: assignedError, 
+          searchProfileId: myProfile?.id || null,
+          matchCount: assignedMatches?.length || 0
+        });
+
+        if (!assignedError && assignedMatches && assignedMatches.length > 0) {
+          // 배정된 게임을 가상의 일정로 변환
+          assignedMatches.forEach((match: any, index) => {
+            const syntheticId = `generated_${match.id}`;
+            if (assignedScheduleIds.has(syntheticId)) {
+              return;
+            }
+            const session = Array.isArray(match.match_sessions) ? match.match_sessions[0] : null; // 첫 번째 세션 정보 사용
+            
+            const getPlayerInfo = (playerData: any) => {
+              if (!playerData) return { 
+                id: null, 
+                user_id: null,
+                username: '미정', 
+                full_name: '미정', 
+                coin_balance: null,
+                skill_level: 'E2',
+                skill_level_name: getLevelNameFromCode(levelInfoMap, 'E2', 'E2') || 'E2'
+              };
+              return {
+                id: playerData.id,
+                user_id: playerData.user_id,
+                username: playerData.full_name || playerData.username || '미정',
+                full_name: playerData.full_name || playerData.username || '미정',
+                coin_balance: playerData.coin_balance ?? null,
+                skill_level: playerData.skill_level || 'E2',
+                skill_level_name: playerData.level_info?.name || getLevelNameFromCode(levelInfoMap, playerData.skill_level || 'E2', playerData.skill_level || 'E2') || (playerData.skill_level || 'E2')
+              };
+            };
+
+            matchesWithDetails.push({
+              id: syntheticId,
+              match_date: session?.session_date || todayLocal,
+              start_time: `${9 + (index % 8)}:00`, // 9시부터 시작해서 8경기마다 순환
+              end_time: `${10 + (index % 8)}:00`,
+              location: '클럽 코트',
+              status: (match.status || 'scheduled') as 'scheduled' | 'in_progress' | 'completed' | 'cancelled',
+              description: session?.session_name || '배정 게임',
+              kind: 'assigned',
+              generated_match: {
+                id: match.id,
+                session_id: match.session_id || session?.id || null,
+                match_number: match.match_number,
+                session_name: session?.session_name || '세션 정보 없음',
+                team1_player1: getPlayerInfo(match.team1_player1),
+                team1_player2: getPlayerInfo(match.team1_player2),
+                team2_player1: getPlayerInfo(match.team2_player1),
+                team2_player2: getPlayerInfo(match.team2_player2)
+              }
+            });
+          });
+        }
+      } // myProfile 조건문 닫기
+
+      // 날짜순 정렬
+      matchesWithDetails.sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime());
+
+      setMyMatches(matchesWithDetails);
+      
+      // 경기 기록 데이터 생성 (완료된 generated_matches만)
+      const records: MatchRecord[] = [];
+      let wins = 0;
+      let losses = 0;
+
+      if (participantIds.length > 0) {
+        const participantMatchFilter = participantIds
+          .map((participantId) =>
+            [
+              `team1_player1_id.eq.${participantId}`,
+              `team1_player2_id.eq.${participantId}`,
+              `team2_player1_id.eq.${participantId}`,
+              `team2_player2_id.eq.${participantId}`,
+            ].join(',')
+          )
+          .join(',');
+
+        // 내가 참여한 완료된 경기들의 결과 조회
+        const { data: completedMatches, error: completedError } = await supabase
+          .from('generated_matches')
+          .select(`
+            id,
+            match_number,
+            match_result,
+            status,
+            team1_player1:profiles!team1_player1_id(
+              id, user_id, username, full_name, coin_balance, skill_level
+            ),
+            team1_player2:profiles!team1_player2_id(
+              id, user_id, username, full_name, coin_balance, skill_level
+            ),
+            team2_player1:profiles!team2_player1_id(
+              id, user_id, username, full_name, coin_balance, skill_level
+            ),
+            team2_player2:profiles!team2_player2_id(
+              id, user_id, username, full_name, coin_balance, skill_level
+            ),
+            match_sessions(
+              session_date
+            )
+          `)
+          .or(participantMatchFilter)
+          .eq('status', 'completed')
+          .not('match_result', 'is', null)
+          .order('match_number', { ascending: false });
+
+        if (!completedError && completedMatches) {
+          completedMatches.forEach((match: any) => {
+            if (!match.match_result) return;
+
+            const result = match.match_result as any;
+            const session = Array.isArray(match.match_sessions) ? match.match_sessions[0] : null;
+            const sessionDate = session?.session_date || new Date().toISOString().split('T')[0];
+            
+            // 🔽 배열로 반환될 수 있으니 항상 첫 번째 값만 사용
+            const team1_player1 = Array.isArray(match.team1_player1) ? match.team1_player1[0] : match.team1_player1;
+            const team1_player2 = Array.isArray(match.team1_player2) ? match.team1_player2[0] : match.team1_player2;
+            const team2_player1 = Array.isArray(match.team2_player1) ? match.team2_player1[0] : match.team2_player1;
+            const team2_player2 = Array.isArray(match.team2_player2) ? match.team2_player2[0] : match.team2_player2;
+
+            const isTeam1 = team1_player1?.id === myProfile?.id || team1_player2?.id === myProfile?.id;
+            const myTeamWon = (isTeam1 && result.winner === 'team1') || (!isTeam1 && result.winner === 'team2');
+            
+            if (myTeamWon) wins++;
+            else losses++;
+
+            // 팀원과 상대방 이름 정리
+            const teammates = isTeam1 
+              ? [team1_player1, team1_player2]
+              : [team2_player1, team2_player2];
+
+            const opponents = isTeam1 
+              ? [team2_player1, team2_player2]
+              : [team1_player1, team1_player2];
+
+            const getPlayerNames = (players: any[]) => 
+              players
+                .filter(p => p && p.user_id !== user.id) // 나 제외
+                .map(p => formatNameWithCoins(p.username || p.full_name || '미정', p.coin_balance));
+
+            records.push({
+              id: String(match.id),
+              matchNumber: match.match_number,
+              date: sessionDate,
+              result: myTeamWon ? 'win' : 'loss',
+              score: result.score || '',
+              teammates: getPlayerNames(teammates),
+              opponents: getPlayerNames(opponents),
+              isUserTeam1: isTeam1
+            });
+          });
+        }
+      }
+
+      setMatchRecords(records);
+      setFilteredRecords(records);
+      
+      // 통계 계산
+        const upcoming = matchesWithDetails.filter(
+          (m) =>
+            m.match_date >= todayLocal &&
+            (m.status === 'scheduled' || m.status === 'in_progress')
+        );
+        const completed = matchesWithDetails.filter(m => m.status === 'completed');
+      const winRate = (wins + losses) > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
+      
+      setStats({
+        totalMatches: matchesWithDetails.length,
+        upcomingMatches: upcoming.length,
+        completedMatches: completed.length,
+        winRate,
+        wins,
+        losses
+      });
+
+      console.log(`✅ 내 경기 일정 조회 완료: ${matchesWithDetails.length}개`);
+    } catch (error) {
+      console.error('경기 조회 실패:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 날짜 필터 변경 핸들러
+  const handleDateFilter = (date: string) => {
+    setSelectedDate(date);
+    if (date === '') {
+      setFilteredRecords(matchRecords);
+    } else {
+      const filtered = matchRecords.filter(record => record.date === date);
+      setFilteredRecords(filtered);
+    }
+  };
+
+  // 선수 이름 조회
+  const getPlayerName = (player: any) => {
+    if (!player) return '미정';
+    if (player.user_id === user?.id) return formatNameWithCoins('나', profile?.coin_balance);
+    return formatNameWithCoins(player.full_name || player.username || '미정', player.coin_balance);
+  };
+
+  const getPlayerBet = (player?: { id?: string } | null) => {
+    if (!player?.id) return DEFAULT_MATCH_WAGER;
+    return selectedMatchBetState.bets[player.id] ?? DEFAULT_MATCH_WAGER;
+  };
+
+  // 레벨 이름 반환 (데이터베이스에서 가져온 이름 사용)
+  const getLevelName = (player: any) => {
+    // 이미 skill_level_name이 있으면 그것을 사용
+    if (player?.skill_level_name) {
+      return player.skill_level_name;
+    }
+    return getLevelNameFromCode(levelInfoMap, player?.skill_level, player?.skill_level || '미지정');
+  };
+
+  const fetchTournamentMatches = async () => {
+    try {
+      const result = await fetchMyTournamentMatches(supabase, profile);
+      setTournamentMatches(result.matches);
+      setAllTournamentMatchCount(result.allTournamentMatchCount);
+    } catch (error) {
+      console.error('대회 경기 조회 실패:', error);
+      setTournamentMatches([]);
+      setAllTournamentMatchCount(0);
+    }
+  };
+
+  // 경기 상태 색상
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'scheduled': return 'bg-blue-100 text-blue-800';
+      case 'in_progress': return 'bg-yellow-100 text-yellow-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // 경기 상태 텍스트
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'scheduled': return '예정';
+      case 'in_progress': return '진행중';
+      case 'completed': return '완료';
+      case 'cancelled': return '취소';
+      default: return status;
+    }
+  };
+
+  const uniqueRecordDates = Array.from(new Set(matchRecords.map((record) => record.date))).sort((a, b) =>
+    new Date(b).getTime() - new Date(a).getTime()
+  );
+
+  const getMyTournamentTeam = (match: MyTournamentMatchView) => {
+    const searchNames = [profile?.username, profile?.full_name]
+      .map((value) => normalizeTournamentPlayerName(value))
+      .filter((value) => value.length > 0);
+
+    if (searchNames.length === 0) return null;
+
+    const team1Names = (match.team1 || []).map((name) => normalizeTournamentPlayerName(name));
+    const team2Names = (match.team2 || []).map((name) => normalizeTournamentPlayerName(name));
+
+    if (searchNames.some((name) => team1Names.some((teamName) => tournamentNamesMatch(name, teamName)))) return 'team1';
+    if (searchNames.some((name) => team2Names.some((teamName) => tournamentNamesMatch(name, teamName)))) return 'team2';
+    return null;
+  };
+
+  const tournamentStats = tournamentMatches.reduce(
+    (acc, match) => {
+      const myTeam = getMyTournamentTeam(match);
+      if (!myTeam) {
+        return acc;
+      }
+
+      acc.total += 1;
+
+      if (match.status === 'completed') {
+        acc.completed += 1;
+        if (match.winner === myTeam) acc.wins += 1;
+        else if (match.winner === 'draw') acc.draws += 1;
+        else acc.losses += 1;
+      } else {
+        acc.pending += 1;
+      }
+
+      return acc;
+    },
+    { total: 0, completed: 0, pending: 0, wins: 0, losses: 0, draws: 0 }
+  );
+
+  const selectTab = (tab: MatchCenterTab) => {
+    setActiveTab(tab);
+    router.replace(`/my-schedule?tab=${tab}`, { scroll: false });
+  };
+
+  const todayLocal = getTodayLocal();
+  const upcomingMatches = myMatches.filter(
+    (match) =>
+      match.match_date >= todayLocal &&
+      (match.status === 'scheduled' || match.status === 'in_progress')
+  );
+
+  const formatCompactDate = (value?: string | null) =>
+    value
+      ? new Date(value).toLocaleDateString('ko-KR', {
+          month: 'short',
+          day: 'numeric',
+          weekday: 'short',
+        })
+      : '날짜 미정';
+
+  const formatTimeRange = (start?: string | null, end?: string | null) =>
+    start && end ? `${start} - ${end}` : start || end || '시간 미정';
+
+  const formatMatchBadge = (match: MatchSchedule) =>
+    match.generated_match ? '배정 게임' : '등록 경기';
+
+  const getUpcomingCardTitle = (match: MatchSchedule) => {
+    if (match.generated_match) {
+      return `게임 #${match.generated_match.match_number}`;
+    }
+
+    const rawDescription = String(match.description || '').trim();
+    return rawDescription || '참가 신청 일정';
+  };
+
+  const getUpcomingCardSubtitle = (match: MatchSchedule) => {
+    const rawDescription = String(match.description || '').trim();
+
+    if (match.generated_match) {
+      return match.generated_match.session_name || rawDescription || '오늘 경기 배정';
+    }
+
+    return '참가 신청한 경기 일정';
+  };
+
+  const normalizeTournamentLabel = (value?: string | null) =>
+    String(value || '')
+      .replace(/\s+/g, '')
+      .replace(/[()]/g, '')
+      .trim()
+      .toLowerCase();
+
+  const formatTournamentTypeLabel = (matchType?: string | null) => {
+    switch ((matchType || '').toLowerCase()) {
+      case 'random':
+        return '랜덤';
+      case 'level_based':
+        return '레벨';
+      case 'single_elimination':
+        return '단판 토너먼트';
+      case 'round_robin':
+        return '리그전';
+      default:
+        return matchType || '대회 경기';
+    }
+  };
+
+  const formatTournamentTitle = (title?: string | null, matchType?: string | null) => {
+    const cleaned = String(title || '')
+      .replace(/라뚱\s*대회?|대회경기/gu, '대회 경기')
+      .replace(/\((레벨별|레벨 랜덤|레벨랜덤|랜덤|리그전|단판 토너먼트)\)\s*$/i, '')
+      .trim();
+
+    return cleaned || '대회';
+  };
+
+  const shouldShowTournamentTypeLabel = (title?: string | null, matchType?: string | null) => {
+    const normalizedTitle = normalizeTournamentLabel(title);
+    const normalizedType = normalizeTournamentLabel(formatTournamentTypeLabel(matchType));
+
+    if (!normalizedType || normalizedType === normalizeTournamentLabel('대회 경기')) {
+      return false;
+    }
+
+    return !normalizedTitle.includes(normalizedType);
+  };
+
+  const formatCourtLabel = (court?: string | null) => {
+    const raw = String(court || '').trim();
+    if (!raw) return '코트 미정';
+
+    const normalized = raw.match(/^court\s*(\d+)$/i);
+    if (normalized) {
+      return `${normalized[1]}코트`;
+    }
+
+    return raw.replace(/^court/i, '코트');
+  };
+
+  const getTournamentStatusLabel = (
+    match: MyTournamentMatchView,
+    didIWin: boolean,
+    didILose: boolean
+  ) => {
+    if (match.status === 'completed') {
+      if (didIWin) return '✓ 승리';
+      if (didILose) return '✗ 패배';
+      return '= 무승부';
+    }
+
+    if (match.status === 'pending') {
+      return '⏳ 대기중';
+    }
+
+    return '⚡ 진행중';
+  };
+
+  const getTeamScoreText = (score?: number | null) =>
+    typeof score === 'number' ? String(score) : '-';
+
+  const summaryItems = [
+    { label: '예정', value: `${stats.upcomingMatches}` },
+    { label: '완료', value: `${matchRecords.length}` },
+    { label: '승률', value: `${stats.winRate}%` },
+  ];
+
+  // 경기 결과 보기/일정 상세 보기 핸들러 (통합)
+  const handleScheduleDetails = (match: MatchSchedule) => {
+    setSelectedMatch(match);
+    setMatchStatus(match.status);
+    setModalMode('schedule'); // 일정 확인 모드
+    setShowDetailsModal(true);
+    setMatchResult({ winner: '', score: '' });
+  };
+
+  // 완료 입력 핸들러 (진행중인 경우)
+  const handleCompleteInput = (match: MatchSchedule) => {
+    setSelectedMatch(match);
+    setMatchStatus(match.status);
+    setModalMode('complete'); // 완료 입력 모드
+    setShowDetailsModal(true);
+    setMatchResult({ winner: '', score: '' });
+  };
+
+  // 다음 경기 참가자들에게 준비 알림 발송
+  const sendNextMatchNotification = async (currentMatch: MatchSchedule) => {
+    if (!currentMatch.generated_match) return;
+
+    try {
+      const fallbackGeneratedMatchId = Number(currentMatch.id.replace('generated_', ''));
+      let currentSessionId = currentMatch.generated_match.session_id || null;
+
+      if (!currentSessionId) {
+        const { data: currentMatchData, error: currentMatchError } = await supabase
+          .from('generated_matches')
+          .select('session_id')
+          .eq('id', fallbackGeneratedMatchId)
+          .maybeSingle();
+
+        if (currentMatchError || !currentMatchData?.session_id) {
+          console.error('현재 경기 session_id 조회 실패:', currentMatchError);
+          return;
+        }
+
+        currentSessionId = currentMatchData.session_id;
+      }
+
+      if (!currentSessionId) {
+        return;
+      }
+
+      // 현재 경기와 같은 세션의 다음 경기들 찾기 (순서 유지)
+      const { data: sessionMatches, error } = await supabase
+        .from('generated_matches')
+        .select(`
+          *,
+          team1_player1:profiles!team1_player1_id(user_id, username, full_name),
+          team1_player2:profiles!team1_player2_id(user_id, username, full_name),
+          team2_player1:profiles!team2_player1_id(user_id, username, full_name),
+          team2_player2:profiles!team2_player2_id(user_id, username, full_name)
+        `)
+        .eq('session_id', currentSessionId)
+        .gt('match_number', currentMatch.generated_match.match_number)
+        .eq('status', 'scheduled') // 아직 시작하지 않은 경기만
+        .order('match_number', { ascending: true })
+        .limit(2); // 다음 경기와 그 다음 경기까지
+
+      if (error) {
+        console.error('다음 경기 조회 실패:', error);
+        return;
+      }
+
+      if (!sessionMatches || sessionMatches.length === 0) {
+        console.log('다음 예정된 경기가 없습니다.');
+        return;
+      }
+
+      // 알림 메시지 준비
+      const notificationMessage = `경기 준비 알림
+
+빈 코트로 이동하여 경기를 시작해 주세요.
+진행중 선택 시 다음 참가자에게 준비 알림이 발송됩니다.
+
+부상 없이 즐거운 운동 하세요!`;
+
+      let totalNotifications = 0;
+      const notifiedPlayers: string[] = [];
+
+      // 각 다음 경기의 참가자들에게 알림 발송
+      for (const match of (sessionMatches as any[])) {
+        const participants = [
+          match.team1_player1,
+          match.team1_player2,
+          match.team2_player1,
+          match.team2_player2
+        ].filter(p => p && p.user_id);
+
+        // 참가자별로 알림 기록 생성 및 실제 알림 발송
+        for (const participant of participants) {
+          const playerName = participant.full_name || participant.username || '선수';
+          
+          // 중복 발송 방지: 이미 같은 경기에 대한 준비 알림이 발송되었는지 확인
+          const { data: existingNotification } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', participant.user_id)
+            .eq('type', 'match_preparation')
+            .eq('related_match_id', match.id)
+            .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString()) // 30분 내
+            .single();
+
+          if (existingNotification) {
+            console.log(`⚠️ 중복 발송 방지: ${playerName}에게 이미 경기 #${match.match_number} 알림 발송됨`);
+            continue; // 이미 발송된 경우 스킵
+          }
+          
+          console.log(`🔔 알림 발송 대상: ${playerName} (경기 #${match.match_number})`);
+          
+          // 실제 브라우저 알림 + 소리 발송
+          await NotificationService.sendMatchPreparationNotification(
+            match.match_number, 
+            [playerName]
+          );
+          
+          notifiedPlayers.push(`${playerName} (경기#${match.match_number})`);
+          
+          // 알림 히스토리 기록
+          try {
+            await supabase.from('notifications').insert({
+              user_id: participant.user_id,
+              title: '경기 준비 알림',
+              message: `경기 #${match.match_number} ${notificationMessage}`,
+              type: 'match_preparation',
+              related_match_id: match.id,
+              is_read: false
+            });
+            totalNotifications++;
+          } catch (notificationError) {
+            console.error('알림 기록 저장 실패:', notificationError);
+            // 알림 저장 실패는 전체 프로세스를 중단하지 않음
+          }
+        }
+      }
+
+      console.log(`✅ 다음 ${sessionMatches.length}경기의 ${totalNotifications}명에게 준비 알림을 발송했습니다.`);
+      console.log(`📋 알림 발송 대상자: ${notifiedPlayers.join(', ')}`);
+      
+      return { 
+        matchCount: sessionMatches.length, 
+        playerCount: totalNotifications,
+        players: notifiedPlayers
+      };
+      
+    } catch (error) {
+      console.error('다음 경기 알림 발송 실패:', error);
+      // 알림 발송 실패는 사용자에게 별도 오류로 표시하지 않음 (부가 기능이므로)
+    }
+  };
+
+  // 경기 상태 변경 핸들러
+  const handleStatusChange = async (newStatus: 'scheduled' | 'in_progress' | 'completed' | 'cancelled') => {
+    if (!selectedMatch) return;
+    
+    try {
+      if (newStatus === 'completed') {
+        // 완료를 선택한 경우: 완료 입력 모드로 전환
+        setMatchStatus(newStatus);
+        setModalMode('complete');
+        // 실제 데이터베이스 업데이트는 결과 저장 시에 처리
+      } else {
+        // 다른 상태들: 바로 업데이트
+        setMatchStatus(newStatus);
+        if (newStatus === 'in_progress' && selectedMatch.generated_match) {
+          const response = await fetch('/api/match-start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              match_id: Number(selectedMatch.generated_match.id),
+            }),
+          });
+
+          const payload = await response.json().catch(() => null);
+          if (!response.ok) {
+            throw new Error(payload?.error || '게임 시작 중 오류가 발생했습니다.');
+          }
+        } else {
+          await updateMatchStatus(newStatus);
+        }
+        
+        // 전체 일정 새로고침 (배정현황도 실시간 업데이트됨)
+        await fetchMySchedule();
+        
+        // '진행중'으로 상태 변경 시 다음 경기 참가자들에게 알림 발송
+        if (newStatus === 'in_progress' && selectedMatch.generated_match) {
+          const notificationResult = await sendNextMatchNotification(selectedMatch);
+          
+          if (notificationResult && notificationResult.playerCount > 0) {
+            // 성공적으로 알림 발송된 경우
+            alert(`경기 상태가 "진행중"으로 변경되었습니다! 🏸
+
+📢 다음 경기 참가자들에게 준비 알림을 발송했습니다:
+
+🔔 ${notificationResult.playerCount}명에게 알림 발송
+📋 대상자: ${notificationResult.players.join(', ')}
+
+💬 발송 메시지:
+"경기 준비 빈 코트로 이동 경기를 시작해 주세요.
+진행중 선택이 다음 사람에게 준비 알림 발송됩니다.
+부상 없이 즐거운 운동 하세요! 🏸"
+
+💡 참가자들에게 브라우저 알림과 소리로 알림이 전송되었습니다.`);
+          } else {
+            alert(`경기 상태가 "진행중"으로 변경되었습니다.
+
+ℹ️ 다음 예정된 경기가 없거나 알림 발송에 실패했습니다.`);
+          }
+        } else {
+          // 성공 메시지
+          const statusText = {
+            'scheduled': '예정',
+            'in_progress': '진행중', 
+            'cancelled': '취소'
+          }[newStatus];
+          
+          alert(`경기 상태가 "${statusText}"으로 변경되었습니다.`);
+        }
+      }
+    } catch (error) {
+      console.error('상태 변경 실패:', error);
+      alert('상태 변경 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 경기 상태 업데이트 (수정된 버전 - match_participants 테이블 사용)
+  const updateMatchStatus = async (status: string, result?: any) => {
+    if (!selectedMatch) return;
+
+    try {
+      // generated_matches에서 온 경기인지 확인
+      if (selectedMatch.id.startsWith('generated_')) {
+        const generatedMatchId = selectedMatch.id.replace('generated_', '');
+        
+        // generated_matches 테이블의 상태 업데이트 (updated_at 컬럼 제거)
+        const updateData: any = { 
+          status: status
+        };
+        
+        // 결과가 있는 경우 추가
+        if (result) {
+          updateData.match_result = result;
+        }
+
+        const { error: matchStatusError } = await supabase
+          .from('generated_matches')
+          .update(updateData)
+          .eq('id', Number(generatedMatchId));
+
+        if (matchStatusError) {
+          console.error('Generated match 상태 업데이트 실패:', matchStatusError);
+          throw matchStatusError;
+        }
+
+        console.log(`✅ 경기 상태 업데이트 완료: 경기 ${generatedMatchId}, 상태 ${status}`);
+        
+      } else {
+        // 일반 match_schedules 테이블 업데이트 (기존 로직 유지)
+        const { data: currentMatch, error: checkError } = await supabase
+          .from('match_schedules')
+          .select('status')
+          .eq('id', selectedMatch.id)
+          .single();
+
+        if (checkError) {
+          console.error('경기 상태 확인 실패:', checkError);
+          throw checkError;
+        }
+
+        if (currentMatch.status === status) {
+          alert(`이미 경기 상태가 "${getStatusText(status)}"입니다.`);
+          return;
+        }
+        
+        if (currentMatch.status === 'completed' && status !== 'completed') {
+          alert('완료된 경기의 상태는 변경할 수 없습니다.');
+          return;
+        }
+
+        const updateData: any = { status };
+        if (result) {
+          updateData.match_result = result;
+        }
+
+        const { error } = await supabase
+          .from('match_schedules')
+          .update(updateData)
+          .eq('id', selectedMatch.id)
+          .eq('status', currentMatch.status);
+
+        if (error) {
+          console.error('Match schedule 상태 업데이트 실패:', error);
+          throw error;
+        }
+      }
+
+      // 로컬 상태 업데이트는 새로고침에서 처리됨
+    } catch (error) {
+      console.error('상태 업데이트 실패:', error);
+      throw error;
+    }
+  };
+
+  // 경기 결과 저장 핸들러 (수정된 버전)
+  const handleSaveResult = async () => {
+    if (!selectedMatch || !matchResult.winner || !matchResult.score) {
+      alert('승부 결과와 점수를 모두 입력해주세요.');
+      return;
+    }
+
+    if (!selectedMatch.generated_match) {
+      alert('배정된 게임이 아니므로 결과를 저장할 수 없습니다.');
+      return;
+    }
+
+    try {
+      const generatedMatchId = selectedMatch.id.replace('generated_', '');
+
+      const [team1ScoreText, team2ScoreText] = matchResult.score.split(':');
+      const team1Score = Number(team1ScoreText);
+      const team2Score = Number(team2ScoreText);
+
+      if (!Number.isFinite(team1Score) || !Number.isFinite(team2Score)) {
+        alert('점수 형식은 예: 21:18 처럼 입력해주세요.');
+        return;
+      }
+
+      if (team1Score === team2Score) {
+        alert('무승부는 저장할 수 없습니다.');
+        return;
+      }
+
+      const response = await fetch('/api/match-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match_id: Number(generatedMatchId),
+          winner_team1: matchResult.winner === 'team1',
+          team1_score: team1Score,
+          team2_score: team2Score,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        alert(payload?.error || '결과 저장 중 오류가 발생했습니다.');
+        return;
+      }
+
+      alert(
+        `게임 결과가 저장되었습니다.\n\n승리팀: ${matchResult.winner === 'team1' ? '라켓팀' : '셔틀팀'}\n점수: ${team1Score}:${team2Score}\n코인 반영: 패자 배팅 코인이 승자에게 이동합니다. 기본 ${DEFAULT_MATCH_WAGER}코인, 최대 ${MAX_MATCH_WAGER}코인`
+      );
+      
+      // 모달 닫기 및 상태 초기화
+      setShowDetailsModal(false);
+      setModalMode('schedule');
+      setMatchResult({ winner: '', score: '' });
+      
+      // 데이터 새로고침 (모든 참가자에게 즉시 반영)
+      await fetchMySchedule();
+      
+      // 결과 상태 즉시 업데이트
+      await updateMatchResultStates();
+      
+    } catch (error) {
+      console.error('결과 저장 실패:', error);
+      alert('결과 저장 중 예상치 못한 오류가 발생했습니다.');
+    }
+  };
+
+  if (userLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="mb-4">로그인이 필요합니다.</p>
+          <Link href="/login">
+            <Button>로그인하기</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f5f7fb]">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
+        <div className="overflow-hidden rounded-[28px] bg-[#0f172a] text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
+          <div className="px-4 py-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300">
+                  <span>Match Hub</span>
+                  <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] tracking-[0.12em] text-white/90">
+                    {formatCurrentUserNameWithCoins(profile?.full_name || profile?.username || '회원', profile?.coin_balance)}
+                  </span>
+                  <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] tracking-[0.12em] text-white/90">
+                    {profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정')}
+                  </span>
+                </div>
+                <h1 className="text-2xl font-semibold tracking-tight">내 일정</h1>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  오늘 필요한 경기 정보만 빠르게 확인할 수 있게 정리했습니다.
+                </p>
+              </div>
+              <Link
+                href="/dashboard"
+                className="shrink-0 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/15"
+              >
+                홈
+              </Link>
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {summaryItems.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-[18px] bg-white/10 px-2 py-3 text-center text-sm"
+                >
+                  <div className="text-[11px] text-slate-300">{item.label}</div>
+                  <div className="mt-1 font-semibold text-white">{item.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[24px] bg-white px-3 py-3 shadow-sm">
+          <div className="overflow-x-auto">
+            <div className="flex min-w-max gap-2">
+              <button
+                type="button"
+                onClick={() => selectTab('upcoming')}
+                className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === 'upcoming'
+                    ? 'bg-slate-950 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                예정 경기
+              </button>
+              <button
+                type="button"
+                onClick={() => selectTab('results')}
+                className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === 'results'
+                    ? 'bg-slate-950 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                완료 기록
+              </button>
+              <button
+                type="button"
+                onClick={() => selectTab('tournaments')}
+                className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                  activeTab === 'tournaments'
+                    ? 'bg-slate-950 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                대회 경기
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {activeTab === 'upcoming' && (
+          <div className="rounded-[24px] bg-white shadow-sm">
+            <div className="border-b border-slate-200/80 px-4 py-4">
+              <div className="flex flex-col gap-1">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">예정 경기</h2>
+                  <p className="text-sm text-slate-500">다가오는 경기 일정과 배정된 게임 구성을 한 번에 확인합니다.</p>
+                </div>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="p-12 text-center">
+                <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500"></div>
+                <p>경기 일정을 불러오는 중...</p>
+              </div>
+            ) : upcomingMatches.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className="mb-4 text-6xl">🏸</div>
+                <h3 className="mb-2 text-lg font-medium text-gray-900">예정된 경기가 없습니다</h3>
+                <p className="mb-4 text-gray-600">새로운 경기에 등록하거나 관리자의 배정을 기다려주세요.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200/80">
+                {upcomingMatches.map((match) => (
+                  <div key={match.id} className="p-4">
+                    <div className="flex flex-col gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-3 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
+                            {formatMatchBadge(match)}
+                          </span>
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(match.status)}`}>
+                            {getStatusText(match.status)}
+                          </span>
+                        </div>
+
+                        <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                          <div className="flex flex-col gap-1.5">
+                            <div className="text-sm font-semibold text-slate-900">{getUpcomingCardTitle(match)}</div>
+                            <div className="text-xs text-slate-500">{getUpcomingCardSubtitle(match)}</div>
+                            <div className="pt-1 text-sm text-slate-700">
+                              {formatCompactDate(match.match_date)} · {formatTimeRange(match.start_time, match.end_time)}
+                            </div>
+                            <div className="text-sm font-medium text-slate-800">{match.location || '장소 미정'}</div>
+                          </div>
+                        </div>
+
+                        {match.generated_match && (
+                          <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-stretch gap-3">
+                            <div className="rounded-[20px] border border-blue-100 bg-blue-50/80 p-3">
+                              <div className="mb-2 text-sm font-semibold text-blue-900">팀 A</div>
+                              <div className="space-y-1.5 text-sm">
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team1_player1.user_id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
+                                  {getPlayerName(match.generated_match.team1_player1)}
+                                </div>
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team1_player2.user_id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
+                                  {getPlayerName(match.generated_match.team1_player2)}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex min-w-[68px] flex-col items-center justify-center rounded-[20px] bg-white px-2 py-3 text-center shadow-sm">
+                              <div className="text-[11px] font-semibold tracking-[0.14em] text-slate-400">점수</div>
+                              <div className="mt-1 text-lg font-bold text-slate-900">-</div>
+                              <div className="text-xs font-medium text-slate-400">VS</div>
+                              <div className="text-lg font-bold text-slate-900">-</div>
+                            </div>
+
+                            <div className="rounded-[20px] border border-rose-100 bg-rose-50/80 p-3 text-right">
+                              <div className="mb-2 text-sm font-semibold text-rose-900">팀 B</div>
+                              <div className="space-y-1.5 text-sm">
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team2_player1.user_id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
+                                  {getPlayerName(match.generated_match.team2_player1)}
+                                </div>
+                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team2_player2.user_id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
+                                  {getPlayerName(match.generated_match.team2_player2)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {match.generated_match && (
+                        <div className="flex shrink-0 flex-col gap-2">
+                          {match.status === 'scheduled' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-10 rounded-xl border-slate-300 bg-white text-slate-700"
+                              onClick={() => handleScheduleDetails(match)}
+                            >
+                              일정 확인
+                            </Button>
+                          )}
+                          {match.status === 'in_progress' && (
+                            <>
+                              {(() => {
+                                const hasResult = matchResultStates[match.id];
+
+                                if (hasResult === null) {
+                                  return (
+                                    <Button variant="outline" size="sm" disabled>
+                                      확인 중...
+                                    </Button>
+                                  );
+                                }
+
+                                return hasResult ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleScheduleDetails(match)}
+                                    className="h-10 rounded-xl border-green-300 text-green-700 hover:bg-green-50"
+                                  >
+                                    결과 보기
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleCompleteInput(match)}
+                                    className="h-10 rounded-xl border-yellow-300 text-yellow-700 hover:bg-yellow-50"
+                                  >
+                                    완료 입력
+                                  </Button>
+                                );
+                              })()}
+                            </>
+                          )}
+                          {match.status === 'completed' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleScheduleDetails(match)}
+                              className="h-10 rounded-xl border-green-300 text-green-700 hover:bg-green-50"
+                            >
+                              결과 보기
+                            </Button>
+                          )}
+                          {match.status === 'cancelled' && (
+                            <Button variant="outline" size="sm" disabled className="border-gray-300 text-gray-500">
+                              취소됨
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'results' && (
+          <div className="rounded-[24px] bg-white shadow-sm">
+            <div className="flex flex-col gap-4 border-b border-slate-200/80 p-4">
+              <div>
+                  <h2 className="text-lg font-semibold text-slate-900">완료된 게임 기록</h2>
+                <p className="mt-1 text-sm text-slate-500">승패와 점수를 압축해서 빠르게 훑어볼 수 있습니다.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="record-date-filter" className="text-sm font-medium text-gray-600">
+                  날짜 필터
+                </label>
+                <select
+                  id="record-date-filter"
+                  value={selectedDate}
+                  onChange={(e) => handleDateFilter(e.target.value)}
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="">전체</option>
+                  {uniqueRecordDates.map((date) => (
+                    <option key={date} value={date}>
+                      {date}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {filteredRecords.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <div className="mb-4 text-6xl">🏆</div>
+                <h3 className="mb-2 text-lg font-medium text-gray-900">완료된 게임 기록이 없습니다</h3>
+                <p>게임이 완료되면 여기에서 결과를 확인할 수 있습니다.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200/80">
+                {filteredRecords.map((record) => (
+                  <div key={record.id} className="p-4">
+                    <div className="grid gap-3">
+                        <div className="rounded-[20px] bg-slate-50 px-4 py-3">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
+                            #{record.matchNumber}
+                          </span>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-medium ${
+                              record.result === 'win' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {record.result === 'win' ? '승리' : '패배'}
+                          </span>
+                          <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-500 shadow-sm">
+                            {formatCompactDate(record.date)}
+                          </span>
+                        </div>
+                        <div className="text-lg font-semibold text-slate-900">{record.score || '점수 기록 없음'}</div>
+                      </div>
+                      <div className="grid gap-2 text-sm">
+                        <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-3">
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">팀원</div>
+                          <div className="mt-1 font-medium text-slate-700">
+                            {record.teammates.length > 0 ? record.teammates.join(', ') : '없음'}
+                          </div>
+                        </div>
+                        <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-3">
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">상대</div>
+                          <div className="mt-1 font-medium text-slate-700">
+                            {record.opponents.length > 0 ? record.opponents.join(', ') : '없음'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'tournaments' && (
+          <div className="rounded-[24px] bg-white shadow-sm">
+            <div className="flex flex-col gap-4 border-b border-slate-200/80 p-4">
+              <div>
+                  <h2 className="text-lg font-semibold text-slate-900">대회 경기</h2>
+                <p className="mt-1 text-sm text-slate-500">참가 중인 대회 경기만 모아봅니다.</p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-600">
+                <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-800">총 {tournamentStats.total}</span>
+                <span className="rounded-full bg-green-50 px-3 py-1.5 text-green-800">승리 {tournamentStats.wins}</span>
+                <span className="rounded-full bg-blue-50 px-3 py-1.5 text-blue-800">대기 {tournamentStats.pending}</span>
+              </div>
+            </div>
+
+            {tournamentMatches.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <div className="mb-4 text-6xl">🎾</div>
+                <h3 className="mb-2 text-lg font-medium text-gray-900">
+                  {allTournamentMatchCount === 0 ? '등록된 대회 경기가 아직 없습니다' : '참가한 대회 경기가 없습니다'}
+                </h3>
+                <p>대회가 생성되면 이 탭에서 일반 경기와 분리해서 확인할 수 있습니다.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 p-4">
+                {tournamentMatches.map((match) => {
+                  const myTeam = getMyTournamentTeam(match);
+                  const didIWin = Boolean(match.status === 'completed' && match.winner === myTeam);
+                  const didILose = Boolean(
+                    match.status === 'completed' &&
+                    match.winner &&
+                    match.winner !== myTeam &&
+                    match.winner !== 'draw'
+                  );
+
+                  return (
+                    <div
+                      key={match.id}
+                      className={`relative rounded-[22px] border p-4 ${
+                        didIWin
+                          ? 'border-green-200 bg-green-50/80'
+                          : didILose
+                          ? 'border-red-200 bg-red-50/80'
+                          : match.status === 'pending'
+                          ? 'border-blue-200 bg-blue-50/80'
+                          : 'border-slate-200 bg-slate-50/80'
+                      }`}
+                    >
+                      <span
+                        className={`absolute right-4 top-4 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                          match.status === 'completed'
+                            ? didIWin
+                              ? 'bg-green-200 text-green-800'
+                              : didILose
+                              ? 'bg-red-200 text-red-800'
+                              : 'bg-gray-200 text-gray-800'
+                            : match.status === 'pending'
+                            ? 'bg-blue-200 text-blue-700'
+                            : 'bg-yellow-200 text-yellow-800'
+                        }`}
+                      >
+                        {getTournamentStatusLabel(match, didIWin, didILose)}
+                      </span>
+
+                      <div className="mb-3 flex flex-col gap-3 pr-20">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
+                              대회 #{match.match_number}
+                            </span>
+                            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-500">
+                              {formatCompactDate(match.tournament_date)}
+                            </span>
+                          </div>
+                          <div className="mt-2 text-base font-semibold text-slate-900">
+                            {formatTournamentTitle(match.tournament_title, match.match_type)}
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            {formatCourtLabel(match.court)}
+                            {shouldShowTournamentTypeLabel(match.tournament_title, match.match_type)
+                              ? ` · ${formatTournamentTypeLabel(match.match_type)}`
+                              : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-3">
+                        <div className={`rounded-[20px] p-3 ${myTeam === 'team1' ? 'border border-blue-300 bg-blue-100' : 'bg-white'}`}>
+                          <div className="mb-2 font-semibold text-blue-700">{myTeam === 'team1' ? '내 팀' : '상대 팀'}</div>
+                          {match.team1.map((player, index) => (
+                            <div key={`${match.id}-team1-${index}`} className="text-sm text-gray-800">
+                              {player}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex min-w-[72px] flex-col items-center justify-center rounded-[20px] bg-white px-2 py-3 text-center shadow-sm">
+                          <div className="text-[11px] font-semibold tracking-[0.14em] text-slate-400">점수</div>
+                          <div className="mt-1 text-2xl font-bold text-blue-600">{getTeamScoreText(match.score_team1)}</div>
+                          <div className="text-xs font-medium text-slate-400">VS</div>
+                          <div className="text-2xl font-bold text-rose-600">{getTeamScoreText(match.score_team2)}</div>
+                        </div>
+
+                        <div className={`rounded-[20px] p-3 text-right ${myTeam === 'team2' ? 'border border-blue-300 bg-blue-100' : 'bg-white'}`}>
+                          <div className="mb-2 font-semibold text-red-700">{myTeam === 'team2' ? '내 팀' : '상대 팀'}</div>
+                          {match.team2.map((player, index) => (
+                            <div key={`${match.id}-team2-${index}`} className="text-sm text-gray-800">
+                              {player}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-4 rounded-[24px] bg-white p-4 text-center shadow-sm">
+          <Button onClick={fetchMySchedule} disabled={loading} variant="outline" className="rounded-xl">
+            {loading ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-current"></div>
+                새로고침 중...
+              </>
+            ) : (
+              '🔄 새로고침'
+            )}
+          </Button>
+        </div>
+
+        {showDetailsModal && selectedMatch && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-2 sm:items-center sm:p-4">
+            <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_30px_80px_-45px_rgba(15,23,42,0.45)]">
+              <div className="border-b border-slate-200/80 px-4 py-4 sm:px-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Match Detail</div>
+                    <h2 className="mt-1 text-lg font-semibold text-slate-900 sm:text-xl">🏸 경기 상세 정보</h2>
+                    <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                      모바일에 맞춰 세로형으로 경기 상태와 팀 정보를 확인할 수 있습니다.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="h-9 rounded-xl"
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setModalMode('schedule');
+                      setMatchResult({ winner: '', score: '' });
+                    }}
+                  >
+                    닫기
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-5 overflow-y-auto p-4 sm:p-6">
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">날짜</div>
+                    <div className="mt-1 text-sm font-medium text-slate-800">
+                      {new Date(selectedMatch.match_date).toLocaleDateString('ko-KR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        weekday: 'short',
+                      })}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">시간</div>
+                    <div className="mt-1 text-sm font-medium text-slate-800">
+                      {selectedMatch.start_time} - {selectedMatch.end_time}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">장소</div>
+                    <div className="mt-1 text-sm font-medium text-slate-800">{selectedMatch.location}</div>
+                  </div>
+                </div>
+
+                {modalMode === 'schedule' && (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">상태 변경</h3>
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        <button
+                          onClick={() => handleStatusChange('scheduled')}
+                          className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                            matchStatus === 'scheduled'
+                              ? 'bg-blue-500 text-white'
+                              : 'border border-blue-200 bg-white text-blue-700 hover:bg-blue-50'
+                          }`}
+                        >
+                          예정
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange('in_progress')}
+                          className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                            matchStatus === 'in_progress'
+                              ? 'bg-yellow-500 text-white'
+                              : 'border border-yellow-200 bg-white text-yellow-700 hover:bg-yellow-50'
+                          }`}
+                        >
+                          진행중
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange('cancelled')}
+                          className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                            matchStatus === 'cancelled'
+                              ? 'bg-red-500 text-white'
+                              : 'border border-red-200 bg-white text-red-700 hover:bg-red-50'
+                          }`}
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+
+                    {selectedMatch.generated_match && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-semibold text-slate-800">
+                            게임 #{selectedMatch.generated_match.match_number}
+                          </div>
+                          <div className="text-right text-sm text-slate-500">
+                            {selectedMatch.generated_match.session_name}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
+                          <div className="rounded-[20px] border border-blue-100 bg-blue-50/80 p-4">
+                            <div className="mb-2 text-sm font-semibold text-blue-900">라켓팀</div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
+                                <span>{getPlayerName(selectedMatch.generated_match.team1_player1)}</span>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                                    배팅 {getPlayerBet(selectedMatch.generated_match.team1_player1)}
+                                  </span>
+                                  <span className="text-blue-600">
+                                    {getLevelName(selectedMatch.generated_match.team1_player1)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
+                                <span>{getPlayerName(selectedMatch.generated_match.team1_player2)}</span>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                                    배팅 {getPlayerBet(selectedMatch.generated_match.team1_player2)}
+                                  </span>
+                                  <span className="text-blue-600">
+                                    {getLevelName(selectedMatch.generated_match.team1_player2)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="rounded-[20px] border border-rose-100 bg-rose-50/80 p-4">
+                            <div className="mb-2 text-sm font-semibold text-rose-900">셔틀팀</div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
+                                <span>{getPlayerName(selectedMatch.generated_match.team2_player1)}</span>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                                    배팅 {getPlayerBet(selectedMatch.generated_match.team2_player1)}
+                                  </span>
+                                  <span className="text-rose-600">
+                                    {getLevelName(selectedMatch.generated_match.team2_player1)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
+                                <span>{getPlayerName(selectedMatch.generated_match.team2_player2)}</span>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">
+                                    배팅 {getPlayerBet(selectedMatch.generated_match.team2_player2)}
+                                  </span>
+                                  <span className="text-rose-600">
+                                    {getLevelName(selectedMatch.generated_match.team2_player2)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {matchStatus === 'completed' && (
+                          <div className="rounded-[20px] border border-green-200 bg-green-50/80 p-4">
+                            <h4 className="mb-3 font-semibold text-green-800">🏆 게임 결과</h4>
+                            <MatchResultDisplay selectedMatch={selectedMatch} user={user} supabase={supabase} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {matchStatus === 'in_progress' && (
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => setModalMode('complete')}
+                          className="rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-600"
+                        >
+                          📝 완료 입력
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {modalMode === 'complete' && selectedMatch.generated_match && (
+                  <div className="space-y-5">
+                    <div className="text-center">
+                      <h3 className="text-xl font-bold text-purple-700">🏆 게임 결과 입력</h3>
+                      <p className="mt-1 text-sm text-slate-500">승리 팀과 점수를 기록해주세요.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3">
+                      <button
+                        onClick={() => setMatchResult((prev) => ({ ...prev, winner: 'team1' }))}
+                        className={`rounded-[20px] border-2 p-4 text-center transition-all ${
+                          matchResult.winner === 'team1'
+                            ? 'border-blue-500 bg-blue-100 text-blue-800 shadow-lg'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="mb-2 text-lg font-bold text-blue-700">라켓팀</div>
+                        <div className="text-sm">{getPlayerName(selectedMatch.generated_match.team1_player1)}</div>
+                        <div className="text-sm">{getPlayerName(selectedMatch.generated_match.team1_player2)}</div>
+                      </button>
+                      <button
+                        onClick={() => setMatchResult((prev) => ({ ...prev, winner: 'team2' }))}
+                        className={`rounded-[20px] border-2 p-4 text-center transition-all ${
+                          matchResult.winner === 'team2'
+                            ? 'border-red-500 bg-red-100 text-red-800 shadow-lg'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-red-300'
+                        }`}
+                      >
+                        <div className="mb-2 text-lg font-bold text-red-700">셔틀팀</div>
+                        <div className="text-sm">{getPlayerName(selectedMatch.generated_match.team2_player1)}</div>
+                        <div className="text-sm">{getPlayerName(selectedMatch.generated_match.team2_player2)}</div>
+                      </button>
+                    </div>
+
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="예: 21-18, 21-19"
+                        value={matchResult.score}
+                        onChange={(e) => setMatchResult((prev) => ({ ...prev, score: e.target.value }))}
+                        className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 text-center text-lg font-mono focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      />
+                      <div className="mt-2 text-center text-xs text-slate-500">
+                        점수 입력 예시: 21-18, 21-19 또는 21-15, 15-21, 21-17
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <button
+                        onClick={() => {
+                          setModalMode('schedule');
+                          setMatchResult({ winner: '', score: '' });
+                        }}
+                        className="flex-1 rounded-xl bg-slate-200 px-4 py-3 font-semibold text-slate-700 transition-colors hover:bg-slate-300"
+                      >
+                        ← 뒤로가기
+                      </button>
+                      <button
+                        onClick={handleSaveResult}
+                        disabled={!matchResult.winner || !matchResult.score}
+                        className="flex-1 rounded-xl bg-green-500 px-4 py-3 font-semibold text-white transition-colors hover:bg-green-600 disabled:bg-slate-400"
+                      >
+                        💾 결과 저장
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

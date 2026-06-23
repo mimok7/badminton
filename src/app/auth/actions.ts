@@ -1,11 +1,10 @@
 'use server';
 
-import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { getSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function handleSignOut() {
-  const supabase = createServerActionClient({ cookies });
+  const supabase = await getSupabaseServerClient();
   await supabase.auth.signOut();
   redirect('/login');
 }

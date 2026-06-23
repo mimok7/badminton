@@ -43,7 +43,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <head />
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                window.deferredPrompt = e;
+              });
+            `,
+          }}
+        />
+      </head>
       <body className={`${inter.className} bg-gray-50 text-gray-900 antialiased`} suppressHydrationWarning>
         <AppDataProvider>
           <ConsoleSilencer />

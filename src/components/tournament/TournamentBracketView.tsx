@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
@@ -62,8 +62,8 @@ type ScoreDraft = {
   score2: string;
 };
 
-type AdminTournamentTab = 'overview' | 'results';
-type UserTournamentTab = 'bracket' | 'results';
+type AdminTournamentTab = 'overview' | 'results' | string;
+type UserTournamentTab = 'bracket' | 'results' | string;
 
 type TournamentBracketViewProps = {
   adminMode?: boolean;
@@ -296,6 +296,150 @@ function groupMatchesByPairGroup(matches: Match[]): MatchGroupSection[] {
   }));
 }
 
+function getHeadToHeadWinner(teamAKey: string, teamBKey: string, matches: Match[]): number {
+  let teamAWins = 0;
+  let teamBWins = 0;
+
+  matches.forEach((match) => {
+    if (!isResultMatch(match)) return;
+
+    const t1Key = getTeamKey(match.team1);
+    const t2Key = getTeamKey(match.team2);
+
+    const isT1A = t1Key === teamAKey;
+    const isT2B = t2Key === teamBKey;
+    const isT1B = t1Key === teamBKey;
+    const isT2A = t2Key === teamAKey;
+
+    if ((isT1A && isT2B) || (isT1B && isT2A)) {
+      const winner = getResolvedWinner(match);
+      if (winner === 'team1') {
+        if (isT1A) teamAWins += 1;
+        else teamBWins += 1;
+      } else if (winner === 'team2') {
+        if (isT2A) teamAWins += 1;
+        else teamBWins += 1;
+      }
+    }
+  });
+
+  if (teamAWins > teamBWins) return -1; // teamA가 이김 -> left가 상위
+  if (teamBWins > teamAWins) return 1;  // teamB가 이김 -> right가 상위
+  return 0; // 동률
+}
+
+function getPairStats(
+  sourceMatches: Match[],
+  assignmentsByTournament: TeamAssignmentMap,
+  fallbackTeamAssignment?: TeamAssignment | null
+) {
+  const pairStats: Record<
+    string,
+    {
+      groupName: string;
+      matches: number;
+      wins: number;
+      losses: number;
+      draws: number;
+      pointsWon: number;
+      pointsLost: number;
+    }
+  > = {};
+
+  const registerAllPairs = (assignment: TeamAssignment) => {
+    const pairMap = new Map(Object.entries(assignment.pairs_data || {}));
+    
+    if (assignment.pair_groups && assignment.pair_groups.length > 0) {
+      assignment.pair_groups.forEach((group) => {
+        group.pairNames.forEach((pairName) => {
+          const players = pairMap.get(pairName);
+          if (players && players.length > 0) {
+            const key = getTeamKey(players);
+            pairStats[key] = {
+              groupName: group.groupName,
+              matches: 0,
+              wins: 0,
+              losses: 0,
+              draws: 0,
+              pointsWon: 0,
+              pointsLost: 0,
+            };
+          }
+        });
+      });
+    } else {
+      Object.entries(assignment.pairs_data || {}).forEach(([pairName, players]) => {
+        if (players && players.length > 0) {
+          const key = getTeamKey(players);
+          pairStats[key] = {
+            groupName: '페어 그룹',
+            matches: 0,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            pointsWon: 0,
+            pointsLost: 0,
+          };
+        }
+      });
+    }
+  };
+
+  if (fallbackTeamAssignment) {
+    registerAllPairs(fallbackTeamAssignment);
+  }
+  
+  Object.values(assignmentsByTournament).forEach((assignment) => {
+    if (assignment) registerAllPairs(assignment);
+  });
+
+  sourceMatches.forEach((match) => {
+    if (!isResultMatch(match)) return;
+
+    const team1Key = getTeamKey(match.team1);
+    const team2Key = getTeamKey(match.team2);
+    const resolvedWinner = getResolvedWinner(match);
+    const groupName = extractPairGroupLabel(match.court) || '기타 그룹';
+
+    if (!pairStats[team1Key]) {
+      pairStats[team1Key] = { groupName, matches: 0, wins: 0, losses: 0, draws: 0, pointsWon: 0, pointsLost: 0 };
+    }
+    if (!pairStats[team2Key]) {
+      pairStats[team2Key] = { groupName, matches: 0, wins: 0, losses: 0, draws: 0, pointsWon: 0, pointsLost: 0 };
+    }
+
+    pairStats[team1Key].matches += 1;
+    pairStats[team2Key].matches += 1;
+
+    if (groupName && groupName !== '기타 그룹') {
+      pairStats[team1Key].groupName = groupName;
+      pairStats[team2Key].groupName = groupName;
+    }
+
+    const score1 = match.score_team1 ?? 0;
+    const score2 = match.score_team2 ?? 0;
+
+    pairStats[team1Key].pointsWon += score1;
+    pairStats[team1Key].pointsLost += score2;
+
+    pairStats[team2Key].pointsWon += score2;
+    pairStats[team2Key].pointsLost += score1;
+
+    if (resolvedWinner === 'team1') {
+      pairStats[team1Key].wins += 1;
+      pairStats[team2Key].losses += 1;
+    } else if (resolvedWinner === 'team2') {
+      pairStats[team2Key].wins += 1;
+      pairStats[team1Key].losses += 1;
+    } else {
+      pairStats[team1Key].draws += 1;
+      pairStats[team2Key].draws += 1;
+    }
+  });
+
+  return pairStats;
+}
+
 export default function TournamentBracketView({ adminMode = false }: TournamentBracketViewProps) {
   const supabase = getSupabaseClient();
   const searchParams = useSearchParams();
@@ -317,6 +461,56 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   const [userActiveTab, setUserActiveTab] = useState<UserTournamentTab>('bracket');
   const [playerSearchQuery, setPlayerSearchQuery] = useState('');
   const [submittedPlayerSearchQuery, setSubmittedPlayerSearchQuery] = useState('');
+  const [rankingCriteria, setRankingCriteria] = useState<string[]>([
+    'winRate',
+    'pointsDiff',
+    'h2h',
+  ]);
+
+  useEffect(() => {
+    if (selectedTournament?.match_type) {
+      const matchType = selectedTournament.match_type;
+      if (matchType.startsWith('pairs_custom:')) {
+        const criteriaParts = matchType.split(':')[1]?.split(',').filter(Boolean);
+        if (criteriaParts && criteriaParts.length === 3) {
+          setRankingCriteria(criteriaParts);
+          return;
+        }
+      }
+    }
+    setRankingCriteria(['winRate', 'pointsDiff', 'h2h']);
+  }, [selectedTournament]);
+
+  const handleCriteriaChange = (index: number, value: string) => {
+    const next = [...rankingCriteria];
+    const prevVal = next[index];
+    const duplicateIndex = next.indexOf(value);
+    if (duplicateIndex !== -1) {
+      next[duplicateIndex] = prevVal;
+    }
+    next[index] = value;
+    setRankingCriteria(next);
+  };
+
+  const saveRankingCriteria = async () => {
+    if (!selectedTournament) return;
+    try {
+      const nextMatchType = `pairs_custom:${rankingCriteria.join(',')}`;
+      const { error } = await supabase
+        .from('tournaments')
+        .update({ match_type: nextMatchType })
+        .eq('id', selectedTournament.id);
+
+      if (error) throw error;
+
+      setSelectedTournament((prev) => (prev ? { ...prev, match_type: nextMatchType } : null));
+      alert('순위 결정 기준이 영구 저장되었습니다!');
+    } catch (error) {
+      console.error('순위 기준 저장 실패:', error);
+      alert('순위 결정 기준 저장에 실패했습니다.');
+    }
+  };
+
 
   const tournamentQueryId = searchParams.get('tournament');
 
@@ -1050,11 +1244,98 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     const rightWinRate = right.matches > 0 ? right.wins / right.matches : 0;
     return rightWinRate - leftWinRate;
   });
+
+  const pairStats = useMemo(() => {
+    return getPairStats(resultsSourceMatches, resultsAssignmentsByTournament, resultsTeamAssignment);
+  }, [resultsSourceMatches, resultsAssignmentsByTournament, resultsTeamAssignment]);
+
+  const pairGroupsList = useMemo(() => {
+    const groups = new Set<string>();
+    Object.values(pairStats).forEach((stat) => {
+      if (stat.groupName) groups.add(stat.groupName);
+    });
+    return Array.from(groups).sort((left, right) => left.localeCompare(right, 'ko-KR'));
+  }, [pairStats]);
+
+  const sortedPairStatsEntries = useMemo(() => {
+    return Object.entries(pairStats)
+      .map(([pairKey, stats]) => ({
+        pairKey,
+        ...stats,
+        winRate: stats.matches > 0 ? stats.wins / stats.matches : 0,
+        pointsDiff: stats.pointsWon - stats.pointsLost,
+      }))
+      .sort((left, right) => {
+        for (const criterion of rankingCriteria) {
+          if (criterion === 'winRate') {
+            if (right.winRate !== left.winRate) return right.winRate - left.winRate;
+          } else if (criterion === 'pointsDiff') {
+            if (right.pointsDiff !== left.pointsDiff) return right.pointsDiff - left.pointsDiff;
+          } else if (criterion === 'h2h') {
+            const h2h = getHeadToHeadWinner(left.pairKey, right.pairKey, resultsSourceMatches);
+            if (h2h !== 0) return h2h;
+          }
+        }
+
+        // 경기수가 더 많은 팀 우선
+        if (right.matches !== left.matches) return right.matches - left.matches;
+        
+        return left.pairKey.localeCompare(right.pairKey, 'ko-KR');
+      });
+  }, [pairStats, resultsSourceMatches, rankingCriteria]);
+
+  const filteredPairStats = useMemo(() => {
+    const activeTab = adminMode ? adminActiveTab : userActiveTab;
+    if (activeTab.startsWith('group_')) {
+      const groupName = activeTab.replace('group_', '');
+      return sortedPairStatsEntries.filter((entry) => entry.groupName === groupName);
+    }
+    return sortedPairStatsEntries;
+  }, [sortedPairStatsEntries, adminActiveTab, userActiveTab, adminMode]);
+
   const normalizedPlayerSearchQuery = submittedPlayerSearchQuery.trim().toLocaleLowerCase('ko-KR');
   const filteredPlayerStatsEntries = normalizedPlayerSearchQuery
     ? playerStatsEntries.filter(([player]) => player.toLocaleLowerCase('ko-KR').includes(normalizedPlayerSearchQuery))
     : [];
   const hasResultData = teamStatsEntries.length > 0 || playerStatsEntries.length > 0;
+
+  const isPairCustomTournament = selectedTournament?.match_type
+    ? selectedTournament.match_type.startsWith('pairs_custom')
+    : false;
+  const groupedMatchSections = isPairCustomTournament ? groupMatchesByPairGroup(matches) : [];
+  const adminTabs = useMemo(() => {
+    const tabs = [{ key: 'overview', label: '대회 관리' }];
+    if (selectedTournament) {
+      if (isPairCustomTournament) {
+        tabs.push({ key: 'results', label: '종합 순위' });
+        pairGroupsList.forEach((group) => {
+          tabs.push({ key: `group_${group}`, label: `${group} 순위` });
+        });
+      } else {
+        tabs.push({ key: 'results', label: '경기 결과' });
+      }
+    } else {
+      tabs.push({ key: 'results', label: '경기 결과' });
+    }
+    return tabs;
+  }, [selectedTournament, isPairCustomTournament, pairGroupsList]);
+
+  const userTabs = useMemo(() => {
+    const tabs = [{ key: 'bracket', label: '대진표' }];
+    if (selectedTournament) {
+      if (isPairCustomTournament) {
+        tabs.push({ key: 'results', label: '종합 순위' });
+        pairGroupsList.forEach((group) => {
+          tabs.push({ key: `group_${group}`, label: `${group} 순위` });
+        });
+      } else {
+        tabs.push({ key: 'results', label: '경기결과' });
+      }
+    } else {
+      tabs.push({ key: 'results', label: '경기결과' });
+    }
+    return tabs;
+  }, [selectedTournament, isPairCustomTournament, pairGroupsList]);
 
   if (loading) {
     return (
@@ -1077,12 +1358,6 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   const selectedTournamentMetrics = selectedTournament
     ? getTournamentMetrics(selectedTournament.id) || getTournamentMetricsFromMatches(matches)
     : null;
-  const isPairCustomTournament = selectedTournament?.match_type === 'pairs_custom';
-  const groupedMatchSections = isPairCustomTournament ? groupMatchesByPairGroup(matches) : [];
-  const userTabs = [
-    { key: 'bracket' as const, label: '대진표' },
-    { key: 'results' as const, label: '경기결과' },
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900">
@@ -1114,10 +1389,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
           <div className="space-y-6">
             <section className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
               <div className="flex flex-wrap gap-2">
-                {[
-                  { key: 'overview' as const, label: '대회 관리' },
-                  { key: 'results' as const, label: '경기 결과' },
-                ].map((tab) => (
+                {adminTabs.map((tab) => (
                   <button
                     key={tab.key}
                     type="button"
@@ -1321,18 +1593,149 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
               </div>
             )}
 
-            {adminActiveTab === 'results' && (
+            {(adminActiveTab === 'results' || adminActiveTab.startsWith('group_')) && (
               <div className="space-y-6">
                 {matches.length > 0 ? (
                   <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
                     <div className="mb-4">
-                      <h2 className="text-lg font-semibold text-slate-900">경기 결과</h2>
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        {isPairCustomTournament
+                          ? adminActiveTab.startsWith('group_')
+                            ? `${adminActiveTab.replace('group_', '')} 순위`
+                            : '페어별 종합 순위'
+                          : '경기 결과'}
+                      </h2>
                       {selectedTournament && (
                         <p className="mt-1 text-sm text-slate-500">{formatTournamentTitle(selectedTournament.title)}</p>
                       )}
                     </div>
 
-                    {teamStatsEntries.length === 0 && playerStatsEntries.length === 0 ? (
+                    {isPairCustomTournament ? (
+                      <div className="space-y-6">
+                        {adminMode && (
+                          <div className="rounded-[20px] border border-amber-200 bg-amber-50/50 p-4">
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                              <div>
+                                <p className="text-sm font-semibold text-amber-900">순위 결정 기준 우선순위 설정</p>
+                                <p className="text-xs text-amber-700">각 페어들의 최종 순위를 결정할 때 가중치 우선순위를 지정할 수 있습니다.</p>
+                              </div>
+                              
+                              <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-amber-800">1순위</span>
+                                  <select
+                                    value={rankingCriteria[0]}
+                                    onChange={(e) => handleCriteriaChange(0, e.target.value)}
+                                    className="rounded-xl border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-slate-800 outline-none"
+                                  >
+                                    <option value="winRate">승률</option>
+                                    <option value="pointsDiff">득실차</option>
+                                    <option value="h2h">승자승</option>
+                                  </select>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-amber-800">2순위</span>
+                                  <select
+                                    value={rankingCriteria[1]}
+                                    onChange={(e) => handleCriteriaChange(1, e.target.value)}
+                                    className="rounded-xl border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-slate-800 outline-none"
+                                  >
+                                    <option value="winRate">승률</option>
+                                    <option value="pointsDiff">득실차</option>
+                                    <option value="h2h">승자승</option>
+                                  </select>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-amber-800">3순위</span>
+                                  <select
+                                    value={rankingCriteria[2]}
+                                    onChange={(e) => handleCriteriaChange(2, e.target.value)}
+                                    className="rounded-xl border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-slate-800 outline-none"
+                                  >
+                                    <option value="winRate">승률</option>
+                                    <option value="pointsDiff">득실차</option>
+                                    <option value="h2h">승자승</option>
+                                  </select>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={saveRankingCriteria}
+                                  className="rounded-xl bg-amber-600 px-3.5 py-1 text-xs font-bold text-white transition hover:bg-amber-700 shadow-sm"
+                                >
+                                  기준 저장
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h3 className="text-base font-semibold text-slate-900">
+                              {adminActiveTab.startsWith('group_')
+                                ? `${adminActiveTab.replace('group_', '')} 결과`
+                                : '종합 순위'}
+                            </h3>
+                            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                              {filteredPairStats.length}개 페어
+                            </span>
+                          </div>
+
+                          {filteredPairStats.length === 0 ? (
+                            <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                              결과가 등록된 경기가 없습니다.
+                            </div>
+                          ) : (
+                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                              {filteredPairStats.map((entry, index) => (
+                                <article key={entry.pairKey} className="relative rounded-[24px] border border-amber-200 bg-gradient-to-br from-amber-50/40 to-orange-50/40 px-5 py-5 shadow-sm">
+                                  <div className="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-xs font-bold text-white shadow-sm">
+                                    {index + 1}
+                                  </div>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-base font-bold text-slate-900 truncate pr-6">{entry.pairKey}</p>
+                                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-amber-800 shadow-sm ring-1 ring-amber-200/50">
+                                          {entry.groupName}
+                                        </span>
+                                        <span className="text-xs font-semibold text-slate-600">
+                                          승률 {entry.matches > 0 ? `${((entry.wins / entry.matches) * 100).toFixed(1)}%` : '0%'}
+                                        </span>
+                                        <span className="text-xs text-slate-300">|</span>
+                                        <span className={`text-xs font-bold ${entry.pointsDiff > 0 ? 'text-blue-600' : entry.pointsDiff < 0 ? 'text-rose-600' : 'text-slate-600'}`}>
+                                          득실차 {entry.pointsDiff > 0 ? `+${entry.pointsDiff}` : entry.pointsDiff}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="mt-4 grid grid-cols-4 gap-1.5 text-center text-xs">
+                                    <div className="rounded-xl bg-white/80 px-1 py-2 border border-amber-100">
+                                      <p className="text-[10px] text-slate-500">경기</p>
+                                      <p className="mt-0.5 font-bold text-slate-700">{entry.matches}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-emerald-50 px-1 py-2">
+                                      <p className="text-[10px] text-emerald-700">승</p>
+                                      <p className="mt-0.5 font-bold text-emerald-700">{entry.wins}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-rose-50 px-1 py-2">
+                                      <p className="text-[10px] text-rose-700">패</p>
+                                      <p className="mt-0.5 font-bold text-rose-700">{entry.losses}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-50 px-1 py-2">
+                                      <p className="text-[10px] text-slate-500">무</p>
+                                      <p className="mt-0.5 font-bold text-slate-700">{entry.draws}</p>
+                                    </div>
+                                  </div>
+                                </article>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : teamStatsEntries.length === 0 && playerStatsEntries.length === 0 ? (
                       <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                         저장된 경기 결과가 아직 없습니다.
                       </div>
@@ -1571,15 +1974,92 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                   </section>
                 )}
 
-                {userActiveTab === 'results' && (
+                {(userActiveTab === 'results' || userActiveTab.startsWith('group_')) && (
                   <section className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-slate-900">전체 경기결과</h3>
-                      <p className="mt-1 text-sm text-slate-500">선택된 회차와 관계없이 등록된 모든 경기 결과를 통합해 표시합니다.</p>
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        {isPairCustomTournament
+                          ? userActiveTab.startsWith('group_')
+                            ? `${userActiveTab.replace('group_', '')} 순위`
+                            : '페어별 종합 순위'
+                          : '전체 경기결과'}
+                      </h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {isPairCustomTournament
+                          ? '대회에 등록된 페어별 경기 결과를 순위별로 표시합니다.'
+                          : '선택된 회차와 관계없이 등록된 모든 경기 결과를 통합해 표시합니다.'}
+                      </p>
                     </div>
                     {!hasResultData ? (
                       <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                         입력된 경기 결과가 아직 없습니다.
+                      </div>
+                    ) : isPairCustomTournament ? (
+                      <div className="space-y-6">
+                        <div>
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <h3 className="text-base font-semibold text-slate-900">
+                              {userActiveTab.startsWith('group_')
+                                ? `${userActiveTab.replace('group_', '')} 결과`
+                                : '종합 순위'}
+                            </h3>
+                            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                              {filteredPairStats.length}개 페어
+                            </span>
+                          </div>
+
+                          {filteredPairStats.length === 0 ? (
+                            <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                              결과가 등록된 경기가 없습니다.
+                            </div>
+                          ) : (
+                            <div className="grid gap-4 md:grid-cols-2">
+                              {filteredPairStats.map((entry, index) => (
+                                <article key={entry.pairKey} className="relative rounded-[24px] border border-amber-200 bg-gradient-to-br from-amber-50/40 to-orange-50/40 px-5 py-5 shadow-sm">
+                                  {/* 순위 표시 뱃지 */}
+                                  <div className="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-xs font-bold text-white shadow-sm">
+                                    {index + 1}
+                                  </div>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-base font-bold text-slate-900 truncate pr-6">{entry.pairKey}</p>
+                                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-amber-800 shadow-sm ring-1 ring-amber-200/50">
+                                          {entry.groupName}
+                                        </span>
+                                        <span className="text-xs font-semibold text-slate-600">
+                                          승률 {entry.matches > 0 ? `${((entry.wins / entry.matches) * 100).toFixed(1)}%` : '0%'}
+                                        </span>
+                                        <span className="text-xs text-slate-300">|</span>
+                                        <span className={`text-xs font-bold ${entry.pointsDiff > 0 ? 'text-blue-600' : entry.pointsDiff < 0 ? 'text-rose-600' : 'text-slate-600'}`}>
+                                          득실차 {entry.pointsDiff > 0 ? `+${entry.pointsDiff}` : entry.pointsDiff}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="mt-4 grid grid-cols-4 gap-1.5 text-center text-xs">
+                                    <div className="rounded-xl bg-white/80 px-1 py-2 border border-amber-100">
+                                      <p className="text-[10px] text-slate-500">경기</p>
+                                      <p className="mt-0.5 font-bold text-slate-700">{entry.matches}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-emerald-50 px-1 py-2">
+                                      <p className="text-[10px] text-emerald-700">승</p>
+                                      <p className="mt-0.5 font-bold text-emerald-700">{entry.wins}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-rose-50 px-1 py-2">
+                                      <p className="text-[10px] text-rose-700">패</p>
+                                      <p className="mt-0.5 font-bold text-rose-700">{entry.losses}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-50 px-1 py-2">
+                                      <p className="text-[10px] text-slate-500">무</p>
+                                      <p className="mt-0.5 font-bold text-slate-700">{entry.draws}</p>
+                                    </div>
+                                  </div>
+                                </article>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-6">

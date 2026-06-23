@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -156,23 +156,45 @@ const normalizeTeamAssignment = (assignment: any): TeamAssignment => {
   };
 };
 
+const formatTournamentTitle = (title: string) => {
+  const match = title.match(/^(대회 경기 \d{4}-\d{2}-\d{2})\s*(?:라운드\d+)?\s*(.+?)(?:\s*-\s*\d+회차)?$/);
+  if (match) {
+    return {
+      main: match[1],
+      sub: match[2],
+    };
+  }
+  return { main: title, sub: '' };
+};
+
+const formatDateDot = (dateStr: string) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[0]}. ${parseInt(parts[1], 10)}. ${parseInt(parts[2], 10)}.`;
+  }
+  return dateStr;
+};
+
 const getPairFormatLabel = (format: PairTournamentFormat) => {
   if (format === 'knockout') return '토너먼트';
   if (format === 'round_robin_knockout') return '리그후 토너먼트';
   return '풀리그';
 };
 
-const extractGroupLabelFromCourt = (court: string) => {
+const extractGroupLabelFromCourt = (court: string | undefined | null) => {
+  if (!court) return '';
   const match = court.trim().match(/^\[(.+?)\]\s*Court\s*(.+)$/i);
   return match?.[1]?.trim() || '';
 };
 
-const formatCourtNameOnly = (court: string) => {
+const formatCourtNameOnly = (court: string | undefined | null) => {
+  if (!court) return '';
   const match = court.trim().match(/^\[(.+?)\]\s*Court\s*(.+)$/i);
   return match?.[2]?.trim() ? `Court ${match[2].trim()}` : court;
 };
 
-export default function PairTournamentSettingsPage() {
+function PairTournamentSettingsContent() {
   const supabase = getSupabaseClient();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -180,6 +202,7 @@ export default function PairTournamentSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [teamAssignments, setTeamAssignments] = useState<TeamAssignment[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [matchCounts, setMatchCounts] = useState<Record<string, number>>({});
   const [selectedAssignment, setSelectedAssignment] = useState<TeamAssignment | null>(null);
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [generatedMatches, setGeneratedMatches] = useState<Match[]>([]);
@@ -189,6 +212,12 @@ export default function PairTournamentSettingsPage() {
   const [tournamentDate, setTournamentDate] = useState('');
   const [levelInfoMap, setLevelInfoMap] = useState<LevelInfoMap>({});
   const [teamParticipantsModal, setTeamParticipantsModal] = useState<TeamParticipantsModalState>(null);
+  const [tournamentMatchesModal, setTournamentMatchesModal] = useState<{
+    title: string;
+    subtitle?: string;
+    teamType: string;
+    matches: Match[];
+  } | null>(null);
   const [deletingAssignmentId, setDeletingAssignmentId] = useState<string | null>(null);
 
   const assignmentIdQuery = searchParams.get('assignmentId');
@@ -357,6 +386,145 @@ export default function PairTournamentSettingsPage() {
     return matches;
   };
 
+  const scheduleMatchesOptimally = (rawMatches: Match[], courtCount: number): Match[] => {
+    const unscheduled = [...rawMatches];
+    const scheduled: Match[] = [];
+    const lastRoundForPlayer = new Map<string, number>();
+    const totalMatches = rawMatches.length;
+    const totalRounds = Math.ceil(totalMatches / courtCount);
+
+    for (let r = 1; r <= totalRounds; r += 1) {
+      const currentRoundGroups: string[] = [];
+      const currentRoundPlayers = new Set<string>();
+
+      for (let c = 1; c <= courtCount; c += 1) {
+        if (unscheduled.length === 0) break;
+
+        let bestIndex = -1;
+        let minPenalty = Infinity;
+
+        for (let i = 0; i < unscheduled.length; i += 1) {
+          const match = unscheduled[i];
+          const matchPlayers = [...match.team1, ...match.team2].map(getPlayerName);
+          const groupName = extractGroupLabelFromCourt(match.court);
+
+          let penalty = 0;
+          let isForbidden = false;
+
+          // 1. 동일 라운드 중복 출전 방지
+          for (let pIdx = 0; pIdx < matchPlayers.length; pIdx += 1) {
+            if (currentRoundPlayers.has(matchPlayers[pIdx])) {
+              isForbidden = true;
+              break;
+            }
+          }
+          if (isForbidden) {
+            continue;
+          }
+
+          // 2. 대기 시간(쉬는 라운드 수)에 따른 페널티 계산
+          for (let pIdx = 0; pIdx < matchPlayers.length; pIdx += 1) {
+            const player = matchPlayers[pIdx];
+            const lastR = lastRoundForPlayer.get(player);
+            if (lastR !== undefined) {
+              const gap = r - lastR;
+              if (gap <= 0) {
+                penalty += 10000000;
+              } else if (gap === 1) {
+                penalty += 1000000; // 연속 경기 페널티
+              } else if (gap === 2) {
+                penalty += 100000;  // 1경기 쉬고 경기
+              } else if (gap === 3) {
+                penalty += 10000;   // 2경기 쉬고 경기
+              } else if (gap === 4) {
+                penalty += 1000;    // 3경기 쉬고 경기
+              }
+            }
+          }
+
+          // 3. 한 라운드 내 코트별 그룹 섞기
+          const groupCountInCurrentRound = currentRoundGroups.filter((g) => g === groupName).length;
+          penalty += groupCountInCurrentRound * 50000;
+
+          // 직전 라운드 동일 코트의 그룹 비교
+          const prevMatchOnSameCourt = scheduled.find(
+            (m) => m.round === r - 1 && m.court.endsWith(`Court ${c}`)
+          );
+          if (prevMatchOnSameCourt) {
+            const prevGroupName = extractGroupLabelFromCourt(prevMatchOnSameCourt.court);
+            if (prevGroupName === groupName) {
+              penalty += 5000;
+            }
+          }
+
+          // 4. 타이 브레이크 (매치 목록의 원래 인덱스 순서 유지)
+          penalty += i * 0.1;
+
+          if (penalty < minPenalty) {
+            minPenalty = penalty;
+            bestIndex = i;
+          }
+        }
+
+        // 예외 대응: 모든 경기가 동일 라운드 중복 출전 규칙에 막힌 경우
+        if (bestIndex === -1) {
+          let fallbackBestIndex = -1;
+          let fallbackMinPenalty = Infinity;
+          for (let i = 0; i < unscheduled.length; i += 1) {
+            const match = unscheduled[i];
+            const matchPlayers = [...match.team1, ...match.team2].map(getPlayerName);
+            const groupName = extractGroupLabelFromCourt(match.court);
+
+            let penalty = 10000000; // 기본적으로 중복 출전 패널티
+
+            for (let pIdx = 0; pIdx < matchPlayers.length; pIdx += 1) {
+              const player = matchPlayers[pIdx];
+              const lastR = lastRoundForPlayer.get(player);
+              if (lastR !== undefined) {
+                const gap = r - lastR;
+                if (gap <= 1) penalty += 1000000;
+                else if (gap === 2) penalty += 100000;
+              }
+            }
+
+            const groupCountInCurrentRound = currentRoundGroups.filter((g) => g === groupName).length;
+            penalty += groupCountInCurrentRound * 50000;
+            penalty += i * 0.1;
+
+            if (penalty < fallbackMinPenalty) {
+              fallbackMinPenalty = penalty;
+              fallbackBestIndex = i;
+            }
+          }
+          bestIndex = fallbackBestIndex;
+        }
+
+        if (bestIndex !== -1) {
+          const selectedMatch = unscheduled.splice(bestIndex, 1)[0];
+          const selectedPlayers = [...selectedMatch.team1, ...selectedMatch.team2].map(getPlayerName);
+
+          selectedPlayers.forEach((player) => {
+            lastRoundForPlayer.set(player, r);
+            currentRoundPlayers.add(player);
+          });
+
+          const groupName = extractGroupLabelFromCourt(selectedMatch.court);
+          currentRoundGroups.push(groupName);
+
+          const matchNumber = (r - 1) * courtCount + c;
+          scheduled.push({
+            ...selectedMatch,
+            match_number: matchNumber,
+            round: r,
+            court: `[${groupName}] Court ${c}`,
+          });
+        }
+      }
+    }
+
+    return scheduled;
+  };
+
   const buildPairTournamentMatches = (assignment: TeamAssignment, settingsOverride?: PairGroupSetting[]) => {
     const pairGroups = getPairGroupsFromAssignment(assignment);
     const courtCount = Math.max(1, numberOfCourts);
@@ -437,7 +605,7 @@ export default function PairTournamentSettingsPage() {
       matchNumberCursor += knockoutMatches.length;
     });
 
-    return matches;
+    return scheduleMatchesOptimally(matches, courtCount);
   };
 
   const getPairSettingsSummary = (settings = pairGroupSettings) =>
@@ -521,11 +689,26 @@ export default function PairTournamentSettingsPage() {
             .map(normalizeTeamAssignment)
             .filter((assignment: TeamAssignment) => assignment.team_type === 'pairs')
         );
-        setTournaments(
-          (Array.isArray(tournamentsPayload?.tournaments) ? tournamentsPayload.tournaments : []).filter(
+        const loadedTournaments = (Array.isArray(tournamentsPayload?.tournaments) ? tournamentsPayload.tournaments : []).filter(
             (tournament: Tournament) => tournament.team_type === 'pairs'
-          )
-        );
+          );
+        setTournaments(loadedTournaments);
+
+        if (loadedTournaments.length > 0) {
+          const tournamentIds = loadedTournaments.map((t: Tournament) => t.id);
+          const { data: countsData, error: countsError } = await supabase
+            .from('tournament_matches')
+            .select('tournament_id')
+            .in('tournament_id', tournamentIds);
+
+          if (!countsError && countsData) {
+            const counts: Record<string, number> = {};
+            countsData.forEach((row: any) => {
+              counts[row.tournament_id] = (counts[row.tournament_id] || 0) + 1;
+            });
+            setMatchCounts(counts);
+          }
+        }
       } catch (error) {
         console.error('페어 대회 페이지 로딩 오류:', error);
         setTeamAssignments([]);
@@ -577,19 +760,22 @@ export default function PairTournamentSettingsPage() {
     });
   };
 
-  const openTournamentAssignmentModal = (tournament: Tournament) => {
-    const linkedAssignment = pairAssignments.find((assignment) => assignment.id === tournament.team_assignment_id) || null;
+  const openTournamentAssignmentModal = async (tournament: Tournament) => {
+    try {
+      const response = await fetch(`/api/admin/tournaments?include_matches=1&tournament_id=${tournament.id}`);
+      if (!response.ok) throw new Error('대진 정보를 가져오지 못했습니다.');
+      const data = await response.json();
 
-    setTeamParticipantsModal({
-      title: `${tournament.title} 배정현황`,
-      subtitle: linkedAssignment ? `${linkedAssignment.assignment_date} · 페어전` : '연결된 페어 구성을 찾을 수 없습니다.',
-      teams: linkedAssignment
-        ? getPairGroupsFromAssignment(linkedAssignment).map((group) => ({
-            name: group.groupName,
-            players: group.pairs.flatMap((pair) => pair.players),
-          }))
-        : [],
-    });
+      setTournamentMatchesModal({
+        title: `${tournament.title} 배정현황`,
+        subtitle: `${tournament.tournament_date} · ${tournament.round_number}회차 · 총 ${data.matches?.length || 0}경기`,
+        teamType: tournament.team_type,
+        matches: data.matches || [],
+      });
+    } catch (error) {
+      console.error(error);
+      alert('대진표 조회에 실패했습니다.');
+    }
   };
 
   const handlePreviewMatches = (assignment: TeamAssignment) => {
@@ -629,9 +815,15 @@ export default function PairTournamentSettingsPage() {
         ? pairGroupSettings.filter((group) => group.groupName === targetGroupName)
         : pairGroupSettings;
 
-      const title = `대회 경기 ${tournamentDate} ${roundNumber}회차 페어 ${
-        targetGroupName ? `${targetGroupName} ` : ''
-      }${getPairSettingsSummary(activeSettings) || '풀리그'}`;
+      const groupsLabel = targetGroupName || activeSettings.map((g) => g.groupName).join(', ');
+      const formatLabel = activeSettings.map(group => {
+        const fmt = getPairFormatLabel(group.format);
+        if (group.format === 'round_robin' && group.roundRobinRepeats > 1) {
+          return `${fmt} ${group.roundRobinRepeats}회`;
+        }
+        return fmt;
+      }).join(', ');
+      const title = `대회 경기 ${tournamentDate} 라운드${roundNumber} ${groupsLabel} - 페어 - ${formatLabel}`;
       const totalPairs = targetGroupName
         ? getPairGroupsFromAssignment(selectedAssignment).find((group) => group.groupName === targetGroupName)?.pairs.length || 0
         : getPairEntriesFromAssignment(selectedAssignment).length;
@@ -663,11 +855,25 @@ export default function PairTournamentSettingsPage() {
 
       const tournamentsResponse = await fetch('/api/admin/tournaments');
       const tournamentsPayload = await tournamentsResponse.json().catch(() => ({}));
-      setTournaments(
-        (Array.isArray(tournamentsPayload?.tournaments) ? tournamentsPayload.tournaments : []).filter(
-          (tournament: Tournament) => tournament.team_type === 'pairs'
-        )
+      const nextTournaments = (Array.isArray(tournamentsPayload?.tournaments) ? tournamentsPayload.tournaments : []).filter(
+        (tournament: Tournament) => tournament.team_type === 'pairs'
       );
+      setTournaments(nextTournaments);
+
+      if (nextTournaments.length > 0) {
+        const { data: countsData, error: countsError } = await supabase
+          .from('tournament_matches')
+          .select('tournament_id')
+          .in('tournament_id', nextTournaments.map((t: Tournament) => t.id));
+
+        if (!countsError && countsData) {
+          const counts: Record<string, number> = {};
+          countsData.forEach((row: any) => {
+            counts[row.tournament_id] = (counts[row.tournament_id] || 0) + 1;
+          });
+          setMatchCounts(counts);
+        }
+      }
 
       setShowCreatePanel(false);
       setSelectedAssignment(null);
@@ -884,7 +1090,13 @@ export default function PairTournamentSettingsPage() {
               </div>
             </div>
             <div className="mt-3 text-sm text-blue-800">
-              대회명: <strong>대회 경기 {tournamentDate} {roundNumber}회차 페어 {getPairSettingsSummary() || '풀리그'}</strong>
+              대회명 예시: <strong>대회 경기 {tournamentDate} 라운드{roundNumber} {pairGroupSettings.map(g => g.groupName).join(', ')} - 페어 - {pairGroupSettings.map(g => {
+                const fmt = getPairFormatLabel(g.format);
+                if (g.format === 'round_robin' && g.roundRobinRepeats > 1) {
+                  return `${fmt} ${g.roundRobinRepeats}회`;
+                }
+                return fmt;
+              }).join(', ')}</strong>
             </div>
           </div>
 
@@ -991,6 +1203,48 @@ export default function PairTournamentSettingsPage() {
                     {group.groupName} 생성
                   </button>
                 </div>
+
+                {(() => {
+                  const groupMatches = generatedMatches.filter(
+                    (match) => extractGroupLabelFromCourt(match.court) === group.groupName
+                  );
+                  if (groupMatches.length === 0) return null;
+
+                  return (
+                    <div className="mt-6 border-t border-slate-200 pt-4">
+                      <div className="mb-3">
+                        <h4 className="text-sm font-bold text-slate-800">생성될 경기 ({groupMatches.length}경기)</h4>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        {groupMatches.map((match) => {
+                          const team1Score = (match.team1_levels || []).reduce((sum, score) => sum + score, 0);
+                          const team2Score = (match.team2_levels || []).reduce((sum, score) => sum + score, 0);
+
+                          return (
+                            <div key={`pair-match-${group.groupName}-${match.match_number}`} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+                                <span>라운드 {match.round}</span>
+                                <span>{formatCourtNameOnly(match.court)}</span>
+                                <span>경기 #{match.match_number}</span>
+                              </div>
+                              <div className="grid grid-cols-1 gap-2">
+                                <div className="rounded bg-white p-2 border border-slate-100 shadow-sm">
+                                  <div className="text-xs font-semibold text-slate-900 truncate">{match.team1.map(getPlayerName).join(' / ')}</div>
+                                  <div className="mt-1 text-[10px] text-slate-500">합계 점수 {team1Score.toFixed(1)}</div>
+                                </div>
+                                <div className="text-center text-[10px] font-bold text-slate-400">VS</div>
+                                <div className="rounded bg-white p-2 border border-slate-100 shadow-sm">
+                                  <div className="text-xs font-semibold text-slate-900 truncate">{match.team2.map(getPlayerName).join(' / ')}</div>
+                                  <div className="mt-1 text-[10px] text-slate-500">합계 점수 {team2Score.toFixed(1)}</div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>
@@ -1013,61 +1267,7 @@ export default function PairTournamentSettingsPage() {
             </button>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <h3 className="mb-3 text-lg font-semibold text-gray-900">생성될 경기 ({generatedMatches.length}경기)</h3>
-            {generatedMatches.length === 0 ? (
-              <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-center text-sm text-yellow-800">
-                경기 설정에 맞는 대진표를 아직 만들지 못했습니다.
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {groupedGeneratedMatches.map((group) => (
-                  <section key={group.groupName} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <h4 className="text-base font-semibold text-slate-900">{group.groupName}</h4>
-                        <p className="text-sm text-slate-500">{group.matches.length}경기</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void createTournament(group.groupName)}
-                        className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
-                      >
-                        {group.groupName}만 생성
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-                      {group.matches.map((match) => {
-                        const team1Score = (match.team1_levels || []).reduce((sum, score) => sum + score, 0);
-                        const team2Score = (match.team2_levels || []).reduce((sum, score) => sum + score, 0);
 
-                        return (
-                          <div key={`pair-match-${group.groupName}-${match.match_number}`} className="rounded-lg border border-slate-200 bg-white p-3">
-                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
-                              <span>라운드 {match.round}</span>
-                              <span>{formatCourtNameOnly(match.court)}</span>
-                              <span>경기 #{match.match_number}</span>
-                            </div>
-                            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto_1fr] md:items-center">
-                              <div className="rounded-lg bg-slate-50 p-3">
-                                <div className="text-sm font-semibold text-slate-900">{match.team1.map(getPlayerName).join(' / ')}</div>
-                                <div className="mt-1 text-xs text-slate-500">합계 점수 {team1Score.toFixed(1)}</div>
-                              </div>
-                              <div className="text-center text-sm font-semibold text-slate-500">VS</div>
-                              <div className="rounded-lg bg-slate-50 p-3">
-                                <div className="text-sm font-semibold text-slate-900">{match.team2.map(getPlayerName).join(' / ')}</div>
-                                <div className="mt-1 text-xs text-slate-500">합계 점수 {team2Score.toFixed(1)}</div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       )}
 
@@ -1079,17 +1279,25 @@ export default function PairTournamentSettingsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {tournaments.map((tournament) => (
-              <div key={tournament.id} className="rounded-xl border border-gray-200 p-4 shadow-sm">
-                <div className="mb-3">
-                  <h3 className="text-base font-semibold text-gray-900">{tournament.title}</h3>
-                  <div className="mt-1 space-y-1 text-sm text-gray-500">
-                    <div>{tournament.tournament_date}</div>
-                    <div>{tournament.round_number}회차</div>
-                    <div>{tournament.total_teams}개 페어</div>
+            {tournaments.map((tournament) => {
+              const { main, sub } = formatTournamentTitle(tournament.title);
+              return (
+                <div key={tournament.id} className="rounded-xl border border-gray-200 p-4 shadow-sm">
+                  <div className="mb-3">
+                    <h3 className="text-base font-bold text-gray-900 leading-tight">
+                      <div className="text-sm font-normal text-gray-500">{main}</div>
+                      {sub && <div className="mt-1 text-base font-bold text-gray-900">{sub}</div>}
+                    </h3>
+                    <div className="mt-2 space-y-1 text-sm text-gray-600 border-t border-gray-100 pt-2">
+                      <div>{formatDateDot(tournament.tournament_date)}</div>
+                      <div>{tournament.round_number}회차</div>
+                      <div>{matchCounts[tournament.id] || 0}경기</div>
+                      <div className="text-xs font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded inline-block mt-1">
+                        페어전
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2">
+                  <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => openTournamentAssignmentModal(tournament)}
@@ -1113,7 +1321,8 @@ export default function PairTournamentSettingsPage() {
                   </button>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
         )}
       </div>
@@ -1153,6 +1362,118 @@ export default function PairTournamentSettingsPage() {
           </div>
         </div>
       )}
+
+      {tournamentMatchesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[85vh] w-full max-w-5xl overflow-y-auto rounded-xl bg-white shadow-2xl p-6">
+            <div className="sticky top-0 flex items-center justify-between border-b border-gray-200 bg-white pb-4 mb-4 z-10">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">{tournamentMatchesModal.title}</h3>
+                {tournamentMatchesModal.subtitle && (
+                  <p className="mt-1 text-sm text-gray-500">{tournamentMatchesModal.subtitle}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setTournamentMatchesModal(null)}
+                className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+              >
+                닫기
+              </button>
+            </div>
+            
+            {tournamentMatchesModal.matches.length === 0 ? (
+              <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-5 text-center text-sm text-yellow-800">
+                등록된 대진표가 없습니다.
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {(() => {
+                  const grouped = new Map<string, Match[]>();
+                  tournamentMatchesModal.matches.forEach((match) => {
+                    const courtStr = match.court || '';
+                    const matchLabel = courtStr.trim().match(/^\[(.+?)\]\s*Court\s*(.+)$/i);
+                    const groupName = matchLabel?.[1]?.trim() || '일반';
+                    const current = grouped.get(groupName) || [];
+                    current.push(match);
+                    grouped.set(groupName, current);
+                  });
+                  return Array.from(grouped.entries()).map(([groupName, groupedMatches]) => (
+                    <div key={groupName} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <h4 className="mb-3 text-base font-semibold text-slate-900">{groupName} ({groupedMatches.length}경기)</h4>
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        {groupedMatches.map((match) => {
+                          const team1Score = (match.team1_levels || []).reduce((sum, score) => sum + score, 0);
+                          const team2Score = (match.team2_levels || []).reduce((sum, score) => sum + score, 0);
+                          const hasResult = match.score_team1 != null && match.score_team2 != null;
+
+                          return (
+                            <div key={match.id || `match-${match.match_number}`} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                              <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+                                <span className="font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded">{groupName}</span>
+                                <span>{formatCourtNameOnly(match.court)}</span>
+                                <span>경기 #{match.match_number}</span>
+                              </div>
+                              
+                              <div className="flex items-center justify-between gap-2 p-2 bg-slate-50 rounded-lg">
+                                <div className="flex-1 text-right truncate">
+                                  <span className="text-sm font-semibold text-gray-900">{match.team1.map(getPlayerName).join(' / ')}</span>
+                                  {team1Score > 0 && <span className="ml-1 text-[10px] text-slate-400">({team1Score.toFixed(0)}점)</span>}
+                                </div>
+                                
+                                <div className="flex items-center gap-1.5 shrink-0 px-2">
+                                  {hasResult ? (
+                                    <>
+                                      <span className={`text-sm font-bold ${match.winner === 'team1' ? 'text-amber-700 font-extrabold' : 'text-gray-500'}`}>{match.score_team1}</span>
+                                      <span className="text-xs font-bold text-gray-400">:</span>
+                                      <span className={`text-sm font-bold ${match.winner === 'team2' ? 'text-amber-700 font-extrabold' : 'text-gray-500'}`}>{match.score_team2}</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-[10px] font-bold text-slate-400 px-1.5 py-0.5 bg-slate-200/60 rounded">VS</span>
+                                  )}
+                                </div>
+                                
+                                <div className="flex-1 text-left truncate">
+                                  <span className="text-sm font-semibold text-gray-900">{match.team2.map(getPlayerName).join(' / ')}</span>
+                                  {team2Score > 0 && <span className="ml-1 text-[10px] text-slate-400">({team2Score.toFixed(0)}점)</span>}
+                                </div>
+                              </div>
+
+                              <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400 px-1">
+                                <span>라운드 {match.round}</span>
+                                {hasResult && (
+                                  <span className="font-semibold text-emerald-600">
+                                    종료 (우승: {match.winner === 'team1' ? '팀1' : match.winner === 'team2' ? '팀2' : '무승부'})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function PairTournamentSettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[400px] items-center justify-center bg-gray-50 rounded-xl border border-gray-100 p-8 shadow-sm">
+        <div className="text-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-600 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600 text-sm font-medium">설정 페이지를 불러오는 중입니다...</p>
+        </div>
+      </div>
+    }>
+      <PairTournamentSettingsContent />
+    </Suspense>
   );
 }

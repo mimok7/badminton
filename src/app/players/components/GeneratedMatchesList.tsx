@@ -12,6 +12,9 @@ interface GeneratedMatchesListProps {
   loading: boolean;
   onClearMatches: () => void;
   onAssignMatches: () => void;
+  isManualMode?: boolean;
+  presentPlayers?: any[];
+  onManualMatchChange?: (matches: any[]) => void;
 }
 
 export default function GeneratedMatchesList({
@@ -21,13 +24,17 @@ export default function GeneratedMatchesList({
   setAssignType,
   loading,
   onClearMatches,
-  onAssignMatches
+  onAssignMatches,
+  isManualMode = false,
+  presentPlayers = [],
+  onManualMatchChange
 }: GeneratedMatchesListProps) {
   if (matches.length === 0) {
     return null;
   }
 
   const getPlayerName = (player: any) => {
+    if (!player) return '미지정';
     if (typeof player === 'object' && player.name) {
       const level = player.skill_level || 'E2';
       return `${player.name}(${level.toUpperCase()})`;
@@ -35,10 +42,43 @@ export default function GeneratedMatchesList({
     return String(player);
   };
 
+  const handlePlayerSelect = (matchIdx: number, team: 'team1' | 'team2', slot: 'player1' | 'player2', playerId: string) => {
+    if (!onManualMatchChange) return;
+    const player = presentPlayers.find(p => p.id === playerId) || null;
+    const updatedMatches = matches.map((m, idx) => {
+      if (idx !== matchIdx) return m;
+      const newMatch = JSON.parse(JSON.stringify(m));
+      newMatch[team][slot] = player;
+      return newMatch;
+    });
+    onManualMatchChange(updatedMatches);
+  };
+
+  const isSelectedInMatch = (match: any, playerId: string) => {
+    if (!playerId) return false;
+    const ids = [] as string[];
+    if (match.team1?.player1?.id) ids.push(match.team1.player1.id);
+    if (match.team1?.player2?.id) ids.push(match.team1.player2.id);
+    if (match.team2?.player1?.id) ids.push(match.team2.player1.id);
+    if (match.team2?.player2?.id) ids.push(match.team2.player2.id);
+    return ids.includes(playerId);
+  };
+
+  const getAvailablePlayers = (match: any) => {
+    const selectedIds = new Set<string>();
+    if (match.team1?.player1?.id) selectedIds.add(match.team1.player1.id);
+    if (match.team1?.player2?.id) selectedIds.add(match.team1.player2.id);
+    if (match.team2?.player1?.id) selectedIds.add(match.team2.player1.id);
+    if (match.team2?.player2?.id) selectedIds.add(match.team2.player2.id);
+    return presentPlayers.filter(p => !selectedIds.has(p.id));
+  };
+
   return (
     <div className="mt-6">
       {/* 경기 목록 테이블 */}
-      <h3 className="text-lg font-semibold mb-3">생성된 경기 ({matches.length}경기)</h3>
+      <h3 className="text-lg font-semibold mb-3">
+        {isManualMode ? '✋ 수동 배정 - 선수 선택' : '생성된 경기'} ({matches.length}경기)
+      </h3>
       <div className="overflow-x-auto mb-6">
         <table className="w-full border-collapse border border-gray-300 bg-white">
           <thead>
@@ -54,14 +94,111 @@ export default function GeneratedMatchesList({
                 <td className="border border-gray-300 px-2 py-2 text-center font-medium text-sm">
                   {index + 1}
                 </td>
-                <td className="border border-gray-300 px-2 py-2 text-center text-blue-600 text-xs">
-                  {getPlayerName(match.team1.player1)}, {getPlayerName(match.team1.player2)}
-                  <span className="text-xs text-gray-500 ml-2">({getTeamScore(match.team1)})</span>
-                </td>
-                <td className="border border-gray-300 px-2 py-2 text-center text-red-600 text-xs">
-                  {getPlayerName(match.team2.player1)}, {getPlayerName(match.team2.player2)}
-                  <span className="text-xs text-gray-500 ml-2">({getTeamScore(match.team2)})</span>
-                </td>
+                {isManualMode ? (
+                  <>
+                    <td className="border border-gray-300 px-2 py-2 text-center text-xs">
+                      <div className="flex items-center gap-2 p-2">
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <select 
+                            value={match.team1?.player1?.id || ''} 
+                            onChange={(e) => handlePlayerSelect(index, 'team1', 'player1', e.target.value)}
+                            className="px-2 py-1 border rounded text-xs"
+                          >
+                            <option value="">선수 선택</option>
+                            {match.team1?.player1 && (
+                              <option key={match.team1.player1.id} value={match.team1.player1.id}>
+                                {match.team1.player1.name} ({(match.team1.player1.skill_level || '').toUpperCase()})
+                              </option>
+                            )}
+                            {getAvailablePlayers(match).map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({(p.skill_level || '').toUpperCase()})
+                              </option>
+                            ))}
+                          </select>
+                          <select 
+                            value={match.team1?.player2?.id || ''} 
+                            onChange={(e) => handlePlayerSelect(index, 'team1', 'player2', e.target.value)}
+                            className="px-2 py-1 border rounded text-xs"
+                          >
+                            <option value="">선수 선택</option>
+                            {match.team1?.player2 && (
+                              <option key={match.team1.player2.id} value={match.team1.player2.id}>
+                                {match.team1.player2.name} ({(match.team1.player2.skill_level || '').toUpperCase()})
+                              </option>
+                            )}
+                            {getAvailablePlayers(match).map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({(p.skill_level || '').toUpperCase()})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {(match.team1?.player1 || match.team1?.player2) && (
+                          <div className="text-xs font-bold text-blue-600 whitespace-nowrap px-2">
+                            ({getTeamScore(match.team1)})
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="border border-gray-300 px-2 py-2 text-center text-xs">
+                      <div className="flex items-center gap-2 p-2">
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <select 
+                            value={match.team2?.player1?.id || ''} 
+                            onChange={(e) => handlePlayerSelect(index, 'team2', 'player1', e.target.value)}
+                            className="px-2 py-1 border rounded text-xs"
+                          >
+                            <option value="">선수 선택</option>
+                            {match.team2?.player1 && (
+                              <option key={match.team2.player1.id} value={match.team2.player1.id}>
+                                {match.team2.player1.name} ({(match.team2.player1.skill_level || '').toUpperCase()})
+                              </option>
+                            )}
+                            {getAvailablePlayers(match).map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({(p.skill_level || '').toUpperCase()})
+                              </option>
+                            ))}
+                          </select>
+                          <select 
+                            value={match.team2?.player2?.id || ''} 
+                            onChange={(e) => handlePlayerSelect(index, 'team2', 'player2', e.target.value)}
+                            className="px-2 py-1 border rounded text-xs"
+                          >
+                            <option value="">선수 선택</option>
+                            {match.team2?.player2 && (
+                              <option key={match.team2.player2.id} value={match.team2.player2.id}>
+                                {match.team2.player2.name} ({(match.team2.player2.skill_level || '').toUpperCase()})
+                              </option>
+                            )}
+                            {getAvailablePlayers(match).map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({(p.skill_level || '').toUpperCase()})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {(match.team2?.player1 || match.team2?.player2) && (
+                          <div className="text-xs font-bold text-red-600 whitespace-nowrap px-2">
+                            ({getTeamScore(match.team2)})
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="border border-gray-300 px-2 py-2 text-center text-blue-600 text-xs">
+                      {getPlayerName(match.team1.player1)}, {getPlayerName(match.team1.player2)}
+                      <span className="text-xs text-gray-500 ml-2">({getTeamScore(match.team1)})</span>
+                    </td>
+                    <td className="border border-gray-300 px-2 py-2 text-center text-red-600 text-xs">
+                      {getPlayerName(match.team2.player1)}, {getPlayerName(match.team2.player2)}
+                      <span className="text-xs text-gray-500 ml-2">({getTeamScore(match.team2)})</span>
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>
@@ -121,7 +258,16 @@ export default function GeneratedMatchesList({
             경기 초기화
           </button>
           <button
-            onClick={onAssignMatches}
+            onClick={() => {
+              if (isManualMode) {
+                const incomplete = matches.some(m => !m.team1?.player1 || !m.team1?.player2 || !m.team2?.player1 || !m.team2?.player2);
+                if (incomplete) {
+                  alert('모든 회차의 4명 슬롯을 채워주세요.');
+                  return;
+                }
+              }
+              onAssignMatches();
+            }}
             disabled={loading || matches.length === 0}
             className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 disabled:bg-gray-400 text-white rounded-lg font-medium transition-all shadow-lg"
           >

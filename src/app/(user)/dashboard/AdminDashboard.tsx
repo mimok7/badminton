@@ -593,8 +593,8 @@ export default function AdminDashboard({ userId, email }: { userId: string; emai
                   회원 기능
                 </div>
               </div>
-              <h4 className="text-base font-semibold text-violet-900 mb-2">내 프로필</h4>
-              <p className="text-sm text-gray-600 leading-relaxed">내 정보 및 설정을 관리합니다</p>
+              <h4 className="text-base font-semibold text-violet-900 mb-2">회원 목록</h4>
+              <p className="text-sm text-gray-600 leading-relaxed">회원 목록과 내 정보를 관리합니다</p>
             </div>
           </Link>
         </div>

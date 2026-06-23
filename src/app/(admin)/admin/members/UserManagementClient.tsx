@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import type { AdminUser } from '@/types';
-import { createMember, deleteUser, updateUser, updateUsersBulk } from './actions';
+import { createMember, deleteUser, updateUser, updateUsersBulk, updateRatingSettings } from './actions';
 import type { UpdateUserPayload } from './actions';
 import { useRouter } from 'next/navigation';
-import { Activity, Filter, Save, Search, Shield, Trash2, UserPlus, Users } from 'lucide-react';
+import { Activity, Calendar, Filter, LayoutGrid, List, Save, Search, Shield, Trash2, UserPlus, Users } from 'lucide-react';
 
 type LevelOption = {
     code: string;
@@ -22,7 +22,7 @@ type AttendanceSummary = Record<
     }
 >;
 
-type TabKey = 'overview' | 'members' | 'attendance' | 'create';
+type TabKey = 'overview' | 'members' | 'attendance' | 'create' | 'rating-period';
 type MemberSortKey = 'member' | 'role' | 'level' | 'levelCode' | 'score' | 'gender';
 type SortDirection = 'asc' | 'desc';
 
@@ -53,15 +53,30 @@ export default function UserManagementClient({
     levelOptions: levelOptionsFromDb,
     attendanceSummary,
     initialTab,
+    ratingSettings,
 }: {
     users: AdminUser[];
     myUserId: string;
     levelOptions: LevelOption[];
     attendanceSummary: AttendanceSummary;
     initialTab: string;
+    ratingSettings: { start_date: string | null; end_date: string | null };
 }) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
+
+    const formatToLocalDateTimeString = (utcString: string | null) => {
+        if (!utcString) return '';
+        const date = new Date(utcString);
+        const offset = date.getTimezoneOffset() * 60000;
+        const localISOTime = new Date(date.getTime() - offset).toISOString().slice(0, 16);
+        return localISOTime;
+    };
+
+    const [startDate, setStartDate] = useState(formatToLocalDateTimeString(ratingSettings?.start_date));
+    const [endDate, setEndDate] = useState(formatToLocalDateTimeString(ratingSettings?.end_date));
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
+
     const [draftsByUserId, setDraftsByUserId] = useState<Record<string, UpdateUserPayload & { email?: string | null }>>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedTab, setSelectedTab] = useState<TabKey>('overview');
@@ -70,6 +85,7 @@ export default function UserManagementClient({
     const [levelFilter, setLevelFilter] = useState<string>('all');
     const [sortKey, setSortKey] = useState<MemberSortKey>('member');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+    const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
     const [memberList, setMemberList] = useState<AdminUser[]>(users);
     const [newMember, setNewMember] = useState({
         full_name: '',
@@ -93,6 +109,13 @@ export default function UserManagementClient({
     useEffect(() => {
         setMemberList(users);
     }, [users]);
+
+    useEffect(() => {
+        const isMobile = window.matchMedia('(max-width: 768px)').matches;
+        if (isMobile) {
+            setViewMode('card');
+        }
+    }, []);
 
     useEffect(() => {
         if (initialTab === 'members' || initialTab === 'attendance' || initialTab === 'create' || initialTab === 'overview') {
@@ -153,6 +176,24 @@ export default function UserManagementClient({
 
         const option = getLevelOptionMeta(levelCode);
         return formatAdminLevelLabel(option) || levelCode;
+    };
+
+    const handleSaveSettings = () => {
+        setIsSavingSettings(true);
+        startTransition(async () => {
+            const res = await updateRatingSettings(
+                startDate ? new Date(startDate).toISOString() : null,
+                endDate ? new Date(endDate).toISOString() : null
+            );
+
+            setIsSavingSettings(false);
+            if (res?.error) {
+                alert(`설정 저장 실패: ${res.error}`);
+            } else {
+                alert('평가 기간이 성공적으로 저장되었습니다.');
+                router.refresh();
+            }
+        });
     };
 
     const handleDelete = (user: AdminUser) => {
@@ -601,8 +642,8 @@ export default function UserManagementClient({
                                         <select
                                             value={currentLevelCode}
                                             onChange={(e) => updateDraft(user.id, { skill_level: e.target.value })}
-                                            disabled={isPending}
-                                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                                            disabled={true}
+                                            className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 cursor-not-allowed"
                                         >
                                             {levelOptions.map((levelCode) => {
                                                 const option = getLevelOptionMeta(levelCode);
@@ -667,6 +708,155 @@ export default function UserManagementClient({
         </div>
     );
 
+    const renderMemberCards = () => (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            {sortedUsers.map((user) => {
+                const draft = getDraft(user);
+                const isDirty = hasPendingChanges(user);
+                const normalizedRole = user.role === 'admin' ? 'admin' : normalizeEditableRole(user.role);
+                const currentLevelCode = normalizeSkillLevel(draft.skill_level) || levelOptionsFromDb[0]?.code || '';
+                const currentLevelOption = getLevelOptionMeta(currentLevelCode);
+
+                return (
+                    <div
+                        key={user.id}
+                        className={`rounded-xl border p-4 sm:p-5 transition-all shadow-sm flex flex-col justify-between ${
+                            isDirty 
+                                ? 'bg-amber-50/60 border-amber-300 shadow-md ring-1 ring-amber-300' 
+                                : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md'
+                        }`}
+                    >
+                        <div>
+                            {/* Card Header */}
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                    <input
+                                        value={draft.full_name ?? ''}
+                                        onChange={(e) => updateDraft(user.id, { full_name: e.target.value })}
+                                        className="w-full font-bold text-lg text-slate-800 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-slate-400 focus:outline-none px-1 py-0.5 rounded"
+                                        placeholder="회원 이름"
+                                    />
+                                    <div className="text-xs text-slate-400 mt-1 px-1">
+                                        아이디: {user.username || '-'}
+                                    </div>
+                                </div>
+                                <div className="shrink-0 flex flex-col items-end gap-1">
+                                    {normalizedRole === 'admin' ? (
+                                        <span className="inline-flex items-center rounded-md bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">
+                                            admin
+                                        </span>
+                                    ) : (
+                                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
+                                            normalizedRole === 'manager' 
+                                                ? 'bg-indigo-100 text-indigo-700' 
+                                                : 'bg-slate-100 text-slate-700'
+                                        }`}>
+                                            {normalizedRole}
+                                        </span>
+                                    )}
+                                    {user.email && (
+                                        <span className="text-[10px] text-slate-400 font-medium">연결됨</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Card Content Grid */}
+                            <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-slate-100 text-sm">
+                                {/* Role Selection */}
+                                <div className="flex flex-col">
+                                    <span className="text-xs text-slate-400 font-medium">역할</span>
+                                    {normalizedRole === 'admin' ? (
+                                        <span className="mt-1.5 font-semibold text-slate-700">관리자 (Admin)</span>
+                                    ) : (
+                                        <select
+                                            value={normalizeEditableRole(draft.role)}
+                                            onChange={(e) => updateDraft(user.id, { role: e.target.value as 'user' | 'manager' })}
+                                            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm bg-white"
+                                        >
+                                            <option value="user">일반회원 (user)</option>
+                                            <option value="manager">매니저 (manager)</option>
+                                        </select>
+                                    )}
+                                </div>
+
+                                {/* Gender Selection */}
+                                <div className="flex flex-col">
+                                    <span className="text-xs text-slate-400 font-medium">성별</span>
+                                    <select
+                                        value={draft.gender ?? ''}
+                                        onChange={(e) => updateDraft(user.id, { gender: e.target.value })}
+                                        className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm bg-white"
+                                    >
+                                        <option value="">미지정</option>
+                                        <option value="M">남성</option>
+                                        <option value="F">여성</option>
+                                        <option value="O">기타</option>
+                                    </select>
+                                </div>
+
+                                {/* Skill Level Selection */}
+                                <div className="flex flex-col col-span-2">
+                                    <span className="text-xs text-slate-400 font-medium">급수</span>
+                                    <select
+                                        value={currentLevelCode}
+                                        onChange={(e) => updateDraft(user.id, { skill_level: e.target.value })}
+                                        disabled={true}
+                                        className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-sm text-slate-500 cursor-not-allowed"
+                                    >
+                                        {levelOptions.map((levelCode) => {
+                                            const option = getLevelOptionMeta(levelCode);
+                                            return (
+                                                <option key={levelCode} value={levelCode}>
+                                                    {formatAdminLevelLabel(option) || levelCode}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+
+                                {/* Level Code & Score Display */}
+                                <div className="flex flex-col">
+                                    <span className="text-xs text-slate-400 font-medium">레벨 코드</span>
+                                    <div className="mt-1 font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-center font-mono">
+                                        {currentLevelCode || '-'}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-xs text-slate-400 font-medium">급수 점수</span>
+                                    <div className="mt-1 font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-center">
+                                        {typeof currentLevelOption?.score === 'number' ? `${currentLevelOption.score}점` : '-'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Card Actions Footer */}
+                        <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
+                            <button
+                                type="button"
+                                onClick={() => saveEdit(user)}
+                                disabled={isPending || !isDirty}
+                                className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"
+                            >
+                                <Save className="size-3.5" />
+                                저장
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleDelete(user)}
+                                disabled={isPending || user.id === myUserId}
+                                className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-40"
+                            >
+                                <Trash2 className="size-3.5" />
+                                삭제
+                            </button>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+
     return (
         <div className="space-y-4 sm:space-y-6">
             <section className="rounded-lg border border-slate-200 bg-white">
@@ -716,6 +906,10 @@ export default function UserManagementClient({
                         <button type="button" onClick={() => setSelectedTab('create')} className={tabButtonClass('create')}>
                             <UserPlus className="size-4" />
                             회원 추가
+                        </button>
+                        <button type="button" onClick={() => setSelectedTab('rating-period')} className={tabButtonClass('rating-period')}>
+                            <Calendar className="size-4" />
+                            평가 기간 설정
                         </button>
                     </div>
                 </div>
@@ -844,7 +1038,34 @@ export default function UserManagementClient({
                             전체 저장
                         </button>
                     </section>
-                    {renderMemberTable()}
+                    <div className="flex justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('table')}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                viewMode === 'table'
+                                    ? 'bg-slate-900 text-white border-slate-900'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                            <List className="size-3.5" />
+                            표 보기
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('card')}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                viewMode === 'card'
+                                    ? 'bg-slate-900 text-white border-slate-900'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                            <LayoutGrid className="size-3.5" />
+                            카드 보기
+                        </button>
+                    </div>
+
+                    {viewMode === 'table' ? renderMemberTable() : renderMemberCards()}
                 </div>
             )}
 
@@ -930,6 +1151,58 @@ export default function UserManagementClient({
                             <UserPlus className="size-4" />
                             회원 추가
                         </button>
+                    </div>
+                </section>
+            )}
+
+            {selectedTab === 'rating-period' && (
+                <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+                    <div className="max-w-xl">
+                        <h2 className="text-lg font-semibold text-slate-900">회원 상호 급수 평가 기간 설정</h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                            회원들이 상호 급수 평가를 진행할 수 있는 기간을 설정합니다. 해당 기간에만 프로필 페이지에 평가 화면이 표시됩니다.
+                        </p>
+                    </div>
+                    <div className="mt-5 max-w-md space-y-4">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-sm font-medium text-slate-700">시작 일시</label>
+                            <input
+                                type="datetime-local"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-slate-400 focus:outline-none"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-sm font-medium text-slate-700">종료 일시</label>
+                            <input
+                                type="datetime-local"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-slate-400 focus:outline-none"
+                            />
+                        </div>
+                        <div className="pt-2 flex gap-2">
+                            <button
+                                type="button"
+                                onClick={handleSaveSettings}
+                                disabled={isSavingSettings || isPending}
+                                className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40"
+                            >
+                                <Save className="size-4" />
+                                설정 저장
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setStartDate('');
+                                    setEndDate('');
+                                }}
+                                className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                                기간 초기화 (비활성화)
+                            </button>
+                        </div>
                     </div>
                 </section>
             )}

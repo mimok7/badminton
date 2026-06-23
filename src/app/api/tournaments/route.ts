@@ -260,14 +260,15 @@ async function recoverTournamentMatches(tournament: TournamentRow) {
 
 export async function GET(request: Request) {
   try {
-    const serverSupabase = await getSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await serverSupabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // 사용자 대진표는 비로그인 사용자도 조회 가능해야 하므로
+    // 인증 실패 시에도 데이터 조회를 계속 진행함
+    let _user = null;
+    try {
+      const serverSupabase = await getSupabaseServerClient();
+      const { data: { user } } = await serverSupabase.auth.getUser();
+      _user = user;
+    } catch {
+      // 비로그인 사용자 — 무시하고 진행
     }
 
     const adminSupabase = getSupabaseAdminClient();

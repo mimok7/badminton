@@ -89,6 +89,17 @@ export default async function AdminMembersPage({
     .from('profiles')
     .select('id, user_id')
 
+  const { data: ratingSettingsRow } = await (supabaseAdmin as any)
+    .from('member_rating_settings')
+    .select('start_date, end_date')
+    .eq('id', 1)
+    .maybeSingle()
+
+  const ratingSettings = {
+    start_date: ratingSettingsRow?.start_date ?? null,
+    end_date: ratingSettingsRow?.end_date ?? null,
+  }
+
   const { data: attendanceRows } = await supabaseAdmin
     .from('attendances')
     .select('user_id, attended_at, status')
@@ -166,6 +177,7 @@ export default async function AdminMembersPage({
         levelOptions={levelOptions}
         attendanceSummary={attendanceSummary}
         initialTab={initialTab}
+        ratingSettings={ratingSettings}
       />
     </div>
   )

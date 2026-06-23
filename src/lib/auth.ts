@@ -11,6 +11,7 @@ export type AppProfile = Pick<
   | 'role'
   | 'skill_level'
   | 'gender'
+  | 'avatar_url'
   | 'created_at'
   | 'updated_at'
   | 'coin_balance'
@@ -89,6 +90,7 @@ export async function getProfileByUserId(
       role,
       skill_level,
       gender,
+      avatar_url,
       created_at,
       updated_at,
       coin_balance,

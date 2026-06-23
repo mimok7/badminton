@@ -1,4 +1,7 @@
 // 알림 시스템 유틸리티
+const debugEnabled = process.env.NEXT_PUBLIC_ENABLE_DEBUG_LOGS === 'true';
+let notificationSystemInitialized = false;
+
 export class NotificationService {
   private static audioContext: AudioContext | null = null;
   private static notificationSound: HTMLAudioElement | null = null;
@@ -148,7 +151,9 @@ export class NotificationService {
       icon
     } = options || {};
 
-    console.log(`🔔 알림: ${title} - ${message}`);
+    if (debugEnabled) {
+      console.log(`🔔 알림: ${title} - ${message}`);
+    }
 
     // 소리 재생
     if (playSound) {
@@ -197,11 +202,19 @@ export class NotificationService {
 
 // 페이지 로드 시 알림 시스템 초기화
 export const initializeNotificationSystem = async () => {
+  if (notificationSystemInitialized) {
+    return;
+  }
+
+  notificationSystemInitialized = true;
+
   // 권한 요청
   await NotificationService.requestPermission();
   
   // 소리 초기화
   NotificationService.initializeSound();
   
-  console.log('🔔 알림 시스템 초기화 완료');
+  if (debugEnabled) {
+    console.log('🔔 알림 시스템 초기화 완료');
+  }
 };

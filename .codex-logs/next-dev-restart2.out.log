@@ -1,0 +1,455 @@
+
+> badminton-matcher@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.19
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.10:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Ready in 3.8s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 2.2s (185 modules)
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 8.4s (893 modules)
+ ✓ Compiled in 1360ms (369 modules)
+ GET /dashboard 200 in 9838ms
+ ✓ Compiled in 668ms (369 modules)
+ GET /dashboard 200 in 634ms
+ ○ Compiling /my-schedule ...
+ ✓ Compiled /my-schedule in 847ms (879 modules)
+ GET /my-schedule 200 in 1319ms
+ GET /my-schedule 200 in 91ms
+ GET /my-schedule 200 in 94ms
+ ○ Compiling /today-matches ...
+ ✓ Compiled /today-matches in 635ms (886 modules)
+ GET /today-matches 200 in 788ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 762ms (905 modules)
+ GET /manifest.webmanifest 200 in 1025ms
+ GET /dashboard 200 in 132ms
+ GET /manifest.webmanifest 200 in 37ms
+ ○ Compiling / ...
+ ✓ Compiled / in 512ms (915 modules)
+ GET / 200 in 847ms
+ GET /manifest.webmanifest 200 in 114ms
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 1688ms (933 modules)
+ GET /admin 200 in 2080ms
+ GET /admin 200 in 137ms
+ GET /manifest.webmanifest 200 in 44ms
+ GET /dashboard 200 in 82ms
+ GET /manifest.webmanifest 200 in 34ms
+ GET /my-schedule 200 in 73ms
+ ○ Compiling /unauthorized ...
+ ✓ Compiled /unauthorized in 798ms (940 modules)
+ GET /unauthorized 200 in 963ms
+ GET /dashboard 200 in 64ms
+ GET /unauthorized 200 in 65ms
+ GET /unauthorized 200 in 46ms
+ GET /my-schedule 200 in 63ms
+ GET /my-schedule 200 in 303ms
+ ✓ Compiled in 2.3s (382 modules)
+ ✓ Compiled in 699ms (382 modules)
+ GET /dashboard 200 in 197ms
+ GET /dashboard 200 in 197ms
+ GET /manifest.webmanifest 200 in 78ms
+ ✓ Compiled in 4.6s (924 modules)
+ GET /dashboard 200 in 268ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 711ms (564 modules)
+ GET /manifest.webmanifest 200 in 960ms
+ GET /dashboard 200 in 483ms
+ ✓ Compiled in 830ms (379 modules)
+ GET /dashboard 200 in 81ms
+ GET /manifest.webmanifest 200 in 32ms
+ ✓ Compiled in 597ms (379 modules)
+ ✓ Compiled in 880ms (379 modules)
+ GET /dashboard 200 in 124ms
+ GET /dashboard 200 in 73ms
+ GET /manifest.webmanifest 200 in 43ms
+ GET /my-schedule 200 in 138ms
+ GET /dashboard 200 in 51ms
+ GET /manifest.webmanifest 200 in 43ms
+ GET /admin 200 in 164ms
+ GET /manifest.webmanifest 200 in 93ms
+ GET /dashboard 200 in 72ms
+ GET /manifest.webmanifest 200 in 37ms
+ ○ Compiling /today-matches ...
+ ✓ Compiled /today-matches in 583ms (569 modules)
+ GET /today-matches 200 in 794ms
+ GET /manifest.webmanifest 200 in 105ms
+ GET /manifest.webmanifest 200 in 27ms
+ GET /unauthorized 200 in 62ms
+ GET /today-matches 200 in 66ms
+ GET /manifest.webmanifest 200 in 54ms
+ GET /dashboard 200 in 70ms
+ GET /manifest.webmanifest 200 in 40ms
+ ○ Compiling /match-registration ...
+ ✓ Compiled /match-registration in 1164ms (931 modules)
+ GET /match-registration 200 in 1496ms
+ GET /manifest.webmanifest 200 in 84ms
+ GET /manifest.webmanifest 200 in 33ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 1854ms (918 modules)
+ GET /login 200 in 2166ms
+ ✓ Compiled in 926ms (385 modules)
+ GET /dashboard 200 in 109ms
+ ✓ Compiled /manifest.webmanifest in 371ms (566 modules)
+ GET /manifest.webmanifest 200 in 579ms
+ ✓ Compiled in 1720ms (896 modules)
+ GET /dashboard 200 in 266ms
+ ✓ Compiled /manifest.webmanifest in 480ms (535 modules)
+ GET /manifest.webmanifest 200 in 713ms
+ ✓ Compiled in 2.4s (565 modules)
+ GET /dashboard 200 in 238ms
+ GET /manifest.webmanifest 200 in 27ms
+ ○ Compiling / ...
+ ✓ Compiled / in 680ms (545 modules)
+ GET / 200 in 964ms
+ GET / 200 in 67ms
+ GET /manifest.webmanifest 200 in 119ms
+ GET /dashboard 200 in 119ms
+ GET /dashboard 200 in 70ms
+ GET /manifest.webmanifest 200 in 46ms
+ ✓ Compiled in 1933ms (927 modules)
+ GET /dashboard 200 in 168ms
+ GET /manifest.webmanifest 200 in 47ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 1046ms (570 modules)
+ GET /login 200 in 1721ms
+ GET /dashboard 200 in 86ms
+ GET /manifest.webmanifest 200 in 103ms
+ ✓ Compiled in 1401ms (951 modules)
+ GET /login 200 in 248ms
+ GET /dashboard 200 in 254ms
+ GET /manifest.webmanifest 200 in 91ms
+ GET /manifest.webmanifest 200 in 80ms
+ GET /dashboard 200 in 365ms
+ ✓ Compiled in 808ms (381 modules)
+ GET /login 200 in 404ms
+ GET /dashboard 200 in 356ms
+ GET /manifest.webmanifest 200 in 57ms
+ ✓ Compiled in 895ms (381 modules)
+ ✓ Compiled in 765ms (381 modules)
+ GET /login 200 in 262ms
+ GET /dashboard 200 in 200ms
+ GET /login 200 in 151ms
+ GET /dashboard 200 in 141ms
+ GET /manifest.webmanifest 200 in 34ms
+ ✓ Compiled in 1107ms (381 modules)
+ GET /dashboard 200 in 197ms
+ GET /login 200 in 186ms
+ GET /manifest.webmanifest 200 in 68ms
+ ✓ Compiled in 2.1s (927 modules)
+ GET /login 200 in 296ms
+ GET /dashboard 200 in 113ms
+ GET /dashboard 200 in 2453ms
+ ○ Compiling /api/auth/profile-email ...
+ ✓ Compiled /api/auth/profile-email in 1773ms (1012 modules)
+ GET /api/auth/profile-email?fullName=%EC%9D%B4%EC%9D%80%EB%AF%B8 200 in 2513ms
+ GET /dashboard 200 in 556ms
+ ✓ Compiled in 1240ms (1020 modules)
+ GET /dashboard 200 in 212ms
+ GET /dashboard 200 in 228ms
+ GET /manifest.webmanifest 200 in 146ms
+ GET /dashboard 200 in 318ms
+ ✓ Compiled in 759ms (383 modules)
+ GET /dashboard 200 in 145ms
+ GET /dashboard 200 in 151ms
+ GET /manifest.webmanifest 200 in 39ms
+ ✓ Compiled in 736ms (383 modules)
+ ✓ Compiled in 1162ms (383 modules)
+ GET /dashboard 200 in 503ms
+ GET /dashboard 200 in 437ms
+ GET /dashboard 200 in 265ms
+ GET /dashboard 200 in 267ms
+ GET /manifest.webmanifest 200 in 45ms
+ ○ Compiling /match-registration ...
+ ✓ Compiled /match-registration in 903ms (643 modules)
+ GET /match-registration 200 in 1098ms
+ GET /manifest.webmanifest 200 in 52ms
+ GET /unauthorized 200 in 70ms
+ ✓ Compiled in 1332ms (383 modules)
+ GET /unauthorized 200 in 392ms
+ GET /match-registration 200 in 363ms
+ GET /manifest.webmanifest 200 in 62ms
+ ✓ Compiled in 1555ms (1126 modules)
+ GET /match-registration 200 in 527ms
+ GET /unauthorized 200 in 546ms
+ GET /manifest.webmanifest 200 in 209ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 2.4s (1119 modules)
+ GET /match-registration 404 in 1731ms
+ GET /unauthorized 200 in 1807ms
+ ✓ Compiled (1105 modules)
+ GET /match-registration 404 in 237ms
+ GET /unauthorized 200 in 876ms
+ GET /match-registration 404 in 576ms
+ GET /dashboard 200 in 91ms
+ GET /dashboard 200 in 250ms
+ GET /manifest.webmanifest 200 in 106ms
+ ✓ Compiled in 2.9s (1098 modules)
+ GET /dashboard 200 in 1561ms
+ GET /dashboard 200 in 1609ms
+ GET /dashboard 200 in 357ms
+ GET /dashboard 200 in 325ms
+ GET /manifest.webmanifest 200 in 75ms
+ ○ Compiling /match-registration ...
+ ✓ Compiled /match-registration in 3.7s (927 modules)
+ GET /match-registration 200 in 4279ms
+ ✓ Compiled in 701ms (386 modules)
+ GET /dashboard 200 in 223ms
+ GET /dashboard 200 in 164ms
+ GET /manifest.webmanifest 200 in 74ms
+ ✓ Compiled in 774ms (386 modules)
+ GET /dashboard 200 in 347ms
+ GET /dashboard 200 in 269ms
+ GET /match-registration 200 in 127ms
+ GET /manifest.webmanifest 200 in 843ms
+ GET /match-registration 200 in 51ms
+ GET /dashboard 200 in 73ms
+ GET /manifest.webmanifest 200 in 33ms
+ ✓ Compiled in 2.5s (386 modules)
+ GET /match-registration 200 in 381ms
+ GET /dashboard 200 in 360ms
+ GET /manifest.webmanifest 200 in 40ms
+ GET /match-registration 200 in 109ms
+ GET /manifest.webmanifest 200 in 63ms
+ ✓ Compiled in 1657ms (1126 modules)
+ GET /match-registration 200 in 265ms
+ GET /match-registration 200 in 260ms
+ GET /manifest.webmanifest 200 in 70ms
+ ✓ Compiled in 1874ms (941 modules)
+ GET /match-registration 200 in 163ms
+ GET /match-registration 200 in 84ms
+ GET /manifest.webmanifest 200 in 49ms
+ ✓ Compiled in 648ms (386 modules)
+ GET /match-registration 200 in 69ms
+ GET /manifest.webmanifest 200 in 39ms
+ GET /match-registration 200 in 70ms
+ ✓ Compiled in 603ms (386 modules)
+ GET /match-registration 200 in 147ms
+ GET /match-registration 200 in 112ms
+ GET /manifest.webmanifest 200 in 47ms
+ GET /today-matches 200 in 745ms
+ GET /match-registration 200 in 748ms
+ ✓ Compiled in 1057ms (386 modules)
+ GET /match-registration 200 in 64ms
+ GET /manifest.webmanifest 200 in 34ms
+ ✓ Compiled in 1819ms (386 modules)
+ GET /match-registration 200 in 426ms
+ GET /manifest.webmanifest 200 in 41ms
+ GET /dashboard 200 in 111ms
+ GET /manifest.webmanifest 200 in 79ms
+ ○ Compiling /my-schedule ...
+ ✓ Compiled /my-schedule in 963ms (561 modules)
+ GET /my-schedule 200 in 1258ms
+ GET /manifest.webmanifest 200 in 140ms
+ ✓ Compiled in 1479ms (386 modules)
+ GET /my-schedule 200 in 288ms
+ GET /manifest.webmanifest 200 in 51ms
+ GET /match-registration 200 in 292ms
+ GET /dashboard 200 in 81ms
+ GET /manifest.webmanifest 200 in 37ms
+ GET /my-schedule 200 in 62ms
+ GET /match-registration 200 in 162ms
+ GET /manifest.webmanifest 200 in 148ms
+ ✓ Compiled in 2.7s (942 modules)
+ GET /match-registration 200 in 321ms
+ GET /my-schedule 200 in 319ms
+ GET /manifest.webmanifest 200 in 60ms
+ GET /match-registration 200 in 78ms
+ GET /my-schedule 200 in 351ms
+ ✓ Compiled in 668ms (386 modules)
+ GET /match-registration 200 in 140ms
+ GET /match-registration 200 in 119ms
+ GET /manifest.webmanifest 200 in 35ms
+ ✓ Compiled in 628ms (386 modules)
+ GET /match-registration 200 in 271ms
+ GET /match-registration 200 in 231ms
+ GET /manifest.webmanifest 200 in 66ms
+ ✓ Compiled in 1456ms (386 modules)
+ GET /match-registration 200 in 103ms
+ GET /manifest.webmanifest 200 in 43ms
+ ✓ Compiled in 4.4s (923 modules)
+ GET /match-registration 200 in 989ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 569ms (556 modules)
+ GET /manifest.webmanifest 200 in 1092ms
+ GET /match-registration 200 in 964ms
+ ✓ Compiled in 2.9s (386 modules)
+ GET /match-registration 200 in 160ms
+ GET /manifest.webmanifest 200 in 60ms
+ ✓ Compiled in 1956ms (386 modules)
+ GET /match-registration 200 in 976ms
+ GET /match-registration 200 in 2974ms
+ GET /match-registration 200 in 862ms
+ GET /login 200 in 269ms
+ GET /manifest.webmanifest 200 in 69ms
+ ○ Compiling /api/auth/profile-email ...
+ ✓ Compiled /api/auth/profile-email in 1005ms (641 modules)
+ GET /api/auth/profile-email?fullName=%EA%B9%80%EC%A7%84%ED%98%B8 200 in 1408ms
+ GET /dashboard 200 in 588ms
+ GET /match-registration 200 in 83ms
+ GET /manifest.webmanifest 200 in 52ms
+ ✓ Compiled in 3.3s (386 modules)
+ GET /match-registration 200 in 242ms
+ GET /manifest.webmanifest 200 in 84ms
+ ✓ Compiled in 5.5s (942 modules)
+ GET /match-registration 200 in 733ms
+ GET /manifest.webmanifest 200 in 187ms
+ GET /match-registration 200 in 506ms
+ ✓ Compiled in 1396ms (386 modules)
+ GET /match-registration 200 in 385ms
+ GET /manifest.webmanifest 200 in 72ms
+ ✓ Compiled in 2s (942 modules)
+ GET /match-registration 200 in 265ms
+ GET /manifest.webmanifest 200 in 118ms
+ ✓ Compiled in 536ms (386 modules)
+ GET /match-registration 200 in 68ms
+ GET /manifest.webmanifest 200 in 44ms
+ GET /match-registration 200 in 257ms
+ ✓ Compiled in 4.2s (923 modules)
+ GET /match-registration 200 in 396ms
+ GET /match-registration 200 in 399ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 661ms (556 modules)
+ GET /manifest.webmanifest 200 in 904ms
+ GET /manifest.webmanifest 200 in 967ms
+ ✓ Compiled in 499ms (386 modules)
+ GET /match-registration 200 in 128ms
+ GET /match-registration 200 in 81ms
+ GET /manifest.webmanifest 200 in 66ms
+ ✓ Compiled in 2.4s (942 modules)
+ GET /match-registration 200 in 419ms
+ GET /match-registration 200 in 437ms
+ ✓ Compiled in 1075ms (386 modules)
+ GET /manifest.webmanifest 200 in 290ms
+ GET /match-registration 200 in 398ms
+ GET /match-registration 200 in 733ms
+ GET /manifest.webmanifest 200 in 68ms
+ ✓ Compiled in 868ms (386 modules)
+ GET /match-registration 200 in 93ms
+ GET /match-registration 200 in 99ms
+ GET /manifest.webmanifest 200 in 65ms
+ ✓ Compiled in 1669ms (942 modules)
+ GET /match-registration 200 in 317ms
+ GET /match-registration 200 in 786ms
+ GET /manifest.webmanifest 200 in 72ms
+ ✓ Compiled in 581ms (386 modules)
+ GET /match-registration 200 in 238ms
+ GET /match-registration 200 in 285ms
+ GET /manifest.webmanifest 200 in 145ms
+ GET /match-registration 200 in 1048ms
+ ✓ Compiled in 2.4s (942 modules)
+ GET /match-registration 200 in 1435ms
+ GET /match-registration 200 in 1368ms
+ GET /match-registration 500 in 785ms
+ GET /match-registration 500 in 672ms
+ ✓ Compiled in 2.8s (942 modules)
+ GET /match-registration 200 in 1777ms
+ GET /match-registration 200 in 2018ms
+ ✓ Compiled in 618ms (386 modules)
+ ✓ Compiled in 650ms (386 modules)
+ GET /match-registration 200 in 185ms
+ GET /match-registration 200 in 188ms
+ GET /match-registration 200 in 130ms
+ GET /match-registration 200 in 124ms
+ GET /manifest.webmanifest 200 in 69ms
+ GET /manifest.webmanifest 200 in 176ms
+ ✓ Compiled in 3.3s (942 modules)
+ GET /match-registration 200 in 208ms
+ GET /match-registration 200 in 193ms
+ GET /manifest.webmanifest 200 in 89ms
+ ✓ Compiled in 2.8s (942 modules)
+ GET /match-registration 200 in 1498ms
+ GET /match-registration 200 in 1518ms
+ ✓ Compiled in 3.5s (942 modules)
+ GET /match-registration 200 in 221ms
+ ✓ Compiled in 5.8s (923 modules)
+ GET /match-registration 200 in 590ms
+ ✓ Compiled in 479ms (386 modules)
+ GET /dashboard 200 in 83ms
+ GET /dashboard 200 in 133ms
+ GET /dashboard 200 in 191ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 542ms (556 modules)
+ GET /manifest.webmanifest 200 in 1129ms
+ GET /dashboard 200 in 984ms
+ ○ Compiling /today-matches ...
+ ✓ Compiled /today-matches in 1233ms (561 modules)
+ GET /today-matches 200 in 1403ms
+ GET /manifest.webmanifest 200 in 86ms
+ ✓ Compiled in 4.4s (921 modules)
+ GET /dashboard 200 in 434ms
+ GET /dashboard 200 in 91ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 585ms (554 modules)
+ GET /manifest.webmanifest 200 in 946ms
+ GET /match-registration 200 in 226ms
+ GET /manifest.webmanifest 200 in 120ms
+ GET /dashboard 200 in 91ms
+ GET /manifest.webmanifest 200 in 39ms
+ GET /my-schedule 200 in 114ms
+ GET /manifest.webmanifest 200 in 104ms
+ GET /dashboard 200 in 78ms
+ GET /manifest.webmanifest 200 in 189ms
+ ○ Compiling /profile ...
+ ✓ Compiled /profile in 4.6s (1234 modules)
+ GET /profile 200 in 4802ms
+ GET /profile 200 in 84ms
+ GET /profile 200 in 67ms
+ GET /manifest.webmanifest 200 in 83ms
+ GET /manifest.webmanifest 200 in 44ms
+ ○ Compiling /tournament-bracket ...
+ ✓ Compiled /tournament-bracket in 1050ms (1237 modules)
+ GET /tournament-bracket 200 in 1229ms
+ GET /manifest.webmanifest 200 in 91ms
+ GET /manifest.webmanifest 200 in 70ms
+ GET /my-schedule 200 in 118ms
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 7.2s (1570 modules)
+ GET /profile 200 in 2860ms
+ GET /manifest.webmanifest 500 in 7222ms
+ GET /profile 200 in 387ms
+ GET /profile 200 in 97ms
+ GET /profile 200 in 85ms
+ GET /manifest.webmanifest 200 in 61ms
+ GET /profile 500 in 5765ms
+ GET /profile 500 in 89ms
+ ✓ Compiled in 856ms (688 modules)
+ ✓ Compiled in 1014ms (688 modules)
+ GET /profile 200 in 247ms
+ GET /profile 500 in 97ms
+ ✓ Compiled in 736ms (688 modules)
+ GET /profile 500 in 73ms
+ GET /profile 500 in 1166ms
+ ✓ Compiled in 514ms (688 modules)
+ ✓ Compiled in 762ms (688 modules)
+ GET /profile 500 in 100ms
+ GET /profile 500 in 74ms
+ GET /profile 500 in 88ms
+ ✓ Compiled in 800ms (688 modules)
+ GET /profile 500 in 100ms
+ ✓ Compiled in 9.2s (1733 modules)
+ GET /profile 200 in 5888ms
+ GET /profile 500 in 317ms
+ GET /profile 500 in 70ms
+ ✓ Compiled in 2.2s (1733 modules)
+ GET /profile 500 in 287ms
+ GET /profile 500 in 88ms
+ ✓ Compiled in 1397ms (688 modules)
+ ✓ Compiled in 774ms (688 modules)
+ ✓ Compiled in 678ms (688 modules)
+ ✓ Compiled in 628ms (688 modules)
+ ✓ Compiled in 1113ms (688 modules)
+ ✓ Compiled in 2.2s (1534 modules)
+ GET /profile 500 in 2221ms
+ GET /profile 500 in 78ms
+ ✓ Compiled in 1122ms (688 modules)
+ ✓ Compiled in 1087ms (688 modules)
+[?25h

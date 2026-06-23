@@ -1,0 +1,84 @@
+
+> badminton-matcher@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.19
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.10:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Ready in 2.8s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 2.6s (185 modules)
+ ○ Compiling /dashboard ...
+ ✓ Compiled /my-schedule in 13.9s (871 modules)
+ GET /dashboard 200 in 3966ms
+ GET /my-schedule 200 in 11656ms
+ GET /dashboard 200 in 11661ms
+ GET /dashboard 200 in 938ms
+ ✓ Compiled in 727ms (361 modules)
+ ✓ Compiled in 739ms (361 modules)
+ GET /dashboard 200 in 289ms
+ GET /dashboard 200 in 69ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 583ms (876 modules)
+ GET /manifest.webmanifest 200 in 869ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 1383ms (887 modules)
+ GET /login 200 in 1950ms
+ ○ Compiling /api/auth/profile-email ...
+ ✓ Compiled /api/auth/profile-email in 3.3s (986 modules)
+ ✓ Compiled in 1ms (621 modules)
+ ✓ Compiled in 1ms (621 modules)
+ ✓ Compiled in 0ms (621 modules)
+ GET /dashboard 200 in 2831ms
+ GET /my-schedule 200 in 2840ms
+ GET /api/auth/profile-email?fullName=%EA%B9%80%EC%A7%84%ED%98%B8 200 in 4706ms
+ GET /login 200 in 2332ms
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 1540ms (990 modules)
+ GET /manifest.webmanifest 200 in 1588ms
+ GET /admin 200 in 2003ms
+ GET /dashboard 200 in 288ms
+ ✓ Compiled in 859ms (371 modules)
+ GET /dashboard 200 in 170ms
+ GET /manifest.webmanifest 200 in 92ms
+ ✓ Compiled in 1020ms (371 modules)
+ GET /dashboard 200 in 181ms
+ GET /manifest.webmanifest 200 in 50ms
+ ✓ Compiled in 2.2s (916 modules)
+ GET /dashboard 200 in 286ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 624ms (553 modules)
+ GET /manifest.webmanifest 200 in 822ms
+ GET /dashboard 200 in 458ms
+ ✓ Compiled in 553ms (382 modules)
+ GET /dashboard 200 in 64ms
+ GET /manifest.webmanifest 200 in 34ms
+ ✓ Compiled in 592ms (382 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 4.6s (1282 modules)
+ GET /dashboard 500 in 10416ms
+ GET /dashboard 500 in 339ms
+ GET /dashboard 500 in 1765ms
+ GET /dashboard 500 in 308ms
+ GET /dashboard 500 in 1439ms
+ GET /dashboard 500 in 336ms
+ GET /dashboard 500 in 1339ms
+ GET /dashboard 500 in 325ms
+ GET /dashboard 500 in 1522ms
+ GET /dashboard 500 in 345ms
+ ✓ Compiled in 926ms (535 modules)
+ GET /dashboard 500 in 3466ms
+ GET /dashboard 500 in 865ms
+ GET /dashboard 500 in 1334ms
+ GET /dashboard 500 in 305ms
+ ✓ Compiled in 1108ms (535 modules)
+ GET /dashboard 500 in 1788ms
+ GET /dashboard 500 in 287ms
+ ✓ Compiled in 1200ms (535 modules)
+ ✓ Compiled in 948ms (535 modules)
+[?25h

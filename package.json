@@ -8,6 +8,12 @@
     "start": "next start",
     "lint": "next lint",
     "analyze": "ANALYZE=true npm run build",
+    "db:check": "node scripts/checkDatabase.js",
+    "profiles:audit": "node scripts/audit-profile-identity.js",
+    "profiles:sync-auth": "node scripts/sync-profile-auth-users.js",
+    "profiles:sync-auth:apply": "node scripts/sync-profile-auth-users.js --apply",
+    "generate:supabase-types": "node scripts/generate-supabase-types.js",
+    "supabase:version": "supabase --version",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -21,7 +27,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.525.0",
-    "next": "15.4.1",
+    "next": "15.5.19",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.60.0",
@@ -36,7 +42,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.4.1",
+    "eslint-config-next": "15.5.19",
+    "playwright": "^1.61.0",
+    "supabase": "^2.106.0",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"

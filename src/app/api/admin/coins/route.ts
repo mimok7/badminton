@@ -1,0 +1,194 @@
+import { NextResponse } from 'next/server';
+import { getProfileByUserId, isAdminRole } from '@/lib/auth';
+import { DEFAULT_COIN_SETTINGS, INITIAL_COIN_BALANCE, type CoinSettlementMode } from '@/lib/coins';
+import { readCoinSettings, writeCoinSettings } from '@/lib/coin-settings';
+import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+
+async function requireAdmin() {
+  const serverSupabase = await getSupabaseServerClient();
+  const adminSupabase = getSupabaseAdminClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await serverSupabase.auth.getUser();
+
+  if (authError || !user) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const currentProfile = await getProfileByUserId(serverSupabase, user.id);
+  if (!currentProfile || !isAdminRole(currentProfile.role)) {
+    return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+  }
+
+  return { adminSupabase, currentProfile };
+}
+
+export async function GET() {
+  const context = await requireAdmin();
+  if ('error' in context) return context.error;
+
+  const { adminSupabase } = context;
+  const coinSettings = await readCoinSettings();
+
+  const [{ data: profiles, error: profilesError }, { data: transactions, error: transactionsError }] = await Promise.all([
+    adminSupabase
+      .from('profiles')
+      .select('id, user_id, username, full_name, email, role, coin_balance, coin_wins, coin_losses, coin_updated_at')
+      .order('coin_balance', { ascending: false })
+      .order('full_name', { ascending: true }),
+    adminSupabase
+      .from('profile_coin_transactions')
+      .select('id, profile_id, match_id, transaction_type, delta, wager_amount, team_side, team1_score, team2_score, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50),
+  ]);
+
+  if (profilesError || transactionsError) {
+    return NextResponse.json(
+      { error: profilesError?.message || transactionsError?.message || '코인 데이터를 불러오지 못했습니다.' },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    initialCoinBalance: INITIAL_COIN_BALANCE,
+    coinSettings,
+    profiles: profiles || [],
+    transactions: transactions || [],
+  });
+}
+
+export async function POST(request: Request) {
+  const context = await requireAdmin();
+  if ('error' in context) return context.error;
+
+  const { adminSupabase } = context;
+  const body = await request.json().catch(() => null);
+  const action = String(body?.action || '');
+
+  if (action === 'adjust') {
+    const profileId = String(body?.profile_id || '');
+    const delta = Number(body?.delta);
+
+    if (!profileId || !Number.isFinite(delta) || !Number.isInteger(delta)) {
+      return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 });
+    }
+
+    const { data: profile, error: profileError } = await adminSupabase
+      .from('profiles')
+      .select('coin_balance')
+      .eq('id', profileId)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    const nextBalance = Math.max(0, (profile.coin_balance ?? 0) + delta);
+
+    const { error } = await adminSupabase
+      .from('profiles')
+      .update({
+        coin_balance: nextBalance,
+        coin_updated_at: new Date().toISOString(),
+      })
+      .eq('id', profileId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ profile_id: profileId, coin_balance: nextBalance });
+  }
+
+  if (action === 'set') {
+    const profileId = String(body?.profile_id || '');
+    const coinBalance = Number(body?.coin_balance);
+
+    if (!profileId || !Number.isFinite(coinBalance) || !Number.isInteger(coinBalance) || coinBalance < 0) {
+      return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 });
+    }
+
+    const { error } = await adminSupabase
+      .from('profiles')
+      .update({
+        coin_balance: coinBalance,
+        coin_updated_at: new Date().toISOString(),
+      })
+      .eq('id', profileId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ profile_id: profileId, coin_balance: coinBalance });
+  }
+
+  if (action === 'reset_all') {
+    const coinSettings = await readCoinSettings();
+    const coinBalance = Number(body?.coin_balance ?? coinSettings.initialCoinBalance);
+
+    if (!Number.isFinite(coinBalance) || !Number.isInteger(coinBalance) || coinBalance < 0) {
+      return NextResponse.json({ error: '잘못된 코인 값입니다.' }, { status: 400 });
+    }
+
+    const { error } = await adminSupabase
+      .from('profiles')
+      .update({
+        coin_balance: coinBalance,
+        coin_updated_at: new Date().toISOString(),
+      })
+      .not('id', 'is', null);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ coin_balance: coinBalance });
+  }
+
+  if (action === 'update_settings') {
+    const initialCoinBalance = Number(body?.initialCoinBalance ?? DEFAULT_COIN_SETTINGS.initialCoinBalance);
+    const fixedWinnerReward = Number(body?.fixedWinnerReward ?? DEFAULT_COIN_SETTINGS.fixedWinnerReward);
+    const settlementModeValue = String(body?.settlementMode || DEFAULT_COIN_SETTINGS.settlementMode);
+
+    if (!Number.isFinite(initialCoinBalance) || !Number.isInteger(initialCoinBalance) || initialCoinBalance < 0) {
+      return NextResponse.json({ error: '시작 코인은 0 이상의 정수여야 합니다.' }, { status: 400 });
+    }
+
+    if (!Number.isFinite(fixedWinnerReward) || !Number.isInteger(fixedWinnerReward) || fixedWinnerReward < 0) {
+      return NextResponse.json({ error: '승자 보상 코인은 0 이상의 정수여야 합니다.' }, { status: 400 });
+    }
+
+    if (!['zero_sum', 'winner_only_pool', 'winner_only_fixed'].includes(settlementModeValue)) {
+      return NextResponse.json({ error: '지원하지 않는 코인 정산 모드입니다.' }, { status: 400 });
+    }
+
+    const settlementMode = settlementModeValue as CoinSettlementMode;
+
+    const coinSettings = await writeCoinSettings({
+      initialCoinBalance,
+      settlementMode,
+      fixedWinnerReward,
+    });
+
+    return NextResponse.json({ coinSettings });
+  }
+
+  if (action === 'clear_transactions') {
+    const { data, error } = await adminSupabase
+      .from('profile_coin_transactions')
+      .delete()
+      .not('id', 'is', null)
+      .select('id');
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ clearedCount: data?.length || 0 });
+  }
+
+  return NextResponse.json({ error: '지원하지 않는 작업입니다.' }, { status: 400 });
+}

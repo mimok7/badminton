@@ -1,0 +1,527 @@
+
+> badminton-matcher@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.19
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.10:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+ ✓ Starting...
+ ✓ Ready in 4.2s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 3s (185 modules)
+ ○ Compiling /tournament-bracket ...
+ ✓ Compiled /tournament-bracket in 9.9s (879 modules)
+ ✓ Compiled in 1688ms (361 modules)
+ ✓ Compiled in 1156ms (361 modules)
+ GET /tournament-bracket 200 in 590ms
+ GET /tournament-bracket 200 in 127ms
+ ✓ Compiled in 830ms (361 modules)
+ GET /tournament-bracket 200 in 496ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 1314ms (897 modules)
+ GET /dashboard 200 in 1798ms
+ ○ Compiling /api/attendance/status ...
+ ✓ Compiled /api/attendance/status in 7.2s (1005 modules)
+ GET /api/coin-settings 200 in 7862ms
+ GET /api/scheduled-matches?date=2026-06-22 200 in 8620ms
+ GET /api/scheduled-matches?date=2026-06-22&userId=c664a224-4a60-4179-9594-e22c78cc57be 200 in 8780ms
+ GET /api/attendance/status?date=2026-06-22 200 in 8861ms
+ GET /api/coin-settings 200 in 369ms
+ GET /tournament-bracket 200 in 4055ms
+ GET /api/scheduled-matches?date=2026-06-22 200 in 442ms
+ GET /api/scheduled-matches?date=2026-06-22&userId=c664a224-4a60-4179-9594-e22c78cc57be 200 in 441ms
+ GET /api/attendance/status?date=2026-06-22 200 in 487ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 1124ms (1009 modules)
+ GET /manifest.webmanifest 200 in 1428ms
+ GET /dashboard 200 in 164ms
+ GET /api/scheduled-matches?date=2026-06-22&userId=c664a224-4a60-4179-9594-e22c78cc57be 200 in 352ms
+ GET /api/coin-settings 200 in 339ms
+ GET /api/scheduled-matches?date=2026-06-22 200 in 454ms
+ GET /api/attendance/status?date=2026-06-22 200 in 466ms
+ GET /api/coin-settings 200 in 150ms
+ GET /api/scheduled-matches?date=2026-06-22&userId=c664a224-4a60-4179-9594-e22c78cc57be 200 in 203ms
+ GET /api/scheduled-matches?date=2026-06-22 200 in 197ms
+ GET /manifest.webmanifest 200 in 102ms
+ GET /api/attendance/status?date=2026-06-22 200 in 217ms
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 1167ms (1027 modules)
+ GET /admin 200 in 1428ms
+ GET /manifest.webmanifest 200 in 49ms
+ ○ Compiling /admin/tournament-bracket ...
+ ✓ Compiled /admin/tournament-bracket in 672ms (1029 modules)
+ GET /admin/tournament-bracket 200 in 902ms
+ ○ Compiling /api/admin/tournaments ...
+ ✓ Compiled /api/admin/tournaments in 1246ms (1037 modules)
+ GET /manifest.webmanifest 200 in 1312ms
+ GET /api/admin/tournaments?include_matches=1 200 in 1546ms
+ GET /api/admin/tournaments?include_matches=1 200 in 1605ms
+ ✓ Compiled in 1969ms (386 modules)
+ GET /admin/tournament-bracket 200 in 181ms
+ GET /manifest.webmanifest 200 in 47ms
+ ✓ Compiled in 1875ms (950 modules)
+ ✓ Compiled in 1455ms (950 modules)
+ ✓ Compiled in 1280ms (950 modules)
+ ✓ Compiled in 2.2s (931 modules)
+ ✓ Compiled in 824ms (386 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 1716ms (928 modules)
+ GET /login?redirectTo=%2Fadmin%2Ftournament-bracket 200 in 2436ms
+ GET /login?redirectTo=%2Fadmin%2Ftournament-bracket 200 in 2425ms
+ ✓ Compiled in 786ms (390 modules)
+ GET /admin/tournament-bracket 200 in 845ms
+ ○ Compiling /api/admin/tournaments ...
+ ✓ Compiled /api/admin/tournaments in 878ms (658 modules)
+ GET /api/admin/tournaments?include_matches=1 200 in 1518ms
+ GET /api/admin/tournaments?include_matches=1 200 in 1559ms
+ ✓ Compiled in 1696ms (390 modules)
+ GET /admin/tournament-bracket 200 in 275ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 1079ms (564 modules)
+ GET /manifest.webmanifest 200 in 1340ms
+ ○ Compiling /api/admin/tournaments ...
+ ✓ Compiled /api/admin/tournaments in 2.5s (1045 modules)
+ GET /api/admin/tournaments?include_matches=1 200 in 769ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 797ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 3315ms
+ GET /api/admin/tournaments?include_matches=1 200 in 803ms
+ GET /admin/tournament-bracket 200 in 302ms
+ GET /manifest.webmanifest 200 in 82ms
+ ✓ Compiled in 2.1s (1045 modules)
+ GET /admin/tournament-bracket 200 in 223ms
+ GET /manifest.webmanifest 200 in 138ms
+ ✓ Compiled in 1203ms (1045 modules)
+ GET /admin/tournament-bracket 200 in 374ms
+ GET /manifest.webmanifest 200 in 104ms
+ ✓ Compiled in 1364ms (954 modules)
+ GET /admin/tournament-bracket 200 in 378ms
+ ✓ Compiled /api/admin/tournaments in 498ms (655 modules)
+ GET /manifest.webmanifest 200 in 976ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 1310ms
+ GET /api/admin/tournaments?include_matches=1 200 in 1317ms
+ GET /api/admin/tournaments?include_matches=1 200 in 1338ms
+ ✓ Compiled in 1328ms (1045 modules)
+ ✓ Compiled in 1ms (655 modules)
+ ✓ Compiled in 0ms (655 modules)
+ ✓ Compiled in 1ms (655 modules)
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 1956ms
+ ✓ Compiled in 0ms (655 modules)
+ GET /admin/tournament-bracket 200 in 1790ms
+ GET /api/admin/tournaments?include_matches=1 200 in 2604ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 2624ms
+ GET /manifest.webmanifest 200 in 850ms
+ GET /api/admin/tournaments?include_matches=1 200 in 2657ms
+ ✓ Compiled in 1955ms (1045 modules)
+ GET /admin/tournament-bracket 200 in 275ms
+ GET /manifest.webmanifest 200 in 46ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 344ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 203ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 195ms
+ ✓ Compiled in 1408ms (390 modules)
+ GET /admin/tournament-bracket 200 in 84ms
+ GET /manifest.webmanifest 200 in 51ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 268ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 225ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 177ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 241ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 148ms
+ ✓ Compiled in 2.5s (1041 modules)
+ GET /admin/tournament-bracket 200 in 330ms
+ ✓ Compiled /manifest.webmanifest in 380ms (655 modules)
+ GET /manifest.webmanifest 200 in 620ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 874ms (662 modules)
+ GET /login?redirectTo=%2Fadmin%2Ftournament-bracket 200 in 1837ms
+ ✓ Compiled in 724ms (390 modules)
+ GET /admin/tournament-bracket 200 in 153ms
+ GET /manifest.webmanifest 200 in 71ms
+ ✓ Compiled in 1040ms (390 modules)
+ GET /admin/tournament-bracket 200 in 378ms
+ GET /manifest.webmanifest 200 in 112ms
+ GET /admin/tournament-bracket 200 in 220ms
+ GET /api/admin/tournaments?include_matches=1 200 in 324ms
+ GET /api/admin/tournaments?include_matches=1 200 in 360ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 188ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 148ms
+ ✓ Compiled in 1094ms (390 modules)
+ GET /admin/tournament-bracket 200 in 98ms
+ GET /manifest.webmanifest 200 in 49ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 312ms
+ ✓ Compiled in 3s (1041 modules)
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 2560ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 767ms
+ GET /api/admin/tournaments?include_matches=1 200 in 766ms
+ GET /api/admin/tournaments?include_matches=1 200 in 771ms
+ GET /admin/tournament-bracket 200 in 304ms
+ ✓ Compiled /manifest.webmanifest in 414ms (655 modules)
+ GET /manifest.webmanifest 200 in 635ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 246ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 199ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 170ms
+ ✓ Compiled in 918ms (390 modules)
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 416ms
+ GET /admin/tournament-bracket 200 in 202ms
+ GET /manifest.webmanifest 200 in 82ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 178ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 151ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 236ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 518ms (662 modules)
+ GET /login?redirectTo=%2Fadmin%2Ftournament-bracket 200 in 1619ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 318ms
+ ✓ Compiled in 1192ms (390 modules)
+ GET /admin/tournament-bracket 200 in 91ms
+ GET /manifest.webmanifest 200 in 74ms
+ ✓ Compiled in 1667ms (390 modules)
+ GET /admin/tournament-bracket 200 in 105ms
+ GET /manifest.webmanifest 200 in 81ms
+ GET /login?redirectTo=%2Fadmin%2Ftournament-bracket 200 in 106ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 263ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 966ms
+ ✓ Compiled in 1683ms (390 modules)
+ GET /admin/tournament-bracket 200 in 128ms
+ GET /manifest.webmanifest 200 in 54ms
+ ✓ Compiled in 750ms (390 modules)
+ GET /admin/tournament-bracket 200 in 82ms
+ GET /manifest.webmanifest 200 in 44ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 206ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 184ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 253ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 210ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 215ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 314ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 212ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 200ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 262ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 162ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 559ms
+ ✓ Compiled in 3.7s (1041 modules)
+ GET /admin/tournament-bracket 200 in 250ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 1533ms
+ GET /api/admin/tournaments?include_matches=1 200 in 332ms
+ GET /api/admin/tournaments?include_matches=1 200 in 473ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 524ms (655 modules)
+ GET /manifest.webmanifest 200 in 816ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 254ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 156ms
+ ✓ Compiled in 1524ms (1045 modules)
+ GET /admin/tournament-bracket 200 in 263ms
+ GET /manifest.webmanifest 200 in 107ms
+ ✓ Compiled in 1657ms (1045 modules)
+ GET /admin/tournament-bracket 200 in 217ms
+ GET /manifest.webmanifest 200 in 84ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 367ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 149ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 185ms
+ GET /admin/tournament-bracket 200 in 849ms
+ GET /api/admin/tournaments?include_matches=1 200 in 280ms
+ GET /api/admin/tournaments?include_matches=1 200 in 339ms
+ ✓ Compiled in 751ms (390 modules)
+ GET /admin/tournament-bracket 200 in 146ms
+ GET /manifest.webmanifest 200 in 164ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 423ms
+ GET /manifest.webmanifest 200 in 278ms
+ ✓ Compiled in 2.1s (1045 modules)
+ GET /admin/tournament-bracket 200 in 187ms
+ GET /manifest.webmanifest 200 in 79ms
+ ✓ Compiled in 826ms (390 modules)
+ GET /admin/tournament-bracket 200 in 94ms
+ GET /manifest.webmanifest 200 in 61ms
+ ✓ Compiled in 1169ms (390 modules)
+ GET /admin/tournament-bracket 200 in 163ms
+ GET /manifest.webmanifest 200 in 245ms
+ GET /admin/tournament-bracket 200 in 525ms
+ GET /api/admin/tournaments?include_matches=1 200 in 291ms
+ GET /api/admin/tournaments?include_matches=1 200 in 291ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 185ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 228ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 150ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 152ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 179ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 169ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 128ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 139ms
+ ✓ Compiled in 1929ms (390 modules)
+ GET /admin/tournament-bracket 200 in 123ms
+ GET /manifest.webmanifest 200 in 49ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 238ms
+ ✓ Compiled in 2.2s (935 modules)
+ GET /admin/tournament-bracket 200 in 394ms
+ ✓ Compiled /manifest.webmanifest in 343ms (564 modules)
+ GET /manifest.webmanifest 200 in 553ms
+ ○ Compiling /api/admin/tournaments ...
+ ✓ Compiled /api/admin/tournaments in 967ms (655 modules)
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 1523ms
+ ✓ Compiled in 1517ms (1045 modules)
+ GET /admin/tournament-bracket 200 in 238ms
+ GET /manifest.webmanifest 200 in 144ms
+ ✓ Compiled in 919ms (390 modules)
+ GET /admin/tournament-bracket 200 in 88ms
+ GET /manifest.webmanifest 200 in 56ms
+ ✓ Compiled in 817ms (390 modules)
+ GET /admin/tournament-bracket 200 in 90ms
+ GET /manifest.webmanifest 200 in 111ms
+ ✓ Compiled in 1887ms (390 modules)
+ GET /admin/tournament-bracket 200 in 154ms
+ GET /manifest.webmanifest 200 in 201ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 546ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 154ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 140ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 138ms
+ ✓ Compiled in 1300ms (390 modules)
+ GET /admin/tournament-bracket 200 in 97ms
+ GET /manifest.webmanifest 200 in 78ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 291ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 221ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 183ms
+ ✓ Compiled in 2.5s (1045 modules)
+ GET /admin/tournament-bracket 200 in 252ms
+ GET /manifest.webmanifest 200 in 81ms
+ ✓ Compiled in 846ms (390 modules)
+ GET /admin/tournament-bracket 200 in 185ms
+ GET /manifest.webmanifest 200 in 60ms
+ ✓ Compiled in 766ms (390 modules)
+ ✓ Compiled in 659ms (390 modules)
+ GET /admin/tournament-bracket 200 in 73ms
+ GET /admin/tournament-bracket 200 in 98ms
+ GET /manifest.webmanifest 200 in 70ms
+ ✓ Compiled in 1406ms (390 modules)
+ GET /admin/tournament-bracket 200 in 80ms
+ GET /manifest.webmanifest 200 in 47ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 381ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 154ms
+ GET /manifest.webmanifest 200 in 118ms
+ ✓ Compiled in 1100ms (390 modules)
+ GET /admin/tournament-bracket 200 in 88ms
+ GET /manifest.webmanifest 200 in 48ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 293ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 201ms
+ PATCH /api/admin/tournaments 200 in 232ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 127ms
+ PATCH /api/admin/tournaments 200 in 160ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 159ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 240ms
+ ✓ Compiled in 2.9s (1045 modules)
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 2194ms
+ GET /admin/tournament-bracket 200 in 332ms
+ GET /api/admin/tournaments?include_matches=1 200 in 313ms
+ GET /api/admin/tournaments?include_matches=1 200 in 332ms
+ GET /manifest.webmanifest 200 in 93ms
+ ✓ Compiled in 1483ms (1045 modules)
+ GET /admin/tournament-bracket 200 in 338ms
+ GET /manifest.webmanifest 200 in 78ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 309ms
+ ✓ Compiled in 1000ms (390 modules)
+ GET /admin/tournament-bracket 200 in 98ms
+ GET /manifest.webmanifest 200 in 63ms
+ ○ Compiling /team-management ...
+ ✓ Compiled /team-management in 1349ms (1042 modules)
+ GET /team-management 200 in 1523ms
+ ○ Compiling /api/admin/match-schedules ...
+ ✓ Compiled /api/admin/match-schedules in 1603ms (1046 modules)
+ GET /manifest.webmanifest 200 in 1663ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 2360ms
+ GET /api/admin/match-schedules?from_date=today&status=scheduled&schedule_source=tournament 200 in 2373ms
+ ○ Compiling /api/admin/level-info ...
+ ✓ Compiled /api/admin/level-info in 607ms (1048 modules)
+ GET /api/admin/level-info 200 in 914ms
+ GET /api/admin/level-info 200 in 883ms
+ ○ Compiling /admin/tournament-matches ...
+ ✓ Compiled /admin/tournament-matches in 913ms (1055 modules)
+ GET /admin/tournament-matches 200 in 1137ms
+ GET /api/admin/tournaments 200 in 313ms
+ ○ Compiling /api/admin/team-assignments ...
+ ✓ Compiled /api/admin/team-assignments in 1398ms (1057 modules)
+ GET /manifest.webmanifest 200 in 1483ms
+ GET /api/admin/tournaments 200 in 1498ms
+ GET /api/admin/team-assignments 200 in 1866ms
+ GET /api/admin/level-info 200 in 1840ms
+ GET /api/admin/level-info 200 in 1736ms
+ GET /api/admin/team-assignments 200 in 141ms
+ GET /admin/tournament-bracket?tournament=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 133ms
+ GET /manifest.webmanifest 200 in 110ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 280ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=2971c25c-6550-461c-9e5b-2dd5fa068546 200 in 296ms
+ GET /admin/tournament-matches 200 in 79ms
+ GET /api/admin/team-assignments 200 in 241ms
+ GET /manifest.webmanifest 200 in 98ms
+ GET /api/admin/tournaments 200 in 317ms
+ GET /api/admin/level-info 200 in 295ms
+ GET /api/admin/level-info 200 in 270ms
+ GET /api/admin/team-assignments 200 in 209ms
+ GET /api/admin/tournaments 200 in 168ms
+ ✓ Compiled in 1639ms (396 modules)
+ GET /admin/tournament-matches 200 in 259ms
+ GET /manifest.webmanifest 200 in 49ms
+ GET /admin/tournament-bracket 200 in 96ms
+ GET /api/admin/tournaments?include_matches=1 200 in 325ms
+ GET /manifest.webmanifest 200 in 71ms
+ GET /api/admin/tournaments?include_matches=1 200 in 365ms
+ GET /api/admin/tournaments?include_matches=1&tournament_id=8071dfb3-3e27-498d-8f4b-6fdcf794a0de 200 in 137ms
+ ✓ Compiled in 1196ms (396 modules)
+ GET /admin/tournament-bracket 200 in 211ms
+ GET /manifest.webmanifest 200 in 41ms
+ ✓ Compiled in 2.4s (947 modules)
+ GET /admin/tournament-bracket 200 in 408ms
+ ✓ Compiled /manifest.webmanifest in 403ms (570 modules)
+ GET /manifest.webmanifest 200 in 661ms
+ ✓ Compiled in 1162ms (966 modules)
+ ✓ Compiled /api/admin/tournaments in 442ms (661 modules)
+ GET /admin/tournament-bracket 200 in 1327ms
+ GET /api/admin/tournaments?include_matches=1 200 in 1542ms
+ GET /api/admin/tournaments?include_matches=1 200 in 1580ms
+ GET /api/admin/tournaments?include_matches=1 200 in 1594ms
+ GET /manifest.webmanifest 200 in 79ms
+ ✓ Compiled in 1310ms (1057 modules)
+ GET /admin/tournament-bracket 200 in 192ms
+ GET /manifest.webmanifest 200 in 71ms
+ ✓ Compiled in 1714ms (966 modules)
+ GET /admin/tournament-bracket 200 in 327ms
+ GET /manifest.webmanifest 200 in 73ms
+ ✓ Compiled in 1731ms (966 modules)
+ GET /admin/tournament-bracket 200 in 225ms
+ GET /manifest.webmanifest 200 in 87ms
+ ✓ Compiled in 2.2s (966 modules)
+ GET /admin/tournament-bracket 200 in 227ms
+ GET /manifest.webmanifest 200 in 84ms
+ ✓ Compiled in 1710ms (966 modules)
+ GET /admin/tournament-bracket 200 in 161ms
+ GET /manifest.webmanifest 200 in 53ms
+ ✓ Compiled in 1239ms (966 modules)
+ GET /admin/tournament-bracket 200 in 174ms
+ GET /manifest.webmanifest 200 in 61ms
+ ✓ Compiled in 755ms (396 modules)
+ GET /admin/tournament-bracket 200 in 85ms
+ GET /manifest.webmanifest 200 in 48ms
+ ✓ Compiled in 734ms (396 modules)
+ GET /admin/tournament-bracket 200 in 111ms
+ GET /manifest.webmanifest 200 in 55ms
+ GET /admin/tournament-bracket 200 in 454ms
+ ○ Compiling /api/admin/tournaments ...
+ ✓ Compiled /api/admin/tournaments in 1996ms (657 modules)
+ GET /api/admin/tournaments?include_matches=1 200 in 2476ms
+ GET /api/admin/tournaments?include_matches=1 200 in 2503ms
+ GET /admin/tournament-bracket 200 in 876ms
+ GET /api/admin/tournaments?include_matches=1 200 in 326ms
+ GET /api/admin/tournaments?include_matches=1 200 in 364ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 1311ms (664 modules)
+ GET /login?redirectTo=%2Fadmin%2Ftournament-bracket 200 in 2129ms
+ ○ Compiling /api/auth/profile-email ...
+ ✓ Compiled /api/auth/profile-email in 1179ms (1048 modules)
+ GET /api/auth/profile-email?fullName=%EA%B9%80%EC%A7%84%ED%98%B8 200 in 1504ms
+ GET /admin/tournament-bracket 200 in 717ms
+ GET /api/admin/tournaments?include_matches=1 200 in 309ms
+ GET /api/admin/tournaments?include_matches=1 200 in 345ms
+ ✓ Compiled in 1977ms (396 modules)
+ GET /admin/tournament-bracket 200 in 110ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 1154ms (668 modules)
+ GET /manifest.webmanifest 200 in 1530ms
+ ✓ Compiled in 1834ms (1064 modules)
+ GET /admin/tournament-bracket 200 in 503ms
+ GET /manifest.webmanifest 200 in 59ms
+ ✓ Compiled in 2.2s (1064 modules)
+ GET /admin/tournament-bracket 200 in 169ms
+ GET /manifest.webmanifest 200 in 42ms
+ ✓ Compiled in 3.8s (1064 modules)
+ GET /admin/tournament-bracket 200 in 181ms
+ GET /manifest.webmanifest 200 in 63ms
+ ✓ Compiled in 898ms (396 modules)
+ GET /admin/tournament-bracket 200 in 92ms
+ GET /manifest.webmanifest 200 in 87ms
+ ✓ Compiled in 1085ms (396 modules)
+ GET /admin/tournament-bracket 200 in 97ms
+ GET /manifest.webmanifest 200 in 272ms
+ GET /admin/tournament-bracket 200 in 496ms
+ GET /api/admin/tournaments?include_matches=1 200 in 435ms
+ GET /api/admin/tournaments?include_matches=1 200 in 459ms
+ ✓ Compiled in 1948ms (396 modules)
+ GET /admin/tournament-bracket 200 in 92ms
+ GET /manifest.webmanifest 200 in 225ms
+ ✓ Compiled in 3.5s (971 modules)
+ GET /admin/tournament-bracket 200 in 318ms
+ GET /manifest.webmanifest 200 in 157ms
+ ✓ Compiled in 4.5s (971 modules)
+ GET /admin/tournament-bracket 200 in 276ms
+ GET /manifest.webmanifest 200 in 124ms
+ ✓ Compiled in 957ms (396 modules)
+ GET /admin/tournament-bracket 200 in 111ms
+ GET /manifest.webmanifest 200 in 53ms
+ ✓ Compiled in 1849ms (396 modules)
+ GET /admin/tournament-bracket 200 in 105ms
+ GET /manifest.webmanifest 200 in 50ms
+ ✓ Compiled in 3.9s (396 modules)
+ GET /admin/tournament-bracket 200 in 596ms
+ GET /manifest.webmanifest 200 in 323ms
+ ✓ Compiled in 1943ms (396 modules)
+ GET /admin/tournament-bracket 200 in 125ms
+ GET /manifest.webmanifest 200 in 98ms
+ ✓ Compiled in 5.8s (971 modules)
+ GET /admin/tournament-bracket 200 in 269ms
+ GET /manifest.webmanifest 200 in 69ms
+ ✓ Compiled in 2.1s (396 modules)
+ ✓ Compiled in 1736ms (396 modules)
+ GET /admin/tournament-bracket 200 in 464ms
+ GET /admin/tournament-bracket 200 in 112ms
+ GET /manifest.webmanifest 200 in 119ms
+ ✓ Compiled in 1445ms (396 modules)
+ GET /admin/tournament-bracket 200 in 115ms
+ GET /manifest.webmanifest 200 in 67ms
+ ✓ Compiled in 2.3s (396 modules)
+ GET /admin/tournament-bracket 200 in 166ms
+ GET /manifest.webmanifest 200 in 93ms
+ ✓ Compiled in 3.1s (971 modules)
+ GET /admin/tournament-bracket 200 in 260ms
+ GET /manifest.webmanifest 200 in 90ms
+ ✓ Compiled in 2.3s (396 modules)
+ GET /admin/tournament-bracket 200 in 169ms
+ GET /manifest.webmanifest 200 in 481ms
+ ✓ Compiled in 1968ms (396 modules)
+ GET /admin/tournament-bracket 200 in 354ms
+ GET /manifest.webmanifest 200 in 934ms
+ ✓ Compiled in 2s (396 modules)
+ GET /admin/tournament-bracket 200 in 256ms
+ GET /manifest.webmanifest 200 in 52ms
+ ✓ Compiled in 2.8s (971 modules)
+ GET /admin/tournament-bracket 200 in 301ms
+ GET /manifest.webmanifest 200 in 55ms
+ ✓ Compiled in 1865ms (971 modules)
+ GET /admin/tournament-bracket 200 in 169ms
+ GET /manifest.webmanifest 200 in 77ms
+ ✓ Compiled in 906ms (396 modules)
+ GET /admin/tournament-bracket 200 in 90ms
+ GET /manifest.webmanifest 200 in 41ms
+ ✓ Compiled in 722ms (396 modules)
+ GET /admin/tournament-bracket 200 in 200ms
+ GET /manifest.webmanifest 200 in 34ms
+ ✓ Compiled in 1936ms (396 modules)
+ GET /admin/tournament-bracket 200 in 115ms
+ GET /manifest.webmanifest 200 in 45ms
+ ✓ Compiled in 2.6s (971 modules)
+ GET /admin/tournament-bracket 200 in 155ms
+ GET /manifest.webmanifest 200 in 60ms
+ ✓ Compiled in 743ms (396 modules)
+ GET /admin/tournament-bracket 200 in 116ms
+ GET /manifest.webmanifest 200 in 67ms
+ ✓ Compiled in 1198ms (396 modules)
+ GET /admin/tournament-bracket 200 in 123ms
+ GET /manifest.webmanifest 200 in 195ms
+ ✓ Compiled in 2.3s (396 modules)
+ GET /admin/tournament-bracket 200 in 389ms
+ GET /manifest.webmanifest 200 in 309ms
+ ○ Compiling / ...
+ ✓ Compiled / in 30.9s (948 modules)
+ GET / 307 in 39979ms
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 12.9s (1295 modules)
+ GET /login 500 in 14595ms
+ ✓ Compiled in 5.4s (549 modules)
+ ✓ Compiled in 2.3s (549 modules)
+ ✓ Compiled in 24.8s (549 modules)
+ ✓ Compiled in 4.6s (549 modules)

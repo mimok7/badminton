@@ -1,11 +1,218 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+import type { Database } from '@/types/supabase';
+import { isUserAdmin } from '@/lib/auth';
+
+type GenerationResult = {
+  created_matches: number;
+  message: string;
+  execution_time: string;
+};
+
+type GenerateRecurringMatchesPayload = {
+  template_ids?: string[];
+};
+
+type RecurringTemplateRow = Pick<
+  Database['public']['Tables']['recurring_match_templates']['Row'],
+  | 'id'
+  | 'name'
+  | 'description'
+  | 'day_of_week'
+  | 'start_time'
+  | 'end_time'
+  | 'location'
+  | 'max_participants'
+  | 'advance_days'
+  | 'is_active'
+>;
+
+type AdminSupabaseClient = ReturnType<typeof getSupabaseAdminClient>;
+
+const DAY_LABELS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+
+function toDateOnly(value: Date) {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, '0');
+  const day = `${value.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(base: Date, days: number) {
+  const next = new Date(base);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function findNextMatchingDate(base: Date, dayOfWeek: number) {
+  const dayOffset = (dayOfWeek - base.getDay() + 7) % 7;
+  return addDays(base, dayOffset);
+}
+
+async function hasExistingSchedule(
+  supabase: AdminSupabaseClient,
+  matchDate: string,
+  template: Pick<RecurringTemplateRow, 'start_time' | 'end_time' | 'location'>
+) {
+  const { data: existingSchedule, error } = await supabase
+    .from('match_schedules')
+    .select('id')
+    .eq('match_date', matchDate)
+    .eq('start_time', template.start_time)
+    .eq('end_time', template.end_time)
+    .eq('location', template.location)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(existingSchedule);
+}
+
+async function createScheduleFromTemplate(
+  supabase: AdminSupabaseClient,
+  matchDate: string,
+  template: Pick<
+    RecurringTemplateRow,
+    'name' | 'description' | 'day_of_week' | 'start_time' | 'end_time' | 'location' | 'max_participants'
+  >,
+  executedBy?: string | null
+): Promise<boolean> {
+  const recurringSuffix = `정기모임 (${DAY_LABELS[template.day_of_week] || `${template.day_of_week}`})`;
+  const description = [template.description?.trim() || template.name.trim(), recurringSuffix].join(' - ');
+
+  const { error } = await supabase
+    .from('match_schedules')
+    .insert({
+      match_date: matchDate,
+      start_time: template.start_time,
+      end_time: template.end_time,
+      location: template.location,
+      max_participants: template.max_participants ?? 20,
+      current_participants: 0,
+      status: 'scheduled',
+      description,
+      created_by: executedBy ?? null,
+      updated_by: executedBy ?? null,
+    });
+
+  if (error) {
+    const code = (error as { code?: string }).code || '';
+    if (code === '23505') {
+      return false;
+    }
+    throw error;
+  }
+
+  return true;
+}
+
+async function generateRecurringMatchesFallback(
+  executedBy?: string | null,
+  selectedTemplateIds?: string[]
+): Promise<GenerationResult> {
+  const today = new Date();
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const executionTime = new Date().toISOString();
+  const templateIds = selectedTemplateIds?.filter(Boolean) ?? [];
+  const isManualSelectedGeneration = templateIds.length > 0;
+  const supabase = getSupabaseAdminClient();
+
+  let query = supabase
+    .from('recurring_match_templates')
+    .select('id, name, description, day_of_week, start_time, end_time, location, max_participants, advance_days, is_active')
+    .eq('is_active', true);
+
+  if (templateIds.length > 0) {
+    query = query.in('id', templateIds);
+  }
+
+  const { data: templates, error: templatesError } = await query;
+
+  if (templatesError) {
+    throw templatesError;
+  }
+
+  let createdMatches = 0;
+
+  for (const template of (templates || []) as RecurringTemplateRow[]) {
+    if (
+      template.day_of_week === null ||
+      !template.start_time ||
+      !template.end_time ||
+      !template.location ||
+      !template.name
+    ) {
+      continue;
+    }
+
+    if (isManualSelectedGeneration) {
+      const nextMatchingDate = findNextMatchingDate(todayDate, template.day_of_week);
+
+      for (let weekOffset = 0; weekOffset < 52; weekOffset += 1) {
+        const targetDate = addDays(nextMatchingDate, weekOffset * 7);
+        const matchDate = toDateOnly(targetDate);
+        const alreadyExists = await hasExistingSchedule(supabase, matchDate, template);
+
+        if (alreadyExists) {
+          continue;
+        }
+
+        const created = await createScheduleFromTemplate(supabase, matchDate, template, executedBy);
+        if (created) {
+          createdMatches += 1;
+        }
+        break;
+      }
+
+      continue;
+    }
+
+    const advanceDays = Math.max(0, template.advance_days ?? 7);
+
+    for (let offset = 0; offset <= advanceDays; offset += 1) {
+      const targetDate = addDays(todayDate, offset);
+
+      if (targetDate.getDay() !== template.day_of_week) {
+        continue;
+      }
+
+      const matchDate = toDateOnly(targetDate);
+      const alreadyExists = await hasExistingSchedule(supabase, matchDate, template);
+
+      if (alreadyExists) {
+        continue;
+      }
+
+      const created = await createScheduleFromTemplate(supabase, matchDate, template, executedBy);
+      if (created) {
+        createdMatches += 1;
+      }
+    }
+  }
+
+  return {
+    created_matches: createdMatches,
+    message:
+      createdMatches > 0
+        ? `${
+            isManualSelectedGeneration ? '선택한 템플릿 기준으로 ' : ''
+          }${createdMatches}개의 정기모임 일정이 생성되었습니다.`
+        : isManualSelectedGeneration
+          ? '선택한 템플릿의 다음 일정이 이미 생성되어 있어 추가로 만들 일정이 없습니다.'
+          : '생성 조건에 맞는 새로운 정기모임 일정이 없습니다.',
+    execution_time: executionTime,
+  };
+}
+
+async function runRecurringMatchGeneration(executedBy?: string | null, selectedTemplateIds?: string[]) {
+  const templateIds = selectedTemplateIds?.filter(Boolean) ?? [];
+  return generateRecurringMatchesFallback(executedBy, templateIds);
+}
 
 export async function GET(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-
     // 요청 헤더에서 인증 토큰 확인 (보안을 위해)
     const authHeader = request.headers.get('authorization');
     const secretToken = process.env.CRON_SECRET_TOKEN;
@@ -18,15 +225,7 @@ export async function GET(request: Request) {
     }
 
     // 정기모임 자동 생성 실행
-    const { data, error } = await supabase.rpc('daily_match_generation');
-
-    if (error) {
-      console.error('정기모임 생성 오류:', error);
-      return NextResponse.json(
-        { error: '정기모임 생성 중 오류가 발생했습니다.', details: error.message },
-        { status: 500 }
-      );
-    }
+    const data = await runRecurringMatchGeneration(null);
 
     console.log('정기모임 자동 생성 완료:', data);
 
@@ -48,10 +247,15 @@ export async function GET(request: Request) {
 // POST 메서드도 지원 (수동 실행용)
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await getSupabaseServerClient();
+    const body = (await request.json().catch(() => ({}))) as GenerateRecurringMatchesPayload;
+    const selectedTemplateIds = Array.isArray(body.template_ids) ? body.template_ids : [];
 
     // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -60,14 +264,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 관리자 권한 확인
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
-
-    if (profileError || profile?.role !== 'admin') {
+    if (!(await isUserAdmin(supabase, user))) {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
@@ -75,15 +272,7 @@ export async function POST(request: Request) {
     }
 
     // 정기모임 자동 생성 실행
-    const { data, error } = await supabase.rpc('daily_match_generation');
-
-    if (error) {
-      console.error('정기모임 생성 오류:', error);
-      return NextResponse.json(
-        { error: '정기모임 생성 중 오류가 발생했습니다.', details: error.message },
-        { status: 500 }
-      );
-    }
+    const data = await runRecurringMatchGeneration(user.id, selectedTemplateIds);
 
     return NextResponse.json({
       success: true,

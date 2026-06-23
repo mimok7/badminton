@@ -2,9 +2,17 @@
 -- 403 Forbidden 오류 해결
 
 -- 기존 정책 삭제
+DROP POLICY IF EXISTS "Anyone can view match schedules" ON match_schedules;
 DROP POLICY IF EXISTS "Authenticated users can insert match schedules" ON match_schedules;
 DROP POLICY IF EXISTS "Users can update their own match schedules" ON match_schedules;
 DROP POLICY IF EXISTS "Users can delete their own match schedules" ON match_schedules;
+DROP POLICY IF EXISTS "Admins and creators can update match schedules" ON match_schedules;
+DROP POLICY IF EXISTS "Admins and creators can delete match schedules" ON match_schedules;
+
+-- 모든 로그인 사용자가 경기 일정을 조회할 수 있도록 복구
+CREATE POLICY "Anyone can view match schedules" ON match_schedules
+    FOR SELECT
+    USING (auth.uid() IS NOT NULL);
 
 -- 새로운 정책 생성: 인증된 사용자는 경기 일정을 생성할 수 있음
 CREATE POLICY "Authenticated users can insert match schedules" ON match_schedules
@@ -19,7 +27,7 @@ CREATE POLICY "Admins and creators can update match schedules" ON match_schedule
             auth.uid() = created_by OR 
             EXISTS (
                 SELECT 1 FROM profiles 
-                WHERE profiles.id = auth.uid() 
+                WHERE (profiles.user_id = auth.uid() OR profiles.id = auth.uid())
                 AND profiles.role = 'admin'
             )
         )
@@ -33,16 +41,24 @@ CREATE POLICY "Admins and creators can delete match schedules" ON match_schedule
             auth.uid() = created_by OR 
             EXISTS (
                 SELECT 1 FROM profiles 
-                WHERE profiles.id = auth.uid() 
+                WHERE (profiles.user_id = auth.uid() OR profiles.id = auth.uid())
                 AND profiles.role = 'admin'
             )
         )
     );
 
 -- match_participants 테이블 정책도 수정
+DROP POLICY IF EXISTS "Anyone can view match participants" ON match_participants;
 DROP POLICY IF EXISTS "Users can register for matches" ON match_participants;
 DROP POLICY IF EXISTS "Users can update their own participation" ON match_participants;
 DROP POLICY IF EXISTS "Users can cancel their own participation" ON match_participants;
+DROP POLICY IF EXISTS "Users and admins can update participation" ON match_participants;
+DROP POLICY IF EXISTS "Users and admins can delete participation" ON match_participants;
+
+-- 모든 로그인 사용자가 참가자 목록을 볼 수 있도록 복구
+CREATE POLICY "Anyone can view match participants" ON match_participants
+    FOR SELECT
+    USING (auth.uid() IS NOT NULL);
 
 -- 관리자는 모든 참가자를 관리할 수 있도록 정책 추가
 CREATE POLICY "Users can register for matches" ON match_participants
@@ -52,7 +68,7 @@ CREATE POLICY "Users can register for matches" ON match_participants
             auth.uid() = user_id OR
             EXISTS (
                 SELECT 1 FROM profiles 
-                WHERE profiles.id = auth.uid() 
+                WHERE (profiles.user_id = auth.uid() OR profiles.id = auth.uid())
                 AND profiles.role = 'admin'
             )
         )
@@ -65,7 +81,7 @@ CREATE POLICY "Users and admins can update participation" ON match_participants
             auth.uid() = user_id OR
             EXISTS (
                 SELECT 1 FROM profiles 
-                WHERE profiles.id = auth.uid() 
+                WHERE (profiles.user_id = auth.uid() OR profiles.id = auth.uid())
                 AND profiles.role = 'admin'
             )
         )
@@ -78,7 +94,7 @@ CREATE POLICY "Users and admins can delete participation" ON match_participants
             auth.uid() = user_id OR
             EXISTS (
                 SELECT 1 FROM profiles 
-                WHERE profiles.id = auth.uid() 
+                WHERE (profiles.user_id = auth.uid() OR profiles.id = auth.uid())
                 AND profiles.role = 'admin'
             )
         )

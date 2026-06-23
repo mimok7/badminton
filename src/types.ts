@@ -6,6 +6,7 @@ export interface Player {
   name: string;
   skill_level: string;
   skill_label: string;
+  score?: number;
   gender?: 'M' | 'F' | 'O' | string;
   skill_code: string;
 }

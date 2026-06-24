@@ -453,7 +453,6 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [allTournamentMatches, setAllTournamentMatches] = useState<Match[]>([]);
   const [teamAssignmentsByTournament, setTeamAssignmentsByTournament] = useState<TeamAssignmentMap>({});
   const [tournamentMetrics, setTournamentMetrics] = useState<Record<string, TournamentMetrics>>({});
   const [loading, setLoading] = useState(true);
@@ -745,13 +744,11 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
 
       setSelectedTournamentAssignment(payload?.selectedTeamAssignment || null);
       setTeamAssignmentsByTournament(mapTeamAssignmentMap(payload?.teamAssignmentsByTournament));
-      setAllTournamentMatches(normalizeMatches(Array.isArray(payload?.allMatches) ? payload.allMatches : []));
       setMatches(normalizeMatches(Array.isArray(payload?.matches) ? payload.matches : []));
       setLoadError(null);
     } catch (error) {
       console.error('경기 조회 오류:', error);
       setTeamAssignmentsByTournament({});
-      setAllTournamentMatches([]);
       setMatches([]);
       setLoadError(error instanceof Error ? error.message : '경기 데이터를 불러오지 못했습니다.');
     }
@@ -908,7 +905,6 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       setSelectedTournament(payload?.selectedTournament || null);
       setSelectedTournamentAssignment(payload?.selectedTeamAssignment || null);
       setTeamAssignmentsByTournament(mapTeamAssignmentMap(payload?.teamAssignmentsByTournament));
-      setAllTournamentMatches(normalizeMatches(Array.isArray(payload?.allMatches) ? payload.allMatches : []));
       setMatches(normalizeMatches(Array.isArray(payload?.matches) ? payload.matches : []));
     } catch (error) {
       console.error('대회 조회 오류:', error);
@@ -917,7 +913,6 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       setSelectedTournament(null);
       setSelectedTournamentAssignment(null);
       setTeamAssignmentsByTournament({});
-      setAllTournamentMatches([]);
       setMatches([]);
       setLoadError(error instanceof Error ? error.message : '대회 데이터를 불러오지 못했습니다.');
     } finally {
@@ -1393,7 +1388,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
 
     return teamStats;
   };
-  const resultsSourceMatches = adminMode ? matches : allTournamentMatches;
+  const resultsSourceMatches = matches;
   const resultsTeamAssignment = selectedTournamentAssignment;
   const resultsAssignmentsByTournament = adminMode
     ? (selectedTournament?.id ? { [selectedTournament.id]: selectedTournamentAssignment } : {})

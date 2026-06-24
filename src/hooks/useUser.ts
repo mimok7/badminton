@@ -143,5 +143,12 @@ export function useUser() {
     [profile?.role, user]
   );
 
-  return { user, profile, loading, isAdmin };
+  const refreshProfile = useCallback(async () => {
+    if (!user) return;
+    cachedProfile = null;
+    cachedUserId = null;
+    await fetchProfile(user.id);
+  }, [user, fetchProfile]);
+
+  return { user, profile, loading, isAdmin, refreshProfile };
 }

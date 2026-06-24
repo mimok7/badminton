@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { getUserRole } from '@/lib/auth';
+import { readCoinSettings } from '@/lib/coin-settings';
 
 type AttendanceStatus = 'present' | 'lesson' | 'absent';
 
@@ -175,6 +176,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User ids are required' }, { status: 400 });
     }
 
+    // 1. 기존 출석 상태 목록 조회
+    const { data: prevAttendances, error: lookupError } = await adminContext.adminSupabase
+      .from('attendances')
+      .select('user_id, status')
+      .in('user_id', userIds)
+      .eq('attended_at', attendedAt);
+
+    if (lookupError) {
+      console.error('Admin attendance prev lookup error:', lookupError);
+      return NextResponse.json({ error: 'Failed to lookup previous attendances' }, { status: 500 });
+    }
+
+    const prevStatusMap = new Map(
+      (prevAttendances || []).map((row) => [row.user_id, row.status])
+    );
+
     const { autoLinkedScheduleId } = await syncAutoLinkedScheduleParticipants({
       adminSupabase: adminContext.adminSupabase,
       attendedAt,
@@ -196,6 +213,69 @@ export async function POST(request: Request) {
     if (error) {
       console.error('Admin attendance save error:', error);
       return NextResponse.json({ error: 'Failed to save attendance' }, { status: 500 });
+    }
+
+    // 2. 코인 변동 적용
+    const coinSettings = await readCoinSettings();
+    const reward = coinSettings.attendanceReward ?? 10;
+
+    if (reward > 0) {
+      const isNowPresent = status === 'present' || status === 'lesson';
+      const rewardUserIds: string[] = [];
+      const penaltyUserIds: string[] = [];
+
+      userIds.forEach((userId) => {
+        const prevStatus = prevStatusMap.get(userId) || null;
+        const wasPresent = prevStatus === 'present' || prevStatus === 'lesson';
+
+        if (!wasPresent && isNowPresent) {
+          rewardUserIds.push(userId);
+        } else if (wasPresent && !isNowPresent) {
+          penaltyUserIds.push(userId);
+        }
+      });
+
+      if (rewardUserIds.length > 0) {
+        const { data: rewardProfiles } = await adminContext.adminSupabase
+          .from('profiles')
+          .select('id, coin_balance')
+          .in('id', rewardUserIds);
+
+        if (rewardProfiles) {
+          await Promise.all(
+            rewardProfiles.map((profile) =>
+              adminContext.adminSupabase
+                .from('profiles')
+                .update({
+                  coin_balance: (profile.coin_balance ?? 0) + reward,
+                  coin_updated_at: new Date().toISOString(),
+                })
+                .eq('id', profile.id)
+            )
+          );
+        }
+      }
+
+      if (penaltyUserIds.length > 0) {
+        const { data: penaltyProfiles } = await adminContext.adminSupabase
+          .from('profiles')
+          .select('id, coin_balance')
+          .in('id', penaltyUserIds);
+
+        if (penaltyProfiles) {
+          await Promise.all(
+            penaltyProfiles.map((profile) =>
+              adminContext.adminSupabase
+                .from('profiles')
+                .update({
+                  coin_balance: Math.max(0, (profile.coin_balance ?? 0) - reward),
+                  coin_updated_at: new Date().toISOString(),
+                })
+                .eq('id', profile.id)
+            )
+          );
+        }
+      }
     }
 
     return NextResponse.json({

@@ -111,6 +111,16 @@ const ADMIN_MENU_CARDS: AdminMenuCard[] = [
     color: 'green',
     adminOnly: true
   },
+  { 
+    id: 'product-management', 
+    name: '상품 관리', 
+    icon: '🎁', 
+    path: '/admin/products', 
+    description: '상품 등록/수정 및 회원 상품 지급 관리', 
+    category: 'member',
+    color: 'green',
+    adminOnly: true
+  },
 
   // 클럽 운영 카테고리
   { 
@@ -190,7 +200,7 @@ export default function AdminDashboard({ userId, email }: { userId: string; emai
   const getCategoryTitle = (category: string) => {
     switch (category) {
       case 'match': return '🏸 경기 관리';
-      case 'member': return '👥 회원 관리';
+      case 'member': return '🛠️ 관리 도구';
       case 'club': return '🏆 클럽 운영';
       case 'system': return '⚙️ 시스템 관리';
       default: return '기타';

@@ -8,12 +8,14 @@ export type CoinSettings = {
   initialCoinBalance: number;
   settlementMode: CoinSettlementMode;
   fixedWinnerReward: number;
+  attendanceReward: number;
 };
 
 export const DEFAULT_COIN_SETTINGS: CoinSettings = {
   initialCoinBalance: INITIAL_COIN_BALANCE,
   settlementMode: 'zero_sum',
   fixedWinnerReward: 1,
+  attendanceReward: 10,
 };
 
 export function formatCoinDelta(value: number): string {

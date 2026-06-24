@@ -168,12 +168,46 @@ async function fetchTeamAssignment(assignmentId: string | null | undefined) {
 }
 
 async function fetchTeamAssignmentsByTournament(tournaments: TournamentRow[]) {
-  const entries = await Promise.all(
-    tournaments.map(async (tournament) => {
-      const assignment = await fetchTeamAssignment(tournament.team_assignment_id);
-      return [tournament.id, assignment] as const;
-    })
+  const assignmentIds = Array.from(
+    new Set(tournaments.map((t) => t.team_assignment_id).filter((id): id is string => typeof id === 'string'))
   );
+
+  if (assignmentIds.length === 0) {
+    return {};
+  }
+
+  const adminSupabase = getSupabaseAdminClient();
+  const { data, error } = await adminSupabase
+    .from('team_assignments')
+    .select('id, assignment_date, round_number, title, team_type, racket_team, shuttle_team, team1, team2, team3, team4, pairs_data')
+    .in('id', assignmentIds);
+
+  if (error || !data) {
+    return {};
+  }
+
+  const assignmentMap = new Map(
+    data.map((row) => [
+      row.id,
+      {
+        ...row,
+        racket_team: toStringArray(row.racket_team),
+        shuttle_team: toStringArray(row.shuttle_team),
+        team1: toStringArray(row.team1),
+        team2: toStringArray(row.team2),
+        team3: toStringArray(row.team3),
+        team4: toStringArray(row.team4),
+        pairs_data: toPairsRecord(row.pairs_data),
+      },
+    ])
+  );
+
+  const entries = tournaments.map((tournament) => {
+    const assignment = tournament.team_assignment_id
+      ? (assignmentMap.get(tournament.team_assignment_id) || null)
+      : null;
+    return [tournament.id, assignment] as const;
+  });
 
   return Object.fromEntries(entries);
 }
@@ -260,17 +294,6 @@ async function recoverTournamentMatches(tournament: TournamentRow) {
 
 export async function GET(request: Request) {
   try {
-    // 사용자 대진표는 비로그인 사용자도 조회 가능해야 하므로
-    // 인증 실패 시에도 데이터 조회를 계속 진행함
-    let _user = null;
-    try {
-      const serverSupabase = await getSupabaseServerClient();
-      const { data: { user } } = await serverSupabase.auth.getUser();
-      _user = user;
-    } catch {
-      // 비로그인 사용자 — 무시하고 진행
-    }
-
     const adminSupabase = getSupabaseAdminClient();
     const requestUrl = new URL(request.url);
     const tournamentId = requestUrl.searchParams.get('tournament_id');
@@ -292,16 +315,18 @@ export async function GET(request: Request) {
     }
 
     const tournaments = (data || []) as TournamentRow[];
+    
+    // metrics 계산에 필요한 컬럼만 선택하여 데이터 전송 및 조회 부담을 줄임
     const { data: allMatchesData, error: allMatchesError } = await adminSupabase
       .from('tournament_matches')
-      .select('*');
+      .select('tournament_id, round, match_number, team1, team2, court, scheduled_time, status, score_team1, score_team2, winner');
 
     if (allMatchesError && allMatchesError.code !== '42P01') {
       return NextResponse.json({ error: 'Failed to fetch tournament metrics' }, { status: 500 });
     }
 
     const groupedMatches = new Map<string, MatchRow[]>();
-    ((allMatchesData || []) as MatchRow[]).forEach((match) => {
+    ((allMatchesData || []) as any[]).forEach((match) => {
       const current = groupedMatches.get(match.tournament_id) || [];
       current.push(match);
       groupedMatches.set(match.tournament_id, current);
@@ -326,7 +351,6 @@ export async function GET(request: Request) {
           selectedTournament: null,
           selectedTeamAssignment: null,
           matches: [],
-          allMatches: normalizeMatches((allMatchesData || []) as MatchRow[]),
         });
       }
 
@@ -355,7 +379,6 @@ export async function GET(request: Request) {
         selectedTournament,
         selectedTeamAssignment,
         matches: normalizeMatches(matches),
-        allMatches: normalizeMatches((allMatchesData || []) as MatchRow[]),
       });
     }
 

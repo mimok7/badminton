@@ -27,6 +27,7 @@ function normalizeSettings(value: unknown): CoinSettings {
     initialCoinBalance: normalizeInteger(raw.initialCoinBalance, DEFAULT_COIN_SETTINGS.initialCoinBalance),
     settlementMode: normalizeMode(raw.settlementMode),
     fixedWinnerReward: normalizeInteger(raw.fixedWinnerReward, DEFAULT_COIN_SETTINGS.fixedWinnerReward),
+    attendanceReward: normalizeInteger(raw.attendanceReward, DEFAULT_COIN_SETTINGS.attendanceReward),
   };
 }
 

@@ -86,22 +86,7 @@ async function getTodayChallengePool(adminSupabase: ReturnType<typeof getSupabas
 
   let blockedUserIds = new Set<string>();
 
-  if (assignedScheduleIds.length > 0) {
-    const { data: activeParticipants, error: participantsError } = await adminSupabase
-      .from('match_participants')
-      .select('user_id')
-      .in('match_schedule_id', assignedScheduleIds)
-      .in('status', ['registered', 'attended']);
-
-    if (participantsError) {
-      throw new Error(participantsError.message);
-    }
-
-    blockedUserIds = new Set(
-      (activeParticipants || []).map((participant) => participant.user_id).filter((value): value is string => Boolean(value)),
-    );
-  }
-
+  // 1. 일반 경기(generated_matches) 중 현재 대기/진행 중인 경기에 배정된 선수들 차단
   if (assignedGeneratedMatchIds.length > 0) {
     const { data: generatedMatches, error: generatedMatchesError } = await adminSupabase
       .from('generated_matches')
@@ -122,6 +107,52 @@ async function getTodayChallengePool(adminSupabase: ReturnType<typeof getSupabas
         .filter((value): value is string => Boolean(value))
         .forEach((value) => blockedUserIds.add(value));
     });
+  }
+
+  // 2. 오늘 날짜의 대회 경기(tournament_matches) 중 대기(pending) 또는 진행 중(in_progress)인 경기에 배정된 선수들 차단
+  const { data: todayTournaments, error: tournamentsError } = await adminSupabase
+    .from('tournaments')
+    .select('id')
+    .eq('tournament_date', today);
+
+  if (tournamentsError) {
+    throw new Error(tournamentsError.message);
+  }
+
+  if (todayTournaments && todayTournaments.length > 0) {
+    const tournamentIds = todayTournaments.map((t) => t.id);
+    const { data: activeTournamentMatches, error: activeMatchesError } = await adminSupabase
+      .from('tournament_matches')
+      .select('team1, team2')
+      .in('tournament_id', tournamentIds)
+      .in('status', ['pending', 'in_progress']);
+
+    if (activeMatchesError) {
+      throw new Error(activeMatchesError.message);
+    }
+
+    if (activeTournamentMatches && activeTournamentMatches.length > 0) {
+      const activePlayerNames = new Set<string>();
+      activeTournamentMatches.forEach((m) => {
+        (m.team1 || []).forEach((name) => activePlayerNames.add(name.trim()));
+        (m.team2 || []).forEach((name) => activePlayerNames.add(name.trim()));
+      });
+
+      if (activePlayerNames.size > 0) {
+        const { data: playerProfiles, error: profilesLookupError } = await adminSupabase
+          .from('profiles')
+          .select('id')
+          .in('full_name', Array.from(activePlayerNames));
+
+        if (profilesLookupError) {
+          throw new Error(profilesLookupError.message);
+        }
+
+        if (playerProfiles) {
+          playerProfiles.forEach((p) => blockedUserIds.add(p.id));
+        }
+      }
+    }
   }
 
   const { data: challengeRows, error: challengeRowsError } = await adminSupabase

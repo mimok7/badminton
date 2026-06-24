@@ -7,7 +7,7 @@ import {
   DEFAULT_USER_REDIRECT,
   matchesRoutePrefix,
 } from '@/lib/route-access';
-import { getUserRole, isAdminOrManagerRole } from '@/lib/auth';
+import { getUserRole, isAdminOrManagerRole, getRoleFromUser } from '@/lib/auth';
 
 import type { NextRequest } from 'next/server';
 
@@ -41,14 +41,32 @@ export async function middleware(req: NextRequest) {
   );
 
   const pathname = req.nextUrl.pathname;
+  const isAdminRoute = matchesRoutePrefix(pathname, ADMIN_ROUTE_PREFIXES);
+  const isAuthRoute = matchesRoutePrefix(pathname, AUTH_ROUTE_PREFIXES);
+
+  // 세션 쿠키 존재 여부 검사 (보통 sb-[project-ref]-auth-token 형식)
+  const hasSessionCookie = req.cookies.getAll().some(
+    (cookie) => cookie.name.startsWith('sb-') && cookie.name.includes('auth-token')
+  );
+
+  // 세션 쿠키가 없고 관리자 경로가 아닌 경우, 인증 조회(getUser)를 스킵하고 바로 통과시킵니다.
+  if (!hasSessionCookie && !isAdminRoute) {
+    return res;
+  }
+
+  // 만약 세션 쿠키가 없고 관리자 경로라면, 바로 로그인으로 리다이렉트합니다.
+  if (!hasSessionCookie && isAdminRoute) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/login';
+    url.searchParams.set('redirectTo', pathname);
+    return NextResponse.redirect(url);
+  }
 
   try {
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
-    const isAdminRoute = matchesRoutePrefix(pathname, ADMIN_ROUTE_PREFIXES);
-    const isAuthRoute = matchesRoutePrefix(pathname, AUTH_ROUTE_PREFIXES);
     
     // change-password 페이지는 언제나 접근 가능
     if (pathname === '/change-password') {
@@ -66,7 +84,7 @@ export async function middleware(req: NextRequest) {
     }
 
     if (user && isAuthRoute) {
-      const role = await getUserRole(supabase, user);
+      const role = getRoleFromUser(user);
       const url = req.nextUrl.clone();
       url.pathname = isAdminOrManagerRole(role) ? DEFAULT_ADMIN_REDIRECT : DEFAULT_USER_REDIRECT;
       return NextResponse.redirect(url);

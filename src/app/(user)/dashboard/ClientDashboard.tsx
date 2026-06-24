@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, CalendarDays, LogOut, Shield, Swords, Target, Trophy, UserCircle2, Zap } from 'lucide-react';
+import { ArrowRight, CalendarDays, Gift, LogOut, Shield, Swords, Target, Trophy, UserCircle2, Zap, Bell } from 'lucide-react';
 
 import MatchNotifications from '@/components/MatchNotifications';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,12 @@ const ATTENDANCE_OPTIONS: Array<{ value: Exclude<AttendanceStatus, null>; label:
 ];
 
 const quickLinks = [
+  {
+    href: '/notifications',
+    title: '공지사항/알림',
+    description: '새로운 공지와 내 알림을 확인합니다.',
+    icon: Bell,
+  },
   {
     href: '/challenge',
     title: '게임 제안',
@@ -61,6 +67,12 @@ const quickLinks = [
     title: '대회 대진표',
     description: '대회 대진표를 확인합니다.',
     icon: Trophy,
+  },
+  {
+    href: '/products/exchange',
+    title: '상품 교환',
+    description: '코인을 사용하여 상품으로 교환합니다.',
+    icon: Gift,
   },
 ];
 

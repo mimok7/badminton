@@ -150,6 +150,7 @@ export default function AdminCoinsPage() {
         initialCoinBalance: targetSettings.initialCoinBalance,
         settlementMode: targetSettings.settlementMode,
         fixedWinnerReward: targetSettings.fixedWinnerReward,
+        attendanceReward: targetSettings.attendanceReward,
       });
       setCoinSettings(targetSettings);
       await fetchData();
@@ -192,6 +193,7 @@ export default function AdminCoinsPage() {
       initialCoinBalance: 0,
       settlementMode: 'winner_only_fixed',
       fixedWinnerReward: 1,
+      attendanceReward: coinSettings.attendanceReward || 10,
     });
   };
 
@@ -298,6 +300,22 @@ export default function AdminCoinsPage() {
                 setCoinSettings((prev) => ({
                   ...prev,
                   fixedWinnerReward: Math.max(0, Number(event.target.value) || 0),
+                }))
+              }
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">하루 출석 보상</span>
+            <input
+              type="number"
+              min={0}
+              value={coinSettings.attendanceReward ?? 0}
+              onChange={(event) =>
+                setCoinSettings((prev) => ({
+                  ...prev,
+                  attendanceReward: Math.max(0, Number(event.target.value) || 0),
                 }))
               }
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"

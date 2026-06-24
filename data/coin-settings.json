@@ -1,5 +1,6 @@
 {
-  "initialCoinBalance": 0,
-  "settlementMode": "winner_only_fixed",
-  "fixedWinnerReward": 1
+  "initialCoinBalance": 10,
+  "settlementMode": "zero_sum",
+  "fixedWinnerReward": 1,
+  "attendanceReward": 5
 }

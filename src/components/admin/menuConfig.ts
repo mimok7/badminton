@@ -23,11 +23,12 @@ export const SECTIONS: MenuSection[] = [
     color: 'purple',
   },
   {
-    title: '👥 회원 관리',
+    title: '🛠️ 관리 도구',
     items: [
       { label: '회원 운영', href: '/admin/members', icon: '👥' },
       { label: '출석 현황', href: '/admin/members?tab=attendance', icon: '✅' },
       { label: '코인 관리', href: '/admin/coins', icon: '🪙' },
+      { label: '상품 관리', href: '/admin/products', icon: '🎁' },
       { label: '전체 출석', href: '/attendance-all-test', icon: '🧪' },
     ],
     color: 'green',

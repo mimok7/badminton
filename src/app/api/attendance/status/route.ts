@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+import { readCoinSettings } from '@/lib/coin-settings';
 
 type AttendanceStatus = 'present' | 'lesson' | 'absent';
 
@@ -87,6 +88,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid attendance status' }, { status: 400 });
     }
 
+    // 1. 기존 출석 상태 조회
+    const { data: prevAttendance, error: lookupError } = await resolved.adminSupabase
+      .from('attendances')
+      .select('status')
+      .eq('user_id', resolved.profileId)
+      .eq('attended_at', attendedAt)
+      .maybeSingle();
+
+    if (lookupError) {
+      return NextResponse.json({ error: 'Failed to lookup previous attendance status' }, { status: 500 });
+    }
+
+    const prevStatus = prevAttendance?.status || null;
+
+    // 2. 출석 상태 업데이트 (upsert)
     const { error } = await resolved.adminSupabase
       .from('attendances')
       .upsert(
@@ -100,6 +116,43 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: 'Failed to save attendance status' }, { status: 500 });
+    }
+
+    // 3. 코인 변동 적용
+    const wasPresent = prevStatus === 'present' || prevStatus === 'lesson';
+    const isNowPresent = status === 'present' || status === 'lesson';
+
+    if (wasPresent !== isNowPresent) {
+      const coinSettings = await readCoinSettings();
+      const reward = coinSettings.attendanceReward ?? 10;
+
+      if (reward > 0) {
+        // 프로필 잔액 조회 및 증감
+        const { data: profile } = await resolved.adminSupabase
+          .from('profiles')
+          .select('coin_balance')
+          .eq('id', resolved.profileId)
+          .single();
+
+        if (profile) {
+          const currentBalance = profile.coin_balance ?? 0;
+          let nextBalance = currentBalance;
+
+          if (isNowPresent) {
+            nextBalance += reward;
+          } else {
+            nextBalance = Math.max(0, nextBalance - reward);
+          }
+
+          await resolved.adminSupabase
+            .from('profiles')
+            .update({
+              coin_balance: nextBalance,
+              coin_updated_at: new Date().toISOString(),
+            })
+            .eq('id', resolved.profileId);
+        }
+      }
     }
 
     return NextResponse.json({ status, attendedAt, ok: true });

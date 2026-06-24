@@ -151,6 +151,7 @@ export async function POST(request: Request) {
   if (action === 'update_settings') {
     const initialCoinBalance = Number(body?.initialCoinBalance ?? DEFAULT_COIN_SETTINGS.initialCoinBalance);
     const fixedWinnerReward = Number(body?.fixedWinnerReward ?? DEFAULT_COIN_SETTINGS.fixedWinnerReward);
+    const attendanceReward = Number(body?.attendanceReward ?? DEFAULT_COIN_SETTINGS.attendanceReward);
     const settlementModeValue = String(body?.settlementMode || DEFAULT_COIN_SETTINGS.settlementMode);
 
     if (!Number.isFinite(initialCoinBalance) || !Number.isInteger(initialCoinBalance) || initialCoinBalance < 0) {
@@ -159,6 +160,10 @@ export async function POST(request: Request) {
 
     if (!Number.isFinite(fixedWinnerReward) || !Number.isInteger(fixedWinnerReward) || fixedWinnerReward < 0) {
       return NextResponse.json({ error: '승자 보상 코인은 0 이상의 정수여야 합니다.' }, { status: 400 });
+    }
+
+    if (!Number.isFinite(attendanceReward) || !Number.isInteger(attendanceReward) || attendanceReward < 0) {
+      return NextResponse.json({ error: '출석 보상 코인은 0 이상의 정수여야 합니다.' }, { status: 400 });
     }
 
     if (!['zero_sum', 'winner_only_pool', 'winner_only_fixed'].includes(settlementModeValue)) {
@@ -171,6 +176,7 @@ export async function POST(request: Request) {
       initialCoinBalance,
       settlementMode,
       fixedWinnerReward,
+      attendanceReward,
     });
 
     return NextResponse.json({ coinSettings });

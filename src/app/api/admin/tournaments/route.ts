@@ -208,6 +208,12 @@ export async function GET(request: Request) {
 
     const tournaments = data || [];
 
+    const { data: profilesData } = await adminContext.adminSupabase
+      .from('profiles')
+      .select('id, full_name, username')
+      .order('full_name', { ascending: true });
+    const profiles = profilesData || [];
+
     if (includeMatches === '1' || includeMatches === 'true') {
       const selectedTournament =
         (tournamentId ? tournaments.find((tournament) => tournament.id === tournamentId) : null) ||
@@ -220,7 +226,7 @@ export async function GET(request: Request) {
       );
 
       if (!targetTournamentId) {
-        return NextResponse.json({ tournaments, selectedTournament: null, selectedTeamAssignment: null, matches: [] });
+        return NextResponse.json({ tournaments, selectedTournament: null, selectedTeamAssignment: null, matches: [], profiles });
       }
 
       const { data: matchesData, error: matchesError } = await adminContext.adminSupabase
@@ -281,10 +287,11 @@ export async function GET(request: Request) {
         selectedTournament,
         selectedTeamAssignment,
         matches: normalizedMatches,
+        profiles,
       });
     }
 
-    return NextResponse.json({ tournaments });
+    return NextResponse.json({ tournaments, profiles });
   } catch (error) {
     return NextResponse.json(
       {
@@ -433,15 +440,24 @@ export async function PATCH(request: Request) {
     if (hasRefereeUpdate && scoreTeam1 == null && scoreTeam2 == null) {
       // 심판 배정만 업데이트
       const refereeName = typeof payload?.referee_name === 'string' ? payload.referee_name : null;
-      const refereeId = typeof payload?.referee_id === 'string' ? payload.referee_id : null;
+      let refereeId = typeof payload?.referee_id === 'string' ? payload.referee_id : null;
+
+      if (!refereeId && refereeName) {
+        const { data: profile } = await adminContext.adminSupabase
+          .from('profiles')
+          .select('id')
+          .eq('full_name', refereeName.trim())
+          .limit(1)
+          .maybeSingle();
+        if (profile) {
+          refereeId = profile.id;
+        }
+      }
 
       const updateData: Record<string, unknown> = {
         referee_name: refereeName,
+        referee_id: refereeId || null,
       };
-
-      if (refereeId) {
-        updateData.referee_id = refereeId;
-      }
 
       const { data, error } = await adminContext.adminSupabase
         .from('tournament_matches')

@@ -115,7 +115,11 @@ function formatCourtLabel(court: string) {
 }
 
 function formatTournamentTitle(title: string) {
-  return title.replace(/^라뚱\s*대회|^대회경기/u, '대회 경기').replace(/\s*\([^)]*\)\s*$/, '');
+  return title
+    .replace(/^라뚱\s*대회|^대회경기/u, '대회 경기')
+    .replace(/라운드\s*\d+/g, '')
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .trim();
 }
 
 function getMatchTypeLabel(matchType: string) {
@@ -469,6 +473,91 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     'pointsDiff',
     'h2h',
   ]);
+  const [profiles, setProfiles] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<{ id: string; full_name: string; role: string } | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, role')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          setCurrentUser({
+            id: user.id,
+            full_name: profile?.full_name || '',
+            role: profile?.role || 'user',
+          });
+        }
+      } catch (err) {
+        console.error('사용자 정보 로드 실패:', err);
+      }
+    };
+    void fetchUser();
+  }, [supabase]);
+
+  const getDisplayRefereeName = (match: Match) => {
+    if (match.referee_name) {
+      return match.referee_name;
+    }
+
+    const currentRound = match.round || 1;
+    const currentMatchNum = match.match_number || 0;
+    const courtName = match.court || '';
+
+    const precedingMatches = matches.filter((m) => {
+      if (m.court !== courtName || m.id === match.id) return false;
+      return (
+        (m.round || 1) < currentRound ||
+        ((m.round || 1) === currentRound && (m.match_number || 0) < currentMatchNum)
+      );
+    });
+
+    if (precedingMatches.length === 0) {
+      return null;
+    }
+
+    precedingMatches.sort((a, b) => {
+      const roundDiff = (b.round || 1) - (a.round || 1);
+      if (roundDiff !== 0) return roundDiff;
+      return (b.match_number || 0) - (a.match_number || 0);
+    });
+
+    const precedingMatch = precedingMatches[0];
+    if (precedingMatch.status !== 'completed') {
+      return null;
+    }
+
+    const winner = precedingMatch.winner;
+    let winningPlayers: string[] = [];
+    if (winner === 'team1') {
+      winningPlayers = precedingMatch.team1 || [];
+    } else if (winner === 'team2') {
+      winningPlayers = precedingMatch.team2 || [];
+    }
+
+    if (winningPlayers.length > 0) {
+      return winningPlayers.map((name) => name.replace(/\([^)]*\)$/, '').trim()).join(', ');
+    }
+
+    return null;
+  };
+
+  const isUserReferee = (match: Match) => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin' || currentUser.role === 'manager') return true;
+
+    const displayReferee = getDisplayRefereeName(match);
+    if (!displayReferee) return false;
+
+    const cleanCurrentUser = currentUser.full_name.trim().toLowerCase();
+    const refereeNames = displayReferee.split(',').map((name) => name.trim().toLowerCase());
+    return refereeNames.includes(cleanCurrentUser);
+  };
 
   useEffect(() => {
     if (selectedTournament?.match_type) {
@@ -627,6 +716,9 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
           payload?.selectedTeamAssignment ? mapTeamAssignmentRow(payload.selectedTeamAssignment) : null
         );
         setMatches(normalizeMatches(Array.isArray(payload?.matches) ? payload.matches : []));
+        if (Array.isArray(payload?.profiles)) {
+          setProfiles(payload.profiles);
+        }
         setLoadError(null);
         return;
       }
@@ -788,6 +880,9 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
         setSelectedTournament(selected);
         setSelectedTournamentAssignment(selectedAssignment);
         setMatches(normalizeMatches(nextMatches));
+        if (Array.isArray(payload?.profiles)) {
+          setProfiles(payload.profiles);
+        }
         await fetchTournamentMetrics(tournamentList);
         return;
       }
@@ -1512,20 +1607,10 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                 : 'border-slate-200 bg-slate-50/60 hover:border-slate-300 hover:bg-slate-50'
                             }`}
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="truncate font-semibold text-slate-900">{formatTournamentTitle(tournament.title)}</div>
-                                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-                                  <span>{new Date(tournament.tournament_date).toLocaleDateString('ko-KR')}</span>
-                                  <span>{tournament.round_number}회차</span>
-                                  <span>{metrics?.matchCount ?? tournament.total_teams}경기</span>
-                                </div>
+                            <div className="flex flex-col items-start gap-1">
+                              <div className="w-full">
+                                <div className="whitespace-pre-wrap font-semibold text-slate-900 leading-relaxed text-left">{formatTournamentTitle(tournament.title)}</div>
                               </div>
-                              {tournament.match_type && (
-                                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${matchTypeMeta[tournament.match_type]?.badge || 'bg-slate-100 text-slate-700'}`}>
-                                  {matchTypeMeta[tournament.match_type]?.label || tournament.match_type}
-                                </span>
-                              )}
                             </div>
                           </button>
                         );
@@ -1537,8 +1622,16 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                 {selectedTournament ? (
                   <>
                     <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
-                      <div className="mb-4">
+                      <div className="mb-4 flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900">대진표 ({matches.length}경기)</h3>
+                        <button
+                          onClick={() => {
+                            if (selectedTournament) void fetchMatches(selectedTournament.id);
+                          }}
+                          className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 shadow-sm"
+                        >
+                          🔁 새로고침
+                        </button>
                       </div>
                       {matches.length === 0 ? (
                         <p className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 py-10 text-center text-sm text-slate-500">경기가 없습니다.</p>
@@ -1667,14 +1760,107 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                           >
                                             <option value="">선택 안함</option>
                                             {(() => {
-                                              const allPlayers = new Set<string>();
+                                              const inProgressPlayers = new Set<string>();
+                                              const currentMatchPlayers = new Set<string>();
+                                              const nextMatchPlayers = new Set<string>();
+
+                                              // 1. Current match players
+                                              if (Array.isArray(match.team1)) {
+                                                match.team1.forEach((p) => currentMatchPlayers.add(p.replace(/\([^)]*\)$/, '').trim().toLowerCase()));
+                                              }
+                                              if (Array.isArray(match.team2)) {
+                                                match.team2.forEach((p) => currentMatchPlayers.add(p.replace(/\([^)]*\)$/, '').trim().toLowerCase()));
+                                              }
+
+                                              // 2. In progress players
                                               matches.forEach((m) => {
-                                                m.team1.forEach((p) => allPlayers.add(p.replace(/\([^)]*\)$/, '').trim()));
-                                                m.team2.forEach((p) => allPlayers.add(p.replace(/\([^)]*\)$/, '').trim()));
+                                                if (m.status === 'in_progress') {
+                                                  if (Array.isArray(m.team1)) {
+                                                    m.team1.forEach((p) => inProgressPlayers.add(p.replace(/\([^)]*\)$/, '').trim().toLowerCase()));
+                                                  }
+                                                  if (Array.isArray(m.team2)) {
+                                                    m.team2.forEach((p) => inProgressPlayers.add(p.replace(/\([^)]*\)$/, '').trim().toLowerCase()));
+                                                  }
+                                                }
                                               });
-                                              return Array.from(allPlayers).sort((a, b) => a.localeCompare(b, 'ko-KR')).map((player) => (
-                                                <option key={player} value={player}>{player}</option>
-                                              ));
+
+                                              // 3. Immediately following match on the same court
+                                              const currentRound = match.round || 1;
+                                              const currentMatchNum = match.match_number || 0;
+                                              const courtName = match.court || '';
+
+                                              const futureCourtMatches = matches.filter((m) => {
+                                                if (m.court !== courtName || m.id === match.id) return false;
+                                                return (
+                                                  (m.round || 1) > currentRound ||
+                                                  ((m.round || 1) === currentRound && (m.match_number || 0) > currentMatchNum)
+                                                );
+                                              });
+
+                                              // Sort future matches ascending to find the immediately following one
+                                              futureCourtMatches.sort((a, b) => {
+                                                const roundDiff = (a.round || 1) - (b.round || 1);
+                                                if (roundDiff !== 0) return roundDiff;
+                                                return (a.match_number || 0) - (b.match_number || 0);
+                                              });
+
+                                              if (futureCourtMatches.length > 0) {
+                                                const nextMatch = futureCourtMatches[0];
+                                                if (Array.isArray(nextMatch.team1)) {
+                                                  nextMatch.team1.forEach((p) => nextMatchPlayers.add(p.replace(/\([^)]*\)$/, '').trim().toLowerCase()));
+                                                }
+                                                if (Array.isArray(nextMatch.team2)) {
+                                                  nextMatch.team2.forEach((p) => nextMatchPlayers.add(p.replace(/\([^)]*\)$/, '').trim().toLowerCase()));
+                                                }
+                                              }
+
+                                              // Combine all excluded names
+                                              const excludedPlayers = new Set<string>([
+                                                ...inProgressPlayers,
+                                                ...currentMatchPlayers,
+                                                ...nextMatchPlayers,
+                                              ]);
+
+                                              // Map of player matches
+                                              const playerMatchesMap = new Map<string, number[]>();
+                                              matches.forEach((m) => {
+                                                const mNum = m.match_number;
+                                                const teamPlayers = [...(m.team1 || []), ...(m.team2 || [])];
+                                                teamPlayers.forEach((p) => {
+                                                  const cleanName = p.replace(/\([^)]*\)$/, '').trim().toLowerCase();
+                                                  if (cleanName) {
+                                                    const nums = playerMatchesMap.get(cleanName) || [];
+                                                    if (!nums.includes(mNum)) {
+                                                      nums.push(mNum);
+                                                    }
+                                                    playerMatchesMap.set(cleanName, nums);
+                                                  }
+                                                });
+                                              });
+
+                                              // Filter profiles
+                                              const eligibleReferees = profiles.filter((p) => {
+                                                const name = p.full_name?.trim();
+                                                if (!name) return false;
+                                                const cleanNameLower = name.toLowerCase();
+                                                return !excludedPlayers.has(cleanNameLower) || (match.referee_name && match.referee_name.toLowerCase().includes(cleanNameLower));
+                                              });
+
+                                              const sortedReferees = [...eligibleReferees].sort((a, b) => 
+                                                (a.full_name || '').localeCompare(b.full_name || '', 'ko-KR')
+                                              );
+
+                                              return sortedReferees.map((p) => {
+                                                const cleanNameLower = (p.full_name || '').trim().toLowerCase();
+                                                const playerMatchNums = playerMatchesMap.get(cleanNameLower) || [];
+                                                const matchSuffix = playerMatchNums.length > 0 ? ` (${playerMatchNums.sort((a, b) => a - b).join(', ')}경기)` : '';
+
+                                                return (
+                                                  <option key={p.id} value={p.full_name || ''}>
+                                                    {p.full_name}{matchSuffix}
+                                                  </option>
+                                                );
+                                              });
                                             })()}
                                           </select>
                                         </div>
@@ -1688,6 +1874,12 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                           </Link>
                                         )}
                                       </div>
+                                      {/* 자동 배정 심판 정보 안내 */}
+                                      {!match.referee_name && getDisplayRefereeName(match) && (
+                                        <div className="mt-1 w-full text-[10px] text-emerald-600 font-semibold">
+                                          자동 심판: {getDisplayRefereeName(match)} (이전 경기 승자)
+                                        </div>
+                                      )}
                                     </article>
                                   );
                                 })}
@@ -1995,20 +2187,10 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                                   }`}
                                 >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <div className="truncate font-semibold text-slate-900">{formatTournamentTitle(tournament.title)}</div>
-                                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-                                        <span>{new Date(tournament.tournament_date).toLocaleDateString('ko-KR')}</span>
-                                        <span>{tournament.round_number}회차</span>
-                                        <span>{metrics?.matchCount ?? 0}경기</span>
-                                      </div>
+                                  <div className="flex flex-col items-start gap-1">
+                                    <div className="w-full">
+                                      <div className="whitespace-pre-wrap font-semibold text-slate-900 leading-relaxed text-left">{formatTournamentTitle(tournament.title)}</div>
                                     </div>
-                                    {tournament.match_type && (
-                                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${matchTypeMeta[tournament.match_type]?.badge || 'bg-slate-100 text-slate-700'}`}>
-                                        {matchTypeMeta[tournament.match_type]?.label || tournament.match_type}
-                                      </span>
-                                    )}
                                   </div>
                                 </button>
                               );
@@ -2017,6 +2199,21 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                         )}
                       </div>
                     </div>
+
+                    {selectedTournament && (
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-slate-900">대진표 ({matches.length}경기)</h3>
+                        <button
+                          onClick={() => {
+                            if (selectedTournament) void fetchMatches(selectedTournament.id);
+                          }}
+                          className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 shadow-sm"
+                        >
+                          🔁 새로고침
+                        </button>
+                      </div>
+                    )}
+
                     {matches.length === 0 ? (
                       <p className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 py-10 text-center text-sm text-slate-500">경기가 없습니다.</p>
                     ) : (
@@ -2092,11 +2289,17 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                         )}
                                       </div>
                                     )}
-                                    {match.referee_name && (
-                                      <div className="mt-2 text-xs text-slate-400 text-center">
-                                        심판: <span className="font-medium text-slate-600">{match.referee_name}</span>
-                                      </div>
-                                    )}
+                                    {(() => {
+                                      const displayReferee = getDisplayRefereeName(match);
+                                      if (!displayReferee) return null;
+                                      return (
+                                        <div className="mt-2 text-xs text-slate-400 text-center">
+                                          심판: <span className="font-medium text-slate-600">
+                                            {displayReferee} {!match.referee_name && ' (이전 경기 승자)'}
+                                          </span>
+                                        </div>
+                                      );
+                                    })()}
                                   </article>
                                 );
                               })}

@@ -9,6 +9,92 @@ type RouteContext = { params: Promise<{ matchId: string }> };
 type MatchRow = Record<string, unknown>;
 
 // GET: 매치 정보 조회
+async function getMatchRefereeInfo(
+  adminSupabase: any,
+  match: MatchRow,
+  currentUserId: string | null,
+  currentUserName: string | null
+) {
+  let refereeId = match.referee_id as string | null;
+  let refereeName = match.referee_name as string | null;
+  let isReferee = false;
+
+  if (refereeName) {
+    const cleanRefereeName = refereeName.trim().toLowerCase();
+    const cleanCurrentUserName = (currentUserName || '').trim().toLowerCase();
+    isReferee =
+      currentUserId != null &&
+      (refereeId === currentUserId || cleanRefereeName === cleanCurrentUserName);
+  } else {
+    // Fallback referee logic
+    const currentRound = (match.round as number) || 1;
+    const currentMatchNum = (match.match_number as number) || 0;
+    const courtName = (match.court as string) || '';
+
+    if (courtName) {
+      const { data: courtMatches, error: precedingError } = await adminSupabase
+        .from('tournament_matches')
+        .select('*')
+        .eq('tournament_id', match.tournament_id)
+        .eq('court', courtName);
+
+      if (!precedingError && courtMatches && courtMatches.length > 0) {
+        const precedingMatches = courtMatches.filter((m: any) => {
+          const r = m.round || 1;
+          const num = m.match_number || 0;
+          return r < currentRound || (r === currentRound && num < currentMatchNum);
+        });
+
+        // Sort preceding matches descending (highest round, then highest match_number)
+        precedingMatches.sort((a: any, b: any) => {
+          const roundDiff = (b.round || 1) - (a.round || 1);
+          if (roundDiff !== 0) return roundDiff;
+          return (b.match_number || 0) - (a.match_number || 0);
+        });
+
+        if (precedingMatches.length > 0) {
+          const precedingMatch = precedingMatches[0];
+          const winner = precedingMatch.winner;
+          let winningPlayers: string[] = [];
+
+          if (winner === 'team1') {
+            winningPlayers = Array.isArray(precedingMatch.team1) ? precedingMatch.team1 : [];
+          } else if (winner === 'team2') {
+            winningPlayers = Array.isArray(precedingMatch.team2) ? precedingMatch.team2 : [];
+          }
+
+          if (winningPlayers.length > 0) {
+            const cleanWinningPlayers = winningPlayers.map((name) =>
+              name.replace(/\([^)]*\)$/, '').trim()
+            );
+
+            refereeName = cleanWinningPlayers.join(', ');
+
+            if (currentUserName) {
+              const cleanCurrentUserName = currentUserName.replace(/\([^)]*\)$/, '').trim().toLowerCase();
+              isReferee = cleanWinningPlayers.some(
+                (name) => name.toLowerCase() === cleanCurrentUserName
+              );
+            }
+
+            if (currentUserId && !isReferee) {
+              const { data: winningProfiles } = await adminSupabase
+                .from('profiles')
+                .select('id')
+                .in('full_name', cleanWinningPlayers);
+              if (winningProfiles) {
+                isReferee = winningProfiles.some((p: any) => p.id === currentUserId);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { refereeId, refereeName, isReferee };
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { matchId } = await context.params;
@@ -59,11 +145,12 @@ export async function GET(_request: Request, context: RouteContext) {
       // 비로그인 사용자도 조회 가능
     }
 
-    const matchRefereeId = (match as MatchRow).referee_id as string | null;
-    const matchRefereeName = (match as MatchRow).referee_name as string | null;
-    const isReferee =
-      currentUserId != null &&
-      (matchRefereeId === currentUserId || matchRefereeName === currentUserName);
+    const { refereeId, refereeName, isReferee } = await getMatchRefereeInfo(
+      adminSupabase,
+      match,
+      currentUserId,
+      currentUserName
+    );
     const isAdmin = currentUserRole === 'admin' || currentUserRole === 'manager';
     const canEdit = isReferee || isAdmin;
 
@@ -80,8 +167,8 @@ export async function GET(_request: Request, context: RouteContext) {
         score_team1: (match.score_team1 as number | null) ?? 0,
         score_team2: (match.score_team2 as number | null) ?? 0,
         winner: match.winner,
-        referee_id: matchRefereeId,
-        referee_name: matchRefereeName,
+        referee_id: refereeId,
+        referee_name: refereeName,
       },
       canEdit,
       isReferee,
@@ -139,10 +226,12 @@ export async function PATCH(request: Request, context: RouteContext) {
       .maybeSingle();
 
     const currentUserName = profile?.full_name || null;
-    const matchRefereeId = (match as MatchRow).referee_id as string | null;
-    const matchRefereeName = (match as MatchRow).referee_name as string | null;
-    const isReferee =
-      matchRefereeId === user.id || matchRefereeName === currentUserName;
+    const { isReferee } = await getMatchRefereeInfo(
+      adminSupabase,
+      match,
+      user.id,
+      currentUserName
+    );
 
     if (!isReferee && !isAdmin) {
       return NextResponse.json(
@@ -232,10 +321,12 @@ export async function POST(request: Request, context: RouteContext) {
       .maybeSingle();
 
     const currentUserName = profile?.full_name || null;
-    const matchRefereeId = (match as MatchRow).referee_id as string | null;
-    const matchRefereeName = (match as MatchRow).referee_name as string | null;
-    const isReferee =
-      matchRefereeId === user.id || matchRefereeName === currentUserName;
+    const { isReferee } = await getMatchRefereeInfo(
+      adminSupabase,
+      match,
+      user.id,
+      currentUserName
+    );
 
     if (!isReferee && !isAdmin) {
       return NextResponse.json(

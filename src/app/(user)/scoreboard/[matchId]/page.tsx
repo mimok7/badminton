@@ -201,18 +201,44 @@ export default function ScoreboardPage() {
   };
 
   // 전체화면 토글
-  const toggleFullscreen = () => {
+  const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen?.().catch(() => {});
-      setIsFullscreen(true);
+      try {
+        await containerRef.current?.requestFullscreen?.();
+        setIsFullscreen(true);
+        if (screen.orientation && typeof (screen.orientation as any).lock === 'function') {
+          await (screen.orientation as any).lock('landscape').catch((err: any) => {
+            console.warn('Orientation lock failed:', err);
+          });
+        }
+      } catch (err) {
+        console.warn('Fullscreen request failed:', err);
+      }
     } else {
-      document.exitFullscreen?.().catch(() => {});
-      setIsFullscreen(false);
+      try {
+        await document.exitFullscreen?.();
+        setIsFullscreen(false);
+        if (screen.orientation && typeof (screen.orientation as any).unlock === 'function') {
+          (screen.orientation as any).unlock();
+        }
+      } catch (err) {
+        console.warn('Fullscreen exit failed:', err);
+      }
     }
   };
 
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    const handler = () => {
+      const isFull = !!document.fullscreenElement;
+      setIsFullscreen(isFull);
+      if (!isFull) {
+        if (screen.orientation && typeof (screen.orientation as any).unlock === 'function') {
+          try {
+            (screen.orientation as any).unlock();
+          } catch {}
+        }
+      }
+    };
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
@@ -239,6 +265,9 @@ export default function ScoreboardPage() {
       </div>
     );
   }
+
+
+
 
   const isCompleted = match.status === 'completed';
   const rawTeam1Names = Array.isArray(match.team1)
@@ -297,6 +326,13 @@ export default function ScoreboardPage() {
         </div>
 
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={fetchMatch}
+            className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium transition hover:bg-white/20"
+            title="새로고침"
+          >
+            🔁 새로고침
+          </button>
           <button
             onClick={() => setIsFlipped((prev) => !prev)}
             className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium transition hover:bg-white/20"

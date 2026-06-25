@@ -190,10 +190,9 @@ export default function NotificationsPage() {
               </div>
               <Link
                 href="/dashboard"
-                className="flex items-center gap-1 text-xs font-medium text-slate-300 hover:text-white transition"
+                className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15"
               >
-                <Home className="h-3.5 w-3.5" />
-                홈으로
+                홈
               </Link>
             </div>
 

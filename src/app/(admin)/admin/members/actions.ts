@@ -268,3 +268,46 @@ export async function updateRatingSettings(startDate: string | null, endDate: st
     revalidatePath('/profile');
     return { success: true };
 }
+
+export async function resetUserPassword(userId: string, newPassword: string) {
+    try {
+        if (!(await isAdmin())) {
+            return { error: '비밀번호 초기화 권한이 없습니다.' };
+        }
+
+        if (!newPassword || newPassword.trim().length < 6) {
+            return { error: '비밀번호는 최소 6자리 이상이어야 합니다.' };
+        }
+
+        // 1. 프로필 찾기
+        const { data: profile, error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .select('id, user_id')
+            .or(`user_id.eq.${userId},id.eq.${userId}`)
+            .maybeSingle();
+
+        if (profileError) {
+            return { error: profileError.message };
+        }
+
+        if (!profile || !profile.user_id) {
+            return { error: '로그인 계정이 연동되지 않은 회원은 비밀번호를 초기화할 수 없습니다.' };
+        }
+
+        // 2. Auth 유저 비밀번호 업데이트
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+            profile.user_id,
+            { password: newPassword.trim() }
+        );
+
+        if (authError) {
+            return { error: authError.message };
+        }
+
+        return { success: true };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : '비밀번호 초기화 중 알 수 없는 오류가 발생했습니다.';
+        return { error: message };
+    }
+}
+

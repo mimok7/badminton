@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import type { AdminUser } from '@/types';
-import { createMember, deleteUser, updateUser, updateUsersBulk, updateRatingSettings } from './actions';
+import { createMember, deleteUser, updateUser, updateUsersBulk, updateRatingSettings, resetUserPassword } from './actions';
 import type { UpdateUserPayload } from './actions';
 import { useRouter } from 'next/navigation';
-import { Activity, Calendar, Filter, LayoutGrid, List, Save, Search, Shield, Trash2, UserPlus, Users } from 'lucide-react';
+import { Activity, Calendar, Filter, Key, LayoutGrid, List, Save, Search, Shield, Trash2, UserPlus, Users } from 'lucide-react';
 
 type LevelOption = {
     code: string;
@@ -214,6 +214,24 @@ export default function UserManagementClient({
                         return;
                     }
                     alert('사용자가 성공적으로 삭제되었습니다.');
+                }
+            });
+        }
+    };
+
+    const handleResetPassword = (user: AdminUser) => {
+        if (!user.email) {
+            alert('이메일 정보가 없는 회원은 비밀번호를 초기화할 수 없습니다.');
+            return;
+        }
+
+        if (window.confirm(`'${user.username || user.full_name}' 회원의 비밀번호를 초기 비밀번호('bad123!')로 초기화하시겠습니까?`)) {
+            startTransition(async () => {
+                const result = await resetUserPassword(user.id, 'bad123!');
+                if (result?.error) {
+                    alert(`비밀번호 초기화 실패: ${result.error}`);
+                } else {
+                    alert('비밀번호가 초기 비밀번호(bad123!)로 성공적으로 변경되었습니다.');
                 }
             });
         }
@@ -690,6 +708,15 @@ export default function UserManagementClient({
                                             </button>
                                             <button
                                                 type="button"
+                                                onClick={() => handleResetPassword(user)}
+                                                disabled={isPending}
+                                                className="inline-flex items-center gap-1 rounded-md border border-amber-200 px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-40"
+                                            >
+                                                <Key className="size-3.5" />
+                                                비밀번호
+                                            </button>
+                                            <button
+                                                type="button"
                                                 onClick={() => handleDelete(user)}
                                                 disabled={isPending || user.id === myUserId}
                                                 className="inline-flex items-center gap-1 rounded-md border border-rose-200 px-3 py-2 text-xs font-medium text-rose-700 disabled:opacity-40"
@@ -709,7 +736,7 @@ export default function UserManagementClient({
     );
 
     const renderMemberCards = () => (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5">
             {sortedUsers.map((user) => {
                 const draft = getDraft(user);
                 const isDirty = hasPendingChanges(user);
@@ -840,6 +867,15 @@ export default function UserManagementClient({
                             >
                                 <Save className="size-3.5" />
                                 저장
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleResetPassword(user)}
+                                disabled={isPending}
+                                className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-40"
+                            >
+                                <Key className="size-3.5" />
+                                비밀번호
                             </button>
                             <button
                                 type="button"

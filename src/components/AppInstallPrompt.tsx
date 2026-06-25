@@ -26,10 +26,16 @@ export default function AppInstallPrompt() {
   const [installed, setInstalled] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setInstalled(isAppInstalled());
     setDismissed(window.localStorage.getItem('badminton-install-prompt-dismissed') === 'true');
+
+    // 모바일 기기 감지
+    const ua = navigator.userAgent;
+    const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+    setIsMobile(mobile);
 
     // 이미 전역 window 객체에 캡처된 prompt가 있다면 바로 가져옴
     if ((window as any).deferredPrompt) {
@@ -84,7 +90,7 @@ export default function AppInstallPrompt() {
     window.localStorage.setItem('badminton-install-prompt-dismissed', 'true');
   };
 
-  const shouldShow = !installed && !dismissed;
+  const shouldShow = !installed && !dismissed && isMobile;
 
   if (!shouldShow) {
     return (

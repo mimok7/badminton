@@ -151,7 +151,7 @@ export default function AdminCourtsPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">코트 관리</h1>
+        <h1 className="text-2xl font-semibold">🏟️ 코트 관리</h1>
         <p className="text-gray-500 text-sm mt-1">코트 생성, 활성/비활성, 정렬 및 삭제를 관리합니다.</p>
       </div>
 

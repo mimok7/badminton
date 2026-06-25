@@ -3,15 +3,12 @@ export const AUTH_ROUTE_PREFIXES = ['/login', '/signup'] as const;
 export const ADMIN_ROUTE_PREFIXES = [
   '/admin',
   '/admin-setup',
-  '/attendance-all-test',
-  '/database-test',
   '/match-assignment',
   '/match-results',
   '/match-schedule',
   '/players',
   '/recurring-matches',
   '/team-management',
-  '/test-attendance-all',
 ] as const;
 
 export const DEFAULT_USER_REDIRECT = '/dashboard';

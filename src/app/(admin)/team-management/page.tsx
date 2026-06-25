@@ -2162,7 +2162,7 @@ export default function TeamManagementPage() {
 
   return (
     <div className="w-full px-2 py-2 sm:p-6">
-      <h1 className="mb-3 text-center text-xl font-bold sm:mb-4 sm:text-3xl">경기 팀 관리</h1>
+      <h1 className="mb-3 text-center text-xl font-bold sm:mb-4 sm:text-3xl">🤝 경기 팀 관리</h1>
 
       {/* 스케줄 선택 & 팀 구성 방식 - 한 행으로 배치 */}
       <div className="mb-4 rounded-lg bg-white p-3 shadow-md sm:mb-6 sm:p-6">

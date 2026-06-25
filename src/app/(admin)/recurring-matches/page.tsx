@@ -320,7 +320,7 @@ export default function RecurringMatchPage() {
     <RequireAdmin>
       <div className="w-full p-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-4">정기모임 자동 생성 관리</h1>
+          <h1 className="text-3xl font-bold mb-4">🔄 정기모임 자동 생성 관리</h1>
           <p className="text-gray-600 mb-6">
             정기적으로 반복되는 배드민턴 모임을 자동으로 생성하도록 설정할 수 있습니다.
           </p>

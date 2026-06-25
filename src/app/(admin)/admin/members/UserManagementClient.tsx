@@ -900,7 +900,7 @@ export default function UserManagementClient({
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                         <div>
                             <div className="text-xs font-medium text-slate-500 sm:text-sm">Member Console</div>
-                            <h1 className="mt-1 text-xl font-semibold text-slate-900 sm:text-3xl">회원 운영 센터</h1>
+                            <h1 className="mt-1 text-xl font-semibold text-slate-900 sm:text-3xl">👥 회원 운영 센터</h1>
                             <p className="mt-2 hidden max-w-3xl text-sm text-slate-600 sm:block">
                                 회원 정보, 권한, 급수, 출석 흐름을 한 화면에서 정리하도록 묶었습니다.
                             </p>

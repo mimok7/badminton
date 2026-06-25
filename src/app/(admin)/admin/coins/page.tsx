@@ -122,21 +122,21 @@ export default function AdminCoinsPage() {
     }
   };
 
-  const resetAllCoins = async () => {
-    if (!confirm(`모든 사용자 코인을 ${coinSettings.initialCoinBalance}개로 재설정할까요?`)) {
+  const resetCoin = async (profileId: string, userName: string) => {
+    if (!confirm(`${userName}님의 코인을 ${coinSettings.initialCoinBalance}개로 재설정할까요?`)) {
       return;
     }
 
     try {
-      setLoading(true);
-      await runAction({ action: 'reset_all', coin_balance: coinSettings.initialCoinBalance });
+      setAdjustingId(profileId);
+      await runAction({ action: 'set', profile_id: profileId, coin_balance: coinSettings.initialCoinBalance });
       await fetchData();
-      alert(`전체 코인 재설정이 완료되었습니다. 모든 사용자가 ${coinSettings.initialCoinBalance}코인으로 맞춰졌습니다.`);
+      alert('코인 재설정이 완료되었습니다.');
     } catch (error) {
-      console.error('전체 코인 재설정 오류:', error);
-      alert(error instanceof Error ? error.message : '전체 코인 재설정 중 오류가 발생했습니다.');
+      console.error('코인 재설정 오류:', error);
+      alert(error instanceof Error ? error.message : '코인 재설정 중 오류가 발생했습니다.');
     } finally {
-      setLoading(false);
+      setAdjustingId(null);
     }
   };
 
@@ -208,7 +208,7 @@ export default function AdminCoinsPage() {
       <div className="flex flex-col gap-3 rounded-2xl bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">코인 관리</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">🪙 코인 관리</h1>
             <p className="mt-1 text-sm text-slate-500">
               기본 배팅은 1코인이고, 사용자는 경기별로 최대 3코인까지 설정할 수 있습니다.
             </p>
@@ -216,9 +216,6 @@ export default function AdminCoinsPage() {
           <div className="flex gap-2">
             <Button variant="outline" onClick={fetchData} disabled={loading}>
               새로고침
-            </Button>
-            <Button onClick={resetAllCoins} disabled={loading}>
-              전원 {coinSettings.initialCoinBalance}코인 재설정
             </Button>
           </div>
         </div>
@@ -274,53 +271,98 @@ export default function AdminCoinsPage() {
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <label className="space-y-2">
+          <div className="space-y-2">
             <span className="text-sm font-medium text-slate-700">전원 시작 코인</span>
-            <input
-              type="number"
-              min={0}
-              value={coinSettings.initialCoinBalance}
-              onChange={(event) =>
-                setCoinSettings((prev) => ({
-                  ...prev,
-                  initialCoinBalance: Math.max(0, Number(event.target.value) || 0),
-                }))
-              }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={0}
+                value={coinSettings.initialCoinBalance}
+                onChange={(event) =>
+                  setCoinSettings((prev) => ({
+                    ...prev,
+                    initialCoinBalance: Math.max(0, Number(event.target.value) || 0),
+                  }))
+                }
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() =>
+                  setCoinSettings((prev) => ({
+                    ...prev,
+                    initialCoinBalance: DEFAULT_COIN_SETTINGS.initialCoinBalance,
+                  }))
+                }
+                className="px-3 text-xs"
+              >
+                재설정
+              </Button>
+            </div>
+          </div>
 
-          <label className="space-y-2">
+          <div className="space-y-2">
             <span className="text-sm font-medium text-slate-700">승자 고정 보상</span>
-            <input
-              type="number"
-              min={0}
-              value={coinSettings.fixedWinnerReward}
-              onChange={(event) =>
-                setCoinSettings((prev) => ({
-                  ...prev,
-                  fixedWinnerReward: Math.max(0, Number(event.target.value) || 0),
-                }))
-              }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={0}
+                value={coinSettings.fixedWinnerReward}
+                onChange={(event) =>
+                  setCoinSettings((prev) => ({
+                    ...prev,
+                    fixedWinnerReward: Math.max(0, Number(event.target.value) || 0),
+                  }))
+                }
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() =>
+                  setCoinSettings((prev) => ({
+                    ...prev,
+                    fixedWinnerReward: DEFAULT_COIN_SETTINGS.fixedWinnerReward,
+                  }))
+                }
+                className="px-3 text-xs"
+              >
+                재설정
+              </Button>
+            </div>
+          </div>
 
-          <label className="space-y-2">
+          <div className="space-y-2">
             <span className="text-sm font-medium text-slate-700">하루 출석 보상</span>
-            <input
-              type="number"
-              min={0}
-              value={coinSettings.attendanceReward ?? 0}
-              onChange={(event) =>
-                setCoinSettings((prev) => ({
-                  ...prev,
-                  attendanceReward: Math.max(0, Number(event.target.value) || 0),
-                }))
-              }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-          </label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={0}
+                value={coinSettings.attendanceReward ?? 0}
+                onChange={(event) =>
+                  setCoinSettings((prev) => ({
+                    ...prev,
+                    attendanceReward: Math.max(0, Number(event.target.value) || 0),
+                  }))
+                }
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() =>
+                  setCoinSettings((prev) => ({
+                    ...prev,
+                    attendanceReward: DEFAULT_COIN_SETTINGS.attendanceReward,
+                  }))
+                }
+                className="px-3 text-xs"
+              >
+                재설정
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
@@ -394,6 +436,13 @@ export default function AdminCoinsPage() {
                       />
                       <Button disabled={adjustingId === profile.id} onClick={() => setCoin(profile.id)}>
                         저장
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={adjustingId === profile.id}
+                        onClick={() => resetCoin(profile.id, profile.full_name || profile.username || '회원')}
+                      >
+                        재설정
                       </Button>
                     </div>
                   </td>

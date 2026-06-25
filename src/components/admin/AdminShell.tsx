@@ -114,39 +114,6 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         );
       })}
 
-      <div className="px-2 mt-6 pt-4 border-t border-gray-200">
-        <div className="text-sm font-bold uppercase tracking-[0.08em] text-gray-500 mb-2">빠른 이동</div>
-        <div className="space-y-1">
-          <Link
-            href="/dashboard"
-            onClick={handleNavClick}
-            className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-          >
-            <span>📊</span> 대시보드
-          </Link>
-          <Link
-            href="/admin/tournament-bracket"
-            onClick={handleNavClick}
-            className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-          >
-            <span>🧭</span> 관리자 대진표
-          </Link>
-          <Link
-            href="/tournament-bracket"
-            onClick={handleNavClick}
-            className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-          >
-            <span>📈</span> 사용자 대진표
-          </Link>
-          <Link
-            href="/"
-            onClick={handleNavClick}
-            className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-          >
-            <span>🏠</span> 홈으로
-          </Link>
-        </div>
-      </div>
     </nav>
   );
 
@@ -199,23 +166,31 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 </div>
                 <div className="hidden text-sm text-gray-500 sm:block">관리자 영역</div>
               </div>
-              {isMobileView ? (
-                <button
-                  type="button"
-                  onClick={() => setIsMobileSidebarOpen(true)}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              <div className="flex gap-2">
+                <Link
+                  href="/"
+                  className="inline-flex items-center rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
                 >
-                  메뉴
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsDesktopSidebarVisible((prev) => !prev)}
-                  className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
-                >
-                  {isDesktopSidebarVisible ? '사이드바 숨기기' : '사이드바 표시'}
-                </button>
-              )}
+                  🏠 사용자홈
+                </Link>
+                {isMobileView ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileSidebarOpen(true)}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    메뉴
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsDesktopSidebarVisible((prev) => !prev)}
+                    className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    {isDesktopSidebarVisible ? '사이드바 숨기기' : '사이드바 표시'}
+                  </button>
+                )}
+              </div>
             </div>
           </header>
           <main className={`admin-mobile-content relative z-0 min-h-screen w-full bg-gray-50 ${isMobileView ? 'px-2 py-2 pb-3' : 'px-6 py-6'}`}>

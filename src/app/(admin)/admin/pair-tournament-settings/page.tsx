@@ -954,7 +954,7 @@ function PairTournamentSettingsContent() {
   return (
     <div className="w-full px-2 py-2 sm:p-6">
       <div className="mb-4 sm:mb-6">
-        <h1 className="text-xl font-bold text-gray-900 sm:text-3xl">페어 대회 설정</h1>
+        <h1 className="text-xl font-bold text-gray-900 sm:text-3xl">👥 페어 대회 설정</h1>
         <p className="mt-1 text-sm text-gray-600 sm:text-base">
           페어 구성별로 그룹 경기 방식을 따로 설정하고 페어 대회를 생성합니다.
         </p>

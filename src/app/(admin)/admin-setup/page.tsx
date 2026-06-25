@@ -150,7 +150,7 @@ export default function AdminSetupPage() {
     <div className="w-full mt-10 p-6">
       <div className="bg-white shadow rounded-lg p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">
-          관리자 권한 설정 🛡️
+          🛡️ 관리자 권한 설정
         </h1>
         
         <div className="space-y-4">

@@ -28,16 +28,6 @@ interface AdminMenuCard {
 
 // 관리자 카드 메뉴 데이터
 const ADMIN_MENU_CARDS: AdminMenuCard[] = [
-  {
-    id: 'attendance-all-test',
-    name: '전체 회원 출석 테스트',
-    icon: '🧪',
-    path: '/attendance-all-test',
-    description: '경기 일정 선택 후 모든 회원을 출석자로 일괄 등록',
-    category: 'member',
-    color: 'green',
-    adminOnly: true
-  },
   // 경기 관리 카테고리
   { 
     id: 'match-schedule', 

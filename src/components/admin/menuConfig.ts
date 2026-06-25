@@ -29,23 +29,15 @@ export const SECTIONS: MenuSection[] = [
       { label: '출석 현황', href: '/admin/members?tab=attendance', icon: '✅' },
       { label: '코인 관리', href: '/admin/coins', icon: '🪙' },
       { label: '상품 관리', href: '/admin/products', icon: '🎁' },
-      { label: '전체 출석', href: '/attendance-all-test', icon: '🧪' },
     ],
     color: 'green',
   },
   {
-    title: '�️ 클럽 운영',
+    title: '🏢 클럽 운영',
     items: [
       { label: '정기모임', href: '/recurring-matches', icon: '🔄' },
       { label: '공지사항', href: '/admin/notifications', icon: '📢' },
       { label: '코트 관리', href: '/admin/courts', icon: '🏟️' },
-    ],
-    color: 'orange',
-  },
-  {
-    title: '⚙️ 시스템 관리',
-    items: [
-      { label: '시스템', href: '/database-test', icon: '🔧' },
     ],
     color: 'orange',
   },

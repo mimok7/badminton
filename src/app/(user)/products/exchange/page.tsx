@@ -125,45 +125,45 @@ export default function UserProductsExchangePage() {
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900 pb-12">
-      {/* 1. 상단 그라디언트 비주얼 헤더 */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-950 px-4 py-8 text-white shadow-md">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)]" />
-        <div className="mx-auto max-w-3xl flex flex-col gap-6 relative z-10">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-1 text-xs font-semibold text-indigo-300">
-                <Sparkles className="h-3 w-3" />
-                뚱보 코인 마켓
-              </span>
-              <h1 className="text-2xl font-bold tracking-tight">상품 교환</h1>
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
+        {/* 1. 상단 그라디언트 비주얼 헤더 */}
+        <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
+          <div className="relative z-10 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  뚱보 코인 마켓
+                </span>
+                <h1 className="text-xl font-bold tracking-tight">상품 교환</h1>
+              </div>
+              <Link href="/dashboard" className="text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1 transition">
+                대시보드 이동
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-            <Link href="/dashboard" className="text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1 transition">
-              대시보드 이동
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
 
-          {/* 코인 잔액 디스플레이 카드 (Glassmorphism) */}
-          <div className="flex items-center justify-between rounded-2xl bg-white/10 border border-white/10 p-5 backdrop-blur-sm">
-            <div className="space-y-1">
-              <span className="text-xs text-indigo-200 font-medium">나의 현재 보유 잔액</span>
-              <div className="flex items-center gap-1.5">
-                <Coins className="h-6 w-6 text-amber-400" />
-                <span className="text-2xl font-black text-amber-300">{userCoins}</span>
-                <span className="text-sm font-semibold text-slate-200">코인</span>
+            {/* 코인 잔액 디스플레이 카드 (Glassmorphism) */}
+            <div className="flex items-center justify-between rounded-[18px] bg-white/10 border border-white/10 p-3.5 backdrop-blur-sm">
+              <div className="space-y-0.5">
+                <span className="text-[11px] text-indigo-200 font-medium">나의 현재 보유 잔액</span>
+                <div className="flex items-center gap-1.5">
+                  <Coins className="h-5 w-5 text-amber-400" />
+                  <span className="text-xl font-black text-amber-300">{userCoins}</span>
+                  <span className="text-xs font-semibold text-slate-200">코인</span>
+                </div>
+              </div>
+              <div className="rounded-full bg-white/5 p-2">
+                <Gift className="h-6 w-6 text-indigo-300" />
               </div>
             </div>
-            <div className="rounded-full bg-white/5 p-3">
-              <Gift className="h-7 w-7 text-indigo-300" />
-            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div className="mx-auto max-w-3xl px-4 py-6 space-y-8">
         {/* 2. DB 미생성 예외 배너 */}
         {dbMissing && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 shadow-sm flex items-start gap-3">
+          <section className="rounded-[24px] border border-amber-200 bg-amber-50/70 p-4 shadow-sm flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <h4 className="text-sm font-semibold text-amber-900">교환 시스템 준비 중</h4>
@@ -171,22 +171,25 @@ export default function UserProductsExchangePage() {
                 현재 관리자가 데이터베이스 테이블 생성을 진행하고 있습니다. 잠시 후 새로고침해 주세요.
               </p>
             </div>
-          </div>
+          </section>
         )}
 
         {/* 3. 상품 목록 영역 */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5 text-indigo-600" />
-            교환 가능한 상품 목록
-          </h2>
+        <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm flex flex-col gap-4">
+          <div>
+            <p className="text-xs text-slate-500">마켓</p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5 text-slate-700" />
+              교환 가능한 상품 목록
+            </h2>
+          </div>
 
           {!dbMissing && products.length === 0 ? (
-            <div className="rounded-2xl bg-white p-8 text-center text-slate-500 shadow-sm border border-slate-200/50">
+            <div className="rounded-[20px] bg-slate-50 p-8 text-center text-sm text-slate-500 shadow-sm border border-slate-200/50">
               현재 준비된 교환 상품이 없습니다.
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               {products.map((product) => {
                 const canAfford = userCoins >= product.coin_price;
                 const isExchanging = exchangingId === product.id;
@@ -194,23 +197,23 @@ export default function UserProductsExchangePage() {
                 return (
                   <div 
                     key={product.id}
-                    className="flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:shadow-md hover:scale-[1.01] duration-200"
+                    className="flex flex-col justify-between rounded-[20px] border border-slate-200 bg-slate-50 p-4 transition hover:bg-slate-100/70 duration-200"
                   >
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
                           {product.image_svg ? (
-                            <div className="h-10 w-10 shrink-0 text-indigo-600 bg-indigo-50/50 rounded-xl p-2 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: product.image_svg }} />
+                            <div className="h-8 w-8 shrink-0 text-slate-700 bg-white border border-slate-200 rounded-lg p-1.5 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: product.image_svg }} />
                           ) : (
-                            <div className="h-10 w-10 shrink-0 text-slate-400 bg-slate-50 rounded-xl p-2 flex items-center justify-center">
-                              <Gift className="h-5 w-5" />
+                            <div className="h-8 w-8 shrink-0 text-slate-400 bg-white border border-slate-200 rounded-lg p-1.5 flex items-center justify-center">
+                              <Gift className="h-4 w-4" />
                             </div>
                           )}
-                          <h3 className="font-bold text-slate-900 text-base">{product.name}</h3>
+                          <h3 className="font-semibold text-slate-900 text-sm truncate">{product.name}</h3>
                         </div>
-                        <div className="flex items-center gap-0.5 rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">
-                          <Coins className="h-3.5 w-3.5 text-amber-500" />
-                          {product.coin_price}코인
+                        <div className="flex items-center gap-0.5 rounded-lg bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-700 shrink-0">
+                          <Coins className="h-3 w-3 text-amber-600" />
+                          {product.coin_price}
                         </div>
                       </div>
                       <p className="text-xs text-slate-500 leading-relaxed min-h-[2.5rem]">
@@ -218,15 +221,15 @@ export default function UserProductsExchangePage() {
                       </p>
                     </div>
 
-                    <div className="mt-4 pt-2">
+                    <div className="mt-4">
                       <Button
                         type="button"
                         onClick={() => handleExchange(product)}
                         disabled={isExchanging || !canAfford}
-                        className={`w-full h-9 font-semibold text-xs rounded-xl transition ${
+                        className={`w-full h-8 font-semibold text-xs rounded-xl transition ${
                           canAfford 
-                            ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
-                            : 'bg-slate-100 hover:bg-slate-100 text-slate-400 cursor-not-allowed'
+                            ? 'bg-[#0f172a] hover:bg-slate-800 text-white shadow-sm' 
+                            : 'bg-slate-200 hover:bg-slate-200 text-slate-400 cursor-not-allowed'
                         }`}
                       >
                         {isExchanging ? '교환 진행 중...' : canAfford ? '상품 교환 신청' : '코인 부족'}
@@ -237,21 +240,24 @@ export default function UserProductsExchangePage() {
               })}
             </div>
           )}
-        </div>
+        </section>
 
         {/* 4. 본인 최근 교환 이력 */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-bold text-slate-900">나의 최근 교환 내역</h2>
+        <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm flex flex-col gap-4">
+          <div>
+            <p className="text-xs text-slate-500">내역</p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900">나의 최근 교환 내역</h2>
+          </div>
           {purchases.length === 0 ? (
-            <div className="rounded-2xl bg-white p-8 text-center text-xs text-slate-400 shadow-sm border border-slate-200/50">
+            <div className="rounded-[20px] bg-slate-50 p-8 text-center text-xs text-slate-500 shadow-sm border border-slate-200/50">
               최근에 교환하신 상품 내역이 없습니다.
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200/50 bg-white p-4 shadow-sm divide-y divide-slate-100">
+            <div className="rounded-[20px] border border-slate-200/60 bg-slate-50 p-4 divide-y divide-slate-200/60">
               {purchases.map((purchase) => (
                 <div key={purchase.id} className="flex items-center justify-between py-3 first:pt-1 last:pb-1">
                   <div>
-                    <span className="font-bold text-slate-800 text-sm">{purchase.product_name}</span>
+                    <span className="font-semibold text-slate-800 text-sm">{purchase.product_name}</span>
                     <p className="mt-1 text-[10px] text-slate-400">
                       교환일: {new Date(purchase.created_at).toLocaleString('ko-KR')}
                     </p>
@@ -264,7 +270,7 @@ export default function UserProductsExchangePage() {
               ))}
             </div>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );

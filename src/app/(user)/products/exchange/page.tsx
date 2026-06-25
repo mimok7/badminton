@@ -138,9 +138,11 @@ export default function UserProductsExchangePage() {
                 </span>
                 <h1 className="text-xl font-bold tracking-tight">상품 교환</h1>
               </div>
-              <Link href="/dashboard" className="text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1 transition">
-                대시보드 이동
-                <ArrowRight className="h-3.5 w-3.5" />
+              <Link
+                href="/dashboard"
+                className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+              >
+                홈
               </Link>
             </div>
 
@@ -197,16 +199,16 @@ export default function UserProductsExchangePage() {
                 return (
                   <div 
                     key={product.id}
-                    className="flex flex-col justify-between rounded-[20px] border border-slate-200 bg-slate-50 p-4 transition hover:bg-slate-100/70 duration-200"
+                    className="flex flex-col justify-between rounded-[20px] border border-slate-200 bg-slate-50 p-3 transition hover:bg-slate-100/70 duration-200"
                   >
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
                           {product.image_svg ? (
-                            <div className="h-8 w-8 shrink-0 text-slate-700 bg-white border border-slate-200 rounded-lg p-1.5 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: product.image_svg }} />
+                            <div className="h-7 w-7 shrink-0 text-slate-700 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: product.image_svg }} />
                           ) : (
-                            <div className="h-8 w-8 shrink-0 text-slate-400 bg-white border border-slate-200 rounded-lg p-1.5 flex items-center justify-center">
-                              <Gift className="h-4 w-4" />
+                            <div className="h-7 w-7 shrink-0 text-slate-400 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center">
+                              <Gift className="h-3.5 w-3.5" />
                             </div>
                           )}
                           <h3 className="font-semibold text-slate-900 text-sm truncate">{product.name}</h3>
@@ -216,12 +218,12 @@ export default function UserProductsExchangePage() {
                           {product.coin_price}
                         </div>
                       </div>
-                      <p className="text-xs text-slate-500 leading-relaxed min-h-[2.5rem]">
+                      <p className="text-xs text-slate-500 leading-relaxed min-h-[2rem]">
                         {product.description || '상품 정보가 아직 등록되지 않았습니다.'}
                       </p>
                     </div>
 
-                    <div className="mt-4">
+                    <div className="mt-2.5">
                       <Button
                         type="button"
                         onClick={() => handleExchange(product)}

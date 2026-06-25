@@ -1155,7 +1155,7 @@ export default function PlayersTodayPage() {
   return (
     <RequireAdmin>
       <div className="px-2 py-2 sm:p-6">
-        <h1 className="mb-3 text-lg font-bold sm:mb-4 sm:text-xl">오늘 게임 생성/배정</h1>
+        <h1 className="mb-3 text-lg font-bold sm:mb-4 sm:text-xl">⚡ 오늘 게임 생성/배정</h1>
         <AttendanceStatus
           todayPlayers={effectiveTodayPlayers}
           onStatusChange={handleAttendanceStatusChange}

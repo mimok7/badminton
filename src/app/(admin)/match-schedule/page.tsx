@@ -780,7 +780,7 @@ export default function MatchSchedulePage() {
           <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
             <div>
               <h1 className="mb-1 text-base font-bold text-gray-900 sm:mb-2 sm:text-lg">
-                경기 일정 관리 📅
+                📅 경기 일정 관리
               </h1>
               <p className="hidden text-gray-600 sm:block">관리자 전용 - 경기 일정을 생성하고 관리할 수 있습니다</p>
             </div>

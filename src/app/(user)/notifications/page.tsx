@@ -21,6 +21,19 @@ type NotificationRow = {
   type: string;
   is_read: boolean;
   created_at: string;
+  survey_id?: string | null;
+  surveys?: {
+    id: string;
+    question: string;
+    description: string | null;
+    options: string[];
+    is_active: boolean;
+    my_response?: string | null;
+    max_responses?: number | null;
+    option_limits?: Record<string, number> | null;
+    stats?: Record<string, number>;
+    total_responses?: number;
+  } | null;
 };
 
 type FilterMode = "unread" | "all";
@@ -32,6 +45,7 @@ const TYPE_LABELS: Record<string, string> = {
   schedule_change: "일정 변경",
   system: "시스템 알림",
   challenge: "도전 알림",
+  survey: "설문조사",
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -41,6 +55,7 @@ const TYPE_COLORS: Record<string, string> = {
   schedule_change: "bg-amber-100 text-amber-700",
   system: "bg-purple-100 text-purple-700",
   challenge: "bg-rose-100 text-rose-700",
+  survey: "bg-rose-100 text-rose-700",
 };
 
 /** 마침표 뒤에 줄바꿈을 삽입하여 가독성을 높임 */
@@ -80,6 +95,7 @@ export default function NotificationsPage() {
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("unread");
+  const [submittingSurveyId, setSubmittingSurveyId] = useState<string | null>(null);
 
   const fetchNotifications = async () => {
     if (!user) return;
@@ -125,6 +141,63 @@ export default function NotificationsPage() {
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     } catch (e) {
       console.error("전체 읽음 처리 실패:", e);
+    }
+  };
+
+  const submitSurveyResponse = async (notificationId: string, surveyId: string, option: string) => {
+    setSubmittingSurveyId(surveyId);
+    try {
+      const res = await fetch("/api/user/surveys/respond", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ survey_id: surveyId, selected_option: option }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "설문 응답 제출 실패");
+      }
+
+      // 로컬 알림 상태 업데이트 (선택 값 설정, 응답 통계 카운트 갱신 및 자동으로 알림 읽음 처리)
+      setNotifications((prev) =>
+        prev.map((n) => {
+          if (n.id === notificationId && n.surveys) {
+            const oldResponse = n.surveys.my_response;
+            const newStats = { ...(n.surveys.stats || {}) };
+            
+            // Decrement old response count
+            if (oldResponse && newStats[oldResponse] !== undefined) {
+              newStats[oldResponse] = Math.max(0, newStats[oldResponse] - 1);
+            }
+            // Increment new response count
+            newStats[option] = (newStats[option] || 0) + 1;
+
+            const oldTotal = n.surveys.total_responses || 0;
+            const newTotal = oldResponse ? oldTotal : oldTotal + 1;
+
+            const updatedSurvey = {
+              ...n.surveys,
+              my_response: option,
+              stats: newStats,
+              total_responses: newTotal,
+            };
+            return { ...n, is_read: true, surveys: updatedSurvey };
+          }
+          return n;
+        })
+      );
+
+      // 백엔드에도 읽음 처리
+      await fetch("/api/user/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [notificationId] }),
+      });
+
+      alert(`설문 응답(${option})이 제출되었습니다.`);
+    } catch (e: any) {
+      alert(e.message || "설문 응답 제출 중 오류가 발생했습니다.");
+    } finally {
+      setSubmittingSurveyId(null);
     }
   };
 
@@ -327,6 +400,7 @@ export default function NotificationsPage() {
                 const typeLabel = TYPE_LABELS[n.type] ?? n.type;
                 const typeColor =
                   TYPE_COLORS[n.type] ?? "bg-slate-100 text-slate-600";
+                const survey = n.surveys;
 
                 return (
                   <div
@@ -363,6 +437,76 @@ export default function NotificationsPage() {
                     <div className="text-xs text-slate-600 space-y-0.5">
                       {formatMessageWithBreaks(n.message)}
                     </div>
+
+                    {survey && (() => {
+                      const isSurveyFull = survey.max_responses !== null && 
+                        survey.max_responses !== undefined && 
+                        (survey.total_responses || 0) >= survey.max_responses && 
+                        !survey.my_response;
+
+                      return (
+                        <div className="mt-4 p-3 rounded-[16px] bg-slate-100/80 border border-slate-200/50 space-y-3">
+                          <div className="flex justify-between items-center text-[11px] font-bold text-slate-700">
+                            <span>설문 참여</span>
+                            {survey.max_responses !== null && survey.max_responses !== undefined && (
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] ${isSurveyFull ? 'bg-rose-100 text-rose-700 font-bold' : 'bg-slate-200 text-slate-600 font-semibold'}`}>
+                                전체 정원: {survey.total_responses || 0}/{survey.max_responses}명 {isSurveyFull && "(선착순 마감)"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {Array.isArray(survey.options) && survey.options.map((opt) => {
+                              const isSelected = survey.my_response === opt;
+                              const isSurveyActive = survey.is_active;
+                              const optCount = survey.stats?.[opt] || 0;
+                              const optLimit = survey.option_limits?.[opt];
+                              const isOptLimited = optLimit !== undefined && optLimit !== null;
+                              const isOptFull = isOptLimited && optCount >= Number(optLimit);
+                              const isDisabled = !isSurveyActive || 
+                                submittingSurveyId === survey.id || 
+                                (isSurveyFull && !isSelected) || 
+                                (isOptFull && !isSelected);
+
+                              return (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  disabled={isDisabled}
+                                  onClick={() => submitSurveyResponse(n.id, survey.id, opt)}
+                                  className={`px-4 py-2 text-xs font-bold rounded-xl transition duration-150 relative flex items-center justify-between gap-3 ${
+                                    isSelected
+                                      ? "bg-indigo-600 text-white shadow-sm"
+                                      : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-100"
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-1.5">
+                                    {opt}
+                                    {isSelected && <Check className="h-3.5 w-3.5" />}
+                                  </span>
+                                  {isOptLimited && (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold shrink-0 ${
+                                      isSelected 
+                                        ? "bg-indigo-700 text-indigo-100" 
+                                        : isOptFull 
+                                          ? "bg-rose-100 text-rose-700" 
+                                          : "bg-slate-100 text-slate-500"
+                                    }`}>
+                                      {optCount}/{optLimit}명 {isOptFull && !isSelected && "마감"}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {!survey.is_active && (
+                            <div className="text-[10px] text-slate-400 font-medium">※ 종료된 설문조사입니다.</div>
+                          )}
+                          {survey.is_active && survey.my_response && (
+                            <div className="text-[10px] text-indigo-600 font-semibold">※ 다른 옵션을 클릭하면 응답을 수정할 수 있습니다.</div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* 읽음 버튼 */}
                     {!n.is_read && (

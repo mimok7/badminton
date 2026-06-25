@@ -10,7 +10,7 @@ export default function AdminPage() {
     <div className="px-1 py-2 sm:px-2">
       <div className="mb-4 flex items-start justify-between gap-3 sm:mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">관리자 대시보드</h1>
+          <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">⚙️ 관리자 대시보드</h1>
           <p className="mt-1 text-sm text-gray-600">안녕하세요, {profile?.full_name || profile?.username || '관리자'}님</p>
         </div>
         <Link

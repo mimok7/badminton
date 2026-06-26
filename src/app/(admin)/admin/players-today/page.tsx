@@ -1154,36 +1154,41 @@ export default function PlayersTodayPage() {
 
   return (
     <RequireAdmin>
-      <div className="px-2 py-2 sm:p-6">
-        <h1 className="mb-3 text-lg font-bold sm:mb-4 sm:text-xl">⚡ 오늘 게임 생성/배정</h1>
-        <AttendanceStatus
-          todayPlayers={effectiveTodayPlayers}
-          onStatusChange={handleAttendanceStatusChange}
-          onBulkStatusChange={handleBulkAttendanceChange}
-          disabled={attendanceLoading}
-          headerActions={
-            <button
-              type="button"
-              onClick={() => setShowMemberModal(true)}
-              className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-600"
-            >
-              회원추가
-            </button>
-          }
-        />
+      <div className="p-1 md:p-6">
+        <h1 className="hidden md:block mb-3 text-lg font-bold sm:mb-4 sm:text-xl">⚡ 오늘 게임 생성/배정</h1>
         
-        <MatchSessionStatus
-          matchSessions={matchSessions}
-          registeredSchedules={todaySchedules}
-          assignedScheduleDetails={assignedScheduleDetails}
-          levelInfoMap={levelInfoMap}
-          onDeleteSession={deleteTodaySession}
-          onDeleteSessionMatch={deleteSessionMatch}
-          onDeleteAllSessions={deleteAllTodaySessions}
-          deletingAllSessions={deletingAllSessions}
-          deletingSessionIds={deletingSessionIds}
-          deletingMatchIds={deletingMatchIds}
-        />
+        <div className="hidden md:block">
+          <AttendanceStatus
+            todayPlayers={effectiveTodayPlayers}
+            onStatusChange={handleAttendanceStatusChange}
+            onBulkStatusChange={handleBulkAttendanceChange}
+            disabled={attendanceLoading}
+            headerActions={
+              <button
+                type="button"
+                onClick={() => setShowMemberModal(true)}
+                className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+              >
+                회원추가
+              </button>
+            }
+          />
+        </div>
+        
+        <div className="hidden md:block">
+          <MatchSessionStatus
+            matchSessions={matchSessions}
+            registeredSchedules={todaySchedules}
+            assignedScheduleDetails={assignedScheduleDetails}
+            levelInfoMap={levelInfoMap}
+            onDeleteSession={deleteTodaySession}
+            onDeleteSessionMatch={deleteSessionMatch}
+            onDeleteAllSessions={deleteAllTodaySessions}
+            deletingAllSessions={deletingAllSessions}
+            deletingSessionIds={deletingSessionIds}
+            deletingMatchIds={deletingMatchIds}
+          />
+        </div>
 
         <MatchGenerationControls
           todayPlayers={effectiveTodayPlayers}

@@ -28,40 +28,79 @@ export async function GET() {
 
   const { adminSupabase } = context;
 
-  const [{ data: products, error: productsError }, { data: purchases, error: purchasesError }] = await Promise.all([
-    adminSupabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false }),
-    adminSupabase
-      .from('product_purchases')
-      .select(`
-        id,
-        profile_id,
-        product_id,
-        coin_price,
-        created_at,
-        profiles:profile_id(full_name, username),
-        products:product_id(name)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(100),
-  ]);
+  // 상품 데이터 조회
+  const { data: products, error: productsError } = await adminSupabase
+    .from('products')
+    .select('*')
+    .order('created_at', { ascending: false });
 
-  if (productsError || purchasesError) {
+  if (productsError) {
+    return NextResponse.json({ error: productsError.message }, { status: 500 });
+  }
+
+  let purchases: any[] = [];
+  let purchasesError = null;
+
+  // Try retrieving with status column
+  const firstTry = await adminSupabase
+    .from('product_purchases')
+    .select(`
+      id,
+      profile_id,
+      product_id,
+      coin_price,
+      created_at,
+      status,
+      profiles:profile_id(full_name, username),
+      products:product_id(name)
+    `)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (firstTry.error) {
+    const errMsg = firstTry.error.message || '';
+    if (errMsg.includes('status') && (errMsg.includes('does not exist') || errMsg.includes('column'))) {
+      const secondTry = await adminSupabase
+        .from('product_purchases')
+        .select(`
+          id,
+          profile_id,
+          product_id,
+          coin_price,
+          created_at,
+          profiles:profile_id(full_name, username),
+          products:product_id(name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      
+      if (secondTry.error) {
+        purchasesError = secondTry.error;
+      } else {
+        purchases = (secondTry.data || []).map((p: any) => ({ ...p, status: 'applied' }));
+      }
+    } else {
+      purchasesError = firstTry.error;
+    }
+  } else {
+    purchases = firstTry.data || [];
+  }
+
+  if (purchasesError) {
     return NextResponse.json(
-      { error: productsError?.message || purchasesError?.message || '상품 데이터를 불러오지 못했습니다.' },
+      { error: purchasesError.message || '상품 데이터를 불러오지 못했습니다.' },
       { status: 500 }
     );
   }
 
   // 조인 데이터 가공 (타입 맞춤)
-  const formattedPurchases = (purchases || []).map((p: any) => ({
+  const formattedPurchases = purchases.map((p: any) => ({
     id: p.id,
     profile_id: p.profile_id,
     product_id: p.product_id,
     coin_price: p.coin_price,
     created_at: p.created_at,
+    status: p.status || 'applied',
     user_name: p.profiles?.full_name || p.profiles?.username || '회원',
     product_name: p.products?.name || '삭제된 상품',
   }));
@@ -155,6 +194,58 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  }
+
+  if (action === 'update_purchase_status') {
+    const purchaseId = String(body?.purchase_id || '');
+    const status = String(body?.status || '');
+
+    if (!purchaseId || !status) {
+      return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 });
+    }
+
+    const { data: purchase, error } = await adminSupabase
+      .from('product_purchases')
+      .update({ status })
+      .eq('id', purchaseId)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ purchase });
+  }
+
+  if (action === 'delete_old_purchases') {
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    const oneMonthAgoStr = oneMonthAgo.toISOString();
+
+    const { error: firstError } = await adminSupabase
+      .from('product_purchases')
+      .delete()
+      .eq('status', 'completed')
+      .lt('created_at', oneMonthAgoStr);
+
+    if (firstError) {
+      const errMsg = firstError.message || '';
+      if (errMsg.includes('status') && (errMsg.includes('does not exist') || errMsg.includes('column'))) {
+        const { error: secondError } = await adminSupabase
+          .from('product_purchases')
+          .delete()
+          .lt('created_at', oneMonthAgoStr);
+          
+        if (secondError) {
+          return NextResponse.json({ error: secondError.message }, { status: 500 });
+        }
+      } else {
+        return NextResponse.json({ error: firstError.message }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ success: true });

@@ -78,13 +78,32 @@ export async function POST(request: Request) {
     }
 
     // 3. 구매 기록 등록
-    const { error: purchaseError } = await adminSupabase
+    let purchaseError: any = null;
+    const { error: firstInsertError } = await adminSupabase
       .from('product_purchases')
       .insert({
         profile_id: profileId,
         product_id: productId,
         coin_price: product.coin_price,
+        status: 'completed',
       });
+
+    if (firstInsertError) {
+      const errMsg = firstInsertError.message || '';
+      if (errMsg.includes('status') && (errMsg.includes('does not exist') || errMsg.includes('column'))) {
+        // status 컬럼이 없는 경우 fallback
+        const { error: secondInsertError } = await adminSupabase
+          .from('product_purchases')
+          .insert({
+            profile_id: profileId,
+            product_id: productId,
+            coin_price: product.coin_price,
+          });
+        purchaseError = secondInsertError;
+      } else {
+        purchaseError = firstInsertError;
+      }
+    }
 
     if (purchaseError) {
       // 롤백 (단순 수동 롤백)

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, Edit2, AlertCircle, Coins, Gift, RefreshCw, Copy, Check, Info, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Trash2, Edit2, AlertCircle, Coins, Gift, RefreshCw, Copy, Check, Info, ToggleLeft, ToggleRight, LayoutGrid, List } from 'lucide-react';
 
 type Product = {
   id: string;
@@ -23,6 +23,7 @@ type ProductPurchase = {
   created_at: string;
   user_name: string;
   product_name: string;
+  status: 'applied' | 'completed';
 };
 
 type UserProfile = {
@@ -50,6 +51,7 @@ CREATE TABLE IF NOT EXISTS public.product_purchases (
     profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
     coin_price INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'applied',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -62,6 +64,7 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS image_svg TEXT;
+ALTER TABLE public.product_purchases ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'applied';
 
 UPDATE public.products SET image_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="5" y1="6" x2="19" y2="6"/><line x1="5" y1="10" x2="19" y2="10"/><line x1="5" y1="14" x2="19" y2="14"/><line x1="5" y1="18" x2="19" y2="18"/></svg>' WHERE name = '그립' AND image_svg IS NULL;
 UPDATE public.products SET image_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v9.5a7.5 7.5 0 0 0 15 0V3H6z"/></svg>' WHERE name = '양말' AND image_svg IS NULL;
@@ -148,6 +151,11 @@ export default function AdminProductsPage() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [allocating, setAllocating] = useState(false);
+
+  // 최근 상품 지급 및 차감 내역 필터링, 보기 및 삭제용 상태
+  const [purchaseFilter, setPurchaseFilter] = useState<'all' | 'applied'>('applied');
+  const [purchaseViewType, setPurchaseViewType] = useState<'list' | 'card'>('card');
+  const [deletingOld, setDeletingOld] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -346,6 +354,67 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleUpdatePurchaseStatus = async (purchaseId: string, newStatus: 'applied' | 'completed') => {
+    try {
+      const response = await fetch('/api/admin/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_purchase_status',
+          purchase_id: purchaseId,
+          status: newStatus
+        }),
+        credentials: 'include',
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || '상태 변경 실패');
+      }
+
+      await fetchData();
+    } catch (error) {
+      console.error('구매 상태 업데이트 오류:', error);
+      alert(error instanceof Error ? error.message : '상태 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleDeleteOldPurchases = async () => {
+    if (!confirm('지급 완료된 지 1달이 지난 최근 상품 지급 및 차감 내역을 영구적으로 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      setDeletingOld(true);
+      const response = await fetch('/api/admin/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_old_purchases' }),
+        credentials: 'include',
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || '오래된 데이터 삭제 실패');
+      }
+
+      alert('지급 완료된 지 1달이 지난 내역이 삭제되었습니다.');
+      await fetchData();
+    } catch (error) {
+      console.error('오래된 데이터 삭제 오류:', error);
+      alert(error instanceof Error ? error.message : '오래된 데이터 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setDeletingOld(false);
+    }
+  };
+
+  const filteredPurchases = purchases.filter((p) => {
+    if (purchaseFilter === 'applied') {
+      return p.status === 'applied';
+    }
+    return true;
+  });
+
   if (loading && products.length === 0 && !dbMissing) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -402,7 +471,7 @@ export default function AdminProductsPage() {
       )}
 
       {/* 2. 상단 헤더 */}
-      <div className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="hidden md:flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Gift className="h-7 w-7 text-indigo-600" />
@@ -512,7 +581,7 @@ export default function AdminProductsPage() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="hidden md:grid gap-6 lg:grid-cols-3">
         {/* 4. 상품 리스트 및 관리 */}
         <div className="rounded-2xl bg-white p-6 shadow-sm lg:col-span-2 space-y-4">
           <h2 className="text-lg font-bold text-slate-900">등록된 상품 리스트</h2>
@@ -648,24 +717,116 @@ export default function AdminProductsPage() {
       </div>
 
       {/* 6. 전체 사용자 최근 상품 교환/지급 이력 */}
-      <div className="rounded-2xl bg-white p-6 shadow-sm space-y-4">
-        <h2 className="text-lg font-bold text-slate-900">최근 상품 지급 및 차감 내역</h2>
-        {purchases.length === 0 ? (
-          <div className="rounded-xl bg-slate-50 py-8 text-center text-sm text-slate-500">
-            상품 지급 또는 교환 이력이 아직 없습니다.
+      <div className="rounded-2xl bg-white p-6 shadow-sm space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              최근 상품 지급 및 차감 내역
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              회원들의 상품 교환 신청 및 지급 내역을 조회하고 지급 처리를 할 수 있습니다.
+            </p>
           </div>
-        ) : (
+          
+          <div className="flex flex-wrap items-center gap-3">
+            {/* 필터링 버튼 */}
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setPurchaseFilter('all')}
+                className={`rounded-md px-3 py-1 text-xs font-semibold transition-all duration-200 ${
+                  purchaseFilter === 'all'
+                    ? 'bg-white text-indigo-600 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                전체 ({purchases.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPurchaseFilter('applied')}
+                className={`rounded-md px-3 py-1 text-xs font-semibold transition-all duration-200 ${
+                  purchaseFilter === 'applied'
+                    ? 'bg-white text-indigo-600 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                신청완료 ({purchases.filter(p => p.status === 'applied').length})
+              </button>
+            </div>
+
+            {/* 보기 방식 토글 */}
+            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setPurchaseViewType('list')}
+                className={`rounded-md p-1 transition-all duration-200 ${
+                  purchaseViewType === 'list'
+                    ? 'bg-white text-indigo-600 shadow-xs'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="리스트 보기"
+              >
+                <List className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPurchaseViewType('card')}
+                className={`rounded-md p-1 transition-all duration-200 ${
+                  purchaseViewType === 'card'
+                    ? 'bg-white text-indigo-600 shadow-xs'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="카드 보기 (7열)"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* 1달 경과 데이터 삭제 버튼 */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDeleteOldPurchases}
+              disabled={deletingOld}
+              className="hidden md:inline-flex h-8 border-rose-200 bg-rose-50/50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300 font-semibold"
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              1달 경과 내역 삭제
+            </Button>
+          </div>
+        </div>
+
+        {filteredPurchases.length === 0 ? (
+          <div className="rounded-xl bg-slate-50 py-12 text-center text-sm text-slate-500 border border-slate-100">
+            {purchaseFilter === 'applied' ? '신청 완료 상태인 내역이 없습니다.' : '상품 지급 또는 교환 이력이 아직 없습니다.'}
+          </div>
+        ) : purchaseViewType === 'list' ? (
           <div className="space-y-3">
-            {purchases.map((purchase) => (
-              <div key={purchase.id} className="rounded-xl border border-slate-100 bg-slate-50/30 px-4 py-3 hover:bg-slate-50/70 transition-colors">
+            {filteredPurchases.map((purchase) => (
+              <div key={purchase.id} className="rounded-xl border border-slate-100 bg-slate-50/30 px-4 py-3 hover:bg-slate-50/70 transition-all duration-200">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <span className="font-semibold text-slate-900">{purchase.user_name}</span>
                     <span className="text-slate-500 text-xs"> 회원에게</span>
                     <span className="ml-1.5 font-bold text-indigo-700">{purchase.product_name}</span>
-                    <span className="text-slate-500 text-xs"> 지급 완료</span>
+                    <span className={`ml-1.5 text-xs font-semibold rounded-full px-2 py-0.5 ${
+                      purchase.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                    }`}>
+                      {purchase.status === 'completed' ? '지급 완료' : '신청완료'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-3 sm:text-right">
+                    {purchase.status !== 'completed' && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleUpdatePurchaseStatus(purchase.id, 'completed')}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs font-semibold px-2.5 rounded-lg shrink-0"
+                      >
+                        지급완료
+                      </Button>
+                    )}
                     <span className="inline-flex items-center gap-0.5 font-bold text-rose-600 text-sm">
                       -{purchase.coin_price}코인
                     </span>
@@ -676,6 +837,67 @@ export default function AdminProductsPage() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
+            {filteredPurchases.map((purchase) => {
+              const isApplied = purchase.status !== 'completed';
+              return (
+                <div 
+                  key={purchase.id} 
+                  className={`rounded-xl border p-4 flex flex-col justify-between transition-all duration-200 hover:shadow-md ${
+                    isApplied 
+                      ? 'border-indigo-100 bg-indigo-50/10 hover:bg-indigo-50/20' 
+                      : 'border-slate-100 bg-white hover:border-slate-200'
+                  }`}
+                >
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        isApplied 
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      }`}>
+                        {isApplied ? '신청완료' : '지급완료'}
+                      </span>
+                      <span className="text-[10px] font-medium text-slate-400">
+                        {new Date(purchase.created_at).toLocaleDateString('ko-KR')}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm leading-snug truncate" title={purchase.user_name}>
+                        {purchase.user_name}
+                      </h4>
+                      <p className="text-xs text-slate-500 truncate mt-0.5" title={purchase.product_name}>
+                        {purchase.product_name}
+                      </p>
+                    </div>
+
+                    <div className="inline-flex items-center gap-1 font-bold text-rose-600 text-xs">
+                      <Coins className="h-3 w-3" />
+                      -{purchase.coin_price}코인
+                    </div>
+                  </div>
+
+                  <div className="pt-3 mt-3 border-t border-slate-100/80 flex flex-col justify-center">
+                    {isApplied ? (
+                      <Button
+                        size="sm"
+                        onClick={() => handleUpdatePurchaseStatus(purchase.id, 'completed')}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs font-semibold px-2 rounded-lg"
+                      >
+                        지급완료
+                      </Button>
+                    ) : (
+                      <span className="text-2xs font-medium text-slate-400 text-center w-full py-1">
+                        지급완료됨
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

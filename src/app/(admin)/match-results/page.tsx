@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, Fragment } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import { RequireAdmin } from '@/components/AuthGuard';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
 import Link from 'next/link';
+import { fetchAdminMatchResults, fetchAdminMatchSessions } from './actions';
 
 interface AssignedMatch {
   id: string;
@@ -67,14 +68,23 @@ interface MatchSession {
   created_at: string;
 }
 
+const formatSessionName = (session: { session_date: string, session_name: string } | null | undefined) => {
+  if (!session) return '-';
+  const dateStr = session.session_date ? session.session_date.split('T')[0] : '';
+  return dateStr ? `${dateStr}_${session.session_name}` : session.session_name;
+};
+
 function MatchResultsPage() {
-  const [assignedMatches, setAssignedMatches] = useState<AssignedMatch[]>([]);
+  const [rawMatches, setRawMatches] = useState<AssignedMatch[]>([]);
+  const [sortField, setSortField] = useState<string>('default');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [matchSessions, setMatchSessions] = useState<MatchSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   
   const supabase = getSupabaseClient();
 
@@ -110,13 +120,8 @@ function MatchResultsPage() {
 
   const fetchMatchSessions = async () => {
     try {
-      const { data: sessions, error } = await supabase
-        .from('match_sessions')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setMatchSessions(sessions || []);
+      const sessions = await fetchAdminMatchSessions();
+      setMatchSessions(sessions);
     } catch (error) {
       console.error('경기 세션 조회 오류:', error);
     }
@@ -125,168 +130,7 @@ function MatchResultsPage() {
   const fetchAssignedMatches = async () => {
     try {
       setLoading(true);
-      
-      let query = supabase
-        .from('match_schedules')
-        .select(`
-          id,
-          generated_match_id,
-          match_date,
-          start_time,
-          end_time,
-          location,
-          status,
-          description,
-          max_participants,
-          current_participants
-        `)
-        .not('generated_match_id', 'is', null)
-        .order('match_date', { ascending: false })
-        .order('start_time', { ascending: true });
-
-      // 날짜 필터 적용
-      if (dateFilter !== 'all') {
-        if (dateFilter === 'today') {
-          const today = new Date().toISOString().split('T')[0];
-          query = query.eq('match_date', today);
-        } else if (dateFilter === 'upcoming') {
-          const today = new Date().toISOString().split('T')[0];
-          query = query.gte('match_date', today);
-        } else if (dateFilter === 'past') {
-          const today = new Date().toISOString().split('T')[0];
-          query = query.lt('match_date', today);
-        }
-      }
-
-      // 상태 필터 적용
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
-
-      const { data: schedules, error } = await query;
-
-      if (error) throw error;
-
-      if (!schedules || schedules.length === 0) {
-        setAssignedMatches([]);
-        return;
-      }
-
-      const generatedMatchIds = Array.from(
-        new Set(
-          schedules
-            .map((s) => s.generated_match_id)
-            .filter((id): id is number => typeof id === 'number')
-        )
-      );
-
-      const generatedMatchesById = new Map();
-
-      if (generatedMatchIds.length > 0) {
-        const { data: genMatches, error: genMatchesError } = await supabase
-          .from('generated_matches')
-          .select(`
-            id,
-            match_number,
-            session_id,
-            status,
-            completed_at,
-            match_result,
-            team1_player1_id,
-            team1_player2_id,
-            team2_player1_id,
-            team2_player2_id
-          `)
-          .in('id', generatedMatchIds);
-
-        if (genMatchesError) throw genMatchesError;
-
-        (genMatches || []).forEach((match) => {
-          generatedMatchesById.set(match.id, match);
-        });
-      }
-
-      // 플레이어 정보와 세션 정보를 벌크로 가져오기
-      const allPlayerIds = new Set<string>();
-      const allSessionIds = new Set<string>();
-
-      generatedMatchesById.forEach((match) => {
-        if (match.team1_player1_id) allPlayerIds.add(match.team1_player1_id);
-        if (match.team1_player2_id) allPlayerIds.add(match.team1_player2_id);
-        if (match.team2_player1_id) allPlayerIds.add(match.team2_player1_id);
-        if (match.team2_player2_id) allPlayerIds.add(match.team2_player2_id);
-        if (match.session_id) allSessionIds.add(match.session_id);
-      });
-
-      const playersById = new Map();
-      if (allPlayerIds.size > 0) {
-        const { data: players, error: playersError } = await supabase
-          .from('profiles')
-          .select('id, username, full_name, skill_level')
-          .in('id', Array.from(allPlayerIds));
-
-        if (playersError) throw playersError;
-
-        (players || []).forEach((p) => {
-          playersById.set(p.id, p);
-        });
-      }
-
-      const sessionsById = new Map();
-      if (allSessionIds.size > 0) {
-        const { data: sessions, error: sessionsError } = await supabase
-          .from('match_sessions')
-          .select('id, session_name, session_date')
-          .in('id', Array.from(allSessionIds));
-
-        if (sessionsError) throw sessionsError;
-
-        (sessions || []).forEach((s) => {
-          sessionsById.set(s.id, s);
-        });
-      }
-
-      const matchesWithDetails = [];
-      
-      for (const match of schedules) {
-        if (!match.generated_match_id) continue;
-
-        const generatedMatch = generatedMatchesById.get(match.generated_match_id);
-        if (!generatedMatch) continue;
-
-        const getPlayer = (id: string) => 
-          playersById.get(id) || { username: '미정', full_name: '미정', skill_level: 'E2' };
-
-        const session = generatedMatch.session_id
-          ? sessionsById.get(generatedMatch.session_id)
-          : null;
-
-        const formattedMatch = {
-          id: match.id,
-          match_date: match.match_date || '',
-          start_time: match.start_time || '',
-          end_time: match.end_time || '',
-          location: match.location || '',
-          status: match.status,
-          description: match.description || '',
-          max_participants: match.max_participants,
-          current_participants: match.current_participants,
-          generated_match: {
-            id: generatedMatch.id,
-            match_number: generatedMatch.match_number,
-            status: generatedMatch.status,
-            completed_at: generatedMatch.completed_at,
-            match_result: generatedMatch.match_result,
-            session: session || { session_name: '알 수 없음', session_date: '', id: '' },
-            team1_player1: getPlayer(generatedMatch.team1_player1_id),
-            team1_player2: getPlayer(generatedMatch.team1_player2_id),
-            team2_player1: getPlayer(generatedMatch.team2_player1_id),
-            team2_player2: getPlayer(generatedMatch.team2_player2_id)
-          }
-        };
-
-        matchesWithDetails.push(formattedMatch);
-      }
+      const matchesWithDetails = await fetchAdminMatchResults({ dateFilter, statusFilter });
 
       // 세션 필터 적용
       const finalMatches = selectedSession === 'all' 
@@ -295,7 +139,7 @@ function MatchResultsPage() {
             match.generated_match?.session?.id === selectedSession
           );
 
-      setAssignedMatches(finalMatches as AssignedMatch[]);
+      setRawMatches(finalMatches as AssignedMatch[]);
     } finally {
       setLoading(false);
     }
@@ -342,16 +186,117 @@ function MatchResultsPage() {
     );
   };
 
-  const getLevelBadge = (level: string) => {
-    return (
-      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
-        {level}
-      </span>
-    );
+  const assignedMatches = useMemo(() => {
+    const matches = [...rawMatches];
+    
+    if (sortField === 'default') {
+      return matches.sort((a, b) => {
+        // Default: Session Date -> Session Name -> Match Number
+        const dateA = a.generated_match?.session?.session_date || '';
+        const dateB = b.generated_match?.session?.session_date || '';
+        if (dateA !== dateB) {
+          return dateA.localeCompare(dateB);
+        }
+
+        const nameA = a.generated_match?.session?.session_name || '';
+        const nameB = b.generated_match?.session?.session_name || '';
+        if (nameA !== nameB) {
+          return nameA.localeCompare(nameB);
+        }
+
+        const numA = a.generated_match?.match_number ?? 9999;
+        const numB = b.generated_match?.match_number ?? 9999;
+        return numA - numB;
+      });
+    }
+
+    const directionMultiplier = sortDirection === 'asc' ? 1 : -1;
+
+    return matches.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'number': {
+          const numA = a.generated_match?.match_number ?? 9999;
+          const numB = b.generated_match?.match_number ?? 9999;
+          comparison = numA - numB;
+          break;
+        }
+        case 'session': {
+          const nameA = a.generated_match?.session?.session_name || '';
+          const nameB = b.generated_match?.session?.session_name || '';
+          comparison = nameA.localeCompare(nameB);
+          break;
+        }
+        case 'team1': {
+          const pA = getPlayerName(a.generated_match?.team1_player1);
+          const pB = getPlayerName(b.generated_match?.team1_player1);
+          comparison = pA.localeCompare(pB);
+          break;
+        }
+        case 'team2': {
+          const pA = getPlayerName(a.generated_match?.team2_player1);
+          const pB = getPlayerName(b.generated_match?.team2_player1);
+          comparison = pA.localeCompare(pB);
+          break;
+        }
+        case 'status': {
+          const sA = a.status || '';
+          const sB = b.status || '';
+          comparison = sA.localeCompare(sB);
+          break;
+        }
+        default:
+          comparison = 0;
+      }
+
+      if (comparison === 0) {
+        const numA = a.generated_match?.match_number ?? 9999;
+        const numB = b.generated_match?.match_number ?? 9999;
+        return numA - numB;
+      }
+
+      return comparison * directionMultiplier;
+    });
+  }, [rawMatches, sortField, sortDirection]);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
   };
 
-  // 결과 제출 컴포넌트
-  function MatchResultRow({ match, onSaved }: { match: AssignedMatch, onSaved: () => void }) {
+  const renderSortIndicator = (field: string) => {
+    if (sortField !== field) return <span className="text-gray-300 ml-1 font-normal text-[10px]">⇅</span>;
+    return sortDirection === 'asc' 
+      ? <span className="text-blue-500 ml-1 font-bold text-[10px]">▲</span> 
+      : <span className="text-blue-500 ml-1 font-bold text-[10px]">▼</span>;
+  };
+
+  const groupedMatches = useMemo(() => {
+    const groupsMap = new Map<string, { session: any, matches: AssignedMatch[] }>();
+    
+    assignedMatches.forEach(match => {
+      const session = match.generated_match?.session;
+      const sessionId = session?.id || 'no-session';
+      
+      if (!groupsMap.has(sessionId)) {
+        groupsMap.set(sessionId, {
+          session: session,
+          matches: []
+        });
+      }
+      groupsMap.get(sessionId)!.matches.push(match);
+    });
+    
+    return Array.from(groupsMap.values());
+  }, [assignedMatches]);
+
+  // 결과 제출용 카드 컴포넌트
+  function MatchResultGridCard({ match, onSaved }: { match: AssignedMatch, onSaved: () => void }) {
     const [team1Score, setTeam1Score] = useState<number>(match.generated_match?.match_result?.team1_score || 0);
     const [team2Score, setTeam2Score] = useState<number>(match.generated_match?.match_result?.team2_score || 0);
     const [submitting, setSubmitting] = useState(false);
@@ -386,7 +331,6 @@ function MatchResultsPage() {
           `결과 저장 완료\n기본 배팅 ${DEFAULT_MATCH_WAGER}코인, 최대 ${MAX_MATCH_WAGER}코인 규칙으로 정산되었습니다.`
         );
 
-        // 저장 후 목록 새로고침
         onSaved();
       } catch (err) {
         console.error('결과 저장 오류:', err);
@@ -397,36 +341,192 @@ function MatchResultsPage() {
     };
 
     return (
-      <div className="flex flex-col items-center justify-center gap-3">
-        {match.generated_match?.match_result && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-            저장된 결과: {match.generated_match.match_result.winner === 'team1' ? '라켓팀' : '셔틀팀'} 승
-            {' · '}
-            {match.generated_match.match_result.score || `${team1Score}:${team2Score}`}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full">
+        <div>
+          {/* 카드 헤더 */}
+          <div className="flex justify-between items-center pb-2 border-b border-gray-100 mb-2.5">
+            <span className="text-sm font-bold text-gray-800">
+              경기 {match.generated_match?.match_number}
+            </span>
+            {getStatusBadge(match.status)}
           </div>
-        )}
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            value={team1Score}
-            onChange={(e) => setTeam1Score(Number(e.target.value))}
-            className="w-20 px-2 py-1 border rounded" />
-          <span className="text-sm text-gray-500">vs</span>
-          <input
-            type="number"
-            value={team2Score}
-            onChange={(e) => setTeam2Score(Number(e.target.value))}
-            className="w-20 px-2 py-1 border rounded" />
+
+          {/* 세션 정보 */}
+          {match.generated_match?.session && (
+            <div className="text-[11px] text-gray-400 mb-3 truncate" title={formatSessionName(match.generated_match.session)}>
+              📍 {formatSessionName(match.generated_match.session)}
+            </div>
+          )}
+
+          {/* 좌우 선수, 가운데 점수 레이아웃 */}
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 mb-3">
+            {/* 왼쪽: 라켓팀 */}
+            <div className="bg-blue-50/60 border border-blue-100 rounded-lg p-1.5 flex flex-col items-center justify-center min-h-[80px] text-center">
+              <div className="text-[9px] font-bold text-blue-600 mb-1">라켓팀</div>
+              <div className="flex flex-col gap-1 w-full">
+                {getPlayerNameWithHighlight(match.generated_match?.team1_player1)}
+                {getPlayerNameWithHighlight(match.generated_match?.team1_player2)}
+              </div>
+            </div>
+
+            {/* 가운데: 점수 입력 및 VS */}
+            <div className="flex flex-col items-center justify-center min-w-[65px] px-1">
+              <span className="text-[9px] font-bold text-gray-300 uppercase mb-1">VS / SCORE</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  value={team1Score}
+                  onChange={(e) => setTeam1Score(Number(e.target.value))}
+                  className="w-10 px-1 py-0.5 border rounded text-center text-xs font-semibold focus:ring-1 focus:ring-blue-500 outline-none"
+                />
+                <span className="text-xs font-bold text-gray-400">:</span>
+                <input
+                  type="number"
+                  value={team2Score}
+                  onChange={(e) => setTeam2Score(Number(e.target.value))}
+                  className="w-10 px-1 py-0.5 border rounded text-center text-xs font-semibold focus:ring-1 focus:ring-blue-500 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 오른쪽: 셔틀팀 */}
+            <div className="bg-red-50/60 border border-red-100 rounded-lg p-1.5 flex flex-col items-center justify-center min-h-[80px] text-center">
+              <div className="text-[9px] font-bold text-red-600 mb-1">셔틀팀</div>
+              <div className="flex flex-col gap-1 w-full">
+                {getPlayerNameWithHighlight(match.generated_match?.team2_player1)}
+                {getPlayerNameWithHighlight(match.generated_match?.team2_player2)}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-500">
-            기본 {DEFAULT_MATCH_WAGER}코인 · 최대 {MAX_MATCH_WAGER}코인
-          </span>
-          <Button onClick={submitResult} disabled={submitting}>
-            {submitting ? '저장 중...' : match.generated_match?.match_result ? '결과 수정' : '결과 저장'}
-          </Button>
+
+        {/* 결과 배지 및 버튼 */}
+        <div className="pt-2 border-t border-gray-100 flex flex-col gap-2 mt-2">
+          {match.generated_match?.match_result && (
+            <div className="rounded bg-emerald-50 border border-emerald-100 px-2 py-1 text-[10px] text-emerald-800 text-center truncate" title={`${match.generated_match.match_result.winner === 'team1' ? '라켓팀' : '셔틀팀'} 승 (${match.generated_match.match_result.score || `${team1Score}:${team2Score}`})`}>
+              결과: {match.generated_match.match_result.winner === 'team1' ? '라켓' : '셔틀'} 승 ({match.generated_match.match_result.score || `${team1Score}:${team2Score}`})
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[9px] text-gray-400 shrink-0">
+              {DEFAULT_MATCH_WAGER}~{MAX_MATCH_WAGER}코인
+            </span>
+            <Button onClick={submitResult} disabled={submitting} size="sm" className="h-7 px-2.5 text-xs font-semibold shrink-0">
+              {submitting ? '저장중...' : match.generated_match?.match_result ? '결과 수정' : '결과 저장'}
+            </Button>
+          </div>
         </div>
       </div>
+    );
+  }
+
+  // 결과 제출용 테이블 행 컴포넌트
+  function MatchResultTableRow({ match, onSaved }: { match: AssignedMatch, onSaved: () => void }) {
+    const [team1Score, setTeam1Score] = useState<number>(match.generated_match?.match_result?.team1_score || 0);
+    const [team2Score, setTeam2Score] = useState<number>(match.generated_match?.match_result?.team2_score || 0);
+    const [submitting, setSubmitting] = useState(false);
+
+    const submitResult = async () => {
+      if (!match || !match.generated_match) return;
+
+      if (team1Score === team2Score) {
+        alert('무승부는 저장할 수 없습니다.');
+        return;
+      }
+
+      setSubmitting(true);
+      try {
+        const payload = {
+          match_id: match.generated_match.id,
+          winner_team1: team1Score > team2Score,
+          team1_score: team1Score,
+          team2_score: team2Score
+        };
+
+        const res = await fetch('/api/match-results', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || '결과 저장 중 오류');
+
+        alert(
+          `결과 저장 완료\n기본 배팅 ${DEFAULT_MATCH_WAGER}코인, 최대 ${MAX_MATCH_WAGER}코인 규칙으로 정산되었습니다.`
+        );
+
+        onSaved();
+      } catch (err) {
+        console.error('결과 저장 오류:', err);
+        alert('결과 저장에 실패했습니다. 콘솔을 확인하세요.');
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    return (
+      <tr className="hover:bg-gray-50">
+        {/* 1. 회차 */}
+        <td className="px-3 py-3 whitespace-nowrap text-center text-sm font-medium text-gray-900">
+          {match.generated_match?.match_number}
+        </td>
+        {/* 2. 경기 세션 */}
+        <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate" title={formatSessionName(match.generated_match?.session)}>
+          {formatSessionName(match.generated_match?.session)}
+        </td>
+        {/* 3. 라켓팀 */}
+        <td className="px-4 py-3 whitespace-nowrap text-center">
+          <div className="inline-flex items-center justify-center space-x-1.5 bg-blue-50/60 border border-blue-100 rounded-md px-2 py-1">
+            {getPlayerNameWithHighlight(match.generated_match?.team1_player1)}
+            <span className="text-gray-300 text-xs">/</span>
+            {getPlayerNameWithHighlight(match.generated_match?.team1_player2)}
+          </div>
+        </td>
+        {/* 4. 점수 입력 */}
+        <td className="px-4 py-3 whitespace-nowrap text-center">
+          <div className="flex items-center justify-center gap-1.5">
+            <input
+              type="number"
+              value={team1Score}
+              onChange={(e) => setTeam1Score(Number(e.target.value))}
+              className="w-12 px-1 py-0.5 border rounded text-center text-xs font-semibold focus:ring-1 focus:ring-blue-500 outline-none"
+            />
+            <span className="text-xs text-gray-400 font-bold">:</span>
+            <input
+              type="number"
+              value={team2Score}
+              onChange={(e) => setTeam2Score(Number(e.target.value))}
+              className="w-12 px-1 py-0.5 border rounded text-center text-xs font-semibold focus:ring-1 focus:ring-blue-500 outline-none"
+            />
+          </div>
+        </td>
+        {/* 5. 셔틀팀 */}
+        <td className="px-4 py-3 whitespace-nowrap text-center">
+          <div className="inline-flex items-center justify-center space-x-1.5 bg-red-50/60 border border-red-100 rounded-md px-2 py-1">
+            {getPlayerNameWithHighlight(match.generated_match?.team2_player1)}
+            <span className="text-gray-300 text-xs">/</span>
+            {getPlayerNameWithHighlight(match.generated_match?.team2_player2)}
+          </div>
+        </td>
+        {/* 6. 상태 */}
+        <td className="px-3 py-3 whitespace-nowrap text-center">
+          {getStatusBadge(match.status)}
+        </td>
+        {/* 7. 결과 및 저장 */}
+        <td className="px-4 py-3 whitespace-nowrap text-center">
+          <div className="flex items-center justify-center gap-2">
+            {match.generated_match?.match_result ? (
+              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded truncate max-w-[120px]" title={`${match.generated_match.match_result.winner === 'team1' ? '라켓' : '셔틀'} 승 · ${match.generated_match.match_result.score || `${team1Score}:${team2Score}`}`}>
+                {match.generated_match.match_result.winner === 'team1' ? '라켓' : '셔틀'} 승 ({match.generated_match.match_result.score || `${team1Score}:${team2Score}`})
+              </span>
+            ) : null}
+            <Button onClick={submitResult} disabled={submitting} size="sm" className="h-7 px-2.5 text-xs font-semibold">
+              {submitting ? '중...' : match.generated_match?.match_result ? '수정' : '저장'}
+            </Button>
+          </div>
+        </td>
+      </tr>
     );
   }
 
@@ -469,7 +569,7 @@ function MatchResultsPage() {
                 <option value="all">전체 세션</option>
                 {matchSessions.map(session => (
                   <option key={session.id} value={session.id}>
-                    {session.session_name}
+                    {formatSessionName(session)}
                   </option>
                 ))}
               </select>
@@ -591,10 +691,38 @@ function MatchResultsPage() {
         </div>
 
         {/* 배정된 게임 목록 */}
-        <div className="rounded-lg bg-white shadow-sm">
-          <div className="border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
-            <h3 className="text-base font-medium text-gray-900 sm:text-lg">배정된 게임 목록</h3>
-            <p className="mt-1 text-xs text-gray-500 sm:text-sm">총 {assignedMatches.length}개의 배정된 게임</p>
+        <div className="rounded-lg bg-white shadow-sm border border-gray-200 overflow-hidden">
+          <div className="border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50/50">
+            <div>
+              <h3 className="text-base font-medium text-gray-900 sm:text-lg">배정된 게임 목록</h3>
+              <p className="mt-1 text-xs text-gray-500 sm:text-sm">총 {assignedMatches.length}개의 배정된 게임</p>
+            </div>
+            
+            {/* 보기 방식 토글 */}
+            <div className="flex items-center bg-gray-150 p-0.5 rounded-lg self-start sm:self-auto border border-gray-200/50">
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1 ${
+                  viewMode === 'grid'
+                    ? 'bg-white text-blue-600 shadow-xs'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                🎴 4열 카드 보기
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1 ${
+                  viewMode === 'table'
+                    ? 'bg-white text-blue-600 shadow-xs'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                📋 테이블 보기
+              </button>
+            </div>
           </div>
 
           {assignedMatches.length === 0 ? (
@@ -606,64 +734,94 @@ function MatchResultsPage() {
                 <Button>게임 생성하러 가기</Button>
               </Link>
             </div>
-          ) : (
+          ) : viewMode === 'table' ? (
             <div className="overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 select-none">
                     <tr>
-                      <th className="w-1/12 px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        회차
+                      <th 
+                        onClick={() => handleSort('number')}
+                        className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      >
+                        회차 {renderSortIndicator('number')}
                       </th>
-                      <th className="w-10/12 px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        팀 구성
+                      <th 
+                        onClick={() => handleSort('session')}
+                        className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      >
+                        경기 세션 {renderSortIndicator('session')}
                       </th>
-                      <th className="w-1/12 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        상태
+                      <th 
+                        onClick={() => handleSort('team1')}
+                        className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      >
+                        라켓팀 (팀 1) {renderSortIndicator('team1')}
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        점수 입력
+                      </th>
+                      <th 
+                        onClick={() => handleSort('team2')}
+                        className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      >
+                        셔틀팀 (팀 2) {renderSortIndicator('team2')}
+                      </th>
+                      <th 
+                        onClick={() => handleSort('status')}
+                        className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      >
+                        상태 {renderSortIndicator('status')}
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        결과 및 저장
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {assignedMatches.map((match) => (
-                      <tr key={match.id} className="hover:bg-gray-50">
-                        <td className="w-1/12 px-2 py-4 whitespace-nowrap text-center align-top">
-                          <div className="text-sm font-medium text-gray-900">
-                            {match.generated_match?.match_number}
-                          </div>
-                        </td>
-                        <td className="w-10/12 px-6 py-4 align-top">
-                          <div className="flex flex-col gap-2">
-                            <div className="flex justify-center items-center gap-4">
-                              {/* 팀 1 */}
-                              <div className="flex items-center justify-center space-x-2 flex-1 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                                {getPlayerNameWithHighlight(match.generated_match?.team1_player1)}
-                                <span className="text-gray-400">,</span>
-                                {getPlayerNameWithHighlight(match.generated_match?.team1_player2)}
-                              </div>
-                              
-                              {/* 팀 2 */}
-                              <div className="flex items-center justify-center space-x-2 flex-1 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                                {getPlayerNameWithHighlight(match.generated_match?.team2_player1)}
-                                <span className="text-gray-400">,</span>
-                                {getPlayerNameWithHighlight(match.generated_match?.team2_player2)}
-                              </div>
-                            </div>
-
-                            {/* 결과 입력 UI */}
-                            <MatchResultRow
-                              match={match}
-                              onSaved={() => fetchAssignedMatches()}
-                            />
-                          </div>
-                        </td>
-                        <td className="w-1/12 px-3 py-4 whitespace-nowrap text-center align-top">
-                          {getStatusBadge(match.status)}
-                        </td>
-                      </tr>
+                    {groupedMatches.map((group) => (
+                      <Fragment key={group.session?.id || 'none'}>
+                        {/* 세션 구분 행 */}
+                        <tr className="bg-slate-100/70">
+                          <td colSpan={7} className="px-4 py-2 text-xs font-bold text-slate-700 border-y border-slate-200">
+                            📅 {formatSessionName(group.session)} ({group.matches.length}개 경기)
+                          </td>
+                        </tr>
+                        {group.matches.map((match) => (
+                          <MatchResultTableRow
+                            key={match.id}
+                            match={match}
+                            onSaved={() => fetchAssignedMatches()}
+                          />
+                        ))}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
               </div>
+            </div>
+          ) : (
+            /* Card Grid View (4 columns) grouped by session */
+            <div className="p-4 sm:p-6 bg-gray-50/50 flex flex-col gap-6">
+              {groupedMatches.map((group) => (
+                <div key={group.session?.id || 'none'} className="border-b border-gray-100 pb-6 last:border-0 last:pb-0">
+                  {/* 세션 헤더 */}
+                  <div className="bg-slate-100 px-4 py-2.5 rounded-lg font-bold text-xs sm:text-sm text-slate-700 mb-4 flex items-center justify-between border border-slate-200">
+                    <span>📅 {formatSessionName(group.session)}</span>
+                    <span className="text-xs text-slate-500 font-normal">{group.matches.length}개 게임</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {group.matches.map((match) => (
+                      <MatchResultGridCard
+                        key={match.id}
+                        match={match}
+                        onSaved={() => fetchAssignedMatches()}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

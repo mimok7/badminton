@@ -147,7 +147,12 @@ function getResolvedWinner(match: Match): Match['winner'] {
 }
 
 function isResultMatch(match: Match) {
-  return typeof match.score_team1 === 'number' && typeof match.score_team2 === 'number';
+  // 점수와 승자가 모두 있을 때만 결과 경기로 판단
+  return (
+    typeof match.score_team1 === 'number' &&
+    typeof match.score_team2 === 'number' &&
+    (match.score_team1 > 0 || match.score_team2 > 0 || match.winner != null)
+  );
 }
 
 function getTeamKey(players: string[]) {
@@ -759,7 +764,10 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       .map((match) => ({
         ...match,
         scheduled_time: match.scheduled_time || null,
-        status: isResultMatch(match) ? 'completed' : match.status || 'pending',
+        // status 컬럼이 'completed'이거나, 점수+승자가 있을 때만 completed로 처리
+        status: match.status === 'completed' || isResultMatch(match)
+          ? 'completed'
+          : match.status || 'pending',
         score_team1: match.score_team1 ?? null,
         score_team2: match.score_team2 ?? null,
         winner: getResolvedWinner(match),
@@ -2262,28 +2270,39 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                       </div>
                                     </div>
 
-                                    {!isCompleted && (
-                                      <div className="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-slate-50 px-3 py-3">
-                                        <span className="text-sm text-slate-500">
-                                          {match.status === 'in_progress' ? (
-                                            <span className="flex items-center gap-1.5">
-                                              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-rose-500" />
-                                              <span className="font-medium text-slate-700">실시간 진행중 {match.score_team1 ?? 0} : {match.score_team2 ?? 0}</span>
-                                            </span>
-                                          ) : (
-                                            '점수 등록 전입니다.'
-                                          )}
-                                        </span>
-                                        {match.id && (
+                                    <div className="mt-3 flex justify-end">
+                                      {isCompleted ? (
+                                        // 완료 경기: 비활성화 버튼
+                                        match.id ? (
+                                          <Link
+                                            href={`/scoreboard/${match.id}`}
+                                            className="shrink-0 rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-medium text-slate-400 pointer-events-none"
+                                            tabIndex={-1}
+                                            aria-disabled="true"
+                                          >
+                                            ✔️ 경기완료
+                                          </Link>
+                                        ) : (
+                                          <span className="shrink-0 rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-medium text-slate-400">
+                                            ✔️ 경기완료
+                                          </span>
+                                        )
+                                      ) : (
+                                        // 대기중/진행중: 활성화 버튼
+                                        match.id ? (
                                           <Link
                                             href={`/scoreboard/${match.id}`}
                                             className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700"
                                           >
                                             {match.status === 'in_progress' ? '🔴 LIVE 보기' : '📋 점수판'}
                                           </Link>
-                                        )}
-                                      </div>
-                                    )}
+                                        ) : (
+                                          <span className="shrink-0 rounded-lg bg-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 cursor-not-allowed">
+                                            📋 점수판
+                                          </span>
+                                        )
+                                      )}
+                                    </div>
                                     {(() => {
                                       const displayReferee = getDisplayRefereeName(match);
                                       if (!displayReferee) return null;

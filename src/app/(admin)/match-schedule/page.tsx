@@ -6,6 +6,7 @@ import { RequireAdmin } from '@/components/AuthGuard';
 import {
   decorateDescriptionForScheduleSource,
   inferScheduleSource,
+  getScheduleSourceLabel,
   type MatchScheduleSource,
 } from '@/lib/match-schedule-source';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -130,7 +131,7 @@ export default function MatchSchedulePage() {
   const fetchSchedules = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/match-schedules?schedule_source=recurring', {
+      const response = await fetch('/api/admin/match-schedules', {
         method: 'GET',
         cache: 'no-store',
       });
@@ -143,10 +144,12 @@ export default function MatchSchedulePage() {
       }
 
       const payload = (await response.json()) as { schedules?: ScheduleWithParticipants[] };
-      const schedulesData = (payload.schedules || []).map((schedule) => ({
-        ...schedule,
-        schedule_source: inferScheduleSource(schedule),
-      }));
+      const schedulesData = (payload.schedules || [])
+        .map((schedule) => ({
+          ...schedule,
+          schedule_source: inferScheduleSource(schedule),
+        }))
+        .filter((schedule) => schedule.schedule_source === 'recurring' || schedule.schedule_source === 'tournament');
 
       if (!schedulesData || schedulesData.length === 0) {
         setSchedules([]);
@@ -214,7 +217,6 @@ export default function MatchSchedulePage() {
     }
 
     try {
-      const scheduleSource: MatchScheduleSource = 'recurring';
       const response = await fetch('/api/admin/match-schedules', {
         method: 'POST',
         headers: {
@@ -227,7 +229,7 @@ export default function MatchSchedulePage() {
           end_time: newSchedule.end_time,
           location: newSchedule.location,
           max_participants: newSchedule.max_participants,
-          schedule_source: scheduleSource,
+          schedule_source: newSchedule.schedule_source,
           description: newSchedule.description,
         }),
       });
@@ -299,7 +301,7 @@ export default function MatchSchedulePage() {
       end_time: editForm.end_time,
       location: editForm.location,
       max_participants: editForm.max_participants,
-      description: decorateDescriptionForScheduleSource(editForm.description, 'recurring'),
+      description: decorateDescriptionForScheduleSource(editForm.description, editForm.schedule_source),
       updated_by: user?.id
     } as any;
 
@@ -311,7 +313,7 @@ export default function MatchSchedulePage() {
         },
         body: JSON.stringify({
           ...payload,
-          schedule_source: 'recurring',
+          schedule_source: editForm.schedule_source,
         }),
       });
 
@@ -814,7 +816,20 @@ export default function MatchSchedulePage() {
               <h2 className="text-lg font-bold text-gray-900">새 경기 생성</h2>
             </div>
             <form onSubmit={handleCreateSchedule} className="space-y-3 p-4 sm:space-y-4 sm:p-6">
-              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    경기 구분 *
+                  </label>
+                  <select
+                    value={newSchedule.schedule_source}
+                    onChange={(e) => setNewSchedule({ ...newSchedule, schedule_source: e.target.value as MatchScheduleSource })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="recurring">정기모임</option>
+                    <option value="tournament">대회 경기</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     경기 날짜 *
@@ -965,7 +980,7 @@ export default function MatchSchedulePage() {
                                     🕐 {schedule.start_time} - {schedule.end_time}
                                   </h4>
                                   <span className={`px-3 py-1 rounded text-sm font-semibold ${getScheduleSourceBadgeClass(schedule.schedule_source)}`}>
-                                    정기 경기
+                                    {getScheduleSourceLabel(schedule.schedule_source)}
                                   </span>
                                   <span className={`px-3 py-1 rounded text-sm ${getStatusColor(schedule.status)}`}>
                                     {getStatusText(schedule.status)}
@@ -1164,7 +1179,18 @@ export default function MatchSchedulePage() {
               >×</button>
             </div>
             <form onSubmit={handleUpdateSchedule} className="space-y-3 p-4 sm:space-y-4 sm:p-6">
-              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">경기 구분 *</label>
+                  <select
+                    value={editForm.schedule_source}
+                    onChange={(e) => setEditForm({ ...editForm, schedule_source: e.target.value as MatchScheduleSource })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="recurring">정기모임</option>
+                    <option value="tournament">대회 경기</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">경기 날짜 *</label>
                   <input
@@ -1220,7 +1246,7 @@ export default function MatchSchedulePage() {
                 </div>
               </div>
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-                이 페이지에서는 정기 경기 일정만 수정합니다.
+                이 페이지에서는 경기 일정만 관리/수정합니다. 게임은 표시하지 않습니다.
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">경기 설명</label>

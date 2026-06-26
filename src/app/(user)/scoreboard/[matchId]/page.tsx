@@ -38,6 +38,7 @@ export default function ScoreboardPage() {
   const [showConfirmComplete, setShowConfirmComplete] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [isLive, setIsLive] = useState(true);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -138,6 +139,17 @@ export default function ScoreboardPage() {
       supabase.removeChannel(channel);
     };
   }, [matchId, canEdit]);
+
+  // 10초마다 자동 새로고침 (라이브 보기 ON 이고 관전자 모드일 때)
+  useEffect(() => {
+    if (!isLive || match?.status === 'completed' || loading || canEdit) return;
+
+    const interval = setInterval(() => {
+      fetchMatch();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [isLive, match?.status, loading, canEdit, fetchMatch]);
 
   // 점수 서버 저장 (debounce)
   const saveScore = useCallback(
@@ -334,11 +346,6 @@ export default function ScoreboardPage() {
             {saving && (
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-400" />
             )}
-            {!isCompleted && match.status === 'in_progress' && (
-              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                🔴 LIVE
-              </span>
-            )}
             {isCompleted && (
               <span className="rounded-full bg-slate-500/30 px-2 py-0.5 text-[10px] font-bold text-slate-400">
                 경기종료
@@ -348,6 +355,19 @@ export default function ScoreboardPage() {
         </div>
 
         <div className="flex items-center gap-1.5">
+          {!isCompleted && (
+            <button
+              onClick={() => setIsLive((prev) => !prev)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                isLive
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30'
+                  : 'bg-white/10 text-slate-400 hover:bg-white/20'
+              }`}
+              title="라이브 보기 토글"
+            >
+              {isLive ? '🟢 라이브 ON' : '⚫ 라이브 OFF'}
+            </button>
+          )}
           <button
             onClick={fetchMatch}
             className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium transition hover:bg-white/20"
@@ -556,7 +576,9 @@ export default function ScoreboardPage() {
       {!canEdit && !isCompleted && (
         <div className="relative z-10 flex items-center justify-center bg-black/50 px-4 py-3 backdrop-blur-md">
           <span className="text-sm text-slate-400">
-            👀 관전 모드 — 점수는 실시간으로 업데이트됩니다
+            {isLive 
+              ? '👀 관전 모드 — 10초마다 자동 새로고침 중' 
+              : '👀 관전 모드 — 라이브 오프시는 새로고침 버튼 누르면 갱신됩니다'}
           </span>
         </div>
       )}

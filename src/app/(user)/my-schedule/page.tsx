@@ -896,11 +896,19 @@ export default function MySchedulePage() {
   const getTeamScoreText = (score?: number | null) =>
     typeof score === 'number' ? String(score) : '-';
 
-  const summaryItems = [
-    { label: '예정', value: `${stats.upcomingMatches}` },
-    { label: '완료', value: `${matchRecords.length}` },
-    { label: '승률', value: `${stats.winRate}%` },
-  ];
+  const isTournamentTab = activeTab === 'tournaments';
+
+  const summaryItems = isTournamentTab
+    ? [
+        { label: '총', value: `${tournamentStats.total}` },
+        { label: '승리', value: `${tournamentStats.wins}` },
+        { label: '대기', value: `${tournamentStats.pending}` },
+      ]
+    : [
+        { label: '예정', value: `${stats.upcomingMatches}` },
+        { label: '완료', value: `${matchRecords.length}` },
+        { label: '승률', value: `${stats.winRate}%` },
+      ];
 
   // 경기 결과 보기/일정 상세 보기 핸들러 (통합)
   const handleScheduleDetails = (match: MatchSchedule) => {
@@ -1616,16 +1624,9 @@ export default function MySchedulePage() {
 
         {activeTab === 'tournaments' && (
           <div className="rounded-[24px] bg-white shadow-sm">
-            <div className="flex flex-col gap-4 border-b border-slate-200/80 p-4">
-              <div>
-                  <h2 className="text-lg font-semibold text-slate-900">대회 경기</h2>
-                <p className="mt-1 text-sm text-slate-500">참가 중인 대회 경기만 모아봅니다.</p>
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-600">
-                <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-800">총 {tournamentStats.total}</span>
-                <span className="rounded-full bg-green-50 px-3 py-1.5 text-green-800">승리 {tournamentStats.wins}</span>
-                <span className="rounded-full bg-blue-50 px-3 py-1.5 text-blue-800">대기 {tournamentStats.pending}</span>
-              </div>
+            <div className="border-b border-slate-200/80 p-4">
+              <h2 className="text-lg font-semibold text-slate-900">대회 경기</h2>
+              <p className="mt-1 text-sm text-slate-500">참가 중인 대회 경기만 모아봅니다.</p>
             </div>
 
             {tournamentMatches.length === 0 ? (

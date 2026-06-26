@@ -5,7 +5,7 @@ import type { AdminUser } from '@/types';
 import { createMember, deleteUser, updateUser, updateUsersBulk, updateRatingSettings, resetUserPassword } from './actions';
 import type { UpdateUserPayload } from './actions';
 import { useRouter } from 'next/navigation';
-import { Activity, Calendar, Filter, Key, LayoutGrid, List, Save, Search, Shield, Trash2, UserPlus, Users } from 'lucide-react';
+import { Activity, Calendar, Filter, Key, LayoutGrid, List, Save, Search, Shield, Trash2, UserPlus, Users, Trophy } from 'lucide-react';
 
 type LevelOption = {
     code: string;
@@ -22,7 +22,7 @@ type AttendanceSummary = Record<
     }
 >;
 
-type TabKey = 'overview' | 'members' | 'attendance' | 'create' | 'rating-period';
+type TabKey = 'overview' | 'members' | 'attendance' | 'win-rate' | 'create' | 'rating-period';
 type MemberSortKey = 'member' | 'role' | 'level' | 'levelCode' | 'score' | 'gender';
 type SortDirection = 'asc' | 'desc';
 
@@ -118,8 +118,8 @@ export default function UserManagementClient({
     }, []);
 
     useEffect(() => {
-        if (initialTab === 'members' || initialTab === 'attendance' || initialTab === 'create' || initialTab === 'overview') {
-            setSelectedTab(initialTab);
+        if (initialTab === 'members' || initialTab === 'attendance' || initialTab === 'win-rate' || initialTab === 'create' || initialTab === 'overview') {
+            setSelectedTab(initialTab as TabKey);
         }
     }, [initialTab]);
 
@@ -545,6 +545,28 @@ export default function UserManagementClient({
             });
     }, [attendanceSummary, filteredUsers]);
 
+    const winRateRows = useMemo(() => {
+        return [...filteredUsers]
+            .map((user) => ({
+                ...user,
+                coin_wins: user.coin_wins || 0,
+                coin_losses: user.coin_losses || 0,
+                total_games: (user.coin_wins || 0) + (user.coin_losses || 0),
+                win_rate: ((user.coin_wins || 0) + (user.coin_losses || 0)) > 0
+                    ? (user.coin_wins || 0) / ((user.coin_wins || 0) + (user.coin_losses || 0))
+                    : 0,
+            }))
+            .sort((left, right) => {
+                if (right.win_rate !== left.win_rate) {
+                    return right.win_rate - left.win_rate;
+                }
+                if (right.total_games !== left.total_games) {
+                    return right.total_games - left.total_games;
+                }
+                return (left.full_name || left.username || left.email || '').localeCompare(right.full_name || right.username || right.email || '');
+            });
+    }, [filteredUsers]);
+
     const overview = useMemo(() => {
         const adminCount = memberList.filter((user) => user.role === 'admin').length;
         const managerCount = memberList.filter((user) => user.role === 'manager').length;
@@ -557,11 +579,34 @@ export default function UserManagementClient({
             .sort((left, right) => right.attendance.total - left.attendance.total)
             .slice(0, 5);
 
+        const topWinRate = [...memberList]
+            .map((user) => ({
+                ...user,
+                coin_wins: user.coin_wins || 0,
+                coin_losses: user.coin_losses || 0,
+                total_games: (user.coin_wins || 0) + (user.coin_losses || 0),
+                win_rate: ((user.coin_wins || 0) + (user.coin_losses || 0)) > 0
+                    ? (user.coin_wins || 0) / ((user.coin_wins || 0) + (user.coin_losses || 0))
+                    : 0,
+            }))
+            .filter((user) => user.total_games > 0)
+            .sort((left, right) => {
+                if (right.win_rate !== left.win_rate) {
+                    return right.win_rate - left.win_rate;
+                }
+                if (right.total_games !== left.total_games) {
+                    return right.total_games - left.total_games;
+                }
+                return (left.full_name || left.username || left.email || '').localeCompare(right.full_name || right.username || right.email || '');
+            })
+            .slice(0, 5);
+
         return {
             adminCount,
             managerCount,
             linkedCount,
             topAttendance,
+            topWinRate,
         };
     }, [attendanceSummary, memberList]);
 
@@ -939,6 +984,10 @@ export default function UserManagementClient({
                             <Activity className="size-4" />
                             출석 현황
                         </button>
+                        <button type="button" onClick={() => setSelectedTab('win-rate')} className={tabButtonClass('win-rate')}>
+                            <Trophy className="size-4" />
+                            승률 현황
+                        </button>
                         <button type="button" onClick={() => setSelectedTab('create')} className={tabButtonClass('create')}>
                             <UserPlus className="size-4" />
                             회원 추가
@@ -1031,27 +1080,59 @@ export default function UserManagementClient({
                             ))}
                         </div>
                     </section>
-                    <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
-                        <h2 className="text-lg font-semibold text-slate-900">출석 상위</h2>
-                        <div className="mt-3 space-y-2.5 sm:mt-4 sm:space-y-3">
-                            {overview.topAttendance.map((user, index) => (
-                                <div key={user.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
-                                    <div>
-                                        <div className="text-sm font-semibold text-slate-900">
-                                            {index + 1}. {user.full_name || user.username || user.email}
+                    <div className="space-y-4 sm:space-y-6">
+                        <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+                            <h2 className="text-lg font-semibold text-slate-900">출석 상위</h2>
+                            <div className="mt-3 space-y-2.5 sm:mt-4 sm:space-y-3">
+                                {overview.topAttendance.map((user, index) => (
+                                    <div key={user.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
+                                        <div>
+                                            <div className="text-sm font-semibold text-slate-900">
+                                                {index + 1}. {user.full_name || user.username || user.email}
+                                            </div>
+                                            <div className="text-xs text-slate-500">
+                                                최근 30일 {user.attendance.last30}회
+                                            </div>
                                         </div>
-                                        <div className="text-xs text-slate-500">
-                                            최근 30일 {user.attendance.last30}회
+                                        <div className="text-right">
+                                            <div className="text-lg font-semibold text-slate-900">{user.attendance.total}</div>
+                                            <div className="text-xs text-slate-500">누적</div>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <div className="text-lg font-semibold text-slate-900">{user.attendance.total}</div>
-                                        <div className="text-xs text-slate-500">누적</div>
+                                ))}
+                            </div>
+                        </section>
+                        <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+                            <h2 className="text-lg font-semibold text-slate-900">승률 상위 5</h2>
+                            <div className="mt-3 space-y-2.5 sm:mt-4 sm:space-y-3">
+                                {overview.topWinRate.length === 0 ? (
+                                    <div className="text-center py-6 text-sm text-slate-500">
+                                        기록된 경기 결과가 없습니다.
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
+                                ) : (
+                                    overview.topWinRate.map((user, index) => {
+                                        const winRate = user.total_games > 0 ? ((user.coin_wins / user.total_games) * 100).toFixed(1) : '0.0';
+                                        return (
+                                            <div key={user.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
+                                                <div>
+                                                    <div className="text-sm font-semibold text-slate-900">
+                                                        {index + 1}. {user.full_name || user.username || user.email}
+                                                    </div>
+                                                    <div className="text-xs text-slate-500">
+                                                        {user.coin_wins}승 {user.coin_losses}패 (총 {user.total_games}경기)
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-lg font-bold text-slate-900">{winRate}%</div>
+                                                    <div className="text-xs text-slate-500">승률</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </section>
+                    </div>
                 </div>
             )}
 
@@ -1132,6 +1213,55 @@ export default function UserManagementClient({
                                         <td className="px-4 py-3 text-slate-500">{user.attendance.lastAttended || '-'}</td>
                                     </tr>
                                 ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            )}
+
+            {selectedTab === 'win-rate' && (
+                <section className="rounded-lg border border-slate-200 bg-white">
+                    <div className="border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4">
+                        <h2 className="text-lg font-semibold text-slate-900">회원별 승률 현황</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                            <thead className="bg-slate-100 text-slate-600">
+                                <tr>
+                                    <th className="px-4 py-3 text-center font-semibold w-16">순위</th>
+                                    <th className="px-4 py-3 text-left font-semibold">회원</th>
+                                    <th className="px-4 py-3 text-right font-semibold">승률</th>
+                                    <th className="px-4 py-3 text-right font-semibold">승</th>
+                                    <th className="px-4 py-3 text-right font-semibold">패</th>
+                                    <th className="px-4 py-3 text-right font-semibold">총 경기수</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                                {winRateRows.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                                            해당 조건의 회원이 없습니다.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    winRateRows.map((user, index) => {
+                                        const total = (user.coin_wins || 0) + (user.coin_losses || 0);
+                                        const winRate = total > 0 ? ((user.coin_wins || 0) / total * 100).toFixed(1) : '0.0';
+                                        return (
+                                            <tr key={user.id} className="hover:bg-slate-50">
+                                                <td className="px-4 py-3 text-center font-medium text-slate-500">{index + 1}</td>
+                                                <td className="px-4 py-3">
+                                                    <div className="font-medium text-slate-900">{user.full_name || user.username || user.email}</div>
+                                                    <div className="text-xs text-slate-500">{formatLevelGroupLabel(normalizeLevelKey(user.skill_level))}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-bold text-slate-900">{winRate}%</td>
+                                                <td className="px-4 py-3 text-right font-semibold text-emerald-600">{user.coin_wins || 0}</td>
+                                                <td className="px-4 py-3 text-right font-semibold text-rose-600">{user.coin_losses || 0}</td>
+                                                <td className="px-4 py-3 text-right font-medium text-slate-700">{total}</td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
                             </tbody>
                         </table>
                     </div>

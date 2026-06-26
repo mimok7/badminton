@@ -935,13 +935,19 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       }
 
       const allFetched = results.flatMap((r) => r.matches);
-      const normalizedAll = normalizeMatches(allFetched);
-      setAllTournamentsMatches(normalizedAll);
+      const targetIds = new Set(results.map((r) => r.tournamentId).filter(Boolean) as string[]);
 
-      const activeMatches = normalizedAll.filter((m) => m.tournament_id === tournamentId);
-      setMatches(activeMatches);
+      setAllTournamentsMatches((prev) => {
+        const unchanged = prev.filter((m) => !m.tournament_id || !targetIds.has(m.tournament_id));
+        return normalizeMatches([...unchanged, ...allFetched]);
+      });
 
       const activeResult = results.find((r) => r.tournamentId === tournamentId);
+      const activeMatches = activeResult 
+        ? normalizeMatches(activeResult.matches)
+        : [];
+      setMatches(activeMatches);
+
       if (activeResult) {
         if (activeResult.selectedTournament) {
           setSelectedTournament(activeResult.selectedTournament);
@@ -957,13 +963,15 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       }
 
       if (!adminMode) {
-        const nextAssignments: TeamAssignmentMap = {};
-        results.forEach((r) => {
-          if (r.teamAssignmentsByTournament) {
-            Object.assign(nextAssignments, mapTeamAssignmentMap(r.teamAssignmentsByTournament));
-          }
+        setTeamAssignmentsByTournament((prev) => {
+          const nextAssignments = { ...prev };
+          results.forEach((r) => {
+            if (r.teamAssignmentsByTournament) {
+              Object.assign(nextAssignments, mapTeamAssignmentMap(r.teamAssignmentsByTournament));
+            }
+          });
+          return nextAssignments;
         });
-        setTeamAssignmentsByTournament(nextAssignments);
       }
 
       setLoadError(null);
@@ -1476,7 +1484,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       }
 
       if (selectedTournament) {
-        await fetchMatches(selectedTournament.id);
+        await fetchMatches(selectedTournament.id, [selectedTournament]);
       }
 
       alert('점수가 저장되었습니다!');

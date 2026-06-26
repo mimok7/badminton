@@ -292,6 +292,56 @@ export async function GET(request: Request) {
     const tournamentId = requestUrl.searchParams.get('tournament_id');
     const includeMatches = requestUrl.searchParams.get('include_matches');
 
+    // [Optimized Path] If a specific tournament_id is requested with matches
+    if (tournamentId && (includeMatches === '1' || includeMatches === 'true')) {
+      const { data: selectedTournament, error: tError } = await adminSupabase
+        .from('tournaments')
+        .select('*')
+        .eq('id', tournamentId)
+        .maybeSingle();
+
+      if (tError || !selectedTournament) {
+        return NextResponse.json({ error: 'Tournament not found' }, { status: 404 });
+      }
+
+      let { data: matchesData, error: matchesError } = await adminSupabase
+        .from('tournament_matches')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+        .order('round', { ascending: true })
+        .order('match_number', { ascending: true });
+
+      let matches = (matchesData || []) as MatchRow[];
+
+      if (matches.length === 0 && selectedTournament.team_assignment_id) {
+        const recoveryResult = await recoverTournamentMatches(selectedTournament);
+        if (recoveryResult.recovered) {
+          const { data: recoveredMatches } = await adminSupabase
+            .from('tournament_matches')
+            .select('*')
+            .eq('tournament_id', tournamentId)
+            .order('round', { ascending: true })
+            .order('match_number', { ascending: true });
+
+          matches = (recoveredMatches || []) as MatchRow[];
+        }
+      }
+
+      const selectedTeamAssignment = await fetchTeamAssignment(selectedTournament.team_assignment_id);
+      const teamAssignmentsByTournament = selectedTournament.team_assignment_id && selectedTeamAssignment
+        ? { [tournamentId]: selectedTeamAssignment }
+        : {};
+
+      return NextResponse.json({
+        tournaments: [selectedTournament],
+        metricsByTournament: {},
+        teamAssignmentsByTournament,
+        selectedTournament,
+        selectedTeamAssignment,
+        matches: normalizeMatches(matches),
+      });
+    }
+
     const { data, error } = await adminSupabase
       .from('tournaments')
       .select('*')

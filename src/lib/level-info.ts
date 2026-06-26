@@ -54,41 +54,71 @@ export async function fetchLevelNameMap(
   }, {});
 }
 
+// 모듈 수준 캐시: fetchLevelInfoMap 중복 호출 방지
+let _cachedLevelInfoMap: LevelInfoMap | null = null;
+let _cachedLevelInfoMapTimestamp = 0;
+let _pendingLevelInfoFetch: Promise<LevelInfoMap> | null = null;
+const LEVEL_INFO_CACHE_TTL = 5 * 60 * 1000; // 5분
+
 export async function fetchLevelInfoMap(
   supabase: SupabaseClient<Database>
 ): Promise<LevelInfoMap> {
-  const { data, error } = await supabase
-    .from('level_info')
-    .select('code, name, score')
-    .order('score', { ascending: false, nullsFirst: false });
+  const now = Date.now();
 
-  if (!error && data && data.length > 0) {
-    return toLevelInfoMap(data as LevelInfoRow[]);
+  // 캐시가 유효하면 즉시 반환
+  if (_cachedLevelInfoMap && Object.keys(_cachedLevelInfoMap).length > 0 && now - _cachedLevelInfoMapTimestamp < LEVEL_INFO_CACHE_TTL) {
+    return _cachedLevelInfoMap;
   }
 
-  if (typeof window !== 'undefined') {
-    const response = await fetch('/api/admin/level-info', {
-      method: 'GET',
-      credentials: 'include',
-      cache: 'no-store',
-    });
+  // 이미 진행중인 fetch가 있으면 동일한 Promise 반환 (동시 호출 중복 방지)
+  if (_pendingLevelInfoFetch) {
+    return _pendingLevelInfoFetch;
+  }
 
-    if (!response.ok) {
+  _pendingLevelInfoFetch = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('level_info')
+        .select('code, name, score')
+        .order('score', { ascending: false, nullsFirst: false });
+
+      if (!error && data && data.length > 0) {
+        _cachedLevelInfoMap = toLevelInfoMap(data as LevelInfoRow[]);
+        _cachedLevelInfoMapTimestamp = Date.now();
+        return _cachedLevelInfoMap;
+      }
+
+      if (typeof window !== 'undefined') {
+        const response = await fetch('/api/admin/level-info', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          if (error) {
+            throw error;
+          }
+          throw new Error('Failed to load level info');
+        }
+
+        const payload = await response.json().catch(() => null);
+        _cachedLevelInfoMap = toLevelInfoMap((payload?.levelInfo || []) as LevelInfoRow[]);
+        _cachedLevelInfoMapTimestamp = Date.now();
+        return _cachedLevelInfoMap;
+      }
+
       if (error) {
         throw error;
       }
-      throw new Error('Failed to load level info');
+
+      return {};
+    } finally {
+      _pendingLevelInfoFetch = null;
     }
+  })();
 
-    const payload = await response.json().catch(() => null);
-    return toLevelInfoMap((payload?.levelInfo || []) as LevelInfoRow[]);
-  }
-
-  if (error) {
-    throw error;
-  }
-
-  return {};
+  return _pendingLevelInfoFetch;
 }
 
 export function getLevelNameFromCode(

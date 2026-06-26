@@ -325,11 +325,14 @@ export default function PlayersTodayPage() {
   useEffect(() => {
     const init = async () => {
       console.log('페이지 초기 로딩 시작');
-      await fetchMemberPlayers();
-      await fetchActiveCourts();
-      await refreshAttendanceData();
-      await fetchMatchSessions();
-      await fetchTodaySchedules();
+      // 독립적인 데이터 조회들을 병렬로 실행하여 로딩 속도 개선
+      await Promise.all([
+        fetchMemberPlayers(),
+        fetchActiveCourts(),
+        refreshAttendanceData(),
+        fetchMatchSessions(),
+        fetchTodaySchedules(),
+      ]);
       console.log('페이지 초기 로딩 완료');
     };
     init();

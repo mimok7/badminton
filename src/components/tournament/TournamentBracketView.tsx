@@ -1518,7 +1518,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     ? '관리자는 큰 화면에서 팀 구성, 대회 생성, 경기 결과를 한 번에 관리할 수 있습니다.'
     : '경기 대진표와 경기결과 확인';
   const homeHref = adminMode ? '/admin' : '/dashboard';
-  const homeLabel = adminMode ? '관리자 홈' : '홈';
+  const homeLabel = '홈';
   const selectedTournamentMetrics = selectedTournament
     ? getTournamentMetrics(selectedTournament.id) || getTournamentMetricsFromMatches(matches)
     : null;
@@ -1632,9 +1632,9 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                       {matches.length === 0 ? (
                         <p className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 py-10 text-center text-sm text-slate-500">경기가 없습니다.</p>
                       ) : (
-                        <div className="space-y-6">
+                        <div className="space-y-3 sm:space-y-6">
                           {(isPairCustomTournament ? groupedMatchSections : [{ groupName: '', matches }]).map((section) => (
-                            <section key={section.groupName || 'all-matches'} className="space-y-3">
+                            <section key={section.groupName || 'all-matches'} className="space-y-2 sm:space-y-3">
                               {section.groupName && (
                                 <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
                                   <div>
@@ -1643,7 +1643,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                   </div>
                                 </div>
                               )}
-                              <div className="grid gap-4 xl:grid-cols-4">
+                              <div className="grid gap-2 sm:gap-4 xl:grid-cols-4">
                                 {section.matches.map((match, index) => {
                                   const isCompleted = match.status === 'completed';
                                   const isPending = match.status === 'pending';
@@ -1662,87 +1662,90 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                   const pairGroupLabel = extractPairGroupLabel(match.court);
 
                                   return (
-                                    <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-[24px] border p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
-                                      <div className="flex items-start justify-between gap-3">
+                                    <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-2xl sm:rounded-[24px] border p-2.5 sm:p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
+                                      <div className="flex items-start justify-between gap-2 sm:gap-3">
                                         <div>
-                                          <p className="text-sm font-semibold text-slate-900">{displayRound}회차 - {displayMatchNumber}경기</p>
-                                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                          <p className="text-xs sm:text-sm font-semibold text-slate-900">{displayRound}회차 - {displayMatchNumber}경기</p>
+                                          <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
                                             {pairGroupLabel && (
-                                              <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
+                                              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
                                             )}
                                             <span>{formatCourtLabel(match.court)}</span>
                                           </div>
                                         </div>
-                                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
+                                        <span className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
                                           {isCompleted ? '완료' : isPending ? '대기중' : '진행중'}
                                         </span>
                                       </div>
 
-                                      <div className="mt-4 grid grid-cols-2 items-stretch gap-3 text-sm">
-                                        <div className="rounded-2xl bg-white px-3 py-3 text-slate-800">
-                                          <span className="text-xs font-medium text-blue-600">팀1</span>
-                                          <div className="mt-1 font-medium">{match.team1.join(', ')}</div>
+                                      <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_100px_minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_120px_minmax(0,1fr)] items-stretch gap-1.5 sm:gap-3 text-sm">
+                                        <div className="flex min-w-0 flex-col justify-center rounded-xl bg-white px-2 py-2 text-left text-slate-800">
+                                          <span className="text-[10px] sm:text-xs font-semibold text-blue-600">팀1</span>
+                                          <div className="mt-0.5 whitespace-pre-line text-xs font-bold leading-normal text-slate-800">{match.team1.join('\n')}</div>
                                         </div>
-                                        <div className="rounded-2xl bg-white px-3 py-3 text-slate-800">
-                                          <span className="text-xs font-medium text-rose-600">팀2</span>
-                                          <div className="mt-1 font-medium">{match.team2.join(', ')}</div>
-                                        </div>
-                                      </div>
 
-                                      <div className="mt-4 flex w-full items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2.5">
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          value={score1Value}
-                                          onChange={(event) => {
-                                            if (!match.id) return;
-                                            setScoreDrafts((prev) => ({
-                                              ...prev,
-                                              [match.id!]: {
-                                                score1: event.target.value,
-                                                score2: prev[match.id!]?.score2 ?? score2Value,
-                                              },
-                                            }));
-                                          }}
-                                          className="w-16 rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                                        />
-                                        <span className="text-sm font-bold text-slate-500">vs</span>
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          value={score2Value}
-                                          onChange={(event) => {
-                                            if (!match.id) return;
-                                            setScoreDrafts((prev) => ({
-                                              ...prev,
-                                              [match.id!]: {
-                                                score1: prev[match.id!]?.score1 ?? score1Value,
-                                                score2: event.target.value,
-                                              },
-                                            }));
-                                          }}
-                                          className="w-16 rounded-xl border border-slate-300 px-3 py-2 text-sm"
-                                        />
-                                        <button
-                                          onClick={() => {
-                                            if (!match.id || parsedScore1 == null || parsedScore2 == null) return;
-                                            void updateMatchScore(match.id, parsedScore1, parsedScore2);
-                                          }}
-                                          disabled={!hasBothScores || !hasScoreChanged}
-                                          className={`ml-auto rounded-xl px-3 py-1.5 text-sm font-medium text-white ${
-                                            !hasBothScores || !hasScoreChanged
-                                              ? 'cursor-not-allowed bg-slate-300'
-                                              : 'bg-emerald-600 hover:bg-emerald-700'
-                                          }`}
-                                        >
-                                          저장
-                                        </button>
+                                        <div className="flex flex-col items-center justify-center gap-1 rounded-xl bg-slate-50 px-1 py-1.5 text-center">
+                                          <div className="flex items-center gap-0.5">
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              value={score1Value}
+                                              onChange={(event) => {
+                                                if (!match.id) return;
+                                                setScoreDrafts((prev) => ({
+                                                  ...prev,
+                                                  [match.id!]: {
+                                                    score1: event.target.value,
+                                                    score2: prev[match.id!]?.score2 ?? score2Value,
+                                                  },
+                                                }));
+                                              }}
+                                              className="w-9 sm:w-11 rounded-lg border border-slate-300 bg-white py-0.5 text-center text-xs sm:text-sm font-semibold outline-none focus:border-blue-500"
+                                            />
+                                            <span className="text-xs font-bold text-slate-400">:</span>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              value={score2Value}
+                                              onChange={(event) => {
+                                                if (!match.id) return;
+                                                setScoreDrafts((prev) => ({
+                                                  ...prev,
+                                                  [match.id!]: {
+                                                    score1: prev[match.id!]?.score1 ?? score1Value,
+                                                    score2: event.target.value,
+                                                  },
+                                                }));
+                                              }}
+                                              className="w-9 sm:w-11 rounded-lg border border-slate-300 bg-white py-0.5 text-center text-xs sm:text-sm font-semibold outline-none focus:border-blue-500"
+                                            />
+                                          </div>
+                                          <button
+                                            onClick={() => {
+                                              if (!match.id || parsedScore1 == null || parsedScore2 == null) return;
+                                              void updateMatchScore(match.id, parsedScore1, parsedScore2);
+                                            }}
+                                            disabled={!hasBothScores || !hasScoreChanged}
+                                            className={`rounded-lg px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-white transition-all ${
+                                              !hasBothScores || !hasScoreChanged
+                                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                                : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95'
+                                            }`}
+                                          >
+                                            저장
+                                          </button>
+                                        </div>
+
+                                        <div className="flex min-w-0 flex-col justify-center rounded-xl bg-white px-2 py-2 text-right text-slate-800">
+                                          <span className="text-[10px] sm:text-xs font-semibold text-rose-600">팀2</span>
+                                          <div className="mt-0.5 whitespace-pre-line text-xs font-bold leading-normal text-slate-800">{match.team2.join('\n')}</div>
+                                        </div>
                                       </div>
 
                                       {/* 심판 배정 + 점수판 링크 */}
-                                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                                        <div className="flex flex-1 items-center gap-1.5">
-                                          <span className="text-xs font-medium text-slate-500 whitespace-nowrap">심판:</span>
+                                      <div className="mt-2.5 flex flex-nowrap items-center justify-between gap-1.5 sm:gap-2">
+                                        <div className="flex flex-1 items-center gap-0.5 sm:gap-1 min-w-0">
+                                          <span className="text-[10px] sm:text-xs font-medium text-slate-500 whitespace-nowrap">심판:</span>
                                           <select
                                             value={refereeDrafts[match.id!] ?? match.referee_name ?? ''}
                                             onChange={(e) => {
@@ -1752,7 +1755,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                                 void assignReferee(match.id, value);
                                               }
                                             }}
-                                            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none"
+                                            className="w-[85px] sm:w-[150px] min-w-0 rounded-lg border border-slate-300 bg-white px-1 sm:px-1.5 py-0.5 sm:py-1 text-[10px] sm:text-xs text-slate-800 outline-none"
                                           >
                                             <option value="">선택 안함</option>
                                             {(() => {
@@ -1913,7 +1916,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                     {isPairCustomTournament ? (
                       <div className="space-y-6">
                         {adminMode && (
-                          <div className="rounded-[20px] border border-amber-200 bg-amber-50/50 p-4">
+                          <div className="hidden md:block rounded-[20px] border border-amber-200 bg-amber-50/50 p-4">
                             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                               <div>
                                 <p className="text-sm font-semibold text-amber-900">순위 결정 기준 우선순위 설정</p>
@@ -2213,16 +2216,16 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                     {matches.length === 0 ? (
                       <p className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 py-10 text-center text-sm text-slate-500">경기가 없습니다.</p>
                     ) : (
-                      <div className="space-y-6">
+                      <div className="space-y-3 sm:space-y-6">
                         {(isPairCustomTournament ? groupedMatchSections : [{ groupName: '', matches }]).map((section) => (
-                          <section key={section.groupName || 'all-user-matches'} className="space-y-3">
+                          <section key={section.groupName || 'all-user-matches'} className="space-y-2 sm:space-y-3">
                             {section.groupName && (
                               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
                                 <p className="text-sm font-semibold text-amber-900">{section.groupName}</p>
                                 <p className="text-xs text-amber-700">{section.matches.length}경기</p>
                               </div>
                             )}
-                            <div className="grid gap-4">
+                            <div className="grid gap-2 sm:gap-4">
                               {section.matches.map((match, index) => {
                                 const isCompleted = match.status === 'completed';
                                 const isPending = match.status === 'pending';
@@ -2230,51 +2233,51 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                 const displayMatchNumber = getDisplayMatchNumber(match, index);
                                 const pairGroupLabel = extractPairGroupLabel(match.court);
                                 return (
-                                  <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-[24px] border p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
-                                    <div className="flex items-start justify-between gap-3">
+                                  <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-2xl sm:rounded-[24px] border p-2.5 sm:p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
+                                    <div className="flex items-start justify-between gap-2 sm:gap-3">
                                       <div>
-                                        <p className="text-sm font-semibold text-slate-900">{displayRound}회차-{displayMatchNumber}경기</p>
-                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                        <p className="text-xs sm:text-sm font-semibold text-slate-900">{displayRound}회차-{displayMatchNumber}경기</p>
+                                        <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
                                           {pairGroupLabel && (
-                                            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
+                                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
                                           )}
                                           <span>{formatCourtLabel(match.court)}</span>
                                         </div>
                                       </div>
-                                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
+                                      <span className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
                                         {isCompleted ? '완료' : isPending ? '대기중' : '진행중'}
                                       </span>
                                     </div>
 
-                                    <div className="mt-4 grid grid-cols-[minmax(0,1fr)_84px_minmax(0,1fr)] items-stretch gap-2 sm:gap-3">
-                                      <div className="flex min-w-0 flex-col justify-center rounded-2xl bg-white px-3 py-4 text-left text-slate-800">
-                                        <span className="text-xs font-medium text-blue-600">팀1</span>
-                                        <div className="mt-1 whitespace-pre-line text-sm font-medium leading-6 sm:text-base">{match.team1.join('\n')}</div>
+                                    <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_76px_minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_84px_minmax(0,1fr)] items-stretch gap-1.5 sm:gap-3">
+                                      <div className="flex min-w-0 flex-col justify-center rounded-xl sm:rounded-2xl bg-white px-2 py-2 sm:px-3 sm:py-4 text-left text-slate-800">
+                                        <span className="text-[10px] sm:text-xs font-semibold text-blue-600">팀1</span>
+                                        <div className="mt-0.5 whitespace-pre-line text-xs sm:text-sm font-bold sm:font-medium leading-normal sm:leading-6 sm:text-base text-slate-800">{match.team1.join('\n')}</div>
                                       </div>
-                                      <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-900 px-2 py-4 text-center text-white">
-                                        <div className="text-[11px] font-medium text-slate-300">{isCompleted ? '점수' : '매치'}</div>
-                                        <div className="mt-1 text-lg font-semibold sm:text-xl">
-                                          {isCompleted ? `${match.score_team1 ?? 0} : ${match.score_team2 ?? 0}` : 'VS'}
+                                      <div className="flex flex-col items-center justify-center rounded-xl sm:rounded-2xl bg-slate-900 px-1 py-2 sm:px-2 sm:py-4 text-center text-white">
+                                        <div className="text-[9px] sm:text-[11px] font-medium text-slate-300">{isCompleted ? '점수' : '매치'}</div>
+                                        <div className="mt-0.5 sm:mt-1 text-xs sm:text-lg font-bold sm:font-semibold sm:text-xl">
+                                          {isCompleted ? `${match.score_team1 ?? 0}:${match.score_team2 ?? 0}` : 'VS'}
                                         </div>
                                       </div>
-                                      <div className="flex min-w-0 flex-col justify-center rounded-2xl bg-white px-3 py-4 text-right text-slate-800">
-                                        <span className="text-xs font-medium text-rose-600">팀2</span>
-                                        <div className="mt-1 whitespace-pre-line text-sm font-medium leading-6 sm:text-base">{match.team2.join('\n')}</div>
+                                      <div className="flex min-w-0 flex-col justify-center rounded-xl sm:rounded-2xl bg-white px-2 py-2 sm:px-3 sm:py-4 text-right text-slate-800">
+                                        <span className="text-[10px] sm:text-xs font-semibold text-rose-600">팀2</span>
+                                        <div className="mt-0.5 whitespace-pre-line text-xs sm:text-sm font-bold sm:font-medium leading-normal sm:leading-6 sm:text-base text-slate-800">{match.team2.join('\n')}</div>
                                       </div>
                                     </div>
 
-                                    <div className="mt-3 flex justify-end">
+                                    <div className="mt-2 sm:mt-3 flex justify-end">
                                       {isCompleted ? (
                                         // 완료 경기: 활성화된 버튼으로 변경
                                         match.id ? (
                                           <Link
                                             href={`/scoreboard/${match.id}`}
-                                            className="shrink-0 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-600"
+                                            className="shrink-0 rounded-lg bg-slate-700 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white transition hover:bg-slate-600"
                                           >
                                             ✔️ 경기완료
                                           </Link>
                                         ) : (
-                                          <span className="shrink-0 rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-medium text-slate-400">
+                                          <span className="shrink-0 rounded-lg bg-slate-200 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-medium text-slate-400">
                                             ✔️ 경기완료
                                           </span>
                                         )
@@ -2283,12 +2286,12 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                         match.id ? (
                                           <Link
                                             href={`/scoreboard/${match.id}`}
-                                            className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700"
+                                            className="shrink-0 rounded-lg bg-slate-800 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white transition hover:bg-slate-700"
                                           >
                                             {match.status === 'in_progress' ? '🔴 LIVE 보기' : '📋 점수판'}
                                           </Link>
                                         ) : (
-                                          <span className="shrink-0 rounded-lg bg-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 cursor-not-allowed">
+                                          <span className="shrink-0 rounded-lg bg-slate-300 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-medium text-slate-500 cursor-not-allowed">
                                             📋 점수판
                                           </span>
                                         )
@@ -2298,7 +2301,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                       const displayReferee = getDisplayRefereeName(match);
                                       if (!displayReferee) return null;
                                       return (
-                                        <div className="mt-2 text-xs text-slate-400 text-center">
+                                        <div className="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-slate-400 text-center">
                                           심판: <span className="font-medium text-slate-600">
                                             {displayReferee} {!match.referee_name && ' (이전 경기 승자)'}
                                           </span>

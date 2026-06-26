@@ -87,7 +87,7 @@ export default async function AdminMembersPage({
 
   const { data: profileLinkRows } = await supabaseAdmin
     .from('profiles')
-    .select('id, user_id')
+    .select('id, user_id, coin_wins, coin_losses')
 
   const { data: ratingSettingsRow } = await (supabaseAdmin as any)
     .from('member_rating_settings')
@@ -124,11 +124,20 @@ export default async function AdminMembersPage({
       { code: 'O', description: '기타', score: null },
     ]
 
+  const coinWinsMap = new Map(
+    (profileLinkRows || []).map((row) => [row.user_id || row.id, row.coin_wins || 0])
+  )
+  const coinLossesMap = new Map(
+    (profileLinkRows || []).map((row) => [row.user_id || row.id, row.coin_losses || 0])
+  )
+
   const levelOptionByCode = new Map(levelOptions.map((option) => [option.code, option]))
   users = users.map((user) => ({
     ...user,
     skill_level: String(user.skill_level ?? '').trim().toUpperCase() || 'E2',
     skill_label: levelOptionByCode.get(String(user.skill_level ?? '').trim().toUpperCase())?.description ?? user.skill_label,
+    coin_wins: coinWinsMap.get(user.id) || 0,
+    coin_losses: coinLossesMap.get(user.id) || 0,
   }))
 
   const attendanceSummary: AttendanceSummary = {}

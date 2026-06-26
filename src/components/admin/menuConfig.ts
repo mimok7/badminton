@@ -27,6 +27,7 @@ export const SECTIONS: MenuSection[] = [
     items: [
       { label: '회원 운영', href: '/admin/members', icon: '👥' },
       { label: '출석 현황', href: '/admin/members?tab=attendance', icon: '✅' },
+      { label: '승률 현황', href: '/admin/members?tab=win-rate', icon: '🏆' },
       { label: '코인 관리', href: '/admin/coins', icon: '🪙' },
       { label: '상품 관리', href: '/admin/products', icon: '🎁' },
     ],

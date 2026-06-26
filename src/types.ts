@@ -49,5 +49,6 @@ export interface AdminUser {
   skill_label?: string;
   gender?: string;
   created_at: string;
+  coin_wins?: number;
+  coin_losses?: number;
 }
-

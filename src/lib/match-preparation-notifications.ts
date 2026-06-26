@@ -126,7 +126,39 @@ export async function notifyWaitingMatchesForSession(adminSupabase: any, session
   }
 
   const recentCutoff = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-  let notificationCount = 0;
+
+  // 대기 중인 경기 ID와 선수 ID 수집
+  const waitingMatchIds = waitingMatches.map((m) => m.id);
+  const allParticipantUserIds = waitingMatches
+    .flatMap((match) => [
+      match.team1_player1?.user_id,
+      match.team1_player2?.user_id,
+      match.team2_player1?.user_id,
+      match.team2_player2?.user_id,
+    ])
+    .filter((id): id is string => Boolean(id));
+
+  // 이미 발송된 알림 데이터 일괄 쿼리
+  const sentSet = new Set<string>();
+  if (allParticipantUserIds.length > 0) {
+    const { data: existingNotifications, error: existingNotificationsError } = await adminSupabase
+      .from('notifications')
+      .select('user_id, related_match_id')
+      .in('user_id', allParticipantUserIds)
+      .in('related_match_id', waitingMatchIds)
+      .eq('type', 'match_preparation')
+      .gte('created_at', recentCutoff);
+
+    if (existingNotificationsError) {
+      throw new Error(existingNotificationsError.message);
+    }
+
+    (existingNotifications || []).forEach((n: any) => {
+      sentSet.add(`${n.user_id}_${n.related_match_id}`);
+    });
+  }
+
+  const notificationsToInsert: any[] = [];
 
   for (const match of waitingMatches) {
     const schedule = match.match_schedules?.[0];
@@ -141,24 +173,12 @@ export async function notifyWaitingMatchesForSession(adminSupabase: any, session
     const playerNames = participants.map((participant) => getParticipantName(participant)).filter(Boolean) as string[];
 
     for (const participant of participants) {
-      const { data: existingNotification, error: existingNotificationError } = await adminSupabase
-        .from('notifications')
-        .select('id')
-        .eq('user_id', participant.user_id)
-        .eq('type', 'match_preparation')
-        .eq('related_match_id', match.id)
-        .gte('created_at', recentCutoff)
-        .maybeSingle();
-
-      if (existingNotificationError) {
-        throw new Error(existingNotificationError.message);
-      }
-
-      if (existingNotification) {
+      const isAlreadySent = sentSet.has(`${participant.user_id}_${match.id}`);
+      if (isAlreadySent) {
         continue;
       }
 
-      const { error: insertNotificationError } = await adminSupabase.from('notifications').insert({
+      notificationsToInsert.push({
         user_id: participant.user_id,
         title: '경기 준비 알림',
         message: [
@@ -173,17 +193,21 @@ export async function notifyWaitingMatchesForSession(adminSupabase: any, session
         related_match_id: match.id,
         is_read: false,
       });
+    }
+  }
 
-      if (insertNotificationError) {
-        throw new Error(insertNotificationError.message);
-      }
+  if (notificationsToInsert.length > 0) {
+    const { error: insertError } = await adminSupabase
+      .from('notifications')
+      .insert(notificationsToInsert);
 
-      notificationCount += 1;
+    if (insertError) {
+      throw new Error(insertError.message);
     }
   }
 
   return {
     waitingMatchIds: waitingMatches.map((match) => match.id),
-    notificationCount,
+    notificationCount: notificationsToInsert.length,
   };
 }

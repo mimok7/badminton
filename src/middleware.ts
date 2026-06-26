@@ -22,6 +22,11 @@ export async function middleware(req: NextRequest) {
     },
   });
 
+  // 빌드 타임 프리렌더링 시 미들웨어 리다이렉션으로 인해 번들 수집이 실패하는 문제를 방지합니다.
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return res;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

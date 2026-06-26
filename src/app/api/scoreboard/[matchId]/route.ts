@@ -20,11 +20,16 @@ async function getMatchRefereeInfo(
   let isReferee = false;
 
   if (refereeName) {
-    const cleanRefereeName = refereeName.trim().toLowerCase();
-    const cleanCurrentUserName = (currentUserName || '').trim().toLowerCase();
+    const cleanRefereeNames = refereeName
+      .split(',')
+      .map((name) => name.replace(/\([^)]*\)$/, '').trim().toLowerCase());
+    const cleanCurrentUserName = (currentUserName || '')
+      .replace(/\([^)]*\)$/, '')
+      .trim()
+      .toLowerCase();
     isReferee =
       currentUserId != null &&
-      (refereeId === currentUserId || cleanRefereeName === cleanCurrentUserName);
+      (refereeId === currentUserId || cleanRefereeNames.includes(cleanCurrentUserName));
   } else {
     // Fallback referee logic
     const currentRound = (match.round as number) || 1;

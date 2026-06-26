@@ -526,7 +526,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     const formattedTitle = formatTournamentTitle(t.title);
     const prefixRegex = /^(대회\s*경기\s*\d{4}-\d{2}-\d{2})\s*(.*)$/u;
     const titleMatch = formattedTitle.match(prefixRegex);
-    return titleMatch ? titleMatch[2].trim() : formattedTitle;
+    return formatGroupLabel(titleMatch ? titleMatch[2].trim() : formattedTitle);
   };
   const [tournamentMetrics, setTournamentMetrics] = useState<Record<string, TournamentMetrics>>({});
   const [loading, setLoading] = useState(true);

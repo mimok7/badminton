@@ -46,6 +46,12 @@ export default function ProfilePage() {
   const router = useRouter();
   const [members, setMembers] = useState<any[]>([]);
   const [myVotes, setMyVotes] = useState<Record<string, string>>({});
+  
+  // 비밀번호 변경 관련 상태
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
   const [draftVotes, setDraftVotes] = useState<Record<string, string>>({});
   const [modifiedVotes, setModifiedVotes] = useState<Record<string, string>>({});
   const [ratingSettings, setRatingSettings] = useState<{ start_date: string | null; end_date: string | null } | null>(null);
@@ -466,6 +472,75 @@ export default function ProfilePage() {
     }
   }
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+
+    if (newPassword.length < 8) {
+      setPasswordError('비밀번호는 8자 이상이어야 합니다.');
+      return;
+    }
+
+    if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
+      setPasswordError('비밀번호는 영문, 숫자, 특수문자를 모두 포함해야 합니다.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setPasswordError('인증 세션이 없습니다. 다시 로그인해주세요.');
+        router.replace('/login');
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+        data: {
+          ...(session.user.user_metadata || {}),
+          must_change_password: false,
+        },
+      });
+
+      if (updateError) {
+        const normalized = updateError.message?.toLowerCase() ?? '';
+        let errorMsg = updateError.message;
+        if (normalized.includes('same password')) {
+          errorMsg = '기존 비밀번호와 다른 새 비밀번호를 입력해주세요.';
+        } else if (
+          normalized.includes('password should be at least') ||
+          normalized.includes('password is too weak') ||
+          normalized.includes('weak password') ||
+          normalized.includes('password')
+        ) {
+          errorMsg = '비밀번호는 8자 이상이며 영문, 숫자, 특수문자를 포함하는 강한 비밀번호로 입력해주세요.';
+        }
+        setPasswordError(errorMsg);
+        return;
+      }
+
+      await supabase.auth.refreshSession();
+      alert('비밀번호가 성공적으로 변경되었습니다.');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      console.error('비밀번호 변경 에러:', err);
+      setPasswordError('비밀번호 변경 중 오류가 발생했습니다.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   const isSubmitted = Object.keys(myVotes).length > 0;
 
   if (userLoading) {
@@ -586,6 +661,59 @@ export default function ProfilePage() {
           </Form>
         </section>
 
+        <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+          <div>
+            <p className="text-xs text-slate-500">보안 설정</p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900">비밀번호 변경</h2>
+          </div>
+
+          <form onSubmit={handlePasswordChange} className="mt-4 space-y-4">
+            {passwordError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
+                {passwordError}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700" htmlFor="newPassword">
+                새 비밀번호
+              </label>
+              <input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="영문, 숫자, 특수문자 포함 8자 이상"
+                className="h-12 w-full rounded-2xl border border-slate-300 px-4 text-sm focus:border-slate-400 focus:outline-none bg-white"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700" htmlFor="confirmPassword">
+                새 비밀번호 확인
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="새 비밀번호 다시 입력"
+                className="h-12 w-full rounded-2xl border border-slate-300 px-4 text-sm focus:border-slate-400 focus:outline-none bg-white"
+                required
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isChangingPassword}
+              className="h-12 w-full rounded-2xl bg-[#0f172a] text-base font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {isChangingPassword ? '변경 중...' : '비밀번호 변경'}
+            </Button>
+          </form>
+        </section>
+
         {/* 회원 레벨 섹션 */}
         <section className="rounded-[24px] bg-white px-4 py-5 shadow-sm sm:px-5 sm:py-6">
           <div className="mb-4">
@@ -603,16 +731,6 @@ export default function ProfilePage() {
           </div>
           
           {/* 평가 기간 관련 배너 및 저장 배너 */}
-          {!isRatingPeriodActive() && (
-            <div className="mb-4 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-amber-800 text-center font-medium text-sm">
-              ⚠️ 현재는 상호 급수 평가 기간이 아닙니다. (조회만 가능)
-              {ratingSettings?.start_date && ratingSettings?.end_date && (
-                <span className="block mt-1 text-xs text-amber-700 font-normal">
-                  평가 가능 기간: {formatPeriodDate(ratingSettings.start_date)} ~ {formatPeriodDate(ratingSettings.end_date)}
-                </span>
-              )}
-            </div>
-          )}
 
           {isSubmitted && isRatingPeriodActive() && (
             <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-800 text-center font-medium text-sm">
@@ -660,7 +778,7 @@ export default function ProfilePage() {
                       <thead>
                         <tr className="bg-slate-50 text-slate-500 font-semibold text-xs border-b border-slate-100">
                           <th className="px-4 py-3">회원</th>
-                          <th className="px-4 py-3">내 평가</th>
+                          <th className="px-4 py-3">급수</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
@@ -703,7 +821,11 @@ export default function ProfilePage() {
                                 </div>
                               </td>
                               <td className="px-4 py-3">
-                                {isSelf ? (
+                                {!isRatingPeriodActive() ? (
+                                  <span className="text-sm font-semibold text-slate-700">
+                                    {getFullLevelLabel(m.skill_level)}
+                                  </span>
+                                ) : isSelf ? (
                                   <span className="text-xs text-slate-400 italic">본인 평가는 불가능합니다</span>
                                 ) : (
                                   <div className="flex items-center gap-2 flex-wrap">

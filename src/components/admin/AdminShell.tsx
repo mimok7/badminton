@@ -166,18 +166,26 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 </div>
                 <div className="hidden text-sm text-gray-500 sm:block">관리자 영역</div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 sm:gap-2">
+                {isMobileView && (
+                  <Link
+                    href="/admin"
+                    className="inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    ⚙️ 관리자 홈
+                  </Link>
+                )}
                 <Link
                   href="/"
-                  className="inline-flex items-center rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                  className="inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-100 sm:px-3"
                 >
-                  🏠 사용자홈
+                  🏠 사용자 홈
                 </Link>
                 {isMobileView ? (
                   <button
                     type="button"
                     onClick={() => setIsMobileSidebarOpen(true)}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
                   >
                     메뉴
                   </button>

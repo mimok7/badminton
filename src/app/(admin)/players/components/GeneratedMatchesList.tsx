@@ -169,7 +169,166 @@ export default function GeneratedMatchesList({
           최대 팀 점수 차이: <span className="font-bold">{maxScoreDiff.toFixed(1)}점</span>
         </div>
       </div>
-      <div className="overflow-x-auto mb-6">
+      
+      {/* 모바일 최적화 카드 뷰 (md:hidden) */}
+      <div className="block md:hidden space-y-4 mb-6">
+        {matches.map((match, index) => {
+          const scoreDiffEntry = matchScoreDiffs[index];
+          const isWorstMatch = scoreDiffEntry && scoreDiffEntry.diff === maxScoreDiff && maxScoreDiff > 0;
+          
+          return (
+            <div 
+              key={match.id || `match-mobile-${index}`}
+              className={`rounded-xl border p-4 space-y-3 transition-all ${
+                isWorstMatch 
+                  ? 'border-rose-200 bg-rose-50/30' 
+                  : 'border-slate-200 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className="font-bold text-slate-800 text-sm"># {index + 1}회차 경기</span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    isWorstMatch ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    점수차: {scoreDiffEntry.diff.toFixed(1)}점
+                  </span>
+                  {isWorstMatch && (
+                    <span className="text-[9px] font-bold text-rose-600 bg-rose-100/50 px-1.5 py-0.5 rounded">최대 편차</span>
+                  )}
+                </div>
+              </div>
+
+              {isManualMode ? (
+                <div className="space-y-3">
+                  {/* 라켓팀 선택 */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-blue-600">🔵 라켓팀</span>
+                      {(match.team1?.player1 || match.team1?.player2) && (
+                        <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 rounded">
+                          합계: {getAccurateTeamScore(match.team1).toFixed(1)}점
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select 
+                        value={match.team1?.player1?.id || ''} 
+                        onChange={(e) => handlePlayerSelect(index, 'team1', 'player1', e.target.value)}
+                        className="w-full px-2 py-1.5 border rounded-lg text-xs bg-white text-slate-800"
+                      >
+                        <option value="">선수 선택</option>
+                        {match.team1?.player1 && (
+                          <option key={match.team1.player1.id} value={match.team1.player1.id}>
+                            {getPlayerDisplayLabel(match.team1.player1)}
+                          </option>
+                        )}
+                        {getAvailablePlayers(match).map(p => (
+                          <option key={p.id} value={p.id}>
+                            {getPlayerDisplayLabel(p)}
+                          </option>
+                        ))}
+                      </select>
+                      <select 
+                        value={match.team1?.player2?.id || ''} 
+                        onChange={(e) => handlePlayerSelect(index, 'team1', 'player2', e.target.value)}
+                        className="w-full px-2 py-1.5 border rounded-lg text-xs bg-white text-slate-800"
+                      >
+                        <option value="">선수 선택</option>
+                        {match.team1?.player2 && (
+                          <option key={match.team1.player2.id} value={match.team1.player2.id}>
+                            {getPlayerDisplayLabel(match.team1.player2)}
+                          </option>
+                        )}
+                        {getAvailablePlayers(match).map(p => (
+                          <option key={p.id} value={p.id}>
+                            {getPlayerDisplayLabel(p)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 셔틀팀 선택 */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-red-600">🔴 셔틀팀</span>
+                      {(match.team2?.player1 || match.team2?.player2) && (
+                        <span className="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 rounded">
+                          합계: {getAccurateTeamScore(match.team2).toFixed(1)}점
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select 
+                        value={match.team2?.player1?.id || ''} 
+                        onChange={(e) => handlePlayerSelect(index, 'team2', 'player1', e.target.value)}
+                        className="w-full px-2 py-1.5 border rounded-lg text-xs bg-white text-slate-800"
+                      >
+                        <option value="">선수 선택</option>
+                        {match.team2?.player1 && (
+                          <option key={match.team2.player1.id} value={match.team2.player1.id}>
+                            {getPlayerDisplayLabel(match.team2.player1)}
+                          </option>
+                        )}
+                        {getAvailablePlayers(match).map(p => (
+                          <option key={p.id} value={p.id}>
+                            {getPlayerDisplayLabel(p)}
+                          </option>
+                        ))}
+                      </select>
+                      <select 
+                        value={match.team2?.player2?.id || ''} 
+                        onChange={(e) => handlePlayerSelect(index, 'team2', 'player2', e.target.value)}
+                        className="w-full px-2 py-1.5 border rounded-lg text-xs bg-white text-slate-800"
+                      >
+                        <option value="">선수 선택</option>
+                        {match.team2?.player2 && (
+                          <option key={match.team2.player2.id} value={match.team2.player2.id}>
+                            {getPlayerDisplayLabel(match.team2.player2)}
+                          </option>
+                        )}
+                        {getAvailablePlayers(match).map(p => (
+                          <option key={p.id} value={p.id}>
+                            {getPlayerDisplayLabel(p)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  {/* 라켓팀 표시 */}
+                  <div className="space-y-1 bg-blue-50/40 p-2.5 rounded-lg border border-blue-100/50">
+                    <div className="font-bold text-blue-600 mb-0.5">🔵 라켓팀 ({getAccurateTeamScore(match.team1).toFixed(1)}점)</div>
+                    <div className="text-slate-800 font-medium leading-relaxed truncate" title={getPlayerName(match.team1.player1)}>
+                      {getPlayerName(match.team1.player1)}
+                    </div>
+                    <div className="text-slate-800 font-medium leading-relaxed truncate" title={getPlayerName(match.team1.player2)}>
+                      {getPlayerName(match.team1.player2)}
+                    </div>
+                  </div>
+
+                  {/* 셔틀팀 표시 */}
+                  <div className="space-y-1 bg-red-50/40 p-2.5 rounded-lg border border-red-100/50">
+                    <div className="font-bold text-red-600 mb-0.5">🔴 셔틀팀 ({getAccurateTeamScore(match.team2).toFixed(1)}점)</div>
+                    <div className="text-slate-800 font-medium leading-relaxed truncate" title={getPlayerName(match.team2.player1)}>
+                      {getPlayerName(match.team2.player1)}
+                    </div>
+                    <div className="text-slate-800 font-medium leading-relaxed truncate" title={getPlayerName(match.team2.player2)}>
+                      {getPlayerName(match.team2.player2)}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 데스크톱 화면용 테이블 뷰 (hidden md:block) */}
+      <div className="hidden md:block overflow-x-auto mb-6">
         <table className="w-full border-collapse border border-gray-300 bg-white">
           <thead>
             <tr className="bg-gray-100">
@@ -318,15 +477,15 @@ export default function GeneratedMatchesList({
       {/* 1인당 게임수 표시 */}
       {playerCountEntries.length > 0 && (
         <div className="mb-6">
-          <h4 className="text-lg font-semibold mb-3">1인당 총 게임수</h4>
-          <div className="bg-gray-50 p-4 rounded border">
-            <div className="grid gap-2 text-sm" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', justifyContent: 'start' }}>
+          <h4 className="text-lg font-semibold mb-3 text-slate-800">1인당 총 게임수</h4>
+          <div className="bg-gray-50 p-4 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 text-sm">
               {playerCountEntries
                 .sort(([nameA], [nameB]) => nameA.localeCompare(nameB, 'ko', { sensitivity: 'base' })) // 한글 사전(ㄱㄴㄷ) 순 정렬
                 .map(([playerName, gameCount]) => (
-                  <div key={playerName} className="flex justify-between bg-white p-2 rounded border" style={{ width: '120px', minWidth: '120px' }}>
-                    <span className="truncate mr-2 font-medium">{playerName}</span>
-                    <span className={`flex-shrink-0 font-bold ${gameCount > averageGameCount ? 'text-xl text-red-600' : 'text-blue-600'}`}>{gameCount}</span>
+                  <div key={playerName} className="flex justify-between items-center bg-white p-2 rounded border border-slate-200 shadow-3xs">
+                    <span className="truncate mr-1.5 font-medium text-slate-700 text-xs">{playerName}</span>
+                    <span className={`flex-shrink-0 font-bold text-xs ${gameCount > averageGameCount ? 'text-rose-600' : 'text-indigo-600'}`}>{gameCount}경기</span>
                   </div>
                 ))}
             </div>

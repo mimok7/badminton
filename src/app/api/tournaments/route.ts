@@ -73,7 +73,7 @@ const getTeamKey = (players: string[]) =>
   [...players].map((player) => player.trim()).sort((left, right) => left.localeCompare(right, 'ko-KR')).join(' / ');
 
 function isResultMatch(match: MatchRow) {
-  return typeof match.score_team1 === 'number' && typeof match.score_team2 === 'number';
+  return match.status === 'completed';
 }
 
 function normalizeMatches(data: MatchRow[]) {
@@ -84,17 +84,10 @@ function normalizeMatches(data: MatchRow[]) {
       team2: toStringArray(match.team2),
       court: match.court || '',
       scheduled_time: match.scheduled_time || null,
-      status: isResultMatch(match) ? 'completed' : match.status || 'pending',
+      status: match.status || 'pending',
       score_team1: match.score_team1 ?? null,
       score_team2: match.score_team2 ?? null,
-      winner:
-        typeof match.score_team1 === 'number' && typeof match.score_team2 === 'number'
-          ? match.score_team1 > match.score_team2
-            ? 'team1'
-            : match.score_team2 > match.score_team1
-              ? 'team2'
-              : 'draw'
-          : match.winner ?? null,
+      winner: match.winner ?? null,
     }))
     .sort((left, right) => {
       const roundDiff = (left.round || 0) - (right.round || 0);
@@ -319,7 +312,7 @@ export async function GET(request: Request) {
     // metrics 계산에 필요한 컬럼만 선택하여 데이터 전송 및 조회 부담을 줄임
     const { data: allMatchesData, error: allMatchesError } = await adminSupabase
       .from('tournament_matches')
-      .select('tournament_id, round, match_number, team1, team2, court, scheduled_time, status, score_team1, score_team2, winner');
+      .select('id, tournament_id, round, match_number, team1, team2, court, scheduled_time, status, score_team1, score_team2, winner');
 
     if (allMatchesError && allMatchesError.code !== '42P01') {
       return NextResponse.json({ error: 'Failed to fetch tournament metrics' }, { status: 500 });
@@ -379,6 +372,7 @@ export async function GET(request: Request) {
         selectedTournament,
         selectedTeamAssignment,
         matches: normalizeMatches(matches),
+        allMatches: normalizeMatches((allMatchesData as unknown as MatchRow[]) || []),
       });
     }
 

@@ -28,6 +28,7 @@ export default function ScoreboardPage() {
   const [match, setMatch] = useState<MatchData | null>(null);
   const [canEdit, setCanEdit] = useState(false);
   const [isReferee, setIsReferee] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [score1, setScore1] = useState(0);
@@ -56,6 +57,7 @@ export default function ScoreboardPage() {
       setMatch(data.match);
       setCanEdit(data.canEdit);
       setIsReferee(data.isReferee);
+      setIsAdmin(data.isAdmin ?? false);
       setScore1(data.match.score_team1 ?? 0);
       setScore2(data.match.score_team2 ?? 0);
       setError(null);
@@ -69,6 +71,26 @@ export default function ScoreboardPage() {
   useEffect(() => {
     fetchMatch();
   }, [fetchMatch]);
+
+  const handleGoBack = useCallback(() => {
+    const tournamentId = match?.tournament_id;
+    const destPath = isAdmin ? '/admin/tournament-bracket' : '/tournament-bracket';
+    const destination = tournamentId ? `${destPath}?tournament=${tournamentId}` : destPath;
+    
+    if (typeof window !== 'undefined' && window.history.length > 1 && document.referrer) {
+      router.back();
+    } else {
+      router.push(destination);
+    }
+  }, [match?.tournament_id, isAdmin, router]);
+
+  const handleGoBackFallback = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1 && document.referrer) {
+      router.back();
+    } else {
+      router.push('/tournament-bracket');
+    }
+  }, [router]);
 
   // Supabase Realtime 구독 (관전자용)
   useEffect(() => {
@@ -257,7 +279,7 @@ export default function ScoreboardPage() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-900 px-6">
         <div className="text-lg text-rose-400">{error || '경기를 찾을 수 없습니다.'}</div>
         <button
-          onClick={() => router.back()}
+          onClick={handleGoBackFallback}
           className="rounded-xl bg-white/10 px-6 py-3 text-white transition hover:bg-white/20"
         >
           돌아가기
@@ -296,7 +318,7 @@ export default function ScoreboardPage() {
       {/* 상단 정보 바 */}
       <div className="relative z-10 flex items-center justify-between bg-black/60 px-3 py-2 text-white backdrop-blur-md">
         <button
-          onClick={() => router.back()}
+          onClick={handleGoBack}
           className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium transition hover:bg-white/20"
         >
           ← 돌아가기
@@ -546,7 +568,7 @@ export default function ScoreboardPage() {
             경기 종료 — 최종 {score1} : {score2}
           </span>
           <button
-            onClick={() => router.back()}
+            onClick={handleGoBack}
             className="rounded-xl bg-white/10 px-5 py-2 text-sm font-medium text-white transition hover:bg-white/20"
           >
             대진표로 돌아가기

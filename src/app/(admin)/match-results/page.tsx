@@ -130,6 +130,7 @@ function MatchResultsPage() {
         .from('match_schedules')
         .select(`
           id,
+          generated_match_id,
           match_date,
           start_time,
           end_time,
@@ -137,19 +138,7 @@ function MatchResultsPage() {
           status,
           description,
           max_participants,
-          current_participants,
-          generated_matches:generated_match_id (
-            id,
-            match_number,
-            session_id,
-            status,
-            completed_at,
-            match_result,
-            team1_player1_id,
-            team1_player2_id,
-            team2_player1_id,
-            team2_player2_id
-          )
+          current_participants
         `)
         .not('generated_match_id', 'is', null)
         .order('match_date', { ascending: false })
@@ -174,56 +163,103 @@ function MatchResultsPage() {
         query = query.eq('status', statusFilter);
       }
 
-      const { data: matches, error } = await query;
+      const { data: schedules, error } = await query;
 
       if (error) throw error;
 
-      if (!matches || matches.length === 0) {
+      if (!schedules || schedules.length === 0) {
         setAssignedMatches([]);
         return;
       }
 
-      // 플레이어 정보와 세션 정보를 별도로 가져오기
-      const matchesWithDetails = [];
-      
-      for (const match of matches) {
-        if (!match.generated_matches) continue;
+      const generatedMatchIds = Array.from(
+        new Set(
+          schedules
+            .map((s) => s.generated_match_id)
+            .filter((id): id is number => typeof id === 'number')
+        )
+      );
 
-        // generated_matches가 배열이므로 첫 번째 요소를 가져옴
-        const generatedMatch = Array.isArray(match.generated_matches) 
-          ? match.generated_matches[0] 
-          : match.generated_matches;
+      const generatedMatchesById = new Map();
 
-        if (!generatedMatch) continue;
+      if (generatedMatchIds.length > 0) {
+        const { data: genMatches, error: genMatchesError } = await supabase
+          .from('generated_matches')
+          .select(`
+            id,
+            match_number,
+            session_id,
+            status,
+            completed_at,
+            match_result,
+            team1_player1_id,
+            team1_player2_id,
+            team2_player1_id,
+            team2_player2_id
+          `)
+          .in('id', generatedMatchIds);
 
-        // 플레이어 정보 조회
+        if (genMatchesError) throw genMatchesError;
+
+        (genMatches || []).forEach((match) => {
+          generatedMatchesById.set(match.id, match);
+        });
+      }
+
+      // 플레이어 정보와 세션 정보를 벌크로 가져오기
+      const allPlayerIds = new Set<string>();
+      const allSessionIds = new Set<string>();
+
+      generatedMatchesById.forEach((match) => {
+        if (match.team1_player1_id) allPlayerIds.add(match.team1_player1_id);
+        if (match.team1_player2_id) allPlayerIds.add(match.team1_player2_id);
+        if (match.team2_player1_id) allPlayerIds.add(match.team2_player1_id);
+        if (match.team2_player2_id) allPlayerIds.add(match.team2_player2_id);
+        if (match.session_id) allSessionIds.add(match.session_id);
+      });
+
+      const playersById = new Map();
+      if (allPlayerIds.size > 0) {
         const { data: players, error: playersError } = await supabase
           .from('profiles')
           .select('id, username, full_name, skill_level')
-          .in('id', [
-            generatedMatch.team1_player1_id,
-            generatedMatch.team1_player2_id,
-            generatedMatch.team2_player1_id,
-            generatedMatch.team2_player2_id
-          ].filter(Boolean));
+          .in('id', Array.from(allPlayerIds));
 
-        if (playersError) {
-          console.error('플레이어 정보 조회 오류:', playersError);
-          continue;
-        }
+        if (playersError) throw playersError;
 
-        // 세션 정보 조회
-        const { data: session, error: sessionError } = await supabase
+        (players || []).forEach((p) => {
+          playersById.set(p.id, p);
+        });
+      }
+
+      const sessionsById = new Map();
+      if (allSessionIds.size > 0) {
+        const { data: sessions, error: sessionsError } = await supabase
           .from('match_sessions')
           .select('id, session_name, session_date')
-          .eq('id', generatedMatch.session_id)
-          .single();
+          .in('id', Array.from(allSessionIds));
 
-        if (sessionError) {
-          console.error('세션 정보 조회 오류:', sessionError);
-        }
+        if (sessionsError) throw sessionsError;
 
-        const getPlayer = (id: string) => players?.find(p => p.id === id) || { username: '미정', full_name: '미정', skill_level: 'E2' };
+        (sessions || []).forEach((s) => {
+          sessionsById.set(s.id, s);
+        });
+      }
+
+      const matchesWithDetails = [];
+      
+      for (const match of schedules) {
+        if (!match.generated_match_id) continue;
+
+        const generatedMatch = generatedMatchesById.get(match.generated_match_id);
+        if (!generatedMatch) continue;
+
+        const getPlayer = (id: string) => 
+          playersById.get(id) || { username: '미정', full_name: '미정', skill_level: 'E2' };
+
+        const session = generatedMatch.session_id
+          ? sessionsById.get(generatedMatch.session_id)
+          : null;
 
         const formattedMatch = {
           id: match.id,
@@ -260,9 +296,6 @@ function MatchResultsPage() {
           );
 
       setAssignedMatches(finalMatches as AssignedMatch[]);
-    } catch (error) {
-      console.error('배정된 경기 조회 오류:', error);
-      setAssignedMatches([]);
     } finally {
       setLoading(false);
     }

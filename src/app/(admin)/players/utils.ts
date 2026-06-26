@@ -19,26 +19,50 @@ export function normalizeLevel(skill_code: string | null | undefined, skill_leve
 
 // 대시보드에서 성공한 방식을 재사용한 프로필 조회 함수
 export const fetchProfilesByUserIds = async (userIds: string[]) => {
+  if (!userIds || userIds.length === 0) {
+    return [];
+  }
+
   try {
-    // 대시보드에서 성공했던 방식 사용: 전체 프로필 조회 후 필터링
-    const { data: allProfilesData, error: allProfilesError } = await supabase
-      .from('profiles')
-      .select('id, user_id, username, full_name, skill_level, gender, role');
-      
-    if (allProfilesError) {
-      return [];
+    // ID 중복 제거
+    const uniqueIds = Array.from(new Set(userIds));
+
+    // Supabase URL 길이 제한 방지를 위해 청크로 분할 (50개씩)
+    const CHUNK_SIZE = 50;
+    const chunks: string[][] = [];
+    for (let i = 0; i < uniqueIds.length; i += CHUNK_SIZE) {
+      chunks.push(uniqueIds.slice(i, i + CHUNK_SIZE));
     }
-    
-    if (!allProfilesData || allProfilesData.length === 0) {
-      return [];
+
+    const allProfiles: any[] = [];
+
+    for (const chunk of chunks) {
+      // id 또는 user_id로 필터링하여 필요한 프로필만 조회
+      const [byId, byUserId] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, user_id, username, full_name, skill_level, gender, role')
+          .in('id', chunk),
+        supabase
+          .from('profiles')
+          .select('id, user_id, username, full_name, skill_level, gender, role')
+          .in('user_id', chunk),
+      ]);
+
+      const merged = new Map<string, any>();
+      (byId.data || []).forEach(p => merged.set(p.id, p));
+      (byUserId.data || []).forEach(p => {
+        if (!merged.has(p.id)) merged.set(p.id, p);
+      });
+
+      allProfiles.push(...merged.values());
     }
-    
-    // 요청된 사용자 ID들과 일치하는 프로필만 필터링
-    const matchingProfiles = allProfilesData.filter(profile => 
-      userIds.includes(profile.id) || (profile.user_id ? userIds.includes(profile.user_id) : false)
+
+    // 요청된 사용자 ID들과 일치하는 프로필만 반환
+    const idSet = new Set(uniqueIds);
+    return allProfiles.filter(profile =>
+      idSet.has(profile.id) || (profile.user_id ? idSet.has(profile.user_id) : false)
     );
-    
-    return matchingProfiles;
   } catch (error) {
     return [];
   }
@@ -123,8 +147,10 @@ export const fetchGeneratedMatchesBySession = async (sessionId: string): Promise
     )
   );
 
-  const profiles = await fetchProfilesByUserIds(profileIds);
-  const levelInfoMap = await fetchLevelInfoMap(supabase);
+  const [profiles, levelInfoMap] = await Promise.all([
+    fetchProfilesByUserIds(profileIds),
+    fetchLevelInfoMap(supabase),
+  ]);
   const profileMap = new Map<string, any>();
   (profiles || []).forEach((profile: any) => {
     if (profile.id) profileMap.set(profile.id, profile);
@@ -174,6 +200,7 @@ export const fetchGeneratedMatchesBySession = async (sessionId: string): Promise
     is_scheduled: scheduledIds.has(match.id),
   }));
 };
+
 
 // 게임수 계산 함수
 export const calculatePlayerGameCounts = (matches: any[]) => {
@@ -235,23 +262,17 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
       return [];
     }
     
-    // 새로운 프로필 조회 함수 사용
-    const profilesData = await fetchProfilesByUserIds(userIds);
-    
-    // 레벨 정보 가져오기
-    const { data: levelData, error: levelError } = await supabase
-      .from('level_info')
-      .select('code, name');
+    // 프로필 데이터와 레벨 정보를 병렬로 조회
+    const [profilesData, levelInfoMap] = await Promise.all([
+      fetchProfilesByUserIds(userIds),
+      fetchLevelInfoMap(supabase),
+    ]);
       
     // 레벨 정보를 객체로 변환
     const levelMap: Record<string, string> = {};
-    if (levelData) {
-      levelData.forEach((level: any) => {
-        if (level.code) {
-          levelMap[level.code.toLowerCase()] = level.name || '';
-        }
-      });
-    }
+    Object.entries(levelInfoMap).forEach(([code, meta]) => {
+      levelMap[code] = meta.name || '';
+    });
     
     if (profilesData && profilesData.length > 0) {
       // 프로필 데이터를 기반으로 선수 정보 생성
@@ -289,8 +310,8 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
       const missingProfileUsers = userIds.filter(id => !profiledUserIds.includes(id));
       
       const playersWithoutProfiles = missingProfileUsers.map(userId => {
-  const attendance = attendanceData?.find((a: any) => a.user_id === userId);
-  const status = normalizeAttendanceStatus(attendance?.status);
+        const attendance = attendanceData?.find((a: any) => a.user_id === userId);
+        const status = normalizeAttendanceStatus(attendance?.status);
         
         return {
           id: userId,

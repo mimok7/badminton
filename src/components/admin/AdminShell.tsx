@@ -172,7 +172,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                     href="/admin"
                     className="inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
                   >
-                    ⚙️ 관리자 홈
+                    ⚙️ 홈
                   </Link>
                 )}
                 <Link

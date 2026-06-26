@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
-import { getUserRole } from '@/lib/auth';
+import { getUserRole, getProfileByUserId } from '@/lib/auth';
 
 type RouteContext = { params: Promise<{ matchId: string }> };
 
@@ -12,7 +12,7 @@ type MatchRow = Record<string, unknown>;
 async function getMatchRefereeInfo(
   adminSupabase: any,
   match: MatchRow,
-  currentUserId: string | null,
+  currentProfileId: string | null,
   currentUserName: string | null
 ) {
   let refereeId = match.referee_id as string | null;
@@ -28,8 +28,8 @@ async function getMatchRefereeInfo(
       .trim()
       .toLowerCase();
     isReferee =
-      currentUserId != null &&
-      (refereeId === currentUserId || cleanRefereeNames.includes(cleanCurrentUserName));
+      currentProfileId != null &&
+      (refereeId === currentProfileId || cleanRefereeNames.includes(cleanCurrentUserName));
   } else {
     // Fallback referee logic
     const currentRound = (match.round as number) || 1;
@@ -82,13 +82,13 @@ async function getMatchRefereeInfo(
               );
             }
 
-            if (currentUserId && !isReferee) {
+            if (currentProfileId && !isReferee) {
               const { data: winningProfiles } = await adminSupabase
                 .from('profiles')
                 .select('id')
                 .in('full_name', cleanWinningPlayers);
               if (winningProfiles) {
-                isReferee = winningProfiles.some((p: any) => p.id === currentUserId);
+                isReferee = winningProfiles.some((p: any) => p.id === currentProfileId);
               }
             }
           }
@@ -125,7 +125,7 @@ export async function GET(_request: Request, context: RouteContext) {
     }
 
     // 현재 로그인 사용자 확인
-    let currentUserId: string | null = null;
+    let currentProfileId: string | null = null;
     let currentUserRole: string | null = null;
     let currentUserName: string | null = null;
 
@@ -134,17 +134,13 @@ export async function GET(_request: Request, context: RouteContext) {
       const { data: { user } } = await serverSupabase.auth.getUser();
 
       if (user) {
-        currentUserId = user.id;
         currentUserRole = await getUserRole(serverSupabase, user);
 
-        const { data: profile } = await adminSupabase
-          .from('profiles')
-          .select('full_name')
-          .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-          .limit(1)
-          .maybeSingle();
-
-        currentUserName = profile?.full_name || null;
+        const profile = await getProfileByUserId(serverSupabase, user.id);
+        if (profile) {
+          currentProfileId = profile.id;
+          currentUserName = profile.full_name || null;
+        }
       }
     } catch {
       // 비로그인 사용자도 조회 가능
@@ -153,7 +149,7 @@ export async function GET(_request: Request, context: RouteContext) {
     const { refereeId, refereeName, isReferee } = await getMatchRefereeInfo(
       adminSupabase,
       match,
-      currentUserId,
+      currentProfileId,
       currentUserName
     );
     const isAdmin = currentUserRole === 'admin' || currentUserRole === 'manager';
@@ -197,13 +193,6 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'matchId is required' }, { status: 400 });
     }
 
-    const serverSupabase = await getSupabaseServerClient();
-    const { data: { user }, error: authError } = await serverSupabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const adminSupabase = getSupabaseAdminClient();
 
     // 현재 매치 확인
@@ -218,30 +207,35 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 });
     }
 
-    // 권한 확인
-    const userRole = await getUserRole(serverSupabase, user);
-    const isAdmin = userRole === 'admin' || userRole === 'manager';
+    // 권한 검사 (심판 또는 관리자만)
+    try {
+      const serverSupabase = await getSupabaseServerClient();
+      const { data: { user } } = await serverSupabase.auth.getUser();
 
-    // 사용자 프로필 조회
-    const { data: profile } = await adminSupabase
-      .from('profiles')
-      .select('full_name')
-      .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-      .limit(1)
-      .maybeSingle();
+      if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
 
-    const currentUserName = profile?.full_name || null;
-    const { isReferee } = await getMatchRefereeInfo(
-      adminSupabase,
-      match,
-      user.id,
-      currentUserName
-    );
+      const currentUserRole = await getUserRole(serverSupabase, user);
+      const profile = await getProfileByUserId(serverSupabase, user.id);
+      const currentProfileId = profile?.id || null;
+      const currentUserName = profile?.full_name || null;
 
-    if (!isReferee && !isAdmin) {
+      const isAdmin = currentUserRole === 'admin' || currentUserRole === 'manager';
+      const { isReferee } = await getMatchRefereeInfo(
+        adminSupabase,
+        match,
+        currentProfileId,
+        currentUserName
+      );
+
+      if (!isReferee && !isAdmin) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    } catch (authError) {
       return NextResponse.json(
-        { error: '심판 또는 관리자만 점수를 입력할 수 있습니다.' },
-        { status: 403 }
+        { error: 'Authentication failed', details: String(authError) },
+        { status: 401 }
       );
     }
 
@@ -293,13 +287,6 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'matchId is required' }, { status: 400 });
     }
 
-    const serverSupabase = await getSupabaseServerClient();
-    const { data: { user }, error: authError } = await serverSupabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const adminSupabase = getSupabaseAdminClient();
 
     // 현재 매치 확인
@@ -314,29 +301,35 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 });
     }
 
-    // 권한 확인
-    const userRole = await getUserRole(serverSupabase, user);
-    const isAdmin = userRole === 'admin' || userRole === 'manager';
+    // 권한 검사 (심판 또는 관리자만)
+    try {
+      const serverSupabase = await getSupabaseServerClient();
+      const { data: { user } } = await serverSupabase.auth.getUser();
 
-    const { data: profile } = await adminSupabase
-      .from('profiles')
-      .select('full_name')
-      .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-      .limit(1)
-      .maybeSingle();
+      if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
 
-    const currentUserName = profile?.full_name || null;
-    const { isReferee } = await getMatchRefereeInfo(
-      adminSupabase,
-      match,
-      user.id,
-      currentUserName
-    );
+      const currentUserRole = await getUserRole(serverSupabase, user);
+      const profile = await getProfileByUserId(serverSupabase, user.id);
+      const currentProfileId = profile?.id || null;
+      const currentUserName = profile?.full_name || null;
 
-    if (!isReferee && !isAdmin) {
+      const isAdmin = currentUserRole === 'admin' || currentUserRole === 'manager';
+      const { isReferee } = await getMatchRefereeInfo(
+        adminSupabase,
+        match,
+        currentProfileId,
+        currentUserName
+      );
+
+      if (!isReferee && !isAdmin) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    } catch (authError) {
       return NextResponse.json(
-        { error: '심판 또는 관리자만 경기를 완료할 수 있습니다.' },
-        { status: 403 }
+        { error: 'Authentication failed', details: String(authError) },
+        { status: 401 }
       );
     }
 

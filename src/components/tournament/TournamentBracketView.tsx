@@ -137,6 +137,7 @@ function getDisplayMatchNumber(match: Match, fallbackIndex: number) {
 }
 
 function getResolvedWinner(match: Match): Match['winner'] {
+  if (match.status !== 'completed') return null;
   if (typeof match.score_team1 === 'number' && typeof match.score_team2 === 'number') {
     if (match.score_team1 > match.score_team2) return 'team1';
     if (match.score_team2 > match.score_team1) return 'team2';
@@ -147,12 +148,7 @@ function getResolvedWinner(match: Match): Match['winner'] {
 }
 
 function isResultMatch(match: Match) {
-  // 점수와 승자가 모두 있을 때만 결과 경기로 판단
-  return (
-    typeof match.score_team1 === 'number' &&
-    typeof match.score_team2 === 'number' &&
-    (match.score_team1 > 0 || match.score_team2 > 0 || match.winner != null)
-  );
+  return match.status === 'completed';
 }
 
 function getTeamKey(players: string[]) {
@@ -764,10 +760,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       .map((match) => ({
         ...match,
         scheduled_time: match.scheduled_time || null,
-        // status 컬럼이 'completed'이거나, 점수+승자가 있을 때만 completed로 처리
-        status: match.status === 'completed' || isResultMatch(match)
-          ? 'completed'
-          : match.status || 'pending',
+        status: match.status || 'pending',
         score_team1: match.score_team1 ?? null,
         score_team2: match.score_team2 ?? null,
         winner: getResolvedWinner(match),
@@ -2272,13 +2265,11 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
 
                                     <div className="mt-3 flex justify-end">
                                       {isCompleted ? (
-                                        // 완료 경기: 비활성화 버튼
+                                        // 완료 경기: 활성화된 버튼으로 변경
                                         match.id ? (
                                           <Link
                                             href={`/scoreboard/${match.id}`}
-                                            className="shrink-0 rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-medium text-slate-400 pointer-events-none"
-                                            tabIndex={-1}
-                                            aria-disabled="true"
+                                            className="shrink-0 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-600"
                                           >
                                             ✔️ 경기완료
                                           </Link>

@@ -127,17 +127,35 @@ export async function GET(request: Request) {
       generatedMatchesById.set(match.id, match);
     });
 
-    const { data: profiles, error: profilesError } = await adminSupabase
-      .from('profiles')
-      .select('id, user_id, username, full_name, skill_level, gender, coin_balance');
+    const playerIds = new Set<string>();
+    if (userId) {
+      playerIds.add(userId);
+    }
+    (generatedMatches || []).forEach((match) => {
+      if (match.team1_player1_id) playerIds.add(match.team1_player1_id);
+      if (match.team1_player2_id) playerIds.add(match.team1_player2_id);
+      if (match.team2_player1_id) playerIds.add(match.team2_player1_id);
+      if (match.team2_player2_id) playerIds.add(match.team2_player2_id);
+    });
 
-    if (profilesError) {
-      console.error('Scheduled matches profiles error:', profilesError);
-      return NextResponse.json({ error: 'Failed to load player profiles' }, { status: 500 });
+    const targetPlayerIds = Array.from(playerIds);
+    let profiles: ProfileRow[] = [];
+
+    if (targetPlayerIds.length > 0) {
+      const { data: profilesData, error: profilesError } = await adminSupabase
+        .from('profiles')
+        .select('id, user_id, username, full_name, skill_level, gender, coin_balance')
+        .in('id', targetPlayerIds);
+
+      if (profilesError) {
+        console.error('Scheduled matches profiles error:', profilesError);
+        return NextResponse.json({ error: 'Failed to load player profiles' }, { status: 500 });
+      }
+      profiles = (profilesData || []) as ProfileRow[];
     }
 
     const profileMap = new Map<string, ProfileRow>();
-    (profiles || []).forEach((profile) => {
+    profiles.forEach((profile) => {
       if (profile.id) profileMap.set(profile.id, profile);
       if (profile.user_id) profileMap.set(profile.user_id, profile);
     });

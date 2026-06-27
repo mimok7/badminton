@@ -1589,18 +1589,18 @@ export default function TeamManagementPage() {
         const groupNames: string[] = [];
         
         if (numGroups === 2) {
-          // 2그룹: 상위(1~절반), 하위(절반+1~끝)
+          // 2그룹: A(1~절반), B(절반+1~끝)
           let midPoint = Math.ceil(totalPlayers / 2);
-          // 상위 그룹이 홀수면 하나 추가하여 짝수로
+          // A 그룹이 홀수면 하나 추가하여 짝수로
           if (midPoint % 2 !== 0 && midPoint < totalPlayers) {
             midPoint++;
           }
-          groups.push(sortedByScore.slice(0, midPoint));           // 상위
-          groups.push(sortedByScore.slice(midPoint));              // 하위
-          groupNames.push('상위 그룹', '하위 그룹');
+          groups.push(sortedByScore.slice(0, midPoint));           // A
+          groups.push(sortedByScore.slice(midPoint));              // B
+          groupNames.push('A 그룹', 'B 그룹');
           
         } else if (numGroups === 3) {
-          // 3그룹: 상위(1~1/3), 중위(1/3+1~2/3), 하위(2/3+1~끝)
+          // 3그룹: A(1~1/3), B(1/3+1~2/3), C(2/3+1~끝)
           let firstPoint = Math.ceil(totalPlayers / 3);
           let secondPoint = Math.ceil(totalPlayers * 2 / 3);
           
@@ -1612,13 +1612,13 @@ export default function TeamManagementPage() {
             secondPoint++;
           }
           
-          groups.push(sortedByScore.slice(0, firstPoint));         // 상위
-          groups.push(sortedByScore.slice(firstPoint, secondPoint)); // 중위
-          groups.push(sortedByScore.slice(secondPoint));           // 하위
-          groupNames.push('상위 그룹', '중위 그룹', '하위 그룹');
+          groups.push(sortedByScore.slice(0, firstPoint));         // A
+          groups.push(sortedByScore.slice(firstPoint, secondPoint)); // B
+          groups.push(sortedByScore.slice(secondPoint));           // C
+          groupNames.push('A 그룹', 'B 그룹', 'C' + ' 그룹');
           
         } else if (numGroups === 4) {
-          // 4그룹: 상위(1~1/4), 중상(1/4+1~2/4), 중하(2/4+1~3/4), 하위(3/4+1~끝)
+          // 4그룹: A(1~1/4), B(1/4+1~2/4), C(2/4+1~3/4), D(3/4+1~끝)
           let firstPoint = Math.ceil(totalPlayers / 4);
           let secondPoint = Math.ceil(totalPlayers * 2 / 4);
           let thirdPoint = Math.ceil(totalPlayers * 3 / 4);
@@ -1634,11 +1634,11 @@ export default function TeamManagementPage() {
             thirdPoint++;
           }
           
-          groups.push(sortedByScore.slice(0, firstPoint));         // 상위
-          groups.push(sortedByScore.slice(firstPoint, secondPoint)); // 중상
-          groups.push(sortedByScore.slice(secondPoint, thirdPoint)); // 중하
-          groups.push(sortedByScore.slice(thirdPoint));            // 하위
-          groupNames.push('상위 그룹', '중상 그룹', '중하 그룹', '하위 그룹');
+          groups.push(sortedByScore.slice(0, firstPoint));         // A
+          groups.push(sortedByScore.slice(firstPoint, secondPoint)); // B
+          groups.push(sortedByScore.slice(secondPoint, thirdPoint)); // C
+          groups.push(sortedByScore.slice(thirdPoint));            // D
+          groupNames.push('A 그룹', 'B 그룹', 'C 그룹', 'D 그룹');
         }
         
         // 그룹 정보를 state에 저장
@@ -1670,32 +1670,19 @@ export default function TeamManagementPage() {
           const topHalf = players.slice(0, halfPoint);
           const bottomHalf = players.slice(halfPoint).reverse(); // 역순으로
           
-          // 랜덤하게 섞되, 전체 점수 분포는 유지
-          const shuffleWithBalance = (arr: typeof players) => {
-            const shuffled = [...arr];
-            for (let i = shuffled.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-            }
-            return shuffled;
-          };
-          
-          const shuffledTop = shuffleWithBalance(topHalf);
-          const shuffledBottom = shuffleWithBalance(bottomHalf);
-          
-          // 상위와 하위를 1:1 매칭
-          const maxPairs = Math.max(shuffledTop.length, shuffledBottom.length);
+          // 상위와 하위를 1:1 정밀 밸런스(High-Low) 매칭하여 점수 편차 최소화
+          const maxPairs = Math.max(topHalf.length, bottomHalf.length);
           for (let i = 0; i < maxPairs; i++) {
             const pair: string[] = [];
             let pairScore = 0;
             
-            if (i < shuffledTop.length) {
-              pair.push(shuffledTop[i].name);
-              pairScore += shuffledTop[i].score;
+            if (i < topHalf.length) {
+              pair.push(topHalf[i].name);
+              pairScore += topHalf[i].score;
             }
-            if (i < shuffledBottom.length) {
-              pair.push(shuffledBottom[i].name);
-              pairScore += shuffledBottom[i].score;
+            if (i < bottomHalf.length) {
+              pair.push(bottomHalf[i].name);
+              pairScore += bottomHalf[i].score;
             }
             
             if (pair.length > 0) {
@@ -1703,8 +1690,8 @@ export default function TeamManagementPage() {
               
               // 로그 출력
               if (pair.length === 2) {
-                const score1 = i < shuffledTop.length ? shuffledTop[i].score : 0;
-                const score2 = i < shuffledBottom.length ? shuffledBottom[i].score : 0;
+                const score1 = i < topHalf.length ? topHalf[i].score : 0;
+                const score2 = i < bottomHalf.length ? bottomHalf[i].score : 0;
                 console.log(`  페어${pairCounter}: ${pair[0]}(${score1.toFixed(1)}) + ${pair[1]}(${score2.toFixed(1)}) = 합계 ${pairScore.toFixed(1)}`);
               } else {
                 console.log(`  페어${pairCounter}: ${pair[0]}(${pairScore.toFixed(1)}) - 1명만 배정`);
@@ -1763,6 +1750,114 @@ export default function TeamManagementPage() {
 
     setAssignments(resolvedAssignments);
     setShowCustomEditor(false);
+    setSelectedPairPlayer(null);
+    setActivePairGroupIndex(null);
+  };
+
+  // 특정 그룹 내의 페어를 점수차가 최소화되도록 재배정 (매 시도마다 파트너 변경 및 최소 편차 보장)
+  const reassignPairGroup = (groupIdx: number) => {
+    if (groupIdx < 0 || !pairGroups[groupIdx]) return;
+    const group = pairGroups[groupIdx];
+    const groupPlayers = [...group.players];
+    if (groupPlayers.length === 0) return;
+
+    // 1. 이 그룹에 속한 선수들이 사용 중이던 페어 ID 목록 수집
+    const existingPairIds = new Set<string>();
+    groupPlayers.forEach((player) => {
+      const team = assignments[player];
+      if (team && String(team).startsWith('pair')) {
+        existingPairIds.add(String(team));
+      }
+    });
+
+    const sortedPairIds = Array.from(existingPairIds).sort((a, b) => {
+      const numA = parseInt(a.replace('pair', '')) || 0;
+      const numB = parseInt(b.replace('pair', '')) || 0;
+      return numA - numB;
+    });
+
+    // 2. 500번 몬테카를로/무작위 밸런싱 시뮬레이션 진행
+    // 최대 점수와 최소 점수의 편차가 가장 작으면서 다채로운 파트너 조합 후보군을 탐색
+    let bestDiff = Number.MAX_VALUE;
+    let bestCandidates: Array<string[][]> = [];
+
+    const shufflePlayers = (players: string[]) => {
+      const shuffled = [...players];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    for (let sim = 0; sim < 500; sim++) {
+      const shuffled = shufflePlayers(groupPlayers);
+      const tempPairs: string[][] = [];
+      const tempPairScores: number[] = [];
+
+      for (let i = 0; i < shuffled.length; i += 2) {
+        const p1 = shuffled[i];
+        const p2 = shuffled[i + 1];
+        if (p1 && p2) {
+          tempPairs.push([p1, p2]);
+          tempPairScores.push(getPlayerScore(p1) + getPlayerScore(p2));
+        } else if (p1) {
+          tempPairs.push([p1]);
+        }
+      }
+
+      if (tempPairScores.length > 0) {
+        const maxS = Math.max(...tempPairScores);
+        const minS = Math.min(...tempPairScores);
+        const diff = maxS - minS;
+
+        if (diff < bestDiff - 0.001) {
+          bestDiff = diff;
+          bestCandidates = [tempPairs];
+        } else if (Math.abs(diff - bestDiff) < 0.001) {
+          bestCandidates.push(tempPairs);
+        }
+      } else {
+        bestCandidates.push(tempPairs);
+        bestDiff = 0;
+        break;
+      }
+    }
+
+    // 3. 최적의 밸런스 조합 중 무작위 하나 선택
+    const selectedPairs = bestCandidates[Math.floor(Math.random() * bestCandidates.length)] || [];
+
+    // 4. 새로운 배정 정보 적용
+    const nextAssignments = { ...assignments };
+    let pairIdIdx = 0;
+
+    const getAllMaxPairNum = () => {
+      let maxNum = 0;
+      Object.values(assignments).forEach((team) => {
+        if (team && String(team).startsWith('pair')) {
+          const num = parseInt(String(team).replace('pair', '')) || 0;
+          if (num > maxNum) maxNum = num;
+        }
+      });
+      return maxNum;
+    };
+    let newPairCounter = getAllMaxPairNum() + 1;
+
+    selectedPairs.forEach((pair) => {
+      let pairId = sortedPairIds[pairIdIdx];
+      if (!pairId) {
+        pairId = `pair${newPairCounter}`;
+        newPairCounter++;
+      } else {
+        pairIdIdx++;
+      }
+
+      pair.forEach((player) => {
+        nextAssignments[player] = pairId as TeamName;
+      });
+    });
+
+    setAssignments(nextAssignments);
     setSelectedPairPlayer(null);
     setActivePairGroupIndex(null);
   };
@@ -2079,19 +2174,22 @@ export default function TeamManagementPage() {
   const getPairDisplayLabel = (pairName: string, groupName?: string): string => {
     const pairNumberMatch = String(pairName).match(/(\d+)/);
     const pairNumber = pairNumberMatch ? pairNumberMatch[1] : String(pairName);
-    const normalizedGroupName = String(groupName || '').trim();
+    const normalizedGroupName = String(groupName || '').trim().toUpperCase();
 
     let groupPrefix = '';
-    if (normalizedGroupName.includes('중상')) {
-      groupPrefix = '중상';
-    } else if (normalizedGroupName.includes('중하')) {
-      groupPrefix = '중하';
-    } else if (normalizedGroupName.includes('중위')) {
-      groupPrefix = '중';
-    } else if (normalizedGroupName.includes('상위')) {
-      groupPrefix = '상';
-    } else if (normalizedGroupName.includes('하위')) {
-      groupPrefix = '하';
+    if (normalizedGroupName.includes('A') || normalizedGroupName.includes('상위')) {
+      groupPrefix = 'A';
+    } else if (normalizedGroupName.includes('B') || normalizedGroupName.includes('중상') || normalizedGroupName.includes('중위')) {
+      groupPrefix = 'B';
+    } else if (normalizedGroupName.includes('C') || normalizedGroupName.includes('중하') || normalizedGroupName.includes('하위')) {
+      const hasD = pairGroups.some(g => g.groupName.includes('D') || g.groupName.includes('중상') || g.groupName.includes('중하'));
+      if (normalizedGroupName.includes('하위') && hasD) {
+        groupPrefix = 'D';
+      } else {
+        groupPrefix = 'C';
+      }
+    } else if (normalizedGroupName.includes('D')) {
+      groupPrefix = 'D';
     } else if (normalizedGroupName.includes('기타')) {
       groupPrefix = '기타';
     }
@@ -2296,13 +2394,13 @@ export default function TeamManagementPage() {
                         
                         if (num === 2) {
                           let midPoint = Math.ceil(totalPlayers / 2);
-                          // 상위 그룹이 홀수면 하나 추가하여 짝수로
+                          // A 그룹이 홀수면 하나 추가하여 짝수로
                           if (midPoint % 2 !== 0 && midPoint < totalPlayers) {
                             midPoint++;
                           }
                           groups.push(sortedByScore.slice(0, midPoint));
                           groups.push(sortedByScore.slice(midPoint));
-                          groupNames.push('상위 그룹', '하위 그룹');
+                          groupNames.push('A 그룹', 'B 그룹');
                         } else if (num === 3) {
                           let firstPoint = Math.ceil(totalPlayers / 3);
                           let secondPoint = Math.ceil(totalPlayers * 2 / 3);
@@ -2318,7 +2416,7 @@ export default function TeamManagementPage() {
                           groups.push(sortedByScore.slice(0, firstPoint));
                           groups.push(sortedByScore.slice(firstPoint, secondPoint));
                           groups.push(sortedByScore.slice(secondPoint));
-                          groupNames.push('상위 그룹', '중위 그룹', '하위 그룹');
+                          groupNames.push('A 그룹', 'B 그룹', 'C 그룹');
                         } else if (num === 4) {
                           let firstPoint = Math.ceil(totalPlayers / 4);
                           let secondPoint = Math.ceil(totalPlayers * 2 / 4);
@@ -2339,7 +2437,7 @@ export default function TeamManagementPage() {
                           groups.push(sortedByScore.slice(firstPoint, secondPoint));
                           groups.push(sortedByScore.slice(secondPoint, thirdPoint));
                           groups.push(sortedByScore.slice(thirdPoint));
-                          groupNames.push('상위 그룹', '중상 그룹', '중하 그룹', '하위 그룹');
+                          groupNames.push('A 그룹', 'B 그룹', 'C 그룹', 'D 그룹');
                         }
                         
                         const newPairGroups = groups.map((group, idx) => ({
@@ -2812,30 +2910,60 @@ export default function TeamManagementPage() {
                         ];
                         const colors = colorSchemes[groupIdx % colorSchemes.length];
                         
+                        const pairScores = groupPairs
+                          .filter(([_, players]) => players.length === 2)
+                          .map(([_, players]) => players.reduce((sum, p) => sum + getPlayerScore(p), 0));
+
+                        const avgScore = pairScores.length > 0 ? (pairScores.reduce((a, b) => a + b, 0) / pairScores.length) : 0;
+                        const maxScore = pairScores.length > 0 ? Math.max(...pairScores) : 0;
+                        const minScore = pairScores.length > 0 ? Math.min(...pairScores) : 0;
+
                         return (
                           <div key={groupIdx} className={`border-2 ${colors.border} rounded-lg p-4 ${colors.bg}`}>
-                            <div className="mb-3 flex items-center justify-between gap-3">
-                              <h4 className={`font-bold ${colors.text} text-base ${colors.title} p-2 rounded`}>
-                                {pairGroups[groupIdx].groupName} - {groupPairs.length}개 페어
-                              </h4>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowCustomEditor((prev) => {
-                                    const shouldOpen = activePairGroupIndex !== groupIdx || !prev;
-                                    setSelectedPairPlayer(null);
-                                    setActivePairGroupIndex(shouldOpen ? groupIdx : null);
-                                    return shouldOpen;
-                                  });
-                                }}
-                                className={`rounded-lg px-3 py-2 text-xs font-semibold text-white transition-colors ${
-                                  showCustomEditor && activePairGroupIndex === groupIdx
-                                    ? 'bg-orange-700 hover:bg-orange-800'
-                                    : 'bg-orange-500 hover:bg-orange-600'
-                                }`}
-                              >
-                                {showCustomEditor && activePairGroupIndex === groupIdx ? '수동배정 닫기' : '수동배정'}
-                              </button>
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-dashed border-slate-200 pb-3">
+                              <div>
+                                <h4 className={`font-bold ${colors.text} text-base ${colors.title} p-2 rounded inline-block`}>
+                                  {pairGroups[groupIdx].groupName} - {groupPairs.length}개 페어
+                                </h4>
+                                
+                                {pairScores.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-700 bg-white/70 px-2 py-1.5 rounded-md border border-slate-100 shadow-sm">
+                                    <span>📊 페어 점수:</span>
+                                    <span>평균 <strong>{avgScore.toFixed(1)}점</strong></span>
+                                    <span>최대 <strong>{maxScore.toFixed(1)}점</strong></span>
+                                    <span>최소 <strong>{minScore.toFixed(1)}점</strong></span>
+                                    <span>최대-최소 차이 <strong className="text-rose-600">{(maxScore - minScore).toFixed(1)}점</strong></span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => reassignPairGroup(groupIdx)}
+                                  className="rounded-lg bg-teal-600 hover:bg-teal-700 px-3 py-2 text-xs font-semibold text-white transition-colors"
+                                >
+                                  🔄 그룹별 재배정
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowCustomEditor((prev) => {
+                                      const shouldOpen = activePairGroupIndex !== groupIdx || !prev;
+                                      setSelectedPairPlayer(null);
+                                      setActivePairGroupIndex(shouldOpen ? groupIdx : null);
+                                      return shouldOpen;
+                                    });
+                                  }}
+                                  className={`rounded-lg px-3 py-2 text-xs font-semibold text-white transition-colors ${
+                                    showCustomEditor && activePairGroupIndex === groupIdx
+                                      ? 'bg-orange-700 hover:bg-orange-800'
+                                      : 'bg-orange-500 hover:bg-orange-600'
+                                  }`}
+                                >
+                                  {showCustomEditor && activePairGroupIndex === groupIdx ? '수동배정 닫기' : '수동배정'}
+                                </button>
+                              </div>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                               {groupPairs.map(([pairName, players]) => {

@@ -696,7 +696,13 @@ export default function TournamentMatchesPage() {
     return maxDifference;
   };
 
-  const avoidConsecutiveMatches = (matches: Match[], courtCount: number): Match[] => {
+  const avoidConsecutiveMatches = (
+    matches: Match[],
+    courtCount: number,
+    baseDate: string,
+    sTime: string,
+    interval: number
+  ): Match[] => {
     if (matches.length <= 1) return matches;
     const C = courtCount > 0 ? courtCount : 4;
 
@@ -755,12 +761,42 @@ export default function TournamentMatchesPage() {
       });
     }
 
-    return scheduled.map((match, idx) => ({
-      ...match,
-      match_number: idx + 1,
-      court: `Court ${(idx % C) + 1}`,
-      round: Math.floor(idx / C) + 1,
-    }));
+    return scheduled.map((match, idx) => {
+      const matchNumber = idx + 1;
+      const courtNum = (idx % C) + 1;
+      const round = Math.floor(idx / C) + 1;
+
+      // 시작시간 및 라운드(round)당 간격(interval)씩 증가
+      const [startHour, startMin] = (sTime || '09:00').split(':').map(Number);
+      const totalMins = startHour * 60 + startMin + (round - 1) * (interval || 10);
+      const hour = Math.floor(totalMins / 60);
+      const min = totalMins % 60;
+      const hourStr = String(hour).padStart(2, '0');
+      const minStr = String(min).padStart(2, '0');
+      const scheduledTime = `${baseDate || '2026-07-01'}T${hourStr}:${minStr}:00`;
+
+      return {
+        ...match,
+        match_number: matchNumber,
+        court: `경기-${matchNumber}-${courtNum}코트`,
+        round: round,
+        scheduled_time: scheduledTime,
+      };
+    });
+  };
+
+  const formatScheduledTime = (timeStr: string | undefined | null) => {
+    if (!timeStr) return '';
+    try {
+      const timePart = timeStr.split('T')[1] || '';
+      const [h, m] = timePart.split(':');
+      if (h && m) {
+        return `${h}:${m}`;
+      }
+    } catch (e) {
+      // fallback
+    }
+    return '';
   };
 
   const [loading, setLoading] = useState(true);
@@ -771,6 +807,9 @@ export default function TournamentMatchesPage() {
   const [generatedMatches, setGeneratedMatches] = useState<Match[]>([]);
   const [tournamentMatches, setTournamentMatches] = useState<Match[]>([]);
   const [matchesPerPlayer, setMatchesPerPlayer] = useState(1);
+  const [startTime, setStartTime] = useState('17:30');
+  const [timeInterval, setTimeInterval] = useState(10);
+  const [viewType, setViewType] = useState<'card' | 'table'>('card');
   const [tournamentDate, setTournamentDate] = useState('');
   const [roundNumber, setRoundNumber] = useState(1);
   const [matchType, setMatchType] = useState<'level_based' | 'random' | 'mixed_doubles'>('random');
@@ -1784,7 +1823,7 @@ export default function TournamentMatchesPage() {
         );
       }
 
-      const optimizedMatches = avoidConsecutiveMatches(convertedMatches, maxCourts);
+      const optimizedMatches = avoidConsecutiveMatches(convertedMatches, maxCourts, tournamentDate, startTime, timeInterval);
       
       // 최종 점수 차이 분석
       const avgDiffAfter = calculateAverageScoreDifference(optimizedMatches);
@@ -2179,6 +2218,31 @@ export default function TournamentMatchesPage() {
                     </div>
                   )}
 
+                  {/* 시작시간 및 간격 선택 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">시작시간:</span>
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="rounded border border-gray-300 px-2 py-1 text-sm font-semibold text-slate-700 bg-white"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">간격:</span>
+                    <select
+                      value={timeInterval}
+                      onChange={(e) => setTimeInterval(Number(e.target.value))}
+                      className="rounded border border-gray-300 px-2 py-1 text-sm font-semibold text-slate-700 bg-white h-[32px]"
+                    >
+                      {[5, 10, 15, 20, 25, 30].map((min) => (
+                        <option key={min} value={min}>
+                          {min}분
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {selectedAssignment.team_type === 'pairs' && (
                     <div className="text-sm text-purple-800 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
                       페어전은 그룹별 경기 방식으로 경기 수가 결정됩니다.
@@ -2432,7 +2496,35 @@ export default function TournamentMatchesPage() {
 
               {/* 경기 일정 */}
               <div className="mb-6">
-                <h3 className="mb-2 text-base font-semibold sm:mb-3 sm:text-lg">생성될 경기 ({generatedMatches.length}경기)</h3>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-2 sm:mb-4">
+                  <h3 className="text-base font-semibold sm:text-lg">생성될 경기 ({generatedMatches.length}경기)</h3>
+                  {generatedMatches.length > 0 && (
+                    <div className="flex rounded-lg bg-gray-100 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setViewType('card')}
+                        className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                          viewType === 'card'
+                            ? 'bg-white text-slate-800 shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        🎴 카드 보기
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewType('table')}
+                        className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                          viewType === 'table'
+                            ? 'bg-white text-slate-800 shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        📋 테이블 보기
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {generatedMatches.length === 0 ? (
                   <div className="border border-yellow-300 bg-yellow-50 rounded-lg p-4 text-center">
                     <p className="text-sm text-yellow-800">대진표를 자동 생성하지 못했습니다. 코트 수를 조정하거나 다시 생성 버튼을 눌러주세요.</p>
@@ -2514,137 +2606,340 @@ export default function TournamentMatchesPage() {
                     );
                   })()}
 
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-300 bg-white text-sm">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold">경기</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold">코트</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold">팀1</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold">팀1 점수</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold">팀2</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold">팀2 점수</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center font-semibold">차이</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const playerGameCounts = getGeneratedPlayerGameCounts(generatedMatches);
-                        const averageGameCount = Object.keys(playerGameCounts).length > 0
-                          ? Object.values(playerGameCounts).reduce((sum, count) => sum + count, 0) / Object.keys(playerGameCounts).length
-                          : 0;
+                <div className="space-y-6">
+                  {(() => {
+                    const playerGameCounts = getGeneratedPlayerGameCounts(generatedMatches);
+                    const averageGameCount = Object.keys(playerGameCounts).length > 0
+                      ? Object.values(playerGameCounts).reduce((sum, count) => sum + count, 0) / Object.keys(playerGameCounts).length
+                      : 0;
 
-                        return generatedMatches.map((match, idx) => {
-                        const team1Score = (match.team1_levels || []).reduce((sum, l) => sum + l, 0);
-                        const team2Score = (match.team2_levels || []).reduce((sum, l) => sum + l, 0);
-                        const scoreDifference = Math.abs(team1Score - team2Score);
-                        const differenceColor = 
-                          scoreDifference === 0 ? 'bg-green-100 text-green-800' :
-                          scoreDifference <= 1 ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-orange-100 text-orange-800';
-                        return (
-                          <tr key={idx} className="hover:bg-blue-50">
-                            <td className="border border-gray-300 px-3 py-2 text-center font-medium">{match.match_number}</td>
-                            <td className="border border-gray-300 px-3 py-2 text-center text-xs">{match.court}</td>
-                            <td className="border border-gray-300 px-3 py-2 text-left text-xs">
-                              {isManualEditing ? (
-                                <div className="grid gap-2">
-                                  {match.team1.map((name, playerIndex) => (
-                                    <select
-                                      key={`team1-${idx}-${playerIndex}`}
-                                      value={name}
-                                      onChange={(event) =>
-                                        handleManualPlayerChange(idx, 'team1', playerIndex, event.target.value)
-                                      }
-                                      className="w-full rounded border border-blue-200 px-2 py-1 text-xs"
-                                    >
-                                      {getManualPlayerOptions(match, name).map((player) => (
-                                        <option key={player} value={player}>
-                                          {getPlayerName(player)} ({getPlayerGenderLabel(player)}/{extractLevelFromName(player).toUpperCase()}) {getPlayerScore(player)}점
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="space-y-1 font-medium text-blue-700">
-                                  {match.team1.map((name) => {
-                                    const playerName = getPlayerName(name);
-                                    const level = extractLevelFromName(name);
-                                    const gameCount = playerGameCounts[playerName] || 0;
-                                    const isOverAverage = gameCount > averageGameCount;
-                                    const genderLabel = getPlayerGenderLabel(name);
-
-                                    return (
-                                      <div key={`team1-display-${idx}-${name}`} className="flex flex-wrap items-center gap-1">
-                                        <span>{playerName}({genderLabel}/{level.toUpperCase()})</span>
-                                        <span className={`font-bold ${isOverAverage ? 'text-red-600 text-sm' : 'text-blue-500'}`}>
-                                          [{gameCount}]
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </td>
-                            <td className="border border-gray-300 px-3 py-2 text-center text-xs">
-                              <span className="inline-block px-2 py-1 bg-blue-100 rounded font-semibold text-blue-800">{team1Score}</span>
-                            </td>
-                            <td className="border border-gray-300 px-3 py-2 text-left text-xs">
-                              {isManualEditing ? (
-                                <div className="grid gap-2">
-                                  {match.team2.map((name, playerIndex) => (
-                                    <select
-                                      key={`team2-${idx}-${playerIndex}`}
-                                      value={name}
-                                      onChange={(event) =>
-                                        handleManualPlayerChange(idx, 'team2', playerIndex, event.target.value)
-                                      }
-                                      className="w-full rounded border border-red-200 px-2 py-1 text-xs"
-                                    >
-                                      {getManualPlayerOptions(match, name).map((player) => (
-                                        <option key={player} value={player}>
-                                          {getPlayerName(player)} ({getPlayerGenderLabel(player)}/{extractLevelFromName(player).toUpperCase()}) {getPlayerScore(player)}점
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="space-y-1 font-medium text-purple-700">
-                                  {match.team2.map((name) => {
-                                    const playerName = getPlayerName(name);
-                                    const level = extractLevelFromName(name);
-                                    const gameCount = playerGameCounts[playerName] || 0;
-                                    const isOverAverage = gameCount > averageGameCount;
-                                    const genderLabel = getPlayerGenderLabel(name);
-
-                                    return (
-                                      <div key={`team2-display-${idx}-${name}`} className="flex flex-wrap items-center gap-1">
-                                        <span>{playerName}({genderLabel}/{level.toUpperCase()})</span>
-                                        <span className={`font-bold ${isOverAverage ? 'text-red-600 text-sm' : 'text-purple-400'}`}>
-                                          [{gameCount}]
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </td>
-                            <td className="border border-gray-300 px-3 py-2 text-center text-xs">
-                              <span className="inline-block px-2 py-1 bg-red-100 rounded font-semibold text-red-800">{team2Score}</span>
-                            </td>
-                            <td className="border border-gray-300 px-3 py-2 text-center text-xs">
-                              <span className={`inline-block px-2 py-1 rounded font-semibold ${differenceColor}`}>
-                                {scoreDifference}점
-                              </span>
-                            </td>
-                          </tr>
-                        );
+                    if (viewType === 'card') {
+                      const roundsMap = new Map<number, Match[]>();
+                      generatedMatches.forEach((match) => {
+                        const r = match.round || 1;
+                        const current = roundsMap.get(r) || [];
+                        current.push(match);
+                        roundsMap.set(r, current);
                       });
-                      })()}
-                    </tbody>
-                  </table>
+
+                      const sortedRounds = Array.from(roundsMap.entries()).sort((a, b) => a[0] - b[0]);
+
+                      return (
+                        <div className="space-y-6">
+                          {/* 배정된 선수당 경기수 요약 */}
+                          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                            <h4 className="mb-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                              선수별 배정 경기수
+                            </h4>
+                            <div className="flex flex-wrap gap-1.5">
+                              {Object.entries(playerGameCounts)
+                                .sort((a, b) => a[0].localeCompare(b[0], 'ko'))
+                                .map(([pName, count]) => (
+                                  <span
+                                    key={`game-count-${pName}`}
+                                    className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ${
+                                      count === matchesPerPlayer
+                                        ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20'
+                                        : count > matchesPerPlayer
+                                        ? 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20'
+                                        : 'bg-yellow-50 text-yellow-700 ring-1 ring-inset ring-yellow-600/20'
+                                    }`}
+                                  >
+                                    {pName}: {count}경기
+                                  </span>
+                                ))}
+                            </div>
+                          </div>
+
+                          {sortedRounds.map(([roundNum, roundMatches]) => (
+                            <div key={`round-group-${roundNum}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                              <h4 className="mb-3 text-sm font-bold text-slate-800 flex items-center gap-2">
+                                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                                  {roundNum}회차
+                                </span>
+                                <span>({roundMatches.length}경기)</span>
+                              </h4>
+                              
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                                {roundMatches.map((match) => {
+                                  const team1Score = (match.team1_levels || []).reduce((sum, score) => sum + score, 0);
+                                  const team2Score = (match.team2_levels || []).reduce((sum, score) => sum + score, 0);
+                                  const scoreDifference = Math.abs(team1Score - team2Score);
+                                  const differenceColor = 
+                                    scoreDifference === 0 ? 'bg-green-100 text-green-800' :
+                                    scoreDifference <= 1 ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-orange-100 text-orange-800';
+
+                                  const matchIndexInGenerated = generatedMatches.findIndex((m) => m === match);
+
+                                  return (
+                                    <div key={`match-preview-${match.match_number}`} className="rounded-lg border border-slate-200 bg-white p-2 text-center shadow-sm relative group hover:shadow-md transition-shadow">
+                                      <div className="mb-1 text-[10px] font-bold text-blue-900 border-b border-slate-200 pb-1 flex justify-between items-center px-1">
+                                        <span>{match.court}</span>
+                                        {match.scheduled_time && (
+                                          <span className="text-emerald-700 bg-emerald-50 px-1 rounded text-[8px] font-medium">
+                                            {formatScheduledTime(match.scheduled_time)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      
+                                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 mt-1.5">
+                                        {/* 팀 1 */}
+                                        <div className="rounded bg-slate-50 p-1 border border-slate-100 shadow-sm min-w-0 flex flex-col justify-center items-center gap-0.5 w-full">
+                                          {isManualEditing ? (
+                                            <div className="w-full flex flex-col gap-1">
+                                              {match.team1.map((name, pIdx) => (
+                                                <select
+                                                  key={`team1-edit-${match.match_number}-${pIdx}`}
+                                                  value={name}
+                                                  onChange={(e) =>
+                                                    handleManualPlayerChange(matchIndexInGenerated, 'team1', pIdx, e.target.value)
+                                                  }
+                                                  className="w-full rounded border border-blue-200 px-1 py-0.5 text-[10px] bg-white"
+                                                >
+                                                  {getManualPlayerOptions(match, name).map((player) => (
+                                                    <option key={player} value={player}>
+                                                      {getPlayerName(player)}
+                                                    </option>
+                                                  ))}
+                                                </select>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <div className="text-[11px] font-semibold text-slate-900 truncate w-full" title={getPlayerName(match.team1[0])}>
+                                                {getPlayerName(match.team1[0])}
+                                              </div>
+                                              {match.team1[1] && (
+                                                <div className="text-[11px] font-semibold text-slate-900 truncate w-full" title={getPlayerName(match.team1[1])}>
+                                                  {getPlayerName(match.team1[1])}
+                                                </div>
+                                              )}
+                                            </>
+                                          )}
+                                          <div className="text-[9px] text-slate-400 border-t border-slate-100 mt-0.5 pt-0.5 w-full text-center">
+                                            {team1Score.toFixed(0)}
+                                          </div>
+                                        </div>
+
+                                        <div className="text-[9px] font-bold text-slate-400 px-0.5 flex flex-col items-center">
+                                          <span>VS</span>
+                                          <span className={`text-[8px] px-1 rounded mt-0.5 ${differenceColor}`} title="팀점수 차이">
+                                            {scoreDifference}
+                                          </span>
+                                        </div>
+
+                                        {/* 팀 2 */}
+                                        <div className="rounded bg-slate-50 p-1 border border-slate-100 shadow-sm min-w-0 flex flex-col justify-center items-center gap-0.5 w-full">
+                                          {isManualEditing ? (
+                                            <div className="w-full flex flex-col gap-1">
+                                              {match.team2.map((name, pIdx) => (
+                                                <select
+                                                  key={`team2-edit-${match.match_number}-${pIdx}`}
+                                                  value={name}
+                                                  onChange={(e) =>
+                                                    handleManualPlayerChange(matchIndexInGenerated, 'team2', pIdx, e.target.value)
+                                                  }
+                                                  className="w-full rounded border border-red-200 px-1 py-0.5 text-[10px] bg-white"
+                                                >
+                                                  {getManualPlayerOptions(match, name).map((player) => (
+                                                    <option key={player} value={player}>
+                                                      {getPlayerName(player)}
+                                                    </option>
+                                                  ))}
+                                                </select>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <div className="text-[11px] font-semibold text-slate-900 truncate w-full" title={getPlayerName(match.team2[0])}>
+                                                {getPlayerName(match.team2[0])}
+                                              </div>
+                                              {match.team2[1] && (
+                                                <div className="text-[11px] font-semibold text-slate-900 truncate w-full" title={getPlayerName(match.team2[1])}>
+                                                  {getPlayerName(match.team2[1])}
+                                                </div>
+                                              )}
+                                            </>
+                                          )}
+                                          <div className="text-[9px] text-slate-400 border-t border-slate-100 mt-0.5 pt-0.5 w-full text-center">
+                                            {team2Score.toFixed(0)}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+
+                    // 테이블 보기 뷰 반환
+                    return (
+                      <div className="space-y-6">
+                        {/* 배정된 선수당 경기수 요약 */}
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                          <h4 className="mb-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            선수별 배정 경기수
+                          </h4>
+                          <div className="flex flex-wrap gap-1.5">
+                            {Object.entries(playerGameCounts)
+                              .sort((a, b) => a[0].localeCompare(b[0], 'ko'))
+                              .map(([pName, count]) => (
+                                <span
+                                  key={`game-count-${pName}`}
+                                  className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold ${
+                                    count === matchesPerPlayer
+                                      ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20'
+                                      : count > matchesPerPlayer
+                                      ? 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20'
+                                      : 'bg-yellow-50 text-yellow-700 ring-1 ring-inset ring-yellow-600/20'
+                                  }`}
+                                >
+                                  {pName}: {count}경기
+                                </span>
+                              ))}
+                          </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse border border-gray-300 bg-white text-sm">
+                            <thead>
+                              <tr className="bg-gray-100">
+                                <th className="border border-gray-300 px-3 py-2 text-center font-semibold">경기</th>
+                                <th className="border border-gray-300 px-3 py-2 text-center font-semibold">코트</th>
+                                <th className="border border-gray-300 px-3 py-2 text-center font-semibold">팀1</th>
+                                <th className="border border-gray-300 px-3 py-2 text-center font-semibold">팀1 점수</th>
+                                <th className="border border-gray-300 px-3 py-2 text-center font-semibold">팀2</th>
+                                <th className="border border-gray-300 px-3 py-2 text-center font-semibold">팀2 점수</th>
+                                <th className="border border-gray-300 px-3 py-2 text-center font-semibold">차이</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {generatedMatches.map((match, idx) => {
+                                const team1Score = (match.team1_levels || []).reduce((sum, l) => sum + l, 0);
+                                const team2Score = (match.team2_levels || []).reduce((sum, l) => sum + l, 0);
+                                const scoreDifference = Math.abs(team1Score - team2Score);
+                                const differenceColor = 
+                                  scoreDifference === 0 ? 'bg-green-100 text-green-800' :
+                                  scoreDifference <= 1 ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-orange-100 text-orange-800';
+                                return (
+                                  <tr key={idx} className="hover:bg-blue-50">
+                                    <td className="border border-gray-300 px-3 py-2 text-center font-medium">{match.match_number}</td>
+                                    <td className="border border-gray-300 px-3 py-2 text-center text-xs">
+                                      <div className="font-semibold">{match.court}</div>
+                                      {match.scheduled_time && (
+                                        <div className="text-[10px] text-emerald-600 font-bold mt-0.5">
+                                          {formatScheduledTime(match.scheduled_time)}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="border border-gray-300 px-3 py-2 text-left text-xs">
+                                      {isManualEditing ? (
+                                        <div className="grid gap-2">
+                                          {match.team1.map((name, playerIndex) => (
+                                            <select
+                                              key={`team1-${idx}-${playerIndex}`}
+                                              value={name}
+                                              onChange={(event) =>
+                                                handleManualPlayerChange(idx, 'team1', playerIndex, event.target.value)
+                                              }
+                                              className="w-full rounded border border-blue-200 px-2 py-1 text-xs"
+                                            >
+                                              {getManualPlayerOptions(match, name).map((player) => (
+                                                <option key={player} value={player}>
+                                                  {getPlayerName(player)} ({getPlayerGenderLabel(player)}/{extractLevelFromName(player).toUpperCase()}) {getPlayerScore(player)}점
+                                                </option>
+                                              ))}
+                                            </select>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-1 font-medium text-blue-700">
+                                          {match.team1.map((name) => {
+                                            const playerName = getPlayerName(name);
+                                            const level = extractLevelFromName(name);
+                                            const gameCount = playerGameCounts[playerName] || 0;
+                                            const isOverAverage = gameCount > averageGameCount;
+                                            const genderLabel = getPlayerGenderLabel(name);
+
+                                            return (
+                                              <div key={`team1-display-${idx}-${name}`} className="flex flex-wrap items-center gap-1">
+                                                <span>{playerName}({genderLabel}/{level.toUpperCase()})</span>
+                                                <span className={`font-bold ${isOverAverage ? 'text-red-600 text-sm' : 'text-blue-500'}`}>
+                                                  [{gameCount}]
+                                                </span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="border border-gray-300 px-3 py-2 text-center text-xs">
+                                      <span className="inline-block px-2 py-1 bg-blue-100 rounded font-semibold text-blue-800">{team1Score}</span>
+                                    </td>
+                                    <td className="border border-gray-300 px-3 py-2 text-left text-xs">
+                                      {isManualEditing ? (
+                                        <div className="grid gap-2">
+                                          {match.team2.map((name, playerIndex) => (
+                                            <select
+                                              key={`team2-${idx}-${playerIndex}`}
+                                              value={name}
+                                              onChange={(event) =>
+                                                handleManualPlayerChange(idx, 'team2', playerIndex, event.target.value)
+                                              }
+                                              className="w-full rounded border border-red-200 px-2 py-1 text-xs"
+                                            >
+                                              {getManualPlayerOptions(match, name).map((player) => (
+                                                <option key={player} value={player}>
+                                                  {getPlayerName(player)} ({getPlayerGenderLabel(player)}/{extractLevelFromName(player).toUpperCase()}) {getPlayerScore(player)}점
+                                                </option>
+                                              ))}
+                                            </select>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-1 font-medium text-purple-700">
+                                          {match.team2.map((name) => {
+                                            const playerName = getPlayerName(name);
+                                            const level = extractLevelFromName(name);
+                                            const gameCount = playerGameCounts[playerName] || 0;
+                                            const isOverAverage = gameCount > averageGameCount;
+                                            const genderLabel = getPlayerGenderLabel(name);
+
+                                            return (
+                                              <div key={`team2-display-${idx}-${name}`} className="flex flex-wrap items-center gap-1">
+                                                <span>{playerName}({genderLabel}/{level.toUpperCase()})</span>
+                                                <span className={`font-bold ${isOverAverage ? 'text-red-600 text-sm' : 'text-purple-400'}`}>
+                                                  [{gameCount}]
+                                                </span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="border border-gray-300 px-3 py-2 text-center text-xs">
+                                      <span className="inline-block px-2 py-1 bg-red-100 rounded font-semibold text-red-800">{team2Score}</span>
+                                    </td>
+                                    <td className="border border-gray-300 px-3 py-2 text-center text-xs">
+                                      <span className={`inline-block px-2 py-1 rounded font-semibold ${differenceColor}`}>
+                                        {scoreDifference}점
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 </>
                 )}

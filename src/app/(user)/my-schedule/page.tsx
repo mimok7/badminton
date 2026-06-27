@@ -179,6 +179,7 @@ export default function MySchedulePage() {
   const [myMatches, setMyMatches] = useState<MatchSchedule[]>([]);
   const [matchRecords, setMatchRecords] = useState<MatchRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<MatchRecord[]>([]);
+
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [activeTab, setActiveTab] = useState<MatchCenterTab>('upcoming');
   const [tournamentMatches, setTournamentMatches] = useState<MyTournamentMatchView[]>([]);
@@ -434,110 +435,99 @@ export default function MySchedulePage() {
         });
       });
 
-      // 2. 내가 배정받은 경기 조회 (generated_matches 기반)
+      // 2. 내가 배정받은 경기 및 완료된 경기 조회 (RLS 우회를 위해 API 라우트 사용)
       console.log('내 프로필 조회:', { myProfile, userId: user.id });
 
+      let allMatches: any[] = [];
+      let fetchError: any = null;
+
       if (participantIds.length > 0) {
-        const participantMatchFilter = participantIds
-          .map((participantId) =>
-            [
-              `team1_player1_id.eq.${participantId}`,
-              `team1_player2_id.eq.${participantId}`,
-              `team2_player1_id.eq.${participantId}`,
-              `team2_player2_id.eq.${participantId}`,
-            ].join(',')
-          )
-          .join(',');
-
-        const { data: assignedMatches, error: assignedError } = await supabase
-          .from('generated_matches')
-          .select(`
-            *,
-            team1_player1:profiles!team1_player1_id(
-              id, user_id, username, full_name, coin_balance, skill_level,
-              level_info:level_info!skill_level(name)
-            ),
-            team1_player2:profiles!team1_player2_id(
-              id, user_id, username, full_name, coin_balance, skill_level,
-              level_info:level_info!skill_level(name)
-            ),
-            team2_player1:profiles!team2_player1_id(
-              id, user_id, username, full_name, coin_balance, skill_level,
-              level_info:level_info!skill_level(name)
-            ),
-            team2_player2:profiles!team2_player2_id(
-              id, user_id, username, full_name, coin_balance, skill_level,
-              level_info:level_info!skill_level(name)
-            ),
-            match_sessions(
-              id,
-              session_name,
-              session_date
-            )
-          `)
-          .or(participantMatchFilter)
-          .order('match_number', { ascending: true }); // 경기 순서 유지
-
-        console.log('배정형 경기 조회 결과:', { 
-          data: assignedMatches, 
-          error: assignedError, 
-          searchProfileId: myProfile?.id || null,
-          matchCount: assignedMatches?.length || 0
-        });
-
-        if (!assignedError && assignedMatches && assignedMatches.length > 0) {
-          // 배정된 게임을 가상의 일정로 변환
-          assignedMatches.forEach((match: any, index) => {
-            const syntheticId = `generated_${match.id}`;
-            if (assignedScheduleIds.has(syntheticId)) {
-              return;
-            }
-            const session = Array.isArray(match.match_sessions) ? match.match_sessions[0] : null; // 첫 번째 세션 정보 사용
-            
-            const getPlayerInfo = (playerData: any) => {
-              if (!playerData) return { 
-                id: null, 
-                user_id: null,
-                username: '미정', 
-                full_name: '미정', 
-                coin_balance: null,
-                skill_level: 'E2',
-                skill_level_name: getLevelNameFromCode(levelInfoMap, 'E2', 'E2') || 'E2'
-              };
-              return {
-                id: playerData.id,
-                user_id: playerData.user_id,
-                username: playerData.full_name || playerData.username || '미정',
-                full_name: playerData.full_name || playerData.username || '미정',
-                coin_balance: playerData.coin_balance ?? null,
-                skill_level: playerData.skill_level || 'E2',
-                skill_level_name: playerData.level_info?.name || getLevelNameFromCode(levelInfoMap, playerData.skill_level || 'E2', playerData.skill_level || 'E2') || (playerData.skill_level || 'E2')
-              };
-            };
-
-            matchesWithDetails.push({
-              id: syntheticId,
-              match_date: session?.session_date || todayLocal,
-              start_time: `${9 + (index % 8)}:00`, // 9시부터 시작해서 8경기마다 순환
-              end_time: `${10 + (index % 8)}:00`,
-              location: '클럽 코트',
-              status: (match.status || 'scheduled') as 'scheduled' | 'in_progress' | 'completed' | 'cancelled',
-              description: session?.session_name || '배정 게임',
-              kind: 'assigned',
-              generated_match: {
-                id: match.id,
-                session_id: match.session_id || session?.id || null,
-                match_number: match.match_number,
-                session_name: session?.session_name || '세션 정보 없음',
-                team1_player1: getPlayerInfo(match.team1_player1),
-                team1_player2: getPlayerInfo(match.team1_player2),
-                team2_player1: getPlayerInfo(match.team2_player1),
-                team2_player2: getPlayerInfo(match.team2_player2)
-              }
-            });
+        try {
+          const response = await fetch('/api/user/generated-matches', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ participantIds }),
           });
+
+          if (!response.ok) {
+            throw new Error(`API error: ${response.statusText}`);
+          }
+
+          const resData = await response.json();
+          allMatches = resData.matches || [];
+          console.log('fetch matchesCount:', allMatches.length);
+        } catch (err: any) {
+          fetchError = err;
+          console.error('fetchError:', err.message);
         }
-      } // myProfile 조건문 닫기
+      }
+
+      const assignedMatches = allMatches
+        .filter((m: any) => m.status !== 'completed')
+        .sort((a: any, b: any) => (a.match_number || 0) - (b.match_number || 0));
+      const assignedError = fetchError;
+
+      console.log('배정형 경기 조회 결과:', { 
+        data: assignedMatches, 
+        error: assignedError, 
+        searchProfileId: myProfile?.id || null,
+        matchCount: assignedMatches?.length || 0
+      });
+
+      if (!assignedError && assignedMatches && assignedMatches.length > 0) {
+        // 배정된 게임을 가상의 일정로 변환
+        assignedMatches.forEach((match: any, index) => {
+          const syntheticId = `generated_${match.id}`;
+          if (assignedScheduleIds.has(syntheticId)) {
+            return;
+          }
+          const session = Array.isArray(match.match_sessions) ? match.match_sessions[0] : match.match_sessions; // 첫 번째 세션 정보 사용
+          
+          const getPlayerInfo = (playerData: any) => {
+            if (!playerData) return { 
+              id: null, 
+              user_id: null,
+              username: '미정', 
+              full_name: '미정', 
+              coin_balance: null,
+              skill_level: 'E2',
+              skill_level_name: getLevelNameFromCode(levelInfoMap, 'E2', 'E2') || 'E2'
+            };
+            return {
+              id: playerData.id,
+              user_id: playerData.user_id,
+              username: playerData.full_name || playerData.username || '미정',
+              full_name: playerData.full_name || playerData.username || '미정',
+              coin_balance: playerData.coin_balance ?? null,
+              skill_level: playerData.skill_level || 'E2',
+              skill_level_name: playerData.level_info?.name || getLevelNameFromCode(levelInfoMap, playerData.skill_level || 'E2', playerData.skill_level || 'E2') || (playerData.skill_level || 'E2')
+            };
+          };
+
+          matchesWithDetails.push({
+            id: syntheticId,
+            match_date: session?.session_date || todayLocal,
+            start_time: `${9 + (index % 8)}:00`, // 9시부터 시작해서 8경기마다 순환
+            end_time: `${10 + (index % 8)}:00`,
+            location: '클럽 코트',
+            status: (match.status || 'scheduled') as 'scheduled' | 'in_progress' | 'completed' | 'cancelled',
+            description: session?.session_name || '배정 게임',
+            kind: 'assigned',
+            generated_match: {
+              id: match.id,
+              session_id: match.session_id || session?.id || null,
+              match_number: match.match_number,
+              session_name: session?.session_name || '세션 정보 없음',
+              team1_player1: getPlayerInfo(match.team1_player1),
+              team1_player2: getPlayerInfo(match.team1_player2),
+              team2_player1: getPlayerInfo(match.team2_player1),
+              team2_player2: getPlayerInfo(match.team2_player2)
+            }
+          });
+        });
+      }
 
       // 날짜순 정렬
       matchesWithDetails.sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime());
@@ -550,52 +540,23 @@ export default function MySchedulePage() {
       let losses = 0;
 
       if (participantIds.length > 0) {
-        const participantMatchFilter = participantIds
-          .map((participantId) =>
-            [
-              `team1_player1_id.eq.${participantId}`,
-              `team1_player2_id.eq.${participantId}`,
-              `team2_player1_id.eq.${participantId}`,
-              `team2_player2_id.eq.${participantId}`,
-            ].join(',')
-          )
-          .join(',');
+        const completedMatches = allMatches
+          .filter((m: any) => m.status === 'completed' && m.match_result !== null)
+          .sort((a: any, b: any) => (b.match_number || 0) - (a.match_number || 0));
+        const completedError = fetchError;
 
-        // 내가 참여한 완료된 경기들의 결과 조회
-        const { data: completedMatches, error: completedError } = await supabase
-          .from('generated_matches')
-          .select(`
-            id,
-            match_number,
-            match_result,
-            status,
-            team1_player1:profiles!team1_player1_id(
-              id, user_id, username, full_name, coin_balance, skill_level
-            ),
-            team1_player2:profiles!team1_player2_id(
-              id, user_id, username, full_name, coin_balance, skill_level
-            ),
-            team2_player1:profiles!team2_player1_id(
-              id, user_id, username, full_name, coin_balance, skill_level
-            ),
-            team2_player2:profiles!team2_player2_id(
-              id, user_id, username, full_name, coin_balance, skill_level
-            ),
-            match_sessions(
-              session_date
-            )
-          `)
-          .or(participantMatchFilter)
-          .eq('status', 'completed')
-          .not('match_result', 'is', null)
-          .order('match_number', { ascending: false });
-
+        if (completedError) {
+          console.error('completedError:', completedError);
+        }
+        if (completedMatches) {
+          console.log('completed matchesCount:', completedMatches.length);
+        }
         if (!completedError && completedMatches) {
           completedMatches.forEach((match: any) => {
             if (!match.match_result) return;
 
             const result = match.match_result as any;
-            const session = Array.isArray(match.match_sessions) ? match.match_sessions[0] : null;
+            const session = Array.isArray(match.match_sessions) ? match.match_sessions[0] : match.match_sessions;
             const sessionDate = session?.session_date || new Date().toISOString().split('T')[0];
             
             // 🔽 배열로 반환될 수 있으니 항상 첫 번째 값만 사용
@@ -659,6 +620,7 @@ export default function MySchedulePage() {
         losses
       });
 
+      console.log(`Debug Info: total = ${records.length}, filtered = ${records.length}, loading = false, user = ${user?.id}`);
       console.log(`✅ 내 경기 일정 조회 완료: ${matchesWithDetails.length}개`);
     } catch (error) {
       console.error('경기 조회 실패:', error);
@@ -1413,10 +1375,10 @@ export default function MySchedulePage() {
             ) : (
               <div className="divide-y divide-slate-200/80">
                 {upcomingMatches.map((match) => (
-                  <div key={match.id} className="p-4">
-                    <div className="flex flex-col gap-4">
+                  <div key={match.id} className="p-2.5 py-2">
+                    <div className="flex flex-col gap-1.5">
                       <div className="min-w-0 flex-1">
-                        <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <div className="mb-1.5 flex flex-wrap items-center gap-2">
                           <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
                             {formatMatchBadge(match)}
                           </span>
@@ -1425,10 +1387,9 @@ export default function MySchedulePage() {
                           </span>
                         </div>
 
-                        <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                          <div className="flex flex-col gap-1.5">
+                        <div className="rounded-xl bg-slate-50 px-3 py-1.5">
+                          <div className="flex flex-col gap-0.5">
                             <div className="text-sm font-semibold text-slate-900">{getUpcomingCardTitle(match)}</div>
-                            <div className="text-xs text-slate-500">{getUpcomingCardSubtitle(match)}</div>
                             <div className="pt-1 text-sm text-slate-700">
                               {formatCompactDate(match.match_date)} · {formatTimeRange(match.start_time, match.end_time)}
                             </div>
@@ -1437,33 +1398,35 @@ export default function MySchedulePage() {
                         </div>
 
                         {match.generated_match && (
-                          <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-stretch gap-3">
-                            <div className="rounded-[20px] border border-blue-100 bg-blue-50/80 p-3">
+                          <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-stretch gap-2">
+                            <div className="rounded-[20px] border border-blue-100 bg-blue-50/80 p-2 rounded-xl">
                               <div className="mb-2 text-sm font-semibold text-blue-900">팀 A</div>
-                              <div className="space-y-1.5 text-sm">
-                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team1_player1.user_id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
+                              <div className="space-y-1 text-xs">
+                                <div className={`rounded-lg px-2 py-1 text-xs ${match.generated_match.team1_player1.user_id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
                                   {getPlayerName(match.generated_match.team1_player1)}
                                 </div>
-                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team1_player2.user_id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
+                                <div className={`rounded-lg px-2 py-1 text-xs ${match.generated_match.team1_player2.user_id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
                                   {getPlayerName(match.generated_match.team1_player2)}
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex min-w-[68px] flex-col items-center justify-center rounded-[20px] bg-white px-2 py-3 text-center shadow-sm">
-                              <div className="text-[11px] font-semibold tracking-[0.14em] text-slate-400">점수</div>
-                              <div className="mt-1 text-lg font-bold text-slate-900">-</div>
-                              <div className="text-xs font-medium text-slate-400">VS</div>
-                              <div className="text-lg font-bold text-slate-900">-</div>
+                            <div className="flex min-w-[56px] flex-col items-center justify-center rounded-xl bg-white px-1.5 py-1 text-center shadow-sm">
+                              <div className="text-[9px] font-semibold tracking-[0.14em] text-slate-400">점수</div>
+                              <div className="mt-0.5 flex items-center gap-0.5 text-slate-400 text-sm font-semibold">
+                                <span>-</span>
+                                <span className="text-[10px] font-medium text-slate-300">VS</span>
+                                <span>-</span>
+                              </div>
                             </div>
 
-                            <div className="rounded-[20px] border border-rose-100 bg-rose-50/80 p-3 text-right">
+                            <div className="rounded-[20px] border border-rose-100 bg-rose-50/80 p-2 rounded-xl text-right">
                               <div className="mb-2 text-sm font-semibold text-rose-900">팀 B</div>
-                              <div className="space-y-1.5 text-sm">
-                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team2_player1.user_id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
+                              <div className="space-y-1 text-xs">
+                                <div className={`rounded-lg px-2 py-1 text-xs ${match.generated_match.team2_player1.user_id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
                                   {getPlayerName(match.generated_match.team2_player1)}
                                 </div>
-                                <div className={`rounded-xl px-2.5 py-2 ${match.generated_match.team2_player2.user_id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
+                                <div className={`rounded-lg px-2 py-1 text-xs ${match.generated_match.team2_player2.user_id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
                                   {getPlayerName(match.generated_match.team2_player2)}
                                 </div>
                               </div>
@@ -1580,10 +1543,10 @@ export default function MySchedulePage() {
             ) : (
               <div className="divide-y divide-slate-200/80">
                 {filteredRecords.map((record) => (
-                  <div key={record.id} className="p-4">
-                    <div className="grid gap-3">
-                        <div className="rounded-[20px] bg-slate-50 px-4 py-3">
-                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <div key={record.id} className="p-2.5 py-2">
+                    <div className="grid gap-1.5">
+                      <div className="rounded-xl bg-slate-50 px-3 py-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
                             #{record.matchNumber}
                           </span>
@@ -1598,22 +1561,49 @@ export default function MySchedulePage() {
                             {formatCompactDate(record.date)}
                           </span>
                         </div>
-                        <div className="text-lg font-semibold text-slate-900">{record.score || '점수 기록 없음'}</div>
                       </div>
-                      <div className="grid gap-2 text-sm">
-                        <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-3">
-                          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">팀원</div>
-                          <div className="mt-1 font-medium text-slate-700">
-                            {record.teammates.length > 0 ? record.teammates.join(', ') : '없음'}
+                      
+                      {(() => {
+                        const scoreParts = record.score ? record.score.split(':') : ['-', '-'];
+                        const myScore = record.isUserTeam1 ? scoreParts[0] : scoreParts[1];
+                        const opScore = record.isUserTeam1 ? scoreParts[1] : scoreParts[0];
+                        return (
+                          <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 mt-0.5">
+                            <div className="rounded-xl border border-blue-300 bg-blue-50/80 p-2">
+                              <div className="mb-1 text-[10px] font-semibold tracking-[0.14em] text-blue-700">우리 팀</div>
+                              <div className="font-medium text-gray-800 text-xs flex flex-col gap-0.5">
+                                {record.teammates.length > 0 ? (
+                                  record.teammates.map((player, idx) => (
+                                    <div key={idx}>{player}</div>
+                                  ))
+                                ) : (
+                                  <div>없음</div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex min-w-[56px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-white px-1.5 py-1 text-center shadow-sm">
+                              <div className="text-[9px] font-semibold tracking-[0.14em] text-slate-400">점수</div>
+                              <div className="mt-0.5 flex items-center gap-0.5">
+                                <span className="text-sm font-bold text-blue-600">{myScore}</span>
+                                <span className="text-[10px] font-medium text-slate-400">:</span>
+                                <span className="text-sm font-bold text-rose-600">{opScore}</span>
+                              </div>
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-white p-2">
+                              <div className="mb-1 text-[10px] font-semibold tracking-[0.14em] text-slate-400">상대 팀</div>
+                              <div className="font-medium text-slate-700 text-xs flex flex-col gap-0.5">
+                                {record.opponents.length > 0 ? (
+                                  record.opponents.map((player, idx) => (
+                                    <div key={idx}>{player}</div>
+                                  ))
+                                ) : (
+                                  <div>없음</div>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        <div className="rounded-[20px] border border-slate-200 bg-white px-4 py-3">
-                          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">상대</div>
-                          <div className="mt-1 font-medium text-slate-700">
-                            {record.opponents.length > 0 ? record.opponents.join(', ') : '없음'}
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -1652,7 +1642,7 @@ export default function MySchedulePage() {
                   return (
                     <div
                       key={match.id}
-                      className={`relative rounded-[22px] border p-4 ${
+                      className={`relative rounded-[22px] border p-3 py-2.5 rounded-xl ${
                         didIWin
                           ? 'border-green-200 bg-green-50/80'
                           : didILose
@@ -1678,7 +1668,7 @@ export default function MySchedulePage() {
                         {getTournamentStatusLabel(match, didIWin, didILose)}
                       </span>
 
-                      <div className="mb-3 flex flex-col gap-3 pr-20">
+                      <div className="mb-2 flex flex-col gap-1 pr-20">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
@@ -1701,7 +1691,7 @@ export default function MySchedulePage() {
                       </div>
 
                       <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-3">
-                        <div className={`rounded-[20px] p-3 ${myTeam === 'team1' ? 'border border-blue-300 bg-blue-100' : 'bg-white'}`}>
+                        <div className={`rounded-xl p-2.5 ${myTeam === 'team1' ? 'border border-blue-300 bg-blue-100' : 'bg-white'}`}>
                           <div className="mb-2 font-semibold text-blue-700">{myTeam === 'team1' ? '내 팀' : '상대 팀'}</div>
                           {match.team1.map((player, index) => (
                             <div key={`${match.id}-team1-${index}`} className="text-sm text-gray-800">
@@ -1710,14 +1700,16 @@ export default function MySchedulePage() {
                           ))}
                         </div>
 
-                        <div className="flex min-w-[72px] flex-col items-center justify-center rounded-[20px] bg-white px-2 py-3 text-center shadow-sm">
-                          <div className="text-[11px] font-semibold tracking-[0.14em] text-slate-400">점수</div>
-                          <div className="mt-1 text-2xl font-bold text-blue-600">{getTeamScoreText(match.score_team1)}</div>
-                          <div className="text-xs font-medium text-slate-400">VS</div>
-                          <div className="text-2xl font-bold text-rose-600">{getTeamScoreText(match.score_team2)}</div>
+                        <div className="flex min-w-[64px] flex-col items-center justify-center rounded-[16px] bg-white px-2 py-1.5 text-center shadow-sm">
+                          <div className="text-[9px] font-semibold tracking-[0.14em] text-slate-400">점수</div>
+                          <div className="mt-0.5 flex items-center gap-1">
+                            <span className="text-base font-bold text-blue-600">{getTeamScoreText(match.score_team1)}</span>
+                            <span className="text-xs font-medium text-slate-400">:</span>
+                            <span className="text-base font-bold text-rose-600">{getTeamScoreText(match.score_team2)}</span>
+                          </div>
                         </div>
 
-                        <div className={`rounded-[20px] p-3 text-right ${myTeam === 'team2' ? 'border border-blue-300 bg-blue-100' : 'bg-white'}`}>
+                        <div className={`rounded-xl p-2.5 text-right ${myTeam === 'team2' ? 'border border-blue-300 bg-blue-100' : 'bg-white'}`}>
                           <div className="mb-2 font-semibold text-red-700">{myTeam === 'team2' ? '내 팀' : '상대 팀'}</div>
                           {match.team2.map((player, index) => (
                             <div key={`${match.id}-team2-${index}`} className="text-sm text-gray-800">

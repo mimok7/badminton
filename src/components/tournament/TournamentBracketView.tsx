@@ -516,6 +516,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   const [viewMode, setViewMode] = useState<'round' | 'court'>('round');
   const [layoutMode, setLayoutMode] = useState<'card' | 'table'>('card');
   const [allTournamentsMatches, setAllTournamentsMatches] = useState<Match[]>([]);
+  const [selectedCourtFilter, setSelectedCourtFilter] = useState<string>('all');
 
   const getMatchTournament = (match: Match) => {
     return tournaments.find((t) => t.id === match.tournament_id) || null;
@@ -549,6 +550,10 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   ]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<{ id: string; full_name: string; role: string } | null>(null);
+
+  useEffect(() => {
+    setSelectedCourtFilter('all');
+  }, [viewMode]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -1729,14 +1734,28 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     return matches;
   }, [viewMode, selectedTournament, tournaments, allTournamentsMatches, matches]);
 
+  const uniqueCourts = useMemo(() => {
+    if (viewMode !== 'court') return [];
+    const courts = currentMatchesForView.map(m => formatCourtLabel(m.court));
+    return Array.from(new Set(courts)).sort((a, b) => {
+      if (a === '코트 미정') return 1;
+      if (b === '코트 미정') return -1;
+      return a.localeCompare(b, 'ko', { numeric: true });
+    });
+  }, [viewMode, currentMatchesForView]);
+
   const renderMatchSections = useMemo(() => {
     if (viewMode === 'court') {
-      return groupMatchesByCourt(currentMatchesForView);
+      const allSections = groupMatchesByCourt(currentMatchesForView);
+      if (selectedCourtFilter === 'all') {
+        return allSections;
+      }
+      return allSections.filter(s => s.groupName === selectedCourtFilter);
     }
     return isPairCustomTournament
       ? groupMatchesByPairGroup(currentMatchesForView)
       : [{ groupName: '', matches: currentMatchesForView }];
-  }, [viewMode, currentMatchesForView, isPairCustomTournament]);
+  }, [viewMode, currentMatchesForView, isPairCustomTournament, selectedCourtFilter]);
   const adminTabs = useMemo(() => {
     const tabs = [{ key: 'overview', label: '대회 관리' }];
     if (selectedTournament) {
@@ -1904,6 +1923,35 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                       </button>
                     </div>
                   </div>
+                  {viewMode === 'court' && uniqueCourts.length > 0 && (
+                    <div className="mb-4 flex flex-wrap gap-1.5 rounded-[20px] border border-slate-200 bg-slate-50/70 p-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCourtFilter('all')}
+                        className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                          selectedCourtFilter === 'all'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        전체
+                      </button>
+                      {uniqueCourts.map((courtName) => (
+                        <button
+                          key={courtName}
+                          type="button"
+                          onClick={() => setSelectedCourtFilter(courtName)}
+                          className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                            selectedCourtFilter === courtName
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {courtName}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {viewMode === 'round' && (
                     tournaments.length === 0 ? (
@@ -2604,6 +2652,35 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                             </button>
                           </div>
                         </div>
+                        {viewMode === 'court' && uniqueCourts.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5 border-t border-slate-200/50 pt-3">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCourtFilter('all')}
+                              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                                selectedCourtFilter === 'all'
+                                  ? 'bg-blue-600 text-white shadow-sm'
+                                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              전체
+                            </button>
+                            {uniqueCourts.map((courtName) => (
+                              <button
+                                key={courtName}
+                                type="button"
+                                onClick={() => setSelectedCourtFilter(courtName)}
+                                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                                  selectedCourtFilter === courtName
+                                    ? 'bg-blue-600 text-white shadow-sm'
+                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                }`}
+                              >
+                                {courtName}
+                              </button>
+                            ))}
+                          </div>
+                        )}
 
                         {viewMode === 'round' && (
                           tournaments.length === 0 ? (

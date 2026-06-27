@@ -394,8 +394,87 @@ export async function POST(request: Request) {
     const scheduleId = typeof body?.scheduleId === 'string' ? body.scheduleId : '';
     const targetUserId = typeof body?.targetUserId === 'string' ? body.targetUserId : user.id;
 
-    if (!['join', 'add_participant'].includes(action) || !scheduleId || !targetUserId) {
+    if (!['join', 'add_participant', 'add_participants'].includes(action) || !scheduleId) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    }
+
+    if (action === 'add_participants') {
+      const targetUserIds = Array.isArray(body?.targetUserIds) ? body.targetUserIds : [];
+      if (targetUserIds.length === 0) {
+        return NextResponse.json({ error: 'No target users specified' }, { status: 400 });
+      }
+
+      const upsertData = targetUserIds.map((userId) => ({
+        match_schedule_id: scheduleId,
+        user_id: userId,
+        status: 'registered',
+        registered_at: new Date().toISOString(),
+      }));
+
+      const { data: upsertedParticipants, error: upsertError } = await adminSupabase
+        .from('match_participants')
+        .upsert(upsertData, { onConflict: 'match_schedule_id,user_id' })
+        .select('id, match_schedule_id, user_id, registered_at, status');
+
+      if (upsertError) {
+        console.error('Admin match participants batch upsert error:', upsertError);
+        return NextResponse.json({ error: 'Failed to add participants' }, { status: 500 });
+      }
+
+      const [byUserId, byId] = await Promise.all([
+        adminSupabase.from('profiles').select('id, user_id, username, full_name').in('user_id', targetUserIds),
+        adminSupabase.from('profiles').select('id, user_id, username, full_name').in('id', targetUserIds)
+      ]);
+
+      const profilesError = byUserId.error || byId.error;
+      const profilesData = [
+        ...(byUserId.data || []),
+        ...(byId.data || [])
+      ].filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i);
+
+      if (profilesError) {
+        console.warn('Admin batch profiles query error:', profilesError);
+      }
+
+      const profilesMap = (profilesData || []).reduce<Record<string, any>>((acc, profile) => {
+        const mappedProfile = {
+          username: profile.username ?? undefined,
+          full_name: profile.full_name ?? undefined,
+        };
+        if (profile.id) acc[profile.id] = mappedProfile;
+        if (profile.user_id) acc[profile.user_id] = mappedProfile;
+        return acc;
+      }, {});
+
+      const { count, error: countError } = await adminSupabase
+        .from('match_participants')
+        .select('*', { count: 'exact', head: true })
+        .eq('match_schedule_id', scheduleId)
+        .in('status', ['registered', 'attended']);
+
+      if (countError) {
+        console.error('Admin match participant count error:', countError);
+        return NextResponse.json({ error: 'Failed to update participant count' }, { status: 500 });
+      }
+
+      await adminSupabase
+        .from('match_schedules')
+        .update({ current_participants: count || 0 })
+        .eq('id', scheduleId);
+
+      const participantsWithProfiles = (upsertedParticipants || []).map((participant) => ({
+        ...participant,
+        profiles: profilesMap[participant.user_id] || profilesMap[participant.id] || undefined,
+      }));
+
+      return NextResponse.json({
+        participants: participantsWithProfiles,
+        currentParticipants: count || 0,
+      });
+    }
+
+    if (!targetUserId) {
+      return NextResponse.json({ error: 'Target user id is required' }, { status: 400 });
     }
 
     const { data: existingParticipant, error: existingParticipantError } = await adminSupabase

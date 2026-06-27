@@ -850,49 +850,65 @@ export default function MatchSchedulePage() {
       return;
     }
 
-    let successCount = 0;
-    let duplicateCount = 0;
-    let failureCount = 0;
+    const targetUserIds = selectedProfiles.map((p) => p.user_id).filter(Boolean) as string[];
 
     try {
       setParticipantModalSubmitting(true);
       setParticipantActionLoading((prev) => ({ ...prev, [participantModalScheduleId]: true }));
 
-      for (const profile of selectedProfiles) {
-        const response = await fetch('/api/admin/match-schedules', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'add_participant',
-            scheduleId: participantModalScheduleId,
-            targetUserId: profile.user_id,
-          }),
-        });
+      const response = await fetch('/api/admin/match-schedules', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'add_participants',
+          scheduleId: participantModalScheduleId,
+          targetUserIds,
+        }),
+      });
 
-        if (response.ok) {
-          successCount += 1;
-          continue;
-        }
-
-        if (response.status === 409) {
-          duplicateCount += 1;
-          continue;
-        }
-
-        failureCount += 1;
-      }
-
-      await fetchSchedules();
-      closeParticipantModal();
-
-      if (failureCount > 0) {
-        alert(`참가자 추가 완료: 성공 ${successCount}명, 중복 ${duplicateCount}명, 실패 ${failureCount}명`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        console.error('참가자 일괄 추가 오류:', payload);
+        alert(payload?.error || '참가자 추가 중 오류가 발생했습니다.');
         return;
       }
 
-      alert(`참가자가 추가되었습니다. (성공 ${successCount}명${duplicateCount > 0 ? `, 중복 ${duplicateCount}명` : ''})`);
+      const payload = await response.json();
+      const addedParticipants = payload?.participants || [];
+      const currentParticipants = payload?.currentParticipants ?? null;
+
+      // 로컬 상태 업데이트
+      setSchedules((prevSchedules) =>
+        prevSchedules.map((s) => {
+          if (s.id !== participantModalScheduleId) return s;
+
+          const updatedParticipants = [...s.participants];
+          addedParticipants.forEach((newP: any) => {
+            const alreadyExists = updatedParticipants.some((p) => p.user_id === newP.user_id);
+            if (!alreadyExists) {
+              updatedParticipants.push({
+                id: newP.id,
+                user_id: newP.user_id,
+                registered_at: newP.registered_at,
+                status: newP.status,
+                profiles: newP.profiles,
+              } as MatchParticipant);
+            }
+          });
+
+          return {
+            ...s,
+            participants: updatedParticipants,
+            current_participants: currentParticipants ?? updatedParticipants.length,
+          };
+        })
+      );
+
+      closeParticipantModal();
+      await fetchSchedules();
+      alert(`선택한 참가자 ${addedParticipants.length}명이 추가되었습니다.`);
     } catch (error) {
       console.error('참가자 일괄 추가 중 오류:', error);
       alert('참가자 추가 중 오류가 발생했습니다.');

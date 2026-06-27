@@ -1,0 +1,169 @@
+{
+  "message": "COMPLETED MATCHES RAW",
+  "count": 0,
+  "completedMatches": []
+}
+{
+  "message": "COMPLETED MATCHES DUMP",
+  "records": [],
+  "myProfileId": "c664a224-4a60-4179-9594-e22c78cc57be",
+  "user_id": "c664a224-4a60-4179-9594-e22c78cc57be"
+}
+{
+  "message": "ASSIGNED MATCHES RAW",
+  "count": 0,
+  "assignedMatches": []
+}
+{
+  "message": "COMPLETED MATCHES RAW",
+  "count": 0,
+  "completedMatches": []
+}
+{
+  "message": "COMPLETED MATCHES DUMP",
+  "records": [],
+  "myProfileId": "c664a224-4a60-4179-9594-e22c78cc57be",
+  "user_id": "c664a224-4a60-4179-9594-e22c78cc57be"
+}
+{
+  "message": "ASSIGNED MATCHES RAW",
+  "count": 0,
+  "assignedMatches": []
+}
+{
+  "message": "COMPLETED MATCHES RAW",
+  "count": 0,
+  "completedMatches": []
+}
+{
+  "message": "COMPLETED MATCHES DUMP",
+  "records": [],
+  "myProfileId": "c664a224-4a60-4179-9594-e22c78cc57be",
+  "user_id": "c664a224-4a60-4179-9594-e22c78cc57be"
+}
+{
+  "message": "ASSIGNED MATCHES RAW",
+  "count": 0,
+  "assignedMatches": []
+}
+{
+  "message": "COMPLETED MATCHES RAW",
+  "count": 0,
+  "completedMatches": []
+}
+{
+  "message": "COMPLETED MATCHES DUMP",
+  "records": [],
+  "myProfileId": "c664a224-4a60-4179-9594-e22c78cc57be",
+  "user_id": "c664a224-4a60-4179-9594-e22c78cc57be"
+}
+{
+  "message": "COMPLETED MATCHES DUMP",
+  "records": [],
+  "myProfileId": "c664a224-4a60-4179-9594-e22c78cc57be",
+  "user_id": "c664a224-4a60-4179-9594-e22c78cc57be"
+}
+{
+  "message": "COMPLETED MATCHES DUMP",
+  "records": [
+    {
+      "id": "389",
+      "matchNumber": 6,
+      "date": "2026-06-26",
+      "result": "win",
+      "score": "25:24",
+      "teammates": [
+        "황용담 (26)"
+      ],
+      "opponents": [
+        "전철민 (26)",
+        "이우성 (24)"
+      ],
+      "isUserTeam1": true
+    },
+    {
+      "id": "400",
+      "matchNumber": 4,
+      "date": "2026-06-27",
+      "result": "loss",
+      "score": "25:24",
+      "teammates": [
+        "박복균 (26)"
+      ],
+      "opponents": [
+        "임현수 (28)",
+        "이민석 (28)"
+      ],
+      "isUserTeam1": false
+    },
+    {
+      "id": "247",
+      "matchNumber": 3,
+      "date": "2026-06-20",
+      "result": "win",
+      "score": "25:22",
+      "teammates": [
+        "임현수 (28)"
+      ],
+      "opponents": [
+        "박복균 (26)",
+        "양회욱 (26)"
+      ],
+      "isUserTeam1": true
+    }
+  ],
+  "myProfileId": "c664a224-4a60-4179-9594-e22c78cc57be",
+  "user_id": "c664a224-4a60-4179-9594-e22c78cc57be"
+}
+{
+  "message": "COMPLETED MATCHES DUMP",
+  "records": [
+    {
+      "id": "389",
+      "matchNumber": 6,
+      "date": "2026-06-26",
+      "result": "win",
+      "score": "25:24",
+      "teammates": [
+        "황용담 (26)"
+      ],
+      "opponents": [
+        "전철민 (26)",
+        "이우성 (24)"
+      ],
+      "isUserTeam1": true
+    },
+    {
+      "id": "400",
+      "matchNumber": 4,
+      "date": "2026-06-27",
+      "result": "loss",
+      "score": "25:24",
+      "teammates": [
+        "박복균 (26)"
+      ],
+      "opponents": [
+        "임현수 (28)",
+        "이민석 (28)"
+      ],
+      "isUserTeam1": false
+    },
+    {
+      "id": "247",
+      "matchNumber": 3,
+      "date": "2026-06-20",
+      "result": "win",
+      "score": "25:22",
+      "teammates": [
+        "임현수 (28)"
+      ],
+      "opponents": [
+        "박복균 (26)",
+        "양회욱 (26)"
+      ],
+      "isUserTeam1": true
+    }
+  ],
+  "myProfileId": "c664a224-4a60-4179-9594-e22c78cc57be",
+  "user_id": "c664a224-4a60-4179-9594-e22c78cc57be"
+}

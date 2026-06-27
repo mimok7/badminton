@@ -110,7 +110,10 @@ export async function ensureFiveMatches(executedBy: string | null) {
 
   return {
     created_count: createdSchedules.length,
-    created_dates: createdSchedules.map(s => `${s.match_date} (${s.description.split(' - ')[0]})`),
+    created_dates: createdSchedules.map(s => {
+      const label = s.description?.split(' - ')[0] ?? '일정';
+      return `${s.match_date} (${label})`;
+    }),
     skipped_dates: skippedSchedules,
   };
 }

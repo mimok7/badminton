@@ -193,20 +193,82 @@ export async function updateUsersBulk(
     return { success: true, updatedCount: items.length };
 }
 
-function buildAutoEmail(fullName: string) {
-    const normalized = fullName
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9가-힣]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        || 'member';
+function romanizeSyllable(char: string): string {
+    const customSyllables: Record<string, string> = {
+        '유': 'yoo', '우': 'woo', '이': 'lee', '임': 'lim', '성': 'sung',
+        '정': 'jung', '영': 'young', '현': 'hyun', '설': 'seol', '경': 'kyung',
+        '석': 'seok', '최': 'choi', '박': 'park', '김': 'kim', '조': 'cho',
+        '윤': 'yoon', '민': 'min', '신': 'shin', '서': 'seo', '한': 'han',
+        '오': 'oh', '강': 'kang', '송': 'song', '황': 'hwang', '안': 'ahn',
+        '홍': 'hong', '고': 'koh', '문': 'moon', '양': 'yang', '배': 'bae',
+        '백': 'baek', '허': 'hur', '남': 'nam', '심': 'shim', '노': 'noh',
+        '하': 'ha', '곽': 'kwak', '철': 'chul', '수': 'soo', '준': 'jun',
+        '호': 'ho', '재': 'jae', '원': 'won', '희': 'hee', '진': 'jin',
+        '태': 'tae', '예': 'ye', '훈': 'hoon', '은': 'eun', '혜': 'hye',
+        '지': 'ji', '연': 'yeon', '선': 'seon', '욱': 'wook', '식': 'sik',
+        '환': 'hwan', '건': 'geon', '찬': 'chan', '국': 'gook', '동': 'dong',
+        '규': 'kyu', '범': 'beom', '상': 'sang', '기': 'ki', '승': 'seung',
+        '용': 'yong', '덕': 'deok', '학': 'hak', '주': 'joo'
+    };
 
-    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    return `${normalized}-${suffix}@member.local`;
+    if (customSyllables[char]) return customSyllables[char];
+
+    const code = char.charCodeAt(0);
+    if (code >= 0xAC00 && code <= 0xD7A3) {
+        const sIndex = code - 0xAC00;
+        const tIndex = sIndex % 28;
+        const vIndex = ((sIndex - tIndex) / 28) % 21;
+        const lIndex = Math.floor((sIndex - tIndex) / 28 / 21);
+
+        const cho = ['g', 'kk', 'n', 'd', 'tt', 'r', 'm', 'b', 'pp', 's', 'ss', '', 'j', 'jj', 'ch', 'k', 't', 'p', 'h'];
+        const jung = ['a', 'ae', 'ya', 'yae', 'eo', 'e', 'yeo', 'ye', 'o', 'wa', 'wae', 'oe', 'yo', 'u', 'wo', 'we', 'wi', 'yu', 'eu', 'ui', 'i'];
+        const jong = ['', 'g', 'kk', 'gs', 'n', 'nj', 'nh', 'd', 'l', 'lg', 'lm', 'lb', 'ls', 'lt', 'lp', 'lh', 'm', 'b', 'bs', 's', 'ss', 'ng', 'j', 'ch', 'k', 't', 'p', 'h'];
+
+        let c = cho[lIndex];
+        let v = jung[vIndex];
+        let j = jong[tIndex];
+
+        if (c === '' && v === 'yu') v = 'yoo';
+        if (c === '' && v === 'u') v = 'woo';
+        if (v === 'eo') v = 'eo';
+
+        return c + v + j;
+    }
+    return char.toLowerCase();
+}
+
+function buildAutoEmail(fullName: string): string {
+    const name = fullName.trim();
+    if (!name) return `member-${Date.now()}@badminton.local`;
+
+    if (/^[a-zA-Z0-9_ -]+$/.test(name)) {
+        return `${name.toLowerCase().replace(/[\s-]+/g, '_')}@badminton.local`;
+    }
+
+    if (name.length >= 2) {
+        const familyName = name[0];
+        const givenName = name.slice(1);
+        
+        const romFamily = romanizeSyllable(familyName);
+        let romGiven = '';
+        for (let i = 0; i < givenName.length; i++) {
+            romGiven += romanizeSyllable(givenName[i]);
+        }
+        
+        return `${romFamily}_${romGiven}@badminton.local`;
+    }
+    
+    let rom = '';
+    for (let i = 0; i < name.length; i++) {
+        rom += romanizeSyllable(name[i]);
+    }
+    return `${rom}@badminton.local`;
 }
 
 export type CreateMemberPayload = {
     full_name: string;
+    email?: string | null;
+    password?: string | null;
     skill_level?: string | null;
     gender?: 'M' | 'F' | 'O' | string | null;
     role?: 'admin' | 'manager' | 'user' | null;
@@ -218,28 +280,51 @@ export async function createMember(payload: CreateMemberPayload) {
     }
 
     const fullName = payload.full_name.trim();
+    const email = (payload.email && payload.email.trim()) || buildAutoEmail(fullName);
+    const password = (payload.password || 'bad123!').trim();
 
     if (!fullName) {
         return { error: '이름을 입력해 주세요.' };
     }
 
-    const insertPayload = {
+    if (!email) {
+        return { error: '이메일을 입력해 주세요.' };
+    }
+
+    // 1. Supabase Auth 계정 생성
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: email,
+        password: password,
+        email_confirm: true
+    });
+
+    if (authError) {
+        return { error: `인증 계정 생성 실패: ${authError.message}` };
+    }
+
+    if (!authUser.user) {
+        return { error: '인증 계정 생성 결과가 유효하지 않습니다.' };
+    }
+
+    // 2. 트리거에 의해 생성/연결된 프로필 업데이트
+    const updatePayload = {
         username: fullName,
         full_name: fullName,
-        email: buildAutoEmail(fullName),
         role: payload.role || 'user',
-        skill_level: payload.skill_level || 'N1',
+        skill_level: payload.skill_level || 'E2',
         gender: payload.gender || null,
     };
 
     const { data, error } = await supabaseAdmin
         .from('profiles')
-        .insert(insertPayload)
+        .update(updatePayload)
+        .eq('user_id', authUser.user.id)
         .select('id, user_id, username, full_name, role, skill_level, gender, email, updated_at')
         .single();
 
+
     if (error) {
-        return { error: error.message };
+        return { error: `프로필 정보 설정 실패: ${error.message}` };
     }
 
     revalidatePath('/admin/members');

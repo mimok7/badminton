@@ -7,6 +7,7 @@ import {
   inferScheduleSource,
   normalizeScheduleSource,
 } from '@/lib/match-schedule-source';
+import { ensureFiveMatches } from '@/lib/match-generator';
 
 type ParticipantProfile = {
   id?: string | null;
@@ -293,6 +294,18 @@ export async function POST(request: Request) {
     const { adminSupabase, user } = adminContext;
     const body = await request.json().catch(() => null);
     const action = typeof body?.action === 'string' ? body.action : '';
+
+    if (action === 'auto_generate') {
+      try {
+        const result = await ensureFiveMatches(user.id);
+        return NextResponse.json({
+          success: true,
+          ...result
+        });
+      } catch (err: any) {
+        return NextResponse.json({ error: err.message || 'Failed to auto generate matches' }, { status: 400 });
+      }
+    }
 
     if (action === 'create_schedule') {
       const matchDate = typeof body?.match_date === 'string' ? body.match_date : '';

@@ -62,7 +62,41 @@ export default function MatchSchedulePage() {
       return;
     }
     try {
-      // 1) 참가 신청 전체 삭제 (외래키 제약 회피)
+      // 1) 모든 세션 및 예정 게임 삭제 (완료된 경기 제외)
+      const { data: allSessions } = await supabase
+        .from('match_sessions')
+        .select('id');
+
+      if (allSessions && allSessions.length > 0) {
+        const sessionIds = allSessions.map(s => s.id);
+        
+        // 완료된 경기 조회
+        const { data: completedMatches } = await supabase
+          .from('generated_matches')
+          .select('id, session_id')
+          .eq('status', 'completed');
+          
+        const completedSessionIds = new Set(completedMatches?.map(m => m.session_id) || []);
+        
+        for (const sessionId of sessionIds) {
+          if (completedSessionIds.has(sessionId)) {
+            // 완료된 경기가 있는 세션: 완료되지 않은 경기만 개별 삭제
+            await supabase
+              .from('generated_matches')
+              .delete()
+              .eq('session_id', sessionId)
+              .neq('status', 'completed');
+          } else {
+            // 완료된 경기가 없는 세션: 세션 전체 삭제
+            await supabase
+              .from('match_sessions')
+              .delete()
+              .eq('id', sessionId);
+          }
+        }
+      }
+
+      // 2) 참가 신청 전체 삭제 (외래키 제약 회피)
       const { error: delParticipantsErr } = await supabase
         .from('match_participants')
         .delete()
@@ -73,7 +107,7 @@ export default function MatchSchedulePage() {
         return;
       }
 
-      // 2) 경기 전체 삭제 (id not null)
+      // 3) 경기 전체 삭제 (id not null)
       const { error: delSchedulesErr } = await supabase
         .from('match_schedules')
         .delete()
@@ -95,6 +129,9 @@ export default function MatchSchedulePage() {
   const [schedules, setSchedules] = useState<ScheduleWithParticipants[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [autoGenerating, setAutoGenerating] = useState(false);
+  const [autoGenerateEnabled, setAutoGenerateEnabled] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
   const [editingSchedule, setEditingSchedule] = useState<MatchSchedule | null>(null);
   const [editForm, setEditForm] = useState<{
     match_date: string;
@@ -206,6 +243,94 @@ export default function MatchSchedulePage() {
       supabase.removeChannel(channel);
     };
   }, [fetchSchedules, supabase]);
+
+  // 주말(토, 일)을 제외한 경기 5일 자동 생성
+  const handleAutoGenerateSchedules = async () => {
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    if (!confirm('오늘 기준으로 주말(토, 일)을 제외한 5일 치 경기를 자동 생성하시겠습니까?\n(기존에 일정이 있는 날은 건너뜁니다.)')) {
+      return;
+    }
+
+    try {
+      setAutoGenerating(true);
+      const response = await fetch('/api/admin/match-schedules', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'auto_generate',
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        alert(`경기 자동 생성 실패: ${payload?.error || '알 수 없는 오류'}`);
+        return;
+      }
+
+      const result = await response.json();
+      await fetchSchedules();
+      
+      alert(
+        `경기 자동 생성 완료!\n` +
+        `- 생성된 일정: ${result.created_count}개\n` +
+        `- 건너뛴 일정: ${result.skipped_dates?.length || 0}개`
+      );
+    } catch (err) {
+      console.error('경기 자동 생성 중 오류:', err);
+      alert('경기 자동 생성 중 오류가 발생했습니다.');
+    } finally {
+      setAutoGenerating(false);
+    }
+  };
+
+  // 자동 생성 설정 조회
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        setSettingsLoading(true);
+        const response = await fetch('/api/admin/match-settings');
+        if (response.ok) {
+          const data = await response.json();
+          setAutoGenerateEnabled(data.autoGenerateEnabled);
+        }
+      } catch (err) {
+        console.error('Failed to fetch match settings:', err);
+      } finally {
+        setSettingsLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  // 자동 생성 설정 변경 토글
+  const handleToggleAutoGenerate = async () => {
+    try {
+      const nextValue = !autoGenerateEnabled;
+      const response = await fetch('/api/admin/match-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ autoGenerateEnabled: nextValue }),
+      });
+
+      if (response.ok) {
+        setAutoGenerateEnabled(nextValue);
+        alert(`자동 경기 생성이 ${nextValue ? '켜졌습니다 (ON)' : '꺼졌습니다 (OFF)'}.`);
+      } else {
+        alert('설정 변경에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('Failed to update match settings:', err);
+      alert('설정을 변경하는 중 오류가 발생했습니다.');
+    }
+  };
 
   // 새 경기 생성
   const handleCreateSchedule = async (e: React.FormEvent) => {
@@ -506,6 +631,47 @@ export default function MatchSchedulePage() {
     }
 
     try {
+      const scheduleToDelete = schedules.find((s) => s.id === scheduleId);
+
+      // 1) 해당 날짜의 세션/예정 게임 삭제 (완료된 경기 제외)
+      if (scheduleToDelete?.match_date) {
+        const { data: sessions } = await supabase
+          .from('match_sessions')
+          .select('id')
+          .eq('session_date', scheduleToDelete.match_date);
+
+        if (sessions && sessions.length > 0) {
+          const sessionIds = sessions.map(s => s.id);
+          
+          // 해당 세션들의 완료된 경기 조회
+          const { data: completedMatches } = await supabase
+            .from('generated_matches')
+            .select('id, session_id')
+            .in('session_id', sessionIds)
+            .eq('status', 'completed');
+            
+          const completedSessionIds = new Set(completedMatches?.map(m => m.session_id) || []);
+          
+          for (const sessionId of sessionIds) {
+            if (completedSessionIds.has(sessionId)) {
+              // 완료된 경기가 있는 세션: 완료되지 않은 경기만 개별 삭제
+              await supabase
+                .from('generated_matches')
+                .delete()
+                .eq('session_id', sessionId)
+                .neq('status', 'completed');
+            } else {
+              // 완료된 경기가 없는 세션: 세션 전체 삭제 (ON DELETE CASCADE로 경기들도 자동 삭제)
+              await supabase
+                .from('match_sessions')
+                .delete()
+                .eq('id', sessionId);
+            }
+          }
+        }
+      }
+
+      // 2) 경기 삭제
       const { error } = await supabase
         .from('match_schedules')
         .delete()
@@ -781,27 +947,48 @@ export default function MatchSchedulePage() {
         <div className="mb-4 rounded-lg bg-white shadow sm:mb-6">
           <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
             <div>
-              <h1 className="mb-1 text-base font-bold text-gray-900 sm:mb-2 sm:text-lg">
+              <h1 className="mb-1 text-base font-bold text-gray-900 sm:mb-2 sm:text-lg flex items-center gap-2">
                 📅 경기 일정 관리
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${autoGenerateEnabled ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}`}>
+                  자동 생성: {autoGenerateEnabled ? '켜짐' : '꺼짐'}
+                </span>
               </h1>
               <p className="hidden text-gray-600 sm:block">관리자 전용 - 경기 일정을 생성하고 관리할 수 있습니다</p>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-2 mr-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-md">
+                <span className="text-xs font-semibold text-slate-700">하루 단위 자동 생성</span>
+                <button
+                  type="button"
+                  onClick={handleToggleAutoGenerate}
+                  disabled={settingsLoading}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${autoGenerateEnabled ? 'bg-green-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoGenerateEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
               <Button 
                 onClick={() => setShowCreateForm(true)}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-[#e6f0ff] text-[#0044cc] hover:bg-[#cce0ff] border border-[#cce0ff] font-semibold"
               >
                 새 경기 생성
               </Button>
               <Button
+                onClick={handleAutoGenerateSchedules}
+                disabled={autoGenerating}
+                className="bg-[#f3e8ff] text-[#6b21a8] hover:bg-[#e9d5ff] border border-[#d8b4fe] font-semibold disabled:opacity-50"
+              >
+                {autoGenerating ? '생성 중...' : '자동 경기 생성 (5일)'}
+              </Button>
+              <Button
                 onClick={() => router.push('/recurring-matches')}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-[#e8f5e9] text-[#1b5e20] hover:bg-[#c8e6c9] border border-[#a5d6a7] font-semibold"
               >
                 정기모임 생성
               </Button>
               <Button
                 onClick={deleteAllSchedules}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-[#ffebee] text-[#c62828] hover:bg-[#ffcdd2] border border-[#ef9a9a] font-semibold"
               >
                 전체 경기 삭제
               </Button>
@@ -918,7 +1105,7 @@ export default function MatchSchedulePage() {
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                <Button type="submit" className="bg-[#e6f0ff] text-[#0044cc] hover:bg-[#cce0ff] border border-[#cce0ff] font-semibold">
                   경기 생성
                 </Button>
                 <Button 
@@ -1013,7 +1200,7 @@ export default function MatchSchedulePage() {
                                   <Button
                                     type="button"
                                     size="sm"
-                                    className="bg-blue-600 text-white hover:bg-blue-700"
+                                    className="bg-[#e6f0ff] text-[#0044cc] hover:bg-[#cce0ff] border border-[#cce0ff] font-semibold"
                                     onClick={() => openParticipantModal(schedule.id)}
                                     disabled={participantActionLoading[schedule.id] || participantModalSubmitting}
                                   >
@@ -1080,7 +1267,7 @@ export default function MatchSchedulePage() {
                                 <>
                                   <Button
                                     onClick={() => updateScheduleStatus(schedule.id, 'ongoing')}
-                                    className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
+                                    className="bg-[#fffbeb] text-[#b45309] hover:bg-[#fef3c7] border border-[#fde68a] font-semibold text-xs"
                                     size="sm"
                                     disabled={schedule.current_participants === 0}
                                   >
@@ -1088,7 +1275,7 @@ export default function MatchSchedulePage() {
                                   </Button>
                                   <Button
                                     onClick={() => updateScheduleStatus(schedule.id, 'cancelled')}
-                                    className="bg-red-600 hover:bg-red-700 text-white text-sm"
+                                    className="bg-[#ffebee] text-[#c62828] hover:bg-[#ffcdd2] border border-[#ef9a9a] font-semibold text-xs"
                                     size="sm"
                                   >
                                     취소
@@ -1099,7 +1286,7 @@ export default function MatchSchedulePage() {
                               {schedule.status === 'ongoing' && (
                                 <Button
                                   onClick={() => updateScheduleStatus(schedule.id, 'completed')}
-                                  className="bg-green-600 hover:bg-green-700 text-white text-sm"
+                                  className="bg-[#e8f5e9] text-[#1b5e20] hover:bg-[#c8e6c9] border border-[#a5d6a7] font-semibold text-xs"
                                   size="sm"
                                 >
                                   완료 처리
@@ -1109,7 +1296,7 @@ export default function MatchSchedulePage() {
                               {(schedule.status === 'cancelled' || schedule.status === 'completed') && (
                                 <Button
                                   onClick={() => updateScheduleStatus(schedule.id, 'scheduled')}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
+                                  className="bg-[#e6f0ff] text-[#0044cc] hover:bg-[#cce0ff] border border-[#cce0ff] font-semibold text-xs"
                                   size="sm"
                                 >
                                   다시 예정으로
@@ -1137,7 +1324,7 @@ export default function MatchSchedulePage() {
                                   return isParticipant ? (
                                     <Button
                                       onClick={() => cancelJoinMatch(schedule.id)}
-                                      className="bg-red-500 hover:bg-red-600 text-white text-sm"
+                                      className="bg-[#ffebee] text-[#c62828] hover:bg-[#ffcdd2] border border-[#ef9a9a] font-semibold text-xs"
                                       size="sm"
                                     >
                                       참가 취소
@@ -1145,7 +1332,7 @@ export default function MatchSchedulePage() {
                                   ) : (
                                     <Button
                                       onClick={() => joinMatch(schedule.id)}
-                                      className="bg-blue-500 hover:bg-blue-600 text-white text-sm"
+                                      className="bg-[#e6f0ff] text-[#0044cc] hover:bg-[#cce0ff] border border-[#cce0ff] font-semibold text-xs"
                                       size="sm"
                                     >
                                       참가 신청
@@ -1265,7 +1452,7 @@ export default function MatchSchedulePage() {
                 >
                   취소
                 </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">저장</Button>
+                <Button type="submit" className="bg-[#e6f0ff] text-[#0044cc] hover:bg-[#cce0ff] border border-[#cce0ff] font-semibold">저장</Button>
               </div>
             </form>
           </div>

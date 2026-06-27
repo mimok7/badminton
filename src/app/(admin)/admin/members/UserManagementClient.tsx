@@ -89,6 +89,8 @@ export default function UserManagementClient({
     const [memberList, setMemberList] = useState<AdminUser[]>(users);
     const [newMember, setNewMember] = useState({
         full_name: '',
+        email: '',
+        password: '',
         skill_level: levelOptionsFromDb[0]?.code || '',
         gender: '',
         role: 'user',
@@ -307,6 +309,8 @@ export default function UserManagementClient({
         startTransition(async () => {
             const result = await createMember({
                 full_name: newMember.full_name,
+                email: newMember.email || null,
+                password: newMember.password || null,
                 skill_level: normalizeSkillLevel(newMember.skill_level),
                 gender: newMember.gender || null,
                 role: newMember.role as 'user' | 'admin',
@@ -319,6 +323,8 @@ export default function UserManagementClient({
 
             setNewMember({
                 full_name: '',
+                email: '',
+                password: '',
                 skill_level: levelOptionsFromDb[0]?.code || '',
                 gender: '',
                 role: 'user',
@@ -1410,15 +1416,29 @@ export default function UserManagementClient({
                         <div className="max-w-4xl">
                             <h2 className="text-lg font-semibold text-amber-900">새 회원 등록</h2>
                             <p className="mt-1 hidden text-sm text-amber-800 sm:block">
-                                회원을 먼저 프로필로 등록하고, 로그인 연결은 이후 auth 계정 생성 또는 회원가입에서 이어집니다.
+                                새 회원을 등록하면 Supabase 인증(Auth) 계정과 프로필이 동시에 생성되어 즉시 로그인할 수 있습니다.
                             </p>
                         </div>
-                    <div className="mt-3 grid gap-2 sm:mt-5 sm:gap-3 md:grid-cols-4">
+                    <div className="mt-3 grid gap-2 sm:mt-5 sm:gap-3 md:grid-cols-3">
                         <input
                             type="text"
                             value={newMember.full_name}
                             onChange={(e) => setNewMember((prev) => ({ ...prev, full_name: e.target.value }))}
-                            placeholder="회원 이름"
+                            placeholder="회원 이름 (필수)"
+                            className="h-11 rounded-md border border-amber-300 bg-white px-3 text-sm"
+                        />
+                        <input
+                            type="email"
+                            value={newMember.email}
+                            onChange={(e) => setNewMember((prev) => ({ ...prev, email: e.target.value }))}
+                            placeholder="로그인 이메일 (선택, 미입력 시 자동 생성)"
+                            className="h-11 rounded-md border border-amber-300 bg-white px-3 text-sm"
+                        />
+                        <input
+                            type="password"
+                            value={newMember.password}
+                            onChange={(e) => setNewMember((prev) => ({ ...prev, password: e.target.value }))}
+                            placeholder="비밀번호 (선택, 기본: bad123!)"
                             className="h-11 rounded-md border border-amber-300 bg-white px-3 text-sm"
                         />
                         <select

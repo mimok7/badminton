@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from 'react';
+import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
 
 type Court = {
@@ -198,13 +199,12 @@ export default function AdminCourtsPage() {
             />
             활성화
           </label>
-          <button
+          <Button
             onClick={createCourt}
             disabled={isPending}
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2"
           >
             추가
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import type { Database } from '@/types/supabase';
 import { isUserAdmin } from '@/lib/auth';
+import { readMatchSettings } from '@/lib/match-settings';
+import { ensureFiveMatches } from '@/lib/match-generator';
 
 type GenerationResult = {
   created_matches: number;
@@ -224,14 +226,28 @@ export async function GET(request: Request) {
       );
     }
 
-    // 정기모임 자동 생성 실행
-    const data = await runRecurringMatchGeneration(null);
+    // 정기모임 자동 생성 설정 확인
+    const settings = await readMatchSettings();
+    if (!settings.autoGenerateEnabled) {
+      return NextResponse.json({
+        success: true,
+        message: '자동 경기 생성이 비활성화 상태입니다. (Auto-generate is OFF)',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // 정기모임 자동 생성 실행 (항상 5경기 유지)
+    const data = await ensureFiveMatches(null);
 
     console.log('정기모임 자동 생성 완료:', data);
 
     return NextResponse.json({
       success: true,
-      result: data,
+      result: {
+        created_matches: data.created_count,
+        message: `${data.created_count}개의 일정이 생성되었습니다.`,
+        execution_time: new Date().toISOString()
+      },
       timestamp: new Date().toISOString()
     });
 

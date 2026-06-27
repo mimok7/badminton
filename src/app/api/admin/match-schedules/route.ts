@@ -163,14 +163,16 @@ export async function GET(request: Request) {
     let profilesMap: Record<string, ParticipantProfile> = {};
 
     if (participantUserIds.length > 0) {
-      const { data: profilesData, error: profilesError } = await adminSupabase
-        .from('profiles')
-        .select('id, user_id, username, full_name')
-        .or(
-          participantUserIds
-            .map((participantUserId) => `id.eq.${participantUserId},user_id.eq.${participantUserId}`)
-            .join(',')
-        );
+      const [byUserId, byId] = await Promise.all([
+        adminSupabase.from('profiles').select('id, user_id, username, full_name').in('user_id', participantUserIds),
+        adminSupabase.from('profiles').select('id, user_id, username, full_name').in('id', participantUserIds)
+      ]);
+
+      const profilesError = byUserId.error || byId.error;
+      const profilesData = [
+        ...(byUserId.data || []),
+        ...(byId.data || [])
+      ].filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i);
 
       if (profilesError) {
         console.warn('Admin participant profiles query error:', profilesError);

@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { getKoreaDate } from '@/lib/date';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { Json } from '@/types/supabase';
+import { getFriendlyErrorMessage } from '@/lib/utils';
 
 interface Match {
   id?: string;
@@ -769,7 +770,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       alert('순위 결정 기준이 영구 저장되었습니다!');
     } catch (error) {
       console.error('순위 기준 저장 실패:', error);
-      alert('순위 결정 기준 저장에 실패했습니다.');
+      alert(getFriendlyErrorMessage(error));
     }
   };
 
@@ -1267,7 +1268,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       );
     } catch (error) {
       console.error('심판 배정 오류:', error);
-      alert('심판 배정에 실패했습니다.');
+      alert(getFriendlyErrorMessage(error));
     }
   };
 
@@ -1443,7 +1444,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       setSelectedTeam(null);
     } catch (error) {
       console.error('대회 생성 오류:', error);
-      alert('대회 생성 중 오류가 발생했습니다.');
+      alert(getFriendlyErrorMessage(error));
     }
   };
 
@@ -1490,7 +1491,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       alert('점수가 저장되었습니다!');
     } catch (error) {
       console.error('점수 저장 오류:', error);
-      alert('점수 저장 중 오류가 발생했습니다.');
+      alert(getFriendlyErrorMessage(error));
     }
   };
 

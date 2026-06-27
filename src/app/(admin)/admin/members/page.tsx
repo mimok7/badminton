@@ -33,12 +33,33 @@ export default async function AdminMembersPage({
   // 2) 관리자 권한 확인
   if (!(await isUserAdmin(supabase, user))) redirect('/unauthorized')
 
-  // 3) 사용자 목록 조회 (RPC 우선, 실패 시 폴백)
+  // 3) 사용자 목록 및 부가 데이터 병렬 조회
+  const supabaseAdmin = getSupabaseAdminClient()
+  const today = new Date()
+  const cutoff = new Date(today)
+  cutoff.setDate(today.getDate() - 30)
+  const cutoffDate = cutoff.toISOString().slice(0, 10)
+
+  const [
+    rpc,
+    { data: levelInfoRows },
+    { data: profileLinkRows },
+    { data: ratingSettingsRow },
+    { data: attendanceSummaryRows },
+    { data: recentAttendanceRows }
+  ] = await Promise.all([
+    supabase.rpc('get_all_users'),
+    supabaseAdmin.from('level_info').select('id, code, name, description, score').order('score', { ascending: false, nullsFirst: false }),
+    supabaseAdmin.from('profiles').select('id, user_id, coin_wins, coin_losses'),
+    (supabaseAdmin as any).from('member_rating_settings').select('start_date, end_date').eq('id', 1).maybeSingle(),
+    supabaseAdmin.rpc('get_attendance_summary').catch(() => ({ data: null })),
+    supabaseAdmin.from('attendances').select('user_id, attended_at, status').gte('attended_at', cutoffDate).eq('status', 'present').order('attended_at', { ascending: false })
+  ])
+
   let users: AdminUser[] = []
-  const rpc = await supabase.rpc('get_all_users')
   const rpcData = rpc.data as AdminUser[] | null
   if (!rpc.error && rpcData) {
-  users = rpcData.slice()
+    users = rpcData.slice()
   } else {
     const { data: profiles, error } = await supabase
       .from('profiles')
@@ -79,31 +100,10 @@ export default async function AdminMembersPage({
     users.sort((a, b) => ('' + (a.username || a.full_name || a.email)).localeCompare('' + (b.username || b.full_name || b.email)));
   }
 
-  const supabaseAdmin = getSupabaseAdminClient()
-  const { data: levelInfoRows } = await supabaseAdmin
-    .from('level_info')
-    .select('id, code, name, description, score')
-    .order('score', { ascending: false, nullsFirst: false })
-
-  const { data: profileLinkRows } = await supabaseAdmin
-    .from('profiles')
-    .select('id, user_id, coin_wins, coin_losses')
-
-  const { data: ratingSettingsRow } = await (supabaseAdmin as any)
-    .from('member_rating_settings')
-    .select('start_date, end_date')
-    .eq('id', 1)
-    .maybeSingle()
-
   const ratingSettings = {
     start_date: ratingSettingsRow?.start_date ?? null,
     end_date: ratingSettingsRow?.end_date ?? null,
   }
-
-  const { data: attendanceRows } = await supabaseAdmin
-    .from('attendances')
-    .select('user_id, attended_at, status')
-    .order('attended_at', { ascending: false })
 
   const levelOptionsFromDb = ((levelInfoRows || []) as Array<Pick<Database['public']['Tables']['level_info']['Row'], 'id' | 'code' | 'name' | 'description' | 'score'>>)
     .filter((row) => Boolean(row.code))
@@ -144,33 +144,44 @@ export default async function AdminMembersPage({
   const profileIdToUserId = new Map(
     (profileLinkRows || []).map((row) => [row.id, row.user_id || row.id])
   )
-  const today = new Date()
-  const cutoff = new Date(today)
-  cutoff.setDate(today.getDate() - 30)
-  const cutoffDate = cutoff.toISOString().slice(0, 10)
 
-  for (const row of attendanceRows || []) {
-    const rawUserId = typeof row.user_id === 'string' ? row.user_id : null
-    const userId = rawUserId ? profileIdToUserId.get(rawUserId) || rawUserId : null
-    if (!userId) continue
-
-    if (!attendanceSummary[userId]) {
+  if (attendanceSummaryRows && attendanceSummaryRows.length > 0) {
+    // RPC 함수가 정상 동작하는 경우 (Supabase SQL 적용 후)
+    for (const row of attendanceSummaryRows as any[]) {
+      const rawUserId = typeof row.user_id === 'string' ? row.user_id : null
+      const userId = rawUserId ? profileIdToUserId.get(rawUserId) || rawUserId : null
+      if (!userId) continue
+      
       attendanceSummary[userId] = {
-        total: 0,
-        last30: 0,
-        lastAttended: null,
+        total: Number(row.total_count) || 0,
+        last30: Number(row.last30_count) || 0,
+        lastAttended: typeof row.last_attended_at === 'string' ? row.last_attended_at : null,
       }
     }
+  } else {
+    // Fallback: RPC가 없거나 실패한 경우, 최근 30일치(recentAttendanceRows)만으로 계산.
+    // 주의: total은 지난 30일 출석 수와 동일하게 표시됩니다.
+    for (const row of recentAttendanceRows || []) {
+      const rawUserId = typeof row.user_id === 'string' ? row.user_id : null
+      const userId = rawUserId ? profileIdToUserId.get(rawUserId) || rawUserId : null
+      if (!userId) continue
 
-    attendanceSummary[userId].total += 1
+      if (!attendanceSummary[userId]) {
+        attendanceSummary[userId] = {
+          total: 0,
+          last30: 0,
+          lastAttended: null,
+        }
+      }
 
-    const attendedAt = typeof row.attended_at === 'string' ? row.attended_at : null
-    if (attendedAt && attendedAt.slice(0, 10) >= cutoffDate) {
+      // fallback 상태이므로 total도 최근 30일치로 카운트
+      attendanceSummary[userId].total += 1
       attendanceSummary[userId].last30 += 1
-    }
 
-    if (attendedAt && (!attendanceSummary[userId].lastAttended || attendedAt > attendanceSummary[userId].lastAttended!)) {
-      attendanceSummary[userId].lastAttended = attendedAt
+      const attendedAt = typeof row.attended_at === 'string' ? row.attended_at : null
+      if (attendedAt && (!attendanceSummary[userId].lastAttended || attendedAt > attendanceSummary[userId].lastAttended!)) {
+        attendanceSummary[userId].lastAttended = attendedAt
+      }
     }
   }
 

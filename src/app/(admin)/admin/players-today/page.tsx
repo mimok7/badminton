@@ -225,17 +225,16 @@ export default function PlayersTodayPage() {
     console.log('출석 데이터 갱신 시작 - 날짜:', today);
 
     try {
-      const currentLevelInfoMap = await ensureLevelInfoMap();
+      const [currentLevelInfoMap, participants, { data: attendanceRows, error: attErr }] = await Promise.all([
+        ensureLevelInfoMap(),
+        fetchRegisteredPlayersForDate(today),
+        supabase
+          .from('attendances')
+          .select('user_id, status')
+          .eq('attended_at', today)
+      ]);
 
-      // 오늘 경기 참가자 조회
-      const participants = await fetchRegisteredPlayersForDate(today);
       console.log('참가자 데이터 조회 결과:', participants);
-
-      // 오늘 출석 데이터 조회
-      const { data: attendanceRows, error: attErr } = await supabase
-        .from('attendances')
-        .select('user_id, status')
-        .eq('attended_at', today);
         
       if (attErr) {
         console.error('출석 조회 오류:', attErr);

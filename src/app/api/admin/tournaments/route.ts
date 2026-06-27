@@ -502,11 +502,12 @@ export async function PATCH(request: Request) {
       .single();
 
     if (error) {
+      const isScoreLimit = error.message.includes('score_limit');
       return NextResponse.json(
         {
-          error: 'Failed to update tournament match score',
+          error: isScoreLimit ? '점수는 25점을 초과할 수 없습니다.' : 'Failed to update tournament match score',
           code: error.code,
-          message: error.message,
+          message: isScoreLimit ? '점수는 25점을 초과할 수 없습니다.' : error.message,
           details: error.details,
           hint: error.hint,
         },

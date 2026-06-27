@@ -1065,10 +1065,11 @@ export default function UserManagementClient({
             </section>
 
             {selectedTab === 'overview' && (
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)] xl:gap-6">
-                    <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+                <div className="grid gap-4 lg:grid-cols-4 lg:gap-6">
+                    {/* 1. 급수 분포 */}
+                    <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 lg:col-span-2">
                         <h2 className="text-lg font-semibold text-slate-900">급수 분포</h2>
-                        <div className="mt-3 grid gap-2 sm:mt-4 sm:gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="mt-3 grid gap-2 sm:mt-4 sm:gap-3 grid-cols-2 xl:grid-cols-3">
                             {levelSummary.map((item) => (
                                 <div key={item.level} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
                                     <div className="text-sm font-semibold text-slate-900">{formatLevelGroupLabel(item.level)}</div>
@@ -1080,59 +1081,61 @@ export default function UserManagementClient({
                             ))}
                         </div>
                     </section>
-                    <div className="space-y-4 sm:space-y-6">
-                        <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
-                            <h2 className="text-lg font-semibold text-slate-900">출석 상위</h2>
-                            <div className="mt-3 space-y-2.5 sm:mt-4 sm:space-y-3">
-                                {overview.topAttendance.map((user, index) => (
-                                    <div key={user.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
-                                        <div>
-                                            <div className="text-sm font-semibold text-slate-900">
-                                                {index + 1}. {user.full_name || user.username || user.email}
-                                            </div>
-                                            <div className="text-xs text-slate-500">
-                                                최근 30일 {user.attendance.last30}회
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-lg font-semibold text-slate-900">{user.attendance.total}</div>
-                                            <div className="text-xs text-slate-500">누적</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                        <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
-                            <h2 className="text-lg font-semibold text-slate-900">승률 상위 5</h2>
-                            <div className="mt-3 space-y-2.5 sm:mt-4 sm:space-y-3">
-                                {overview.topWinRate.length === 0 ? (
-                                    <div className="text-center py-6 text-sm text-slate-500">
-                                        기록된 경기 결과가 없습니다.
-                                    </div>
-                                ) : (
-                                    overview.topWinRate.map((user, index) => {
-                                        const winRate = user.total_games > 0 ? ((user.coin_wins / user.total_games) * 100).toFixed(1) : '0.0';
-                                        return (
-                                            <div key={user.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
-                                                <div>
-                                                    <div className="text-sm font-semibold text-slate-900">
-                                                        {index + 1}. {user.full_name || user.username || user.email}
-                                                    </div>
-                                                    <div className="text-xs text-slate-500">
-                                                        {user.coin_wins}승 {user.coin_losses}패 (총 {user.total_games}경기)
-                                                    </div>
+
+                    {/* 2. 승률 상위 */}
+                    <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 lg:col-span-1">
+                        <h2 className="text-lg font-semibold text-slate-900">승률 상위 5</h2>
+                        <div className="mt-3 space-y-2.5 sm:mt-4 sm:space-y-3">
+                            {overview.topWinRate.length === 0 ? (
+                                <div className="text-center py-6 text-sm text-slate-500">
+                                    기록된 경기 결과가 없습니다.
+                                </div>
+                            ) : (
+                                overview.topWinRate.map((user, index) => {
+                                    const winRate = user.total_games > 0 ? ((user.coin_wins / user.total_games) * 100).toFixed(1) : '0.0';
+                                    return (
+                                        <div key={user.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
+                                            <div>
+                                                <div className="text-sm font-semibold text-slate-900">
+                                                    {index + 1}. {user.full_name || user.username || user.email}
                                                 </div>
-                                                <div className="text-right">
-                                                    <div className="text-lg font-bold text-slate-900">{winRate}%</div>
-                                                    <div className="text-xs text-slate-500">승률</div>
+                                                <div className="text-xs text-slate-500">
+                                                    {user.coin_wins}승 {user.coin_losses}패 (총 {user.total_games}경기)
                                                 </div>
                                             </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </section>
-                    </div>
+                                            <div className="text-right">
+                                                <div className="text-lg font-bold text-slate-900">{winRate}%</div>
+                                                <div className="text-xs text-slate-500">승률</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </section>
+
+                    {/* 3. 출석 상위 */}
+                    <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 lg:col-span-1">
+                        <h2 className="text-lg font-semibold text-slate-900">출석 상위</h2>
+                        <div className="mt-3 space-y-2.5 sm:mt-4 sm:space-y-3">
+                            {overview.topAttendance.map((user, index) => (
+                                <div key={user.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
+                                    <div>
+                                        <div className="text-sm font-semibold text-slate-900">
+                                            {index + 1}. {user.full_name || user.username || user.email}
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            최근 30일 {user.attendance.last30}회
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-lg font-semibold text-slate-900">{user.attendance.total}</div>
+                                        <div className="text-xs text-slate-500">누적</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
                 </div>
             )}
 
@@ -1187,85 +1190,219 @@ export default function UserManagementClient({
             )}
 
             {selectedTab === 'attendance' && (
-                <section className="rounded-lg border border-slate-200 bg-white">
-                    <div className="border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4">
-                        <h2 className="text-lg font-semibold text-slate-900">회원별 출석 현황</h2>
+                <div className="space-y-3 sm:space-y-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <h2 className="text-lg font-semibold text-slate-900 px-1">회원별 출석 현황</h2>
+                        <div className="flex justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('table')}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                    viewMode === 'table'
+                                        ? 'bg-slate-900 text-white border-slate-900'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                            >
+                                <List className="size-3.5" />
+                                표 보기
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('card')}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                    viewMode === 'card'
+                                        ? 'bg-slate-900 text-white border-slate-900'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                            >
+                                <LayoutGrid className="size-3.5" />
+                                카드 보기
+                            </button>
+                        </div>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm">
-                            <thead className="bg-slate-100 text-slate-600">
-                                <tr>
-                                    <th className="px-4 py-3 text-left font-semibold">회원</th>
-                                    <th className="px-4 py-3 text-right font-semibold">누적 출석</th>
-                                    <th className="px-4 py-3 text-right font-semibold">최근 30일</th>
-                                    <th className="px-4 py-3 text-left font-semibold">마지막 출석</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200">
-                                {attendanceRows.map((user) => (
-                                    <tr key={user.id}>
-                                        <td className="px-4 py-3">
-                                            <div className="font-medium text-slate-900">{user.full_name || user.username || user.email}</div>
-                                            <div className="text-xs text-slate-500">{formatLevelGroupLabel(normalizeLevelKey(user.skill_level))}</div>
-                                        </td>
-                                        <td className="px-4 py-3 text-right font-semibold text-slate-900">{user.attendance.total}</td>
-                                        <td className="px-4 py-3 text-right font-semibold text-slate-700">{user.attendance.last30}</td>
-                                        <td className="px-4 py-3 text-slate-500">{user.attendance.lastAttended || '-'}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-            )}
 
-            {selectedTab === 'win-rate' && (
-                <section className="rounded-lg border border-slate-200 bg-white">
-                    <div className="border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4">
-                        <h2 className="text-lg font-semibold text-slate-900">회원별 승률 현황</h2>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm">
-                            <thead className="bg-slate-100 text-slate-600">
-                                <tr>
-                                    <th className="px-4 py-3 text-center font-semibold w-16">순위</th>
-                                    <th className="px-4 py-3 text-left font-semibold">회원</th>
-                                    <th className="px-4 py-3 text-right font-semibold">승률</th>
-                                    <th className="px-4 py-3 text-right font-semibold">승</th>
-                                    <th className="px-4 py-3 text-right font-semibold">패</th>
-                                    <th className="px-4 py-3 text-right font-semibold">총 경기수</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200">
-                                {winRateRows.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
-                                            해당 조건의 회원이 없습니다.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    winRateRows.map((user, index) => {
-                                        const total = (user.coin_wins || 0) + (user.coin_losses || 0);
-                                        const winRate = total > 0 ? ((user.coin_wins || 0) / total * 100).toFixed(1) : '0.0';
-                                        return (
-                                            <tr key={user.id} className="hover:bg-slate-50">
-                                                <td className="px-4 py-3 text-center font-medium text-slate-500">{index + 1}</td>
+                    {viewMode === 'table' ? (
+                        <section className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full text-sm">
+                                    <thead className="bg-slate-100 text-slate-600">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left font-semibold">회원</th>
+                                            <th className="px-4 py-3 text-right font-semibold">누적 출석</th>
+                                            <th className="px-4 py-3 text-right font-semibold">최근 30일</th>
+                                            <th className="px-4 py-3 text-left font-semibold">마지막 출석</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200">
+                                        {attendanceRows.map((user) => (
+                                            <tr key={user.id}>
                                                 <td className="px-4 py-3">
                                                     <div className="font-medium text-slate-900">{user.full_name || user.username || user.email}</div>
                                                     <div className="text-xs text-slate-500">{formatLevelGroupLabel(normalizeLevelKey(user.skill_level))}</div>
                                                 </td>
-                                                <td className="px-4 py-3 text-right font-bold text-slate-900">{winRate}%</td>
-                                                <td className="px-4 py-3 text-right font-semibold text-emerald-600">{user.coin_wins || 0}</td>
-                                                <td className="px-4 py-3 text-right font-semibold text-rose-600">{user.coin_losses || 0}</td>
-                                                <td className="px-4 py-3 text-right font-medium text-slate-700">{total}</td>
+                                                <td className="px-4 py-3 text-right font-semibold text-slate-900">{user.attendance.total}</td>
+                                                <td className="px-4 py-3 text-right font-semibold text-slate-700">{user.attendance.last30}</td>
+                                                <td className="px-4 py-3 text-slate-500">{user.attendance.lastAttended || '-'}</td>
                                             </tr>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
+                            {attendanceRows.map((user) => (
+                                <div key={user.id} className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between">
+                                    <div>
+                                        <div className="font-bold text-base text-slate-800 truncate" title={user.full_name || user.username || user.email}>
+                                            {user.full_name || user.username || user.email}
+                                        </div>
+                                        <div className="text-xs text-slate-500 mt-0.5">{formatLevelGroupLabel(normalizeLevelKey(user.skill_level))}</div>
+                                    </div>
+                                    <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-1 text-xs">
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-500">누적 출석</span>
+                                            <span className="font-semibold text-slate-900">{user.attendance.total}회</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-500">최근 30일</span>
+                                            <span className="font-semibold text-slate-700">{user.attendance.last30}회</span>
+                                        </div>
+                                        <div className="flex justify-between pt-1">
+                                            <span className="text-slate-400">마지막</span>
+                                            <span className="text-slate-500 truncate max-w-[80px]" title={user.attendance.lastAttended || '-'}>
+                                                {user.attendance.lastAttended || '-'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {selectedTab === 'win-rate' && (
+                <div className="space-y-3 sm:space-y-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <h2 className="text-lg font-semibold text-slate-900 px-1">회원별 승률 현황</h2>
+                        <div className="flex justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('table')}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                    viewMode === 'table'
+                                        ? 'bg-slate-900 text-white border-slate-900'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                            >
+                                <List className="size-3.5" />
+                                표 보기
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('card')}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                    viewMode === 'card'
+                                        ? 'bg-slate-900 text-white border-slate-900'
+                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                            >
+                                <LayoutGrid className="size-3.5" />
+                                카드 보기
+                            </button>
+                        </div>
                     </div>
-                </section>
+
+                    {viewMode === 'table' ? (
+                        <section className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full text-sm">
+                                    <thead className="bg-slate-100 text-slate-600">
+                                        <tr>
+                                            <th className="px-4 py-3 text-center font-semibold w-16">순위</th>
+                                            <th className="px-4 py-3 text-left font-semibold">회원</th>
+                                            <th className="px-4 py-3 text-right font-semibold">승률</th>
+                                            <th className="px-4 py-3 text-right font-semibold">승</th>
+                                            <th className="px-4 py-3 text-right font-semibold">패</th>
+                                            <th className="px-4 py-3 text-right font-semibold">총 경기수</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200">
+                                        {winRateRows.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                                                    해당 조건의 회원이 없습니다.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            winRateRows.map((user, index) => {
+                                                const total = (user.coin_wins || 0) + (user.coin_losses || 0);
+                                                const winRate = total > 0 ? ((user.coin_wins || 0) / total * 100).toFixed(1) : '0.0';
+                                                return (
+                                                    <tr key={user.id} className="hover:bg-slate-50">
+                                                        <td className="px-4 py-3 text-center font-medium text-slate-500">{index + 1}</td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="font-medium text-slate-900">{user.full_name || user.username || user.email}</div>
+                                                            <div className="text-xs text-slate-500">{formatLevelGroupLabel(normalizeLevelKey(user.skill_level))}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-bold text-slate-900">{winRate}%</td>
+                                                        <td className="px-4 py-3 text-right font-semibold text-emerald-600">{user.coin_wins || 0}</td>
+                                                        <td className="px-4 py-3 text-right font-semibold text-rose-600">{user.coin_losses || 0}</td>
+                                                        <td className="px-4 py-3 text-right font-medium text-slate-700">{total}</td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
+                            {winRateRows.length === 0 ? (
+                                <div className="col-span-full rounded-lg border border-slate-200 bg-white py-12 text-center text-sm text-slate-500">
+                                    해당 조건의 회원이 없습니다.
+                                </div>
+                            ) : (
+                                winRateRows.map((user, index) => {
+                                    const total = (user.coin_wins || 0) + (user.coin_losses || 0);
+                                    const winRate = total > 0 ? ((user.coin_wins || 0) / total * 100).toFixed(1) : '0.0';
+                                    return (
+                                        <div key={user.id} className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-xs font-semibold text-slate-400">#{index + 1}</span>
+                                                    <div className="font-bold text-base text-slate-800 truncate" title={user.full_name || user.username || user.email}>
+                                                        {user.full_name || user.username || user.email}
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-slate-500 mt-0.5">{formatLevelGroupLabel(normalizeLevelKey(user.skill_level))}</div>
+                                            </div>
+                                            <div className="mt-3 pt-2.5 border-t border-slate-100 text-center">
+                                                <div className="text-xl font-black text-slate-900">{winRate}%</div>
+                                                <div className="text-[10px] text-slate-400 font-medium tracking-wider uppercase mt-0.5">승률</div>
+                                            </div>
+                                            <div className="mt-2.5 space-y-1 text-xs">
+                                                <div className="flex justify-between text-slate-500">
+                                                    <span>전적</span>
+                                                    <span className="font-semibold text-slate-700">
+                                                        <span className="text-emerald-600">{user.coin_wins || 0}승</span>{' '}
+                                                        <span className="text-rose-600">{user.coin_losses || 0}패</span>
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between text-slate-400 text-[11px]">
+                                                    <span>총 경기수</span>
+                                                    <span className="font-medium text-slate-600">{total}경기</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    )}
+                </div>
             )}
 
             {selectedTab === 'create' && (

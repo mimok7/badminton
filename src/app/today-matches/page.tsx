@@ -9,6 +9,7 @@ import { getKoreaDate } from '@/lib/date';
 import { formatNameWithCoins } from '@/lib/player-display';
 import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
 import { getSupabaseClient } from '@/lib/supabase';
+import { getFriendlyErrorMessage } from '@/lib/utils';
 
 function getMatchStatusMeta(status?: string | null, options?: { isWaiting?: boolean }) {
   if (status === 'completed') {
@@ -275,7 +276,7 @@ export default function TodayMatches() {
       await loadTodayMatches();
     } catch (error) {
       console.error('오늘 게임 시작 오류:', error);
-      alert(error instanceof Error ? error.message : '게임 시작 중 오류가 발생했습니다.');
+      alert(getFriendlyErrorMessage(error));
     } finally {
       setStartSaving(false);
     }
@@ -347,7 +348,7 @@ export default function TodayMatches() {
       await loadTodayMatches();
     } catch (error) {
       console.error('게임 결과 저장 오류:', error);
-      alert(error instanceof Error ? error.message : '점수 저장 중 오류가 발생했습니다.');
+      alert(getFriendlyErrorMessage(error));
     } finally {
       setSavingMatchId(null);
     }

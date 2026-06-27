@@ -404,7 +404,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'No target users specified' }, { status: 400 });
       }
 
-      const upsertData = targetUserIds.map((userId) => ({
+      const upsertData = targetUserIds.map((userId: string) => ({
         match_schedule_id: scheduleId,
         user_id: userId,
         status: 'registered',

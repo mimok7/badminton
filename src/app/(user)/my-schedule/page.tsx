@@ -814,6 +814,24 @@ export default function MySchedulePage() {
     return cleaned || '대회';
   };
 
+  const cleanAndFormatTournamentTitle = (title?: string | null, court?: string | null) => {
+    let cleaned = String(title || '')
+      .replace(/^(라뚱\s*대회?|대회\s*경기|대회경기|대회)\s*/i, '')
+      .replace(/상위\s*그룹/g, 'A 그룹')
+      .replace(/중상\s*그룹/g, 'B 그룹')
+      .replace(/중위\s*그룹/g, 'B 그룹')
+      .replace(/중하\s*그룹/g, 'C 그룹')
+      .replace(/하위\s*그룹/g, 'C 그룹')
+      .trim();
+
+    const courtLabel = formatCourtLabel(court);
+    if (courtLabel && courtLabel !== '코트 미정') {
+      cleaned += `(${courtLabel})`;
+    }
+
+    return cleaned || '대회 경기';
+  };
+
   const shouldShowTournamentTypeLabel = (title?: string | null, matchType?: string | null) => {
     const normalizedTitle = normalizeTournamentLabel(title);
     const normalizedType = normalizeTournamentLabel(formatTournamentTypeLabel(matchType));
@@ -826,15 +844,18 @@ export default function MySchedulePage() {
   };
 
   const formatCourtLabel = (court?: string | null) => {
-    const raw = String(court || '').trim();
+    let raw = String(court || '').trim();
     if (!raw) return '코트 미정';
 
-    const normalized = raw.match(/^court\s*(\d+)$/i);
-    if (normalized) {
-      return `${normalized[1]}코트`;
+    // bracket 접두사(예: [상위 그룹]) 제거
+    raw = raw.replace(/^\[.*?\]\s*/g, '');
+
+    // court 1 -> Court 1 형식 통일
+    if (/^court\s*\d+/i.test(raw)) {
+      raw = raw.replace(/^court/i, 'Court');
     }
 
-    return raw.replace(/^court/i, '코트');
+    return raw;
   };
 
   const getTournamentStatusLabel = (
@@ -1653,7 +1674,7 @@ export default function MySchedulePage() {
                       }`}
                     >
                       <span
-                        className={`absolute right-4 top-4 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                        className={`absolute right-3 top-2.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                           match.status === 'completed'
                             ? didIWin
                               ? 'bg-green-200 text-green-800'
@@ -1668,25 +1689,9 @@ export default function MySchedulePage() {
                         {getTournamentStatusLabel(match, didIWin, didILose)}
                       </span>
 
-                      <div className="mb-2 flex flex-col gap-1 pr-20">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
-                              대회 #{match.match_number}
-                            </span>
-                            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-500">
-                              {formatCompactDate(match.tournament_date)}
-                            </span>
-                          </div>
-                          <div className="mt-2 text-base font-semibold text-slate-900">
-                            {formatTournamentTitle(match.tournament_title, match.match_type)}
-                          </div>
-                          <div className="text-sm text-slate-500">
-                            {formatCourtLabel(match.court)}
-                            {shouldShowTournamentTypeLabel(match.tournament_title, match.match_type)
-                              ? ` · ${formatTournamentTypeLabel(match.match_type)}`
-                              : ''}
-                          </div>
+                      <div className="mb-2.5 pr-16">
+                        <div className="text-sm font-semibold text-slate-800">
+                          {match.match_number}. {cleanAndFormatTournamentTitle(match.tournament_title, match.court)}
                         </div>
                       </div>
 

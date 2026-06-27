@@ -24,6 +24,13 @@ type CoinTransactionRow = {
   wager_amount: number;
 };
 
+function getFriendlyErrorMessage(message: string): string {
+  if (message.includes('score_limit')) {
+    return '점수는 25점을 초과할 수 없습니다.';
+  }
+  return message;
+}
+
 function allocateWinningPool(winningWagers: number[], losingTotal: number) {
   const winningTotal = winningWagers.reduce((sum, wager) => sum + wager, 0);
 
@@ -258,7 +265,7 @@ export async function POST(request: Request) {
     }, { onConflict: 'match_id' });
 
   if (matchResultError) {
-    return NextResponse.json({ error: matchResultError.message }, { status: 500 });
+    return NextResponse.json({ error: getFriendlyErrorMessage(matchResultError.message) }, { status: 500 });
   }
 
   const teamUpdates = [
@@ -331,7 +338,7 @@ export async function POST(request: Request) {
     .upsert(transactionsToInsert, { onConflict: 'match_id,profile_id' });
 
   if (transactionError) {
-    return NextResponse.json({ error: transactionError.message }, { status: 500 });
+    return NextResponse.json({ error: getFriendlyErrorMessage(transactionError.message) }, { status: 500 });
   }
 
   const { error: updateGeneratedMatchError } = await adminSupabase
@@ -345,7 +352,7 @@ export async function POST(request: Request) {
     .eq('id', normalizedMatchId);
 
   if (updateGeneratedMatchError) {
-    return NextResponse.json({ error: updateGeneratedMatchError.message }, { status: 500 });
+    return NextResponse.json({ error: getFriendlyErrorMessage(updateGeneratedMatchError.message) }, { status: 500 });
   }
 
   await adminSupabase

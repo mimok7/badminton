@@ -5,6 +5,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { RequireAdmin } from '@/components/AuthGuard';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
+import { getFriendlyErrorMessage } from '@/lib/utils';
 import Link from 'next/link';
 import { fetchAdminMatchResults, fetchAdminMatchSessions } from './actions';
 
@@ -334,7 +335,7 @@ function MatchResultsPage() {
         onSaved();
       } catch (err) {
         console.error('결과 저장 오류:', err);
-        alert('결과 저장에 실패했습니다. 콘솔을 확인하세요.');
+        alert(getFriendlyErrorMessage(err));
       } finally {
         setSubmitting(false);
       }
@@ -459,7 +460,7 @@ function MatchResultsPage() {
         onSaved();
       } catch (err) {
         console.error('결과 저장 오류:', err);
-        alert('결과 저장에 실패했습니다. 콘솔을 확인하세요.');
+        alert(getFriendlyErrorMessage(err));
       } finally {
         setSubmitting(false);
       }

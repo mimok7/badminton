@@ -107,22 +107,20 @@ export async function fetchAdminMatchResults(filters: { dateFilter: string; stat
   });
 
   const playersById = new Map();
-  if (allPlayerIds.size > 0) {
-    const { data: players } = await adminSupabase
-      .from('profiles')
-      .select('id, username, full_name, skill_level')
-      .in('id', Array.from(allPlayerIds));
-    (players || []).forEach((p) => playersById.set(p.id, p));
-  }
-
   const sessionsById = new Map();
-  if (allSessionIds.size > 0) {
-    const { data: sessions } = await adminSupabase
-      .from('match_sessions')
-      .select('id, session_name, session_date')
-      .in('id', Array.from(allSessionIds));
-    (sessions || []).forEach((s) => sessionsById.set(s.id, s));
-  }
+
+  const playersPromise = allPlayerIds.size > 0 
+    ? adminSupabase.from('profiles').select('id, username, full_name, skill_level').in('id', Array.from(allPlayerIds))
+    : Promise.resolve({ data: [] });
+
+  const sessionsPromise = allSessionIds.size > 0
+    ? adminSupabase.from('match_sessions').select('id, session_name, session_date').in('id', Array.from(allSessionIds))
+    : Promise.resolve({ data: [] });
+
+  const [playersRes, sessionsRes] = await Promise.all([playersPromise, sessionsPromise]);
+
+  (playersRes.data || []).forEach((p) => playersById.set(p.id, p));
+  (sessionsRes.data || []).forEach((s) => sessionsById.set(s.id, s));
 
   const matchesWithDetails = [];
   

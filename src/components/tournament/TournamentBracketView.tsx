@@ -89,15 +89,19 @@ type MatchGroupSection = {
 function formatGroupLabel(label: string) {
   return label
     .replace(/상위\s*그룹/g, 'A 그룹')
+    .replace(/중상\s*그룹/g, 'B 그룹')
     .replace(/중위\s*그룹/g, 'B 그룹')
+    .replace(/중하\s*그룹/g, 'C 그룹')
     .replace(/하위\s*그룹/g, 'C 그룹')
     .replace(/상위/g, 'A')
+    .replace(/중상/g, 'B')
     .replace(/중위/g, 'B')
+    .replace(/중하/g, 'C')
     .replace(/하위/g, 'C');
 }
 
 function extractPairGroupLabel(court: string) {
-  const match = court.trim().match(/^\[(.+?)\]\s*Court\s*(.+)$/i);
+  const match = court.trim().match(/^\[(.+?)\]/i);
   const label = match?.[1]?.trim() || '';
   return formatGroupLabel(label);
 }
@@ -109,22 +113,41 @@ function formatCourtLabel(court: string) {
     return '코트 미정';
   }
 
-  const groupedCourtMatch = trimmedCourt.match(/^\[(.+?)\]\s*Court\s*(.+)$/i);
-  if (groupedCourtMatch?.[2]) {
-    return `코트 ${groupedCourtMatch[2].trim()}`;
+  const bracketMatch = trimmedCourt.match(/^\[.+?\]\s*(.+)$/i);
+  const courtName = bracketMatch ? bracketMatch[1].trim() : trimmedCourt;
+
+  const customPatternMatch = courtName.match(/_(\d+)코트$/i);
+  if (customPatternMatch?.[1]) {
+    return `${customPatternMatch[1]}코트`;
   }
 
-  const courtNumberMatch = trimmedCourt.match(/^Court\s*(.+)$/i);
+  const courtNumberMatch = courtName.match(/^Court\s*(.+)$/i);
   if (courtNumberMatch?.[1]) {
     return `코트 ${courtNumberMatch[1].trim()}`;
   }
 
-  if (trimmedCourt.startsWith('코트')) {
-    return trimmedCourt;
-  }
-
-  return `코트 ${trimmedCourt}`;
+  return courtName;
 }
+
+const formatScheduledTime = (timeStr: string | undefined | null) => {
+  if (!timeStr) return '';
+  try {
+    const timePart = timeStr.split('T')[1] || '';
+    const [h, m] = timePart.split(':');
+    if (h && m) {
+      let hourNum = parseInt(h, 10);
+      const isPm = hourNum >= 12;
+      const ampm = isPm ? '오후' : '오전';
+      if (hourNum > 12) hourNum -= 12;
+      if (hourNum === 0) hourNum = 12;
+      const hourStr = String(hourNum).padStart(2, '0');
+      return `${ampm} ${hourStr}:${m}`;
+    }
+  } catch (e) {
+    // fallback
+  }
+  return '';
+};
 
 function formatTournamentTitle(title: string) {
   return title
@@ -2190,23 +2213,22 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                       parsedScore2 !== match.score_team2 ||
                                       match.status !== 'completed';
                                     const pairGroupLabel = extractPairGroupLabel(match.court);
-                                    const groupLabel = getMatchTournamentGroupLabel(match);
+                                    const cleanCourtLabel = match.court ? match.court.replace(/^\[.+?\]\s*/i, '').trim() : '';
 
                                     return (
                                       <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-2xl sm:rounded-[24px] border p-2.5 sm:p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
                                         <div className="flex items-start justify-between gap-2 sm:gap-3">
                                           <div>
-                                            <p className="text-xs sm:text-sm font-semibold text-slate-900">{displayRound}회차 - {displayMatchNumber}경기</p>
+                                            <p className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel}</p>
                                             <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
-                                              {viewMode === 'court' && (
-                                                <span className="rounded-full bg-blue-100 px-1.5 py-0.5 font-medium text-blue-800">
-                                                  {getGroupIcon(groupLabel)} {groupLabel}
-                                                </span>
-                                              )}
                                               {pairGroupLabel && (
                                                 <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
                                               )}
-                                              <span>{formatCourtLabel(match.court)}</span>
+                                              {match.scheduled_time && (
+                                                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-800">
+                                                  ⏰ {formatScheduledTime(match.scheduled_time)}
+                                                </span>
+                                              )}
                                             </div>
                                           </div>
                                           <span className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
@@ -2849,22 +2871,22 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                   const displayRound = getTournamentDisplayRound(selectedTournament);
                                   const displayMatchNumber = getDisplayMatchNumber(match, index);
                                   const pairGroupLabel = extractPairGroupLabel(match.court);
-                                  const groupLabel = getMatchTournamentGroupLabel(match);
+                                  const cleanCourtLabel = match.court ? match.court.replace(/^\[.+?\]\s*/i, '').trim() : '';
+
                                   return (
                                     <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-2xl sm:rounded-[24px] border p-2.5 sm:p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
                                       <div className="flex items-start justify-between gap-2 sm:gap-3">
                                         <div>
-                                          <p className="text-xs sm:text-sm font-semibold text-slate-900">{displayRound}회차-{displayMatchNumber}경기</p>
+                                          <p className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel}</p>
                                           <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
-                                            {viewMode === 'court' && (
-                                              <span className="rounded-full bg-blue-100 px-1.5 py-0.5 font-medium text-blue-800">
-                                                {getGroupIcon(groupLabel)} {groupLabel}
-                                              </span>
-                                            )}
                                             {pairGroupLabel && (
                                               <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
                                             )}
-                                            <span>{formatCourtLabel(match.court)}</span>
+                                            {match.scheduled_time && (
+                                              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-800">
+                                                ⏰ {formatScheduledTime(match.scheduled_time)}
+                                              </span>
+                                            )}
                                           </div>
                                         </div>
                                         <span className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>

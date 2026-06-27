@@ -52,7 +52,7 @@ export default async function AdminMembersPage({
     supabaseAdmin.from('level_info').select('id, code, name, description, score').order('score', { ascending: false, nullsFirst: false }),
     supabaseAdmin.from('profiles').select('id, user_id, coin_wins, coin_losses'),
     (supabaseAdmin as any).from('member_rating_settings').select('start_date, end_date').eq('id', 1).maybeSingle(),
-    supabaseAdmin.rpc('get_attendance_summary').catch(() => ({ data: null })),
+    Promise.resolve(supabaseAdmin.rpc('get_attendance_summary')).catch(() => ({ data: null })),
     supabaseAdmin.from('attendances').select('user_id, attended_at, status').gte('attended_at', cutoffDate).eq('status', 'present').order('attended_at', { ascending: false })
   ])
 

@@ -984,6 +984,15 @@ export type Database = {
   Args: Record<string, never>;
   Returns: Json[];
 };
+      "get_attendance_summary": {
+  Args: Record<string, never>;
+  Returns: {
+    user_id: string;
+    total_count: number;
+    last30_count: number;
+    last_attended_at: string | null;
+  }[];
+};
       "get_available_profiles": {
   Args: Record<string, never>;
   Returns: { username: string | null; skill_level: string | null; skill_label: string | null; }[];

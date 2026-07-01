@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, CalendarDays, Gift, LogOut, Shield, Swords, Target, Trophy, UserCircle2, Zap, Bell } from 'lucide-react';
+import { ArrowRight, CalendarDays, Gift, LogOut, Shield, Swords, Target, Trophy, UserCircle2, Zap, Bell, BookOpen } from 'lucide-react';
 
 import MatchNotifications from '@/components/MatchNotifications';
 import { Button } from '@/components/ui/button';
@@ -73,6 +73,12 @@ const quickLinks = [
     title: '상품 교환',
     description: '코인을 사용하여 상품으로 교환합니다.',
     icon: Gift,
+  },
+  {
+    href: '/manual',
+    title: '사용자 설명서',
+    description: '시스템 기능 및 이용 안내 가이드를 확인합니다.',
+    icon: BookOpen,
   },
 ];
 

@@ -357,13 +357,12 @@ export default function LoginPage() {
 
         <div className="text-center flex flex-col gap-2">
           <div>
-            <a 
-              href="/user_manual.md" 
-              download="user_manual.md"
+            <Link 
+              href="/manual" 
               className="text-sm text-blue-600 hover:text-blue-800 font-semibold"
             >
-              📖 사용자 설명서 다운로드
-            </a>
+              📖 사용자 설명서 보기
+            </Link>
           </div>
           <div>
             <Link 

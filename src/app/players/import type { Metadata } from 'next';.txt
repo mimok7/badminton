@@ -1,0 +1,19 @@
+import type { Metadata } from 'next';
+import './globals.css'; // 이 파일을 사용하려면 app/globals.css 파일이 있어야 합니다.
+
+export const metadata: Metadata = {
+  title: '배드민턴 매치 메이커',
+  description: '배드민턴 경기 자동 배정 앱',
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="ko">
+      <body>{children}</body>
+    </html>
+  );
+}

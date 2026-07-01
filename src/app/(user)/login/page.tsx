@@ -355,13 +355,24 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <div className="text-center">
-          <Link 
-            href="/"
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            ← 홈으로 돌아가기
-          </Link>
+        <div className="text-center flex flex-col gap-2">
+          <div>
+            <a 
+              href="/user_manual.md" 
+              download="user_manual.md"
+              className="text-sm text-blue-600 hover:text-blue-800 font-semibold"
+            >
+              📖 사용자 설명서 다운로드
+            </a>
+          </div>
+          <div>
+            <Link 
+              href="/"
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              ← 홈으로 돌아가기
+            </Link>
+          </div>
         </div>
       </div>
     </div>

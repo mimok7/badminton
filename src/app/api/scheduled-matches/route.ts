@@ -14,10 +14,103 @@ type ProfileRow = {
   coin_balance: number | null;
 };
 
+type ActiveCourtRow = { name: string | null; location: string | null };
+type AdminSupabaseClient = ReturnType<typeof getSupabaseAdminClient>;
+
 const getProfileName = (profile?: Pick<ProfileRow, 'username' | 'full_name'> | null, fallback = '선수') =>
   profile?.full_name || profile?.username || fallback;
 
 const getProfileGender = (profile?: Pick<ProfileRow, 'gender'> | null) => profile?.gender || null;
+
+// level_info/courts는 자주 바뀌지 않는 테이블이므로 서버 프로세스 내에서 짧게 캐싱해
+// 요청마다 반복되는 DB 왕복을 줄입니다.
+const REFERENCE_DATA_CACHE_TTL = 60 * 1000; // 1분
+
+let cachedLevelInfoMap: LevelInfoMap | null = null;
+let cachedLevelInfoAt = 0;
+let pendingLevelInfoFetch: Promise<LevelInfoMap> | null = null;
+
+async function getCachedLevelInfoMap(adminSupabase: AdminSupabaseClient): Promise<LevelInfoMap> {
+  const now = Date.now();
+  if (cachedLevelInfoMap && now - cachedLevelInfoAt < REFERENCE_DATA_CACHE_TTL) {
+    return cachedLevelInfoMap;
+  }
+
+  if (pendingLevelInfoFetch) {
+    return pendingLevelInfoFetch;
+  }
+
+  pendingLevelInfoFetch = (async () => {
+    const { data: levelRows, error } = await adminSupabase
+      .from('level_info')
+      .select('code, name, score');
+
+    if (error) {
+      console.error('Scheduled matches level info error:', error);
+      return cachedLevelInfoMap || {};
+    }
+
+    const levelInfoMap = (levelRows || []).reduce<LevelInfoMap>((acc, row: any) => {
+      if (row.code) {
+        acc[String(row.code).trim().toLowerCase()] = {
+          name: row.name || row.code,
+          score: Number(row.score ?? 0),
+        };
+      }
+      return acc;
+    }, {});
+
+    cachedLevelInfoMap = levelInfoMap;
+    cachedLevelInfoAt = Date.now();
+    return levelInfoMap;
+  })();
+
+  try {
+    return await pendingLevelInfoFetch;
+  } finally {
+    pendingLevelInfoFetch = null;
+  }
+}
+
+let cachedActiveCourts: ActiveCourtRow[] | null = null;
+let cachedActiveCourtsAt = 0;
+let pendingActiveCourtsFetch: Promise<ActiveCourtRow[]> | null = null;
+
+async function getCachedActiveCourts(adminSupabase: AdminSupabaseClient): Promise<ActiveCourtRow[]> {
+  const now = Date.now();
+  if (cachedActiveCourts && now - cachedActiveCourtsAt < REFERENCE_DATA_CACHE_TTL) {
+    return cachedActiveCourts;
+  }
+
+  if (pendingActiveCourtsFetch) {
+    return pendingActiveCourtsFetch;
+  }
+
+  pendingActiveCourtsFetch = (async () => {
+    const { data: activeCourts, error } = await adminSupabase
+      .from('courts')
+      .select('name, location, order_index')
+      .eq('is_active', true)
+      .order('order_index', { ascending: true, nullsFirst: true })
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Scheduled matches active courts error:', error);
+      return cachedActiveCourts || [];
+    }
+
+    const rows = (activeCourts || []) as ActiveCourtRow[];
+    cachedActiveCourts = rows;
+    cachedActiveCourtsAt = Date.now();
+    return rows;
+  })();
+
+  try {
+    return await pendingActiveCourtsFetch;
+  } finally {
+    pendingActiveCourtsFetch = null;
+  }
+}
 
 function normalizeMatchResult(value: unknown): ScheduledMatchView['match_result'] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -139,45 +232,32 @@ export async function GET(request: Request) {
     });
 
     const targetPlayerIds = Array.from(playerIds);
-    let profiles: ProfileRow[] = [];
 
-    if (targetPlayerIds.length > 0) {
-      const { data: profilesData, error: profilesError } = await adminSupabase
-        .from('profiles')
-        .select('id, user_id, username, full_name, skill_level, gender, coin_balance')
-        .in('id', targetPlayerIds);
+    // 프로필 조회는 매치마다 달라지므로 매번 조회하지만, 레벨 정보/코트 정보는
+    // 자주 바뀌지 않으므로 서버 프로세스 내에서 짧게 캐싱하고 세 조회를 병렬로 실행합니다.
+    const [profilesResult, levelInfoMap, activeCourts] = await Promise.all([
+      targetPlayerIds.length > 0
+        ? adminSupabase
+            .from('profiles')
+            .select('id, user_id, username, full_name, skill_level, gender, coin_balance')
+            .in('id', targetPlayerIds)
+        : Promise.resolve({ data: [] as ProfileRow[], error: null }),
+      getCachedLevelInfoMap(adminSupabase),
+      getCachedActiveCourts(adminSupabase),
+    ]);
 
-      if (profilesError) {
-        console.error('Scheduled matches profiles error:', profilesError);
-        return NextResponse.json({ error: 'Failed to load player profiles' }, { status: 500 });
-      }
-      profiles = (profilesData || []) as ProfileRow[];
+    if (profilesResult.error) {
+      console.error('Scheduled matches profiles error:', profilesResult.error);
+      return NextResponse.json({ error: 'Failed to load player profiles' }, { status: 500 });
     }
+
+    const profiles = (profilesResult.data || []) as ProfileRow[];
 
     const profileMap = new Map<string, ProfileRow>();
     profiles.forEach((profile) => {
       if (profile.id) profileMap.set(profile.id, profile);
       if (profile.user_id) profileMap.set(profile.user_id, profile);
     });
-
-    const { data: levelRows, error: levelRowsError } = await adminSupabase
-      .from('level_info')
-      .select('code, name, score');
-
-    if (levelRowsError) {
-      console.error('Scheduled matches level info error:', levelRowsError);
-      return NextResponse.json({ error: 'Failed to load level info' }, { status: 500 });
-    }
-
-    const levelInfoMap = (levelRows || []).reduce<LevelInfoMap>((acc, row: any) => {
-      if (row.code) {
-        acc[String(row.code).trim().toLowerCase()] = {
-          name: row.name || row.code,
-          score: Number(row.score ?? 0),
-        };
-      }
-      return acc;
-    }, {});
 
     const filterIds = userId
       ? Array.from(
@@ -188,17 +268,6 @@ export async function GET(request: Request) {
           )
         )
       : [];
-
-    const { data: activeCourts, error: activeCourtsError } = await adminSupabase
-      .from('courts')
-      .select('name, location, order_index')
-      .eq('is_active', true)
-      .order('order_index', { ascending: true, nullsFirst: true })
-      .order('name', { ascending: true });
-
-    if (activeCourtsError) {
-      console.error('Scheduled matches active courts error:', activeCourtsError);
-    }
 
     const courtByNumber = new Map<number, { name: string | null; location: string | null }>();
     (activeCourts || []).forEach((court, index) => {

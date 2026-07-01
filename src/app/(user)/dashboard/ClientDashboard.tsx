@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, CalendarDays, Gift, LogOut, Shield, Swords, Target, Trophy, UserCircle2, Zap, Bell } from 'lucide-react';
@@ -150,7 +150,6 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const [todayMatchesCount, setTodayMatchesCount] = useState(0);
   const [myAttendanceStatus, setMyAttendanceStatus] = useState<AttendanceStatus>(null);
   const [statusSaving, setStatusSaving] = useState(false);
-  const [todayAssignedMatches, setTodayAssignedMatches] = useState<ScheduledMatchView[]>([]);
   const [todayAllMatches, setTodayAllMatches] = useState<ScheduledMatchView[]>([]);
   const [topMatchBet, setTopMatchBet] = useState(DEFAULT_MATCH_WAGER);
   const [topMatchBetSaving, setTopMatchBetSaving] = useState(false);
@@ -172,7 +171,6 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         const [
           { count: playersCount },
           { count: matchCount },
-          myMatches,
           allMatches,
           attendanceResponse,
           coinSettingsResponse,
@@ -185,7 +183,6 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
             .from('match_schedules')
             .select('*', { count: 'exact', head: true })
             .eq('match_date', today),
-          fetchScheduledMatchesForDate(supabase, today, userId),
           fetchScheduledMatchesForDate(supabase, today),
           fetch(`/api/attendance/status?date=${today}`),
           fetch('/api/coin-settings', { credentials: 'include' }),
@@ -196,7 +193,6 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
 
         setTodayPlayersCount(playersCount || 0);
         setTodayMatchesCount(matchCount || 0);
-        setTodayAssignedMatches(myMatches);
         setTodayAllMatches(allMatches);
 
         if (attendanceResponse.ok) {
@@ -213,7 +209,6 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         setTodayPlayersCount(0);
         setTodayMatchesCount(0);
         setMyAttendanceStatus(null);
-        setTodayAssignedMatches([]);
         setTodayAllMatches([]);
         setCoinSettlementMode(null);
       } finally {
@@ -232,6 +227,21 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const rawDisplayName = profile?.full_name || profile?.username || email.split('@')[0];
   const displayName = rawDisplayName;
   const levelLabel = profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정');
+  const myPlayerIds = useMemo(
+    () => new Set([profile?.id, profile?.user_id, userId].filter((value): value is string => Boolean(value))),
+    [profile?.id, profile?.user_id, userId]
+  );
+  const todayAssignedMatches = useMemo(
+    () =>
+      myPlayerIds.size === 0
+        ? []
+        : todayAllMatches.filter((match) =>
+            [match.team1_player1, match.team1_player2, match.team2_player1, match.team2_player2].some(
+              (playerId) => playerId != null && myPlayerIds.has(playerId)
+            )
+          ),
+    [todayAllMatches, myPlayerIds]
+  );
   const prioritizedAssignedMatches = [...todayAssignedMatches].sort((left, right) => {
     const statusDiff = getMatchStatusPriority(left.status) - getMatchStatusPriority(right.status);
     if (statusDiff !== 0) return statusDiff;
@@ -347,12 +357,8 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   };
 
   const refreshTopMatchSummary = async () => {
-      const today = getKoreaDate();
-    const [myMatches, allMatches] = await Promise.all([
-      fetchScheduledMatchesForDate(supabase, today, userId),
-      fetchScheduledMatchesForDate(supabase, today),
-    ]);
-    setTodayAssignedMatches(myMatches);
+    const today = getKoreaDate();
+    const allMatches = await fetchScheduledMatchesForDate(supabase, today);
     setTodayAllMatches(allMatches);
   };
 

@@ -757,9 +757,9 @@ export default function TodayMatches() {
           
           const gridClass = 
             columnsCount === 1 ? 'grid-cols-1' :
-            columnsCount === 2 ? 'grid-cols-1 landscape:grid-cols-2 md:grid-cols-2' :
-            columnsCount === 3 ? 'grid-cols-1 landscape:grid-cols-3 md:grid-cols-3' :
-            'grid-cols-1 landscape:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+            columnsCount === 2 ? 'grid-cols-1 md:grid-cols-2' :
+            columnsCount === 3 ? 'grid-cols-1 md:grid-cols-3' :
+            'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
 
           return (
             <div 

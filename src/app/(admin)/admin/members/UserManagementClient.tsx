@@ -286,7 +286,6 @@ export default function UserManagementClient({
         startTransition(async () => {
             const payload: UpdateUserPayload = {
                 full_name: draft.full_name,
-                username: draft.full_name,
                 skill_level: normalizeSkillLevel(draft.skill_level),
                 gender: draft.gender,
                 role: draft.role === 'admin' ? 'admin' : normalizeEditableRole(draft.role),
@@ -298,7 +297,6 @@ export default function UserManagementClient({
                 setMemberList((prev) => prev.map((item) => item.id === user.id ? ({
                     ...item,
                     full_name: draft.full_name ?? undefined,
-                    username: draft.full_name ?? undefined,
                     skill_level: normalizeSkillLevel(draft.skill_level),
                     skill_label: getLevelOptionMeta(normalizeSkillLevel(draft.skill_level))?.description ?? item.skill_label,
                     gender: draft.gender ?? undefined,

@@ -12,6 +12,8 @@ interface MatchGenerationControlsProps {
   onGenerateRandom: () => void;
   onGenerateMixed: () => void;
   onManualAssign: () => void;
+  assignTarget: 'attendees' | 'participants';
+  setAssignTarget: (target: 'attendees' | 'participants') => void;
 }
 
 export default function MatchGenerationControls({
@@ -21,7 +23,9 @@ export default function MatchGenerationControls({
   onGenerateByLevel,
   onGenerateRandom,
   onGenerateMixed,
-  onManualAssign
+  onManualAssign,
+  assignTarget,
+  setAssignTarget
 }: MatchGenerationControlsProps) {
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
 
@@ -35,6 +39,32 @@ export default function MatchGenerationControls({
 
   return (
     <div>
+      {/* 배정 대상 설정 */}
+      <div className="mb-3 flex bg-slate-100 p-1 rounded-lg w-fit">
+        <button
+          type="button"
+          onClick={() => setAssignTarget('attendees')}
+          className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+            assignTarget === 'attendees'
+              ? 'bg-white text-indigo-700 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          출석자로 게임배정
+        </button>
+        <button
+          type="button"
+          onClick={() => setAssignTarget('participants')}
+          className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+            assignTarget === 'participants'
+              ? 'bg-white text-indigo-700 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          참가자로 게임배정
+        </button>
+      </div>
+
       {/* 1인당 경기수 설정 */}
       <div className="mb-4 p-4 bg-gray-50 rounded border">
         <div className="flex items-center justify-between gap-4 flex-wrap">

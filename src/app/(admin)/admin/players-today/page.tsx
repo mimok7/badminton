@@ -85,6 +85,8 @@ export default function PlayersTodayPage() {
   const [sessionMode, setSessionMode] = useState<'레벨' | '랜덤' | '혼복' | '수동'>('레벨');
   const [perPlayerMinGames, setPerPlayerMinGames] = useState<number>(1);
   const [isManualEditing, setIsManualEditing] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<'attendees' | 'participants'>('attendees');
+
   const effectiveTodayPlayers = useMemo(() => {
     if (todayPlayers === null) {
       return null;
@@ -97,6 +99,15 @@ export default function PlayersTodayPage() {
 
     return Array.from(merged.values());
   }, [manualPlayers, todayPlayers]);
+
+  const targetPlayersForMatch = useMemo(() => {
+    if (!effectiveTodayPlayers) return null;
+    if (assignTarget === 'attendees') {
+      return effectiveTodayPlayers.filter(p => p.status === 'present');
+    }
+    return effectiveTodayPlayers;
+  }, [effectiveTodayPlayers, assignTarget]);
+
   const availableMembersToAdd = useMemo(() => {
     const existingIds = new Set((effectiveTodayPlayers || []).map((player) => player.id));
     return memberPlayers
@@ -595,11 +606,11 @@ export default function PlayersTodayPage() {
   };
 
   const handleAssignByLevel = async () => {
-    if (!effectiveTodayPlayers) return;
+    if (!targetPlayersForMatch) return;
     setLoading(true);
     try {
       const currentLevelInfoMap = await ensureLevelInfoMap();
-      const present = effectiveTodayPlayers;
+      const present = targetPlayersForMatch;
       if (present.length < 4) {
         alert('최소 4명의 참가자가 필요합니다.');
         return;
@@ -676,11 +687,11 @@ export default function PlayersTodayPage() {
   };
 
   const handleAssignRandom = async () => {
-    if (!effectiveTodayPlayers) return;
+    if (!targetPlayersForMatch) return;
     setLoading(true);
     try {
       const currentLevelInfoMap = await ensureLevelInfoMap();
-      const present = effectiveTodayPlayers;
+      const present = targetPlayersForMatch;
       if (present.length < 4) { alert('최소 4명의 참가자가 필요합니다.'); return; }
       // normalize levels for scoring
       const playersForMatch = attachScoresWithMap(
@@ -721,11 +732,11 @@ export default function PlayersTodayPage() {
   };
 
   const handleAssignMixed = async () => {
-    if (!effectiveTodayPlayers) return;
+    if (!targetPlayersForMatch) return;
     setLoading(true);
     try {
       const currentLevelInfoMap = await ensureLevelInfoMap();
-      const present = effectiveTodayPlayers;
+      const present = targetPlayersForMatch;
       if (present.length < 4) { alert('최소 4명의 참가자가 필요합니다.'); return; }
       const playersForMatch = attachScoresWithMap(
         present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }))
@@ -767,8 +778,8 @@ export default function PlayersTodayPage() {
   };
 
   const handleManualAssign = () => {
-    if (!effectiveTodayPlayers) return;
-    const present = effectiveTodayPlayers;
+    if (!targetPlayersForMatch) return;
+    const present = targetPlayersForMatch;
     if (present.length < 4) { alert('최소 4명의 참가자가 필요합니다.'); return; }
 
     // target matches 계산 및 빈 슬롯 생성
@@ -1193,9 +1204,11 @@ export default function PlayersTodayPage() {
         </div>
 
         <MatchGenerationControls
-          todayPlayers={effectiveTodayPlayers}
+          todayPlayers={targetPlayersForMatch}
           perPlayerMinGames={perPlayerMinGames}
           setPerPlayerMinGames={setPerPlayerMinGames}
+          assignTarget={assignTarget}
+          setAssignTarget={setAssignTarget}
           onGenerateByLevel={handleAssignByLevel}
           onGenerateRandom={handleAssignRandom}
           onGenerateMixed={handleAssignMixed}

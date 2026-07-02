@@ -720,8 +720,7 @@ export default function UserManagementClient({
                                         <select
                                             value={currentLevelCode}
                                             onChange={(e) => updateDraft(user.id, { skill_level: e.target.value })}
-                                            disabled={true}
-                                            className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 cursor-not-allowed"
+                                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                                         >
                                             {levelOptions.map((levelCode) => {
                                                 const option = getLevelOptionMeta(levelCode);
@@ -887,8 +886,7 @@ export default function UserManagementClient({
                                     <select
                                         value={currentLevelCode}
                                         onChange={(e) => updateDraft(user.id, { skill_level: e.target.value })}
-                                        disabled={true}
-                                        className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-sm text-slate-500 cursor-not-allowed"
+                                        className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm bg-white"
                                     >
                                         {levelOptions.map((levelCode) => {
                                             const option = getLevelOptionMeta(levelCode);

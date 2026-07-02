@@ -11,7 +11,7 @@ const DEFAULT_MATCH_SETTINGS: MatchSettings = {
 export async function readMatchSettings(): Promise<MatchSettings> {
   try {
     const supabase = getSupabaseAdminClient();
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('match_settings')
       .select('auto_generate_enabled')
       .eq('id', 'default')
@@ -33,7 +33,7 @@ export async function readMatchSettings(): Promise<MatchSettings> {
 export async function writeMatchSettings(settings: MatchSettings): Promise<MatchSettings> {
   try {
     const supabase = getSupabaseAdminClient();
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('match_settings')
       .upsert({
         id: 'default',

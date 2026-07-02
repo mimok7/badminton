@@ -110,8 +110,20 @@ export default function TodayMatches() {
   const [optimizing, setOptimizing] = useState(false);
   const [scoreDrafts, setScoreDrafts] = useState<Record<string, { team1: string; team2: string }>>({});
   const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const supabase = getSupabaseClient();
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadTodayMatches();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const loadTodayMatches = async () => {
     if (!user) {
@@ -126,13 +138,21 @@ export default function TodayMatches() {
       const nextDrafts = { ...current };
 
       todayMatches.forEach((match) => {
-        const existing = nextDrafts[match.id];
         const team1Score = match.match_result?.team1_score;
         const team2Score = match.match_result?.team2_score;
+        const isScoreStarted =
+          (typeof team1Score === 'number' && team1Score > 0) ||
+          (typeof team2Score === 'number' && team2Score > 0);
+
+        const existing = nextDrafts[match.id];
 
         nextDrafts[match.id] = {
-          team1: existing?.team1 ?? (team1Score !== undefined ? String(team1Score) : ''),
-          team2: existing?.team2 ?? (team2Score !== undefined ? String(team2Score) : ''),
+          team1: isScoreStarted
+            ? String(team1Score ?? 0)
+            : (existing?.team1 ?? (team1Score !== undefined ? String(team1Score) : '')),
+          team2: isScoreStarted
+            ? String(team2Score ?? 0)
+            : (existing?.team2 ?? (team2Score !== undefined ? String(team2Score) : '')),
         };
       });
 
@@ -469,7 +489,10 @@ export default function TodayMatches() {
       (match.status === 'in_progress' || match.status === 'scheduled')
     );
     const hasActiveRefereeLock = match.referee_id && match.referee_id !== profile?.id;
-    const isEditable = canBeReferee && !hasActiveRefereeLock;
+    const isScoreStarted =
+      (typeof match.match_result?.team1_score === 'number' && match.match_result.team1_score > 0) ||
+      (typeof match.match_result?.team2_score === 'number' && match.match_result.team2_score > 0);
+    const isEditable = canBeReferee && !hasActiveRefereeLock && !isScoreStarted;
     
     const scoreDraft = scoreDrafts[match.id] ?? { team1: '', team2: '' };
     const canSaveScore =
@@ -481,8 +504,8 @@ export default function TodayMatches() {
     const displayMatchSequence = match.displayMatchSequence;
 
     // Scoreboard values — show draft if entered (by referee), else saved result
-    const sbTeam1 = scoreDraft.team1 !== '' ? scoreDraft.team1 : (match.match_result?.team1_score !== undefined ? String(match.match_result.team1_score) : '-');
-    const sbTeam2 = scoreDraft.team2 !== '' ? scoreDraft.team2 : (match.match_result?.team2_score !== undefined ? String(match.match_result.team2_score) : '-');
+    const sbTeam1 = match.match_result?.team1_score !== undefined ? String(match.match_result.team1_score) : (scoreDraft.team1 !== '' ? scoreDraft.team1 : '-');
+    const sbTeam2 = match.match_result?.team2_score !== undefined ? String(match.match_result.team2_score) : (scoreDraft.team2 !== '' ? scoreDraft.team2 : '-');
 
     return (
       <article
@@ -622,11 +645,18 @@ export default function TodayMatches() {
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
         <section className="rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5">
-          <div className="flex items-center justify-between">
-            <h1 className="text-lg font-semibold whitespace-nowrap">🏸 오늘의 게임</h1>
+          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3">
+            <div className="flex flex-col md:flex-row md:items-baseline gap-x-3 gap-y-1">
+              <h1 className="text-lg font-semibold whitespace-nowrap">🏸 오늘의 게임</h1>
+              <span className="text-[11px] text-slate-400 font-normal leading-tight">
+                {canManageMatches
+                  ? '점수 입력과 게임 시작은 매니저 이상 권한으로 사용할 수 있습니다.'
+                  : '모든 회원이 오늘 게임을 볼 수 있으며, 점수 입력과 게임 시작은 매니저 이상만 가능합니다.'}
+              </span>
+            </div>
             <Link
               href="/dashboard"
-              className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/15"
+              className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/15 self-end sm:self-auto"
             >
               홈
             </Link>
@@ -663,9 +693,7 @@ export default function TodayMatches() {
             <div className="mt-4 rounded-[22px] bg-white/8 px-3 py-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="text-xs text-slate-300 leading-normal">
-                  {canManageMatches
-                    ? '점수 입력과 게임 시작은 매니저 이상 권한으로 사용할 수 있습니다.'
-                    : '모든 회원이 오늘 게임을 볼 수 있으며, 점수 입력과 게임 시작은 매니저 이상만 가능합니다.'}
+                  📢 대기 중인 경기 관리를 진행할 수 있습니다.
                 </div>
                 <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                   {canManageMatches && (
@@ -677,10 +705,19 @@ export default function TodayMatches() {
                       disabled={optimizing}
                       className="flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60 shrink-0"
                     >
-                      <span>🔄</span>
+                      <span>⏳</span>
                       {optimizing ? '재배정...' : '지각 뒤로'}
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => { void handleRefresh(); }}
+                    disabled={refreshing}
+                    className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/15 disabled:opacity-60 shrink-0"
+                  >
+                    <span className={refreshing ? 'inline-block animate-spin' : ''}>🔄</span>
+                    {refreshing ? '로딩...' : '새로고침'}
+                  </button>
                   {canStartPrimaryMatch ? (
                     <button
                       type="button"

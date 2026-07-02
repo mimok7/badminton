@@ -188,7 +188,7 @@ export default function ScoreboardPage() {
         await fetch(`/api/today-scoreboard/${matchId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ score_team1: s1, score_team2: s2 }),
+          body: JSON.stringify({ score1: s1, score2: s2 }),
         });
       } catch {
         // silent fail - will retry on next score change
@@ -199,38 +199,25 @@ export default function ScoreboardPage() {
     [matchId, canEdit]
   );
 
-  const debouncedSave = useCallback(
-    (s1: number, s2: number) => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-      }
-      saveTimerRef.current = setTimeout(() => {
-        saveScore(s1, s2);
-      }, 300);
-    },
-    [saveScore]
-  );
-
   // 점수 변경 핸들러
   const handleScoreChange = useCallback(
     (team: 'team1' | 'team2', delta: number) => {
       if (!canEdit || match?.status === 'completed') return;
 
+      let nextScore1 = score1;
+      let nextScore2 = score2;
+
       if (team === 'team1') {
-        setScore1((prev) => {
-          const next = Math.max(0, prev + delta);
-          debouncedSave(next, score2);
-          return next;
-        });
+        nextScore1 = Math.max(0, score1 + delta);
+        setScore1(nextScore1);
       } else {
-        setScore2((prev) => {
-          const next = Math.max(0, prev + delta);
-          debouncedSave(score1, next);
-          return next;
-        });
+        nextScore2 = Math.max(0, score2 + delta);
+        setScore2(nextScore2);
       }
+
+      void saveScore(nextScore1, nextScore2);
     },
-    [canEdit, match?.status, score1, score2, debouncedSave]
+    [canEdit, match?.status, score1, score2, saveScore]
   );
 
   // 경기 완료
@@ -239,16 +226,17 @@ export default function ScoreboardPage() {
     setCompleting(true);
 
     try {
+      const winner = score1 > score2 ? 'team1' : score2 > score1 ? 'team2' : 'draw';
       const res = await fetch(`/api/today-scoreboard/${matchId}`, {
-        method: 'POST',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score_team1: score1, score_team2: score2 }),
+        body: JSON.stringify({ score1, score2, isCompleted: true, winner }),
       });
 
       const data = await res.json();
       if (res.ok) {
         setMatch((prev) =>
-          prev ? { ...prev, status: 'completed', winner: data.winner } : prev
+          prev ? { ...prev, status: 'completed', winner } : prev
         );
         setShowConfirmComplete(false);
       } else {

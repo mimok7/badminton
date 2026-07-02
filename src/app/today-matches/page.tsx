@@ -125,6 +125,49 @@ export default function TodayMatches() {
     }
   };
 
+  // 모바일 가로보기(강제 회전) 상태에서 세로 스크롤 매핑
+  useEffect(() => {
+    const wrapper = document.querySelector('.force-landscape-wrapper') as HTMLElement;
+    const content = document.querySelector('.force-landscape-content') as HTMLElement;
+    if (!wrapper || !content) return;
+
+    let startY = 0;
+    let startX = 0;
+    let startScrollTop = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      // 세로 모드일 때만 개입
+      if (window.innerWidth <= 768 && window.innerHeight > window.innerWidth) {
+        startY = e.touches[0].clientY;
+        startX = e.touches[0].clientX;
+        startScrollTop = content.scrollTop;
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (window.innerWidth <= 768 && window.innerHeight > window.innerWidth) {
+        const deltaY = e.touches[0].clientY - startY;
+        const deltaX = e.touches[0].clientX - startX;
+        
+        // 터치가 주로 상/하(실제 화면 기준 위아래)로 움직일 때 스크롤로 매핑
+        if (Math.abs(deltaY) > Math.abs(deltaX)) {
+          if (e.cancelable) e.preventDefault();
+          // 화면을 위로 밀면 deltaY는 음수 -> scrollTop 증가 (아래로 내려감)
+          content.scrollTop = startScrollTop - deltaY;
+        }
+      }
+    };
+
+    // passive: false 로 해야 preventDefault() 가 먹혀 네이티브 튕김 방지
+    wrapper.addEventListener('touchstart', onTouchStart, { passive: false });
+    wrapper.addEventListener('touchmove', onTouchMove, { passive: false });
+
+    return () => {
+      wrapper.removeEventListener('touchstart', onTouchStart);
+      wrapper.removeEventListener('touchmove', onTouchMove);
+    };
+  }, []);
+
   const loadTodayMatches = async () => {
     if (!user) {
       setMatches([]);

@@ -149,28 +149,6 @@ async function generateRecurringMatchesFallback(
       continue;
     }
 
-    if (isManualSelectedGeneration) {
-      const nextMatchingDate = findNextMatchingDate(todayDate, template.day_of_week);
-
-      for (let weekOffset = 0; weekOffset < 52; weekOffset += 1) {
-        const targetDate = addDays(nextMatchingDate, weekOffset * 7);
-        const matchDate = toDateOnly(targetDate);
-        const alreadyExists = await hasExistingSchedule(supabase, matchDate, template);
-
-        if (alreadyExists) {
-          continue;
-        }
-
-        const created = await createScheduleFromTemplate(supabase, matchDate, template, executedBy);
-        if (created) {
-          createdMatches += 1;
-        }
-        break;
-      }
-
-      continue;
-    }
-
     const advanceDays = Math.max(0, template.advance_days ?? 7);
 
     for (let offset = 0; offset <= advanceDays; offset += 1) {

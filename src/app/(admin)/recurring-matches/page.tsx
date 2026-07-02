@@ -171,9 +171,13 @@ export default function RecurringMatchPage() {
     }
 
     try {
-      const { error } = await supabase
-        .from('recurring_match_templates')
-        .update({
+      const response = await fetch('/api/admin/recurring-templates', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: template.id,
           name: template.name,
           description: template.description,
           day_of_week: template.day_of_week,
@@ -182,12 +186,12 @@ export default function RecurringMatchPage() {
           location: template.location,
           max_participants: template.max_participants,
           advance_days: template.advance_days,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', template.id);
+        }),
+      });
 
-      if (error) {
-        console.error('템플릿 수정 오류:', error);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        console.error('템플릿 수정 오류:', payload);
         alert('템플릿 수정 중 오류가 발생했습니다.');
         return;
       }
@@ -205,13 +209,20 @@ export default function RecurringMatchPage() {
   // 템플릿 활성화/비활성화
   const handleToggleActive = async (id: string, currentActive: boolean) => {
     try {
-      const { error } = await supabase
-        .from('recurring_match_templates')
-        .update({ is_active: !currentActive })
-        .eq('id', id);
+      const response = await fetch('/api/admin/recurring-templates', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+          is_active: !currentActive,
+        }),
+      });
 
-      if (error) {
-        console.error('템플릿 활성화 변경 오류:', error);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        console.error('템플릿 활성화 변경 오류:', payload);
         alert('템플릿 활성화 변경 중 오류가 발생했습니다.');
         return;
       }
@@ -231,13 +242,13 @@ export default function RecurringMatchPage() {
     }
 
     try {
-      const { error } = await supabase
-        .from('recurring_match_templates')
-        .delete()
-        .eq('id', id);
+      const response = await fetch(`/api/admin/recurring-templates?id=${id}`, {
+        method: 'DELETE',
+      });
 
-      if (error) {
-        console.error('템플릿 삭제 오류:', error);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        console.error('템플릿 삭제 오류:', payload);
         alert('템플릿 삭제 중 오류가 발생했습니다.');
         return;
       }
@@ -248,6 +259,7 @@ export default function RecurringMatchPage() {
 
     } catch (error) {
       console.error('템플릿 삭제 중 오류:', error);
+      alert('템플릿 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -343,7 +355,7 @@ export default function RecurringMatchPage() {
             </Button>
           </div>
           <p className="mb-6 text-sm text-gray-500">
-            선택 실행은 각 템플릿의 가장 가까운 다음 일정을 1건씩 우선 생성합니다.
+            선택 실행은 각 템플릿에 설정된 미리 생성할 일 수(Advance Days) 범위 내의 모든 일정을 생성합니다.
           </p>
 
           {generationResult && (

@@ -13,6 +13,19 @@ type CreateRecurringTemplatePayload = {
   advance_days?: number;
 };
 
+type UpdateRecurringTemplatePayload = {
+  id: string;
+  name?: string;
+  description?: string | null;
+  day_of_week?: number;
+  start_time?: string;
+  end_time?: string;
+  location?: string;
+  max_participants?: number;
+  advance_days?: number;
+  is_active?: boolean;
+};
+
 const VALID_DAYS = new Set([0, 1, 2, 3, 4, 5, 6]);
 
 export async function POST(req: Request) {
@@ -73,6 +86,104 @@ export async function POST(req: Request) {
     return NextResponse.json({ created: rows.length });
   } catch (error) {
     console.error('Recurring template API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const supabase = await getSupabaseServerClient();
+    const adminSupabase = getSupabaseAdminClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!(await isUserAdmin(supabase, user))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const body = (await req.json()) as UpdateRecurringTemplatePayload;
+    const { id, ...updateFields } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing template ID' }, { status: 400 });
+    }
+
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    };
+
+    if (updateFields.name !== undefined) updateData.name = updateFields.name.trim();
+    if (updateFields.description !== undefined) updateData.description = updateFields.description?.trim() || null;
+    if (updateFields.day_of_week !== undefined && VALID_DAYS.has(updateFields.day_of_week)) updateData.day_of_week = updateFields.day_of_week;
+    if (updateFields.start_time !== undefined) updateData.start_time = updateFields.start_time;
+    if (updateFields.end_time !== undefined) updateData.end_time = updateFields.end_time;
+    if (updateFields.location !== undefined) updateData.location = updateFields.location.trim();
+    if (updateFields.max_participants !== undefined) updateData.max_participants = updateFields.max_participants;
+    if (updateFields.advance_days !== undefined) updateData.advance_days = updateFields.advance_days;
+    if (updateFields.is_active !== undefined) updateData.is_active = updateFields.is_active;
+
+    const { error: updateError } = await adminSupabase
+      .from('recurring_match_templates')
+      .update(updateData)
+      .eq('id', id);
+
+    if (updateError) {
+      console.error('Recurring template update error:', updateError);
+      return NextResponse.json({ error: 'Failed to update template' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Recurring template PUT API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const supabase = await getSupabaseServerClient();
+    const adminSupabase = getSupabaseAdminClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!(await isUserAdmin(supabase, user))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing template ID' }, { status: 400 });
+    }
+
+    const { error: deleteError } = await adminSupabase
+      .from('recurring_match_templates')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      console.error('Recurring template delete error:', deleteError);
+      return NextResponse.json({ error: 'Failed to delete template' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Recurring template DELETE API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

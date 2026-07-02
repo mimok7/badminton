@@ -1,9 +1,10 @@
 import { Player, Match, Team } from '@/types';
 import { getTeamScore, getTeamFairnessScore, getTeamMatchScore, jitter, getMinimumMatchCount, countUniquePlayersInMatches, reorderMatchesToAvoidConsecutive, MAX_TEAM_SCORE_DIFF } from './match-helpers';
 
-export function createBalancedDoublesMatches(players: Player[], numberOfCourts: number, minGamesPerPlayer = 1): Match[] {
-  if (!Array.isArray(players) || players.length < 4 || numberOfCourts <= 0) return [];
+export function createBalancedDoublesMatches(playersInput: Player[], numberOfCourts: number, minGamesPerPlayer = 1): Match[] {
+  if (!Array.isArray(playersInput) || playersInput.length < 4 || numberOfCourts <= 0) return [];
 
+  const players = [...playersInput].sort((a, b) => a.id.localeCompare(b.id));
   const normalized = players.map(p => ({ ...p, skill_level: (p.skill_level || 'E2').toUpperCase() }));
 
   // 레벨(점수) 높은 순서로 정렬 - 고수부터 배정
@@ -23,13 +24,13 @@ export function createBalancedDoublesMatches(players: Player[], numberOfCourts: 
         teams.push({ team, score: getTeamScore(team), fairness: getTeamFairnessScore(team) });
       }
     }
-    // prefer teams composed of players who have been used less
+    // 결정론적 정렬을 통해 동일한 조건에서 항상 일관성 있는 팀 선택 보장
     teams.sort((a, b) => {
-      const f = (b.fairness + jitter(0.25)) - (a.fairness + jitter(0.25));
-      if (Math.abs(f) > 0.5) return f;
-      const s = (b.score + jitter(0.25)) - (a.score + jitter(0.25));
-      if (Math.abs(s) > 0.5) return s;
-      return Math.random() < 0.5 ? -1 : 1;
+      if (b.fairness !== a.fairness) return b.fairness - a.fairness;
+      if (b.score !== a.score) return b.score - a.score;
+      const idA = [a.team.player1.id, a.team.player2.id].sort().join('-');
+      const idB = [b.team.player1.id, b.team.player2.id].sort().join('-');
+      return idA.localeCompare(idB);
     });
     return teams;
   };
@@ -60,10 +61,17 @@ export function createBalancedDoublesMatches(players: Player[], numberOfCourts: 
         candidates.push({ team: t2.team, score: t2.score, diff, index: j });
       }
       if (candidates.length > 0) {
-        candidates.sort((a, b) => a.diff - b.diff);
-        const K = Math.min(3, candidates.length);
-        const picked = candidates[Math.floor(Math.random() * K)];
-        matches.push({ id: `match-balanced-d-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, team1: t1.team, team2: picked.team, court });
+        // 결정론적 tie-breaking 정렬
+        candidates.sort((a, b) => {
+          if (a.diff !== b.diff) return a.diff - b.diff;
+          const idA = [a.team.player1.id, a.team.player2.id].sort().join('-');
+          const idB = [b.team.player1.id, b.team.player2.id].sort().join('-');
+          return idA.localeCompare(idB);
+        });
+        const picked = candidates[0]; // 가장 균형이 잘 맞는 상대를 고정 선택
+        
+        const matchId = `match-balanced-d-${Date.now()}-${court}-${t1.team.player1.id.slice(0, 4)}-${picked.team.player1.id.slice(0, 4)}-${Math.random().toString(36).slice(2, 6)}`;
+        matches.push({ id: matchId, team1: t1.team, team2: picked.team, court });
         used.add(p1); used.add(p2); used.add(picked.team.player1.id); used.add(picked.team.player2.id);
         court += 1;
       }
@@ -75,7 +83,7 @@ export function createBalancedDoublesMatches(players: Player[], numberOfCourts: 
   const counts: Record<string, number> = {};
   normalized.forEach(p => { counts[p.id] = 0; });
 
-  // helper to pick the best pairing among 4 players such that team score diff <= 1 if possible
+  // helper to pick the best pairing among 4 players such that team score diff is minimized
   const bestBalancedPairs = (four: Player[]): { t1: Team; t2: Team } | null => {
     if (four.length !== 4) return null;
     const combos: [Team, Team][] = [
@@ -83,12 +91,7 @@ export function createBalancedDoublesMatches(players: Player[], numberOfCourts: 
       [ { player1: four[0], player2: four[2] }, { player1: four[1], player2: four[3] } ],
       [ { player1: four[0], player2: four[3] }, { player1: four[1], player2: four[2] } ],
     ];
-    // first try to find any with diff <= MAX_TEAM_SCORE_DIFF
-    for (const [a, b] of combos) {
-      const diff = Math.abs(getTeamScore(a) - getTeamScore(b));
-      if (diff <= MAX_TEAM_SCORE_DIFF) return { t1: a, t2: b };
-    }
-    // otherwise pick the minimum-diff combination to avoid deadlock
+
     let best: { t1: Team; t2: Team } | null = null;
     let bestDiff = Number.POSITIVE_INFINITY;
     for (const [a, b] of combos) {
@@ -111,185 +114,104 @@ export function createBalancedDoublesMatches(players: Player[], numberOfCourts: 
   console.log(`  - 목표 경기수: 최소 ${targetMatches}개 (${totalPlayers}명 × ${minGamesPerPlayer}회 ÷ 4)`);
 
   let attempts = 0;
-  const maxAttempts = Math.max(100, players.length * minGamesPerPlayer * 10);
-  const needsMore = () => normalized.some(p => counts[p.id] < minGamesPerPlayer);
+  const maxAttempts = targetMatches * 5;
   
-  while (needsMore() && attempts < maxAttempts) {
-    // 경기 수가 가장 적은 선수들을 우선으로 선택 (반드시 4명)
-    let needPlayers = normalized.filter(p => counts[p.id] < minGamesPerPlayer)
-      .sort((a, b) => {
-        const countDiff = counts[a.id] - counts[b.id]; // 경기 수 적은 순 (우선순위 1)
-        if (countDiff !== 0) return countDiff;
-        return getPlayerScore(b) - getPlayerScore(a); // 레벨 높은 순 (우선순위 2)
-      });
-    
-    // 미달자가 4명 미만이면 경기 수 적은 다른 선수로 보충
-    if (needPlayers.length < 4) {
-      const others = normalized.filter(p => !needPlayers.find(x => x.id === p.id))
-        .sort((a, b) => {
-          const countDiff = counts[a.id] - counts[b.id];
-          if (countDiff !== 0) return countDiff;
-          return getPlayerScore(b) - getPlayerScore(a);
+  while (result.length < targetMatches && attempts < maxAttempts) {
+    const pool = [...normalized].sort((a, b) => {
+      const countDiff = counts[a.id] - counts[b.id];
+      if (countDiff !== 0) return countDiff;
+      // 난수를 약간 섞어 매 클릭마다 다른 결과가 나오되 레벨이 비슷한 선수들끼리 묶이도록 함
+      const scoreA = getPlayerScore(a) + (Math.random() * 2 - 1);
+      const scoreB = getPlayerScore(b) + (Math.random() * 2 - 1);
+      return scoreB - scoreA;
+    });
+
+    const minCount = counts[pool[0].id];
+    const minCountPlayers = pool.filter(p => counts[p.id] === minCount);
+
+    const numMatchesToGenerate = Math.floor(minCountPlayers.length / 4);
+
+    if (numMatchesToGenerate > 0) {
+      let bestSchedule: Match[] = [];
+      let bestMaxDiff = Number.POSITIVE_INFINITY;
+      
+      const iterations = 500;
+      for (let iter = 0; iter < iterations; iter++) {
+        // 레벨순 기반이되 약간의 랜덤성을 크게 주어 다양한 조합 탐색
+        const shuffled = [...minCountPlayers].sort((a, b) => {
+           const scoreA = getPlayerScore(a) + (Math.random() * 6 - 3);
+           const scoreB = getPlayerScore(b) + (Math.random() * 6 - 3);
+           return scoreB - scoreA;
         });
-      for (const p of others) {
-        if (needPlayers.length < 4) needPlayers.push(p);
-      }
-    }
-    
-    if (needPlayers.length < 4) {
-      console.warn('⚠️ 경기 생성 중단: 4명 미만');
-      break;
-    }
-    
-    const { matches: round } = createRound(needPlayers, numberOfCourts);
-    
-    if (!round || round.length === 0) {
-      attempts += 1;
-      continue;
-    }
-    
-    // 경기 추가 및 카운트 업데이트
-    for (const m of round) {
-      result.push(m);
-      counts[m.team1.player1.id] = (counts[m.team1.player1.id] || 0) + 1;
-      counts[m.team1.player2.id] = (counts[m.team1.player2.id] || 0) + 1;
-      counts[m.team2.player1.id] = (counts[m.team2.player1.id] || 0) + 1;
-      counts[m.team2.player2.id] = (counts[m.team2.player2.id] || 0) + 1;
-    }
-    
-    attempts += 1;
-  }
 
-  // 최우선: 0회 경기 선수를 절대 남기지 않음 (제한 없음)
-  let zeroAttempts = 0;
-  const maxZeroAttempts = Math.max(50, normalized.length * 3);
-  
-  while (normalized.some(p => counts[p.id] === 0) && zeroAttempts < maxZeroAttempts) {
-    const zeroGamePlayers = normalized.filter(p => counts[p.id] === 0)
-      .sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
-    
-    if (zeroGamePlayers.length === 0) break;
-    
-    console.warn(`⚠️ 0회 경기 선수 발견: ${zeroGamePlayers.length}명`);
-    console.warn(`   선수: ${zeroGamePlayers.slice(0, 5).map(p => `${p.name}(${p.skill_level})`).join(', ')}${zeroGamePlayers.length > 5 ? '...' : ''}`);
-    
-    // 0회 선수 중 첫 2명 + 경기 수 적은 다른 선수 2명으로 구성
-    const picks: Player[] = [];
-    
-    // 0회 선수 최대 2명 포함 (서로 다른 팀에 배치되도록)
-    picks.push(zeroGamePlayers[0]);
-    if (zeroGamePlayers.length > 1) picks.push(zeroGamePlayers[1]);
-    
-    // 나머지는 경기 수가 적은 다른 선수로 채우기
-    const others = normalized
-      .filter(p => !picks.find(x => x.id === p.id))
-      .sort((a, b) => {
-        const countDiff = counts[a.id] - counts[b.id];
-        if (countDiff !== 0) return countDiff;
-        return getPlayerScore(b) - getPlayerScore(a);
-      });
-    
-    for (const p of others) {
-      if (picks.length < 4) picks.push(p);
-    }
-    
-    if (picks.length < 4) {
-      console.warn('⚠️ 0회 선수 매칭 실패: 4명 미만');
-      break;
-    }
-    
-    // 스킬 레벨로 정렬하여 균형잡힌 페어링
-    const bySkill = [...picks].sort((a, b) => getPlayerScore(a) - getPlayerScore(b));
-    const pairing = bestBalancedPairs([bySkill[0], bySkill[1], bySkill[2], bySkill[3]]);
-    
-    if (!pairing) {
-      console.warn('⚠️ 0회 선수 페어링 실패');
-      zeroAttempts++;
-      continue;
-    }
-    
-    result.push({ 
-      id: `match-zero-cover-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, 
-      team1: pairing.t1, 
-      team2: pairing.t2, 
-      court: (result.length % numberOfCourts) + 1 
-    });
-    
-    [pairing.t1.player1.id, pairing.t1.player2.id, pairing.t2.player1.id, pairing.t2.player2.id].forEach(id => {
-      counts[id] = (counts[id] || 0) + 1;
-    });
-    
-    zeroAttempts++;
-  }
-
-  // 미달 선수가 여전히 있으면 추가 경기 생성
-  if (normalized.some(p => counts[p.id] < minGamesPerPlayer)) {
-    let remaining = [...normalized]
-      .filter(p => counts[p.id] < minGamesPerPlayer)
-      .sort((a, b) => {
-        const countDiff = counts[a.id] - counts[b.id];
-        if (countDiff !== 0) return countDiff;
-        return getPlayerScore(b) - getPlayerScore(a);
-      });
-    
-    let retryCount = 0;
-    const maxRetry = Math.max(30, remaining.length * 2);
-    
-    while (remaining.length >= 4 && retryCount < maxRetry) {
-      const { matches: round, used } = createRound(remaining, numberOfCourts);
-      
-      if (round.length === 0) {
-        retryCount++;
-        continue;
+        let maxDiff = 0;
+        const currentSchedule: Match[] = [];
+        
+        for (let i = 0; i < numMatchesToGenerate; i++) {
+          const four = shuffled.slice(i * 4, i * 4 + 4);
+          const { matches: round } = createRound(four, 1);
+          if (round && round.length > 0) {
+            const m = round[0];
+            const diff = Math.abs(getTeamScore(m.team1) - getTeamScore(m.team2));
+            if (diff > maxDiff) maxDiff = diff;
+            currentSchedule.push(m);
+          } else {
+            const pairing = bestBalancedPairs(four);
+            if (pairing) {
+              const diff = Math.abs(getTeamScore(pairing.t1) - getTeamScore(pairing.t2));
+              if (diff > maxDiff) maxDiff = diff;
+              currentSchedule.push({
+                id: `match-forced-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
+                team1: pairing.t1,
+                team2: pairing.t2,
+                court: 1
+              });
+            }
+          }
+        }
+        
+        if (currentSchedule.length === numMatchesToGenerate && maxDiff < bestMaxDiff) {
+          bestMaxDiff = maxDiff;
+          bestSchedule = currentSchedule;
+        }
       }
       
-      for (const m of round) {
+      for (const m of bestSchedule) {
+        m.court = (result.length % numberOfCourts) + 1;
         result.push(m);
-        counts[m.team1.player1.id]++; 
-        counts[m.team1.player2.id]++; 
-        counts[m.team2.player1.id]++; 
+        counts[m.team1.player1.id]++;
+        counts[m.team1.player2.id]++;
+        counts[m.team2.player1.id]++;
         counts[m.team2.player2.id]++;
       }
-      
-      remaining = remaining.filter(p => !used.has(p.id) && counts[p.id] < minGamesPerPlayer);
-      retryCount++;
-    }
-  }
-
-
-
-  // ✅ 모든 선수가 최소 1회 참여했는지 최종 확인
-  const stillZero = normalized.filter(p => counts[p.id] === 0);
-  if (stillZero.length > 0) {
-    console.error(`❌ 여전히 0회 선수 발견: ${stillZero.length}명 → 강제 포함 처리`);
-    
-    // 마지막 시도: 0회 선수들을 강제로 포함
-    for (const zeroPlayer of stillZero) {
-      // 경기 수가 가장 많은 선수 2명 찾기 (그들과 함께 경기할 사람)
-      const partners = normalized
-        .filter(p => p.id !== zeroPlayer.id)
-        .sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0))
-        .slice(0, 2);
-      
-      if (partners.length < 2) {
-        console.warn(`⚠️ 0회 선수 ${zeroPlayer.name} 강제 포함 실패: 파트너 부족`);
-        continue;
-      }
-      
-      // 파트너 중 경기 수가 많은 순서로 정렬하여 페어링
-      const byCount = [...partners].sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0));
-      const pairing = bestBalancedPairs([zeroPlayer, byCount[0], byCount[1], normalized[0]]);
-      
-      if (pairing) {
-        result.push({
-          id: `match-final-rescue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          team1: pairing.t1,
-          team2: pairing.t2,
-          court: (result.length % numberOfCourts) + 1
-        });
-        counts[zeroPlayer.id]++;
+    } else {
+      const candidates = pool.slice(0, 4);
+      const { matches: round } = createRound(candidates, 1);
+      if (round && round.length > 0) {
+        const m = round[0];
+        m.court = (result.length % numberOfCourts) + 1;
+        result.push(m);
+        counts[m.team1.player1.id]++;
+        counts[m.team1.player2.id]++;
+        counts[m.team2.player1.id]++;
+        counts[m.team2.player2.id]++;
+      } else {
+        const pairing = bestBalancedPairs(candidates);
+        if (pairing) {
+          result.push({
+            id: `match-forced-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
+            team1: pairing.t1,
+            team2: pairing.t2,
+            court: (result.length % numberOfCourts) + 1
+          });
+          counts[pairing.t1.player1.id]++;
+          counts[pairing.t1.player2.id]++;
+          counts[pairing.t2.player1.id]++;
+          counts[pairing.t2.player2.id]++;
+        }
       }
     }
+    attempts++;
   }
 
   // 최종 검증 및 상세 로깅

@@ -4,9 +4,10 @@ import { getTeamFairnessScore, getTeamMatchScore, getTeamScore, jitter, reorderM
 const isMale = (p: Player) => (p.gender || '').toLowerCase() === 'm' || (p.gender || '').toLowerCase() === 'male' || (p.gender || '').toLowerCase() === 'man';
 const isFemale = (p: Player) => (p.gender || '').toLowerCase() === 'f' || (p.gender || '').toLowerCase() === 'female' || (p.gender || '').toLowerCase() === 'woman' || (p.gender || '').toLowerCase() === 'w';
 
-export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfCourts: number, minGamesPerPlayer = 1): Match[] {
-  if (!Array.isArray(players) || players.length < 4 || numberOfCourts <= 0) return [];
+export function createMixedAndSameSexDoublesMatches(playersInput: Player[], numberOfCourts: number, minGamesPerPlayer = 1): Match[] {
+  if (!Array.isArray(playersInput) || playersInput.length < 4 || numberOfCourts <= 0) return [];
 
+  const players = [...playersInput].sort((a, b) => a.id.localeCompare(b.id));
   const counts: Record<string, number> = {};
   players.forEach(p => { counts[p.id] = 0; });
   const result: Match[] = [];
@@ -147,7 +148,7 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
     }
 
     return {
-      id: `match-mixed-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      id: `match-mixed-${Date.now()}-${result.length}-${bestSelection.team1.player1.id.slice(0, 4)}`,
       team1: bestSelection.team1,
       team2: bestSelection.team2,
       court: (result.length % numberOfCourts) + 1,
@@ -161,38 +162,75 @@ export function createMixedAndSameSexDoublesMatches(players: Player[], numberOfC
     });
   };
 
-  let primaryGuard = 0;
-  const maxPrimaryIterations = Math.max(100, players.length * players.length);
-  while (needsMore() && primaryGuard < maxPrimaryIterations) {
-    const primaryPool = players.filter((player) => (counts[player.id] || 0) < minGamesPerPlayer);
-    if (primaryPool.length < 4) {
-      break;
+  let attempts = 0;
+  const maxAttempts = targetMatches * 5;
+  
+  while (result.length < targetMatches && attempts < maxAttempts) {
+    const pool = [...players].sort((a, b) => {
+      const countDiff = counts[a.id] - counts[b.id];
+      if (countDiff !== 0) return countDiff;
+      return Math.random() - 0.5;
+    });
+
+    const minCount = counts[pool[0].id];
+    const minCountPlayers = pool.filter(p => counts[p.id] === minCount);
+
+    const numMatchesToGenerate = Math.floor(minCountPlayers.length / 4);
+
+    if (numMatchesToGenerate > 0) {
+      let bestSchedule: Match[] = [];
+      let bestMaxDiff = Number.POSITIVE_INFINITY;
+      
+      const iterations = 500;
+      for (let iter = 0; iter < iterations; iter++) {
+        const shuffled = [...minCountPlayers].sort(() => Math.random() - 0.5);
+        let maxDiff = 0;
+        const currentSchedule: Match[] = [];
+        
+        for (let i = 0; i < numMatchesToGenerate; i++) {
+          const four = shuffled.slice(i * 4, i * 4 + 4);
+          let match = pickBestMatch(four, true);
+          if (!match) {
+            match = {
+              id: `match-mixed-forced-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
+              team1: { player1: four[0], player2: four[1] },
+              team2: { player1: four[2], player2: four[3] },
+              court: 1,
+            };
+          }
+          const diff = Math.abs(getTeamScore(match.team1) - getTeamScore(match.team2));
+          if (diff > maxDiff) maxDiff = diff;
+          currentSchedule.push(match);
+        }
+        
+        if (currentSchedule.length === numMatchesToGenerate && maxDiff < bestMaxDiff) {
+          bestMaxDiff = maxDiff;
+          bestSchedule = currentSchedule;
+        }
+      }
+      
+      for (const match of bestSchedule) {
+        match.id = `match-mixed-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`;
+        match.court = (result.length % numberOfCourts) + 1;
+        applyMatch(match);
+      }
+    } else {
+      const candidates = pool.slice(0, 4);
+      let nextMatch = pickBestMatch(candidates, true);
+      if (!nextMatch) {
+        nextMatch = {
+          id: `match-mixed-forced-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
+          team1: { player1: candidates[0], player2: candidates[1] },
+          team2: { player1: candidates[2], player2: candidates[3] },
+          court: (result.length % numberOfCourts) + 1,
+        };
+      } else {
+        nextMatch.id = `match-mixed-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`;
+      }
+      applyMatch(nextMatch);
     }
-
-    const nextMatch = pickBestMatch(primaryPool, false);
-    if (!nextMatch) {
-      break;
-    }
-
-    applyMatch(nextMatch);
-    primaryGuard++;
-  }
-
-  let rescueGuard = 0;
-  const maxRescueIterations = Math.max(100, players.length * players.length);
-  while (needsMore() && rescueGuard < maxRescueIterations) {
-    const rescuePool = players.filter((player) => (counts[player.id] || 0) < maxGamesPerPlayer);
-    if (rescuePool.length < 4) {
-      break;
-    }
-
-    const rescueMatch = pickBestMatch(rescuePool, true);
-    if (!rescueMatch) {
-      break;
-    }
-
-    applyMatch(rescueMatch);
-    rescueGuard++;
+    
+    attempts++;
   }
 
   // 최종 검증 및 상세 로깅

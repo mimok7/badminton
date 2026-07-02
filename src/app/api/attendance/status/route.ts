@@ -18,7 +18,11 @@ function isAttendanceStatus(value: unknown): value is AttendanceStatus {
 }
 
 async function resolveProfileId() {
-  const serverSupabase = await getSupabaseServerClient();
+  const [serverSupabase, adminSupabase] = await Promise.all([
+    getSupabaseServerClient(),
+    Promise.resolve(getSupabaseAdminClient()),
+  ]);
+
   const {
     data: { user },
     error: userError,
@@ -28,12 +32,10 @@ async function resolveProfileId() {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  const adminSupabase = getSupabaseAdminClient();
   const { data: profile, error: profileError } = await adminSupabase
     .from('profiles')
     .select('id, user_id')
-    .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-    .order('updated_at', { ascending: false })
+    .eq('user_id', user.id)
     .limit(1)
     .maybeSingle();
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { RequireAdmin } from '@/components/AuthGuard';
 import { useUser } from '@/hooks/useUser';
 import { SECTIONS } from './menuConfig';
@@ -83,9 +83,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     }
   };
 
+  const visibleSections = useMemo(() => {
+    if (profile?.role === 'manager') {
+      return SECTIONS.filter(section => 
+        section.title.includes('경기 관리') || section.title.includes('대회 관리')
+      );
+    }
+    return SECTIONS;
+  }, [profile?.role]);
+
   const sidebarNav = (
     <nav className="p-3 space-y-2">
-      {SECTIONS.map((section) => {
+      {visibleSections.map((section) => {
         const colors = getGroupColors(section.color);
         return (
           <div key={section.title} className={`mb-5 rounded-xl ${colors.bg} p-3`}>

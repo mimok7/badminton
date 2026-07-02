@@ -9,6 +9,7 @@ export interface ScheduledMatchView {
   court_name?: string | null;
   location?: string | null;
   status: string;
+  referee_id?: string | null;
   match_result?: {
     winner?: 'team1' | 'team2';
     score?: string;

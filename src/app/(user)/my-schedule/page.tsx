@@ -529,8 +529,14 @@ export default function MySchedulePage() {
         });
       }
 
-      // 날짜순 정렬
-      matchesWithDetails.sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime());
+      // 날짜 및 시간순 정렬
+      matchesWithDetails.sort((a, b) => {
+        const dateDiff = new Date(a.match_date).getTime() - new Date(b.match_date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        const timeA = a.start_time || '23:59';
+        const timeB = b.start_time || '23:59';
+        return timeA.localeCompare(timeB);
+      });
 
       setMyMatches(matchesWithDetails);
       

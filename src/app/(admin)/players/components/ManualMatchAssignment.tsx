@@ -163,7 +163,7 @@ export default function ManualMatchAssignment({
         <div className="p-6 space-y-6">
           {presentPlayers.length < 4 ? (
             <div className="text-gray-600 text-center py-8">
-              출석한 선수가 4명 이상이어야 수동 배정이 가능합니다. (현재: {presentPlayers.length}명)
+              등록된 참가 선수가 4명 이상이어야 수동 배정이 가능합니다. (현재: {presentPlayers.length}명)
             </div>
           ) : (
             <>

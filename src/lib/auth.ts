@@ -79,7 +79,8 @@ export async function getProfileByUserId(
   supabase: ProfileLookupClient,
   userId: string
 ): Promise<AppProfile | null> {
-  const { data, error } = await supabase
+  // Fast path: try exact user_id match first (most common case)
+  const { data: exactMatch, error: exactError } = await supabase
     .from('profiles')
     .select(`
       id,
@@ -99,52 +100,55 @@ export async function getProfileByUserId(
       coin_updated_at,
       level_info:level_info!skill_level(name)
     `)
-    .or(`user_id.eq.${userId},id.eq.${userId}`)
-    .order('updated_at', { ascending: false });
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle();
 
-  if (error) {
-    console.error('Profile lookup error:', error);
+  if (!exactError && exactMatch) {
+    return {
+      ...(exactMatch as any),
+      skill_level_name: (exactMatch as any)?.level_info?.name || null,
+    } as AppProfile;
+  }
+
+  // Fallback: try by profile id
+  const { data: idMatch, error: idError } = await supabase
+    .from('profiles')
+    .select(`
+      id,
+      user_id,
+      username,
+      full_name,
+      email,
+      role,
+      skill_level,
+      gender,
+      avatar_url,
+      created_at,
+      updated_at,
+      coin_balance,
+      coin_wins,
+      coin_losses,
+      coin_updated_at,
+      level_info:level_info!skill_level(name)
+    `)
+    .eq('id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (idError) {
+    console.error('Profile lookup error:', idError);
     return null;
   }
 
-  const profiles = Array.isArray(data)
-    ? (data as any[]).map((profile) => ({
-        ...profile,
-        skill_level_name: profile?.level_info?.name || null,
-      })) as AppProfile[]
-    : data
-      ? [{
-          ...(data as any),
-          skill_level_name: (data as any)?.level_info?.name || null,
-        } as AppProfile]
-      : [];
-
-  if (profiles.length === 0) {
+  if (!idMatch) {
     return null;
   }
 
-  if (profiles.length > 1) {
-    console.warn('Multiple profiles matched the same user id, selecting the best candidate.', {
-      userId,
-      profileIds: profiles.map((profile) => profile.id),
-    });
-  }
-
-  const rankedProfiles = [...profiles].sort((left, right) => {
-    const score = (profile: AppProfile) => {
-      let value = 0;
-
-      if (profile.user_id === userId) value += 4;
-      if (profile.id === userId) value += 2;
-      if (isAdminRole(profile.role)) value += 1;
-
-      return value;
-    };
-
-    return score(right) - score(left);
-  });
-
-  return rankedProfiles[0] ?? null;
+  return {
+    ...(idMatch as any),
+    skill_level_name: (idMatch as any)?.level_info?.name || null,
+  } as AppProfile;
 }
 
 export async function getUserRole(

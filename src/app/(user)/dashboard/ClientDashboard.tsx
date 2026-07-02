@@ -178,7 +178,6 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         const [
           { count: playersCount },
           { count: matchCount },
-          myMatches,
           allMatches,
           attendanceResponse,
           coinSettingsResponse,
@@ -191,11 +190,15 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
             .from('match_schedules')
             .select('*', { count: 'exact', head: true })
             .eq('match_date', today),
-          fetchScheduledMatchesForDate(supabase, today, userId),
           fetchScheduledMatchesForDate(supabase, today),
           fetch(`/api/attendance/status?date=${today}`),
           fetch('/api/coin-settings', { credentials: 'include' }),
         ]);
+
+        // Filter user's matches client-side instead of making a second API call
+        const myMatches = allMatches.filter(match =>
+          [match.team1_player1, match.team1_player2, match.team2_player1, match.team2_player2].includes(userId)
+        );
 
         const attendancePayload = await attendanceResponse.json().catch(() => null);
         const coinSettingsPayload = await coinSettingsResponse.json().catch(() => null);
@@ -239,22 +242,27 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const displayName = rawDisplayName;
   const levelLabel = profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정');
   const prioritizedAssignedMatches = [...todayAssignedMatches].sort((left, right) => {
-    const statusDiff = getMatchStatusPriority(left.status) - getMatchStatusPriority(right.status);
-    if (statusDiff !== 0) return statusDiff;
+    const timeL = left.match_time || '23:59';
+    const timeR = right.match_time || '23:59';
+    if (timeL !== timeR) return timeL.localeCompare(timeR);
     const matchNumberDiff = (left.match_number ?? 9999) - (right.match_number ?? 9999);
     if (matchNumberDiff !== 0) return matchNumberDiff;
     return (left.court_number || 0) - (right.court_number || 0);
   });
-  const topMatch = prioritizedAssignedMatches[0];
+  
+  // 첫 번째로 진행해야 할 경기 (완료/취소되지 않은 가장 빠른 경기)
+  const topMatch = prioritizedAssignedMatches.find(m => m.status !== 'completed' && m.status !== 'cancelled') || prioritizedAssignedMatches[0];
+  
   const topMatchOrder = topMatch
     ? topMatch.match_number ?? (todayAllMatches.findIndex((match) => match.id === topMatch.id) + 1)
     : 0;
+    
   const hasEditableTopMatch = Boolean(
     topMatch?.generated_match_id &&
       user?.id &&
-      topMatch.status !== 'completed' &&
-      topMatch.status !== 'cancelled',
+      (topMatch.status === 'in_progress' || topMatch.status === 'scheduled')
   );
+  
   const canSaveTopMatchDraft = topMatchScore1.trim().length > 0 && topMatchScore2.trim().length > 0;
   const canCompleteTopMatch = canSaveTopMatchDraft;
   const showTopMatchBetCard = hasEditableTopMatch && topMatch?.status === 'scheduled' && coinSettlementMode === 'zero_sum';
@@ -557,13 +565,13 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
 
           {topMatch ? (
             <div className="mt-4 space-y-3">
-              {prioritizedAssignedMatches.map((match) => {
-                const matchOrder = match.match_number ?? (todayAllMatches.findIndex((item) => item.id === match.id) + 1);
+              {prioritizedAssignedMatches.map((match, index) => {
+                const matchOrder = index + 1;
                 const statusMeta = getMatchStatusMeta(match.status);
                 const isCurrentEditableMatch =
-                  topMatch.id === match.id && hasEditableTopMatch && match.status === 'in_progress';
+                  topMatch?.id === match.id && hasEditableTopMatch;
                 const showBetCardForMatch =
-                  topMatch.id === match.id && showTopMatchBetCard;
+                  topMatch?.id === match.id && showTopMatchBetCard;
 
                 return (
                   <div key={match.id} className="rounded-[20px] bg-slate-50 p-4">
@@ -675,24 +683,13 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                           현재 점수 {topMatchScore1 || '0'} : {topMatchScore2 || '0'}
                         </div>
                         <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            void handleTopMatchDraftSave();
-                          }}
-                          disabled={topMatchDraftSaving || !canSaveTopMatchDraft}
-                          className="ml-auto h-8 rounded-xl px-3 text-xs"
-                        >
-                          {topMatchDraftSaving ? '저장 중...' : '저장'}
-                        </Button>
-                        <Button
                           onClick={() => {
                             void handleTopMatchResultSave();
                           }}
                           disabled={topMatchResultSaving || !canCompleteTopMatch}
-                          className="h-8 rounded-xl px-3 text-xs"
+                          className="ml-auto h-8 rounded-xl px-5 text-xs"
                         >
-                          {topMatchResultSaving ? '완료 처리 중...' : '완료'}
+                          {topMatchResultSaving ? '저장 중...' : '저장'}
                         </Button>
                       </div>
                     )}

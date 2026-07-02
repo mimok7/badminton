@@ -139,20 +139,41 @@ export async function GET(request: Request) {
     });
 
     const targetPlayerIds = Array.from(playerIds);
-    let profiles: ProfileRow[] = [];
 
-    if (targetPlayerIds.length > 0) {
-      const { data: profilesData, error: profilesError } = await adminSupabase
-        .from('profiles')
-        .select('id, user_id, username, full_name, skill_level, gender, coin_balance')
-        .in('id', targetPlayerIds);
+    // Run profiles, level_info, and courts queries in parallel
+    const [profilesResult, levelResult, courtsResult] = await Promise.all([
+      targetPlayerIds.length > 0
+        ? adminSupabase
+            .from('profiles')
+            .select('id, user_id, username, full_name, skill_level, gender, coin_balance')
+            .in('id', targetPlayerIds)
+        : Promise.resolve({ data: [] as ProfileRow[], error: null }),
+      adminSupabase
+        .from('level_info')
+        .select('code, name, score'),
+      adminSupabase
+        .from('courts')
+        .select('name, location, order_index')
+        .eq('is_active', true)
+        .order('order_index', { ascending: true, nullsFirst: true })
+        .order('name', { ascending: true }),
+    ]);
 
-      if (profilesError) {
-        console.error('Scheduled matches profiles error:', profilesError);
-        return NextResponse.json({ error: 'Failed to load player profiles' }, { status: 500 });
-      }
-      profiles = (profilesData || []) as ProfileRow[];
+    if (profilesResult.error) {
+      console.error('Scheduled matches profiles error:', profilesResult.error);
+      return NextResponse.json({ error: 'Failed to load player profiles' }, { status: 500 });
     }
+
+    if (levelResult.error) {
+      console.error('Scheduled matches level info error:', levelResult.error);
+      return NextResponse.json({ error: 'Failed to load level info' }, { status: 500 });
+    }
+
+    if (courtsResult.error) {
+      console.error('Scheduled matches active courts error:', courtsResult.error);
+    }
+
+    const profiles = (profilesResult.data || []) as ProfileRow[];
 
     const profileMap = new Map<string, ProfileRow>();
     profiles.forEach((profile) => {
@@ -160,16 +181,7 @@ export async function GET(request: Request) {
       if (profile.user_id) profileMap.set(profile.user_id, profile);
     });
 
-    const { data: levelRows, error: levelRowsError } = await adminSupabase
-      .from('level_info')
-      .select('code, name, score');
-
-    if (levelRowsError) {
-      console.error('Scheduled matches level info error:', levelRowsError);
-      return NextResponse.json({ error: 'Failed to load level info' }, { status: 500 });
-    }
-
-    const levelInfoMap = (levelRows || []).reduce<LevelInfoMap>((acc, row: any) => {
+    const levelInfoMap = (levelResult.data || []).reduce<LevelInfoMap>((acc, row: any) => {
       if (row.code) {
         acc[String(row.code).trim().toLowerCase()] = {
           name: row.name || row.code,
@@ -178,6 +190,14 @@ export async function GET(request: Request) {
       }
       return acc;
     }, {});
+
+    const courtByNumber = new Map<number, { name: string | null; location: string | null }>();
+    (courtsResult.data || []).forEach((court: any, index: number) => {
+      courtByNumber.set(index + 1, {
+        name: court.name || null,
+        location: court.location || null,
+      });
+    });
 
     const filterIds = userId
       ? Array.from(
@@ -188,25 +208,6 @@ export async function GET(request: Request) {
           )
         )
       : [];
-
-    const { data: activeCourts, error: activeCourtsError } = await adminSupabase
-      .from('courts')
-      .select('name, location, order_index')
-      .eq('is_active', true)
-      .order('order_index', { ascending: true, nullsFirst: true })
-      .order('name', { ascending: true });
-
-    if (activeCourtsError) {
-      console.error('Scheduled matches active courts error:', activeCourtsError);
-    }
-
-    const courtByNumber = new Map<number, { name: string | null; location: string | null }>();
-    (activeCourts || []).forEach((court, index) => {
-      courtByNumber.set(index + 1, {
-        name: court.name || null,
-        location: court.location || null,
-      });
-    });
 
     const generatedScheduleRows = scheduleRows.filter((schedule) => {
       if (typeof schedule.generated_match_id !== 'number') {
@@ -288,30 +289,22 @@ export async function GET(request: Request) {
     });
 
     matches.sort((left, right) => {
+      // 1. Sort by court number
+      const courtDiff = (left.court_number ?? 999) - (right.court_number ?? 999);
+      if (courtDiff !== 0) return courtDiff;
+
+      // 2. Within the same court, sort by scheduled_time (this is what we update with optimize)
+      const leftTime = left.match_time || '';
+      const rightTime = right.match_time || '';
+      const timeDiff = leftTime.localeCompare(rightTime, 'ko');
+      if (timeDiff !== 0) return timeDiff;
+
+      // 3. Fallback: description order
       const leftOrder = parseGeneratedDescriptionOrder(left.description);
       const rightOrder = parseGeneratedDescriptionOrder(right.description);
-
       const batchDiff = leftOrder.batch - rightOrder.batch;
-      if (batchDiff !== 0) {
-        return batchDiff;
-      }
-
-      const orderDiff = leftOrder.order - rightOrder.order;
-      if (orderDiff !== 0) {
-        return orderDiff;
-      }
-
-      const matchNumberDiff = (left.match_number ?? 9999) - (right.match_number ?? 9999);
-      if (matchNumberDiff !== 0) {
-        return matchNumberDiff;
-      }
-
-      const courtDiff = (left.court_number ?? 999) - (right.court_number ?? 999);
-      if (courtDiff !== 0) {
-        return courtDiff;
-      }
-
-      return (left.match_time || '').localeCompare(right.match_time || '', 'ko');
+      if (batchDiff !== 0) return batchDiff;
+      return leftOrder.order - rightOrder.order;
     });
 
     return NextResponse.json({ matches });

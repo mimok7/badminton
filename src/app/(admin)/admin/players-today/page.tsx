@@ -599,9 +599,9 @@ export default function PlayersTodayPage() {
     setLoading(true);
     try {
       const currentLevelInfoMap = await ensureLevelInfoMap();
-      const present = effectiveTodayPlayers.filter(p => p.status === 'present');
+      const present = effectiveTodayPlayers;
       if (present.length < 4) {
-        alert('최소 4명의 출석자가 필요합니다.');
+        alert('최소 4명의 참가자가 필요합니다.');
         return;
       }
       const playersForMatch = attachScoresWithMap(
@@ -640,7 +640,7 @@ export default function PlayersTodayPage() {
         }
       }
       
-      // 최종 검증: 모든 출석자가 포함되었는지 확인
+      // 최종 검증: 모든 참가자가 포함되었는지 확인
       const finalCounts = calculatePlayerGameCounts(generated);
       const stillMissing = playersForMatch.filter(p => (finalCounts[p.id] || 0) < perPlayerMinGames);
       
@@ -652,7 +652,7 @@ export default function PlayersTodayPage() {
       
       // 전체 참가자 통계 출력
       console.log('📊 레벨별 경기 생성 완료:');
-      console.log(`- 총 출석자: ${playersForMatch.length}명`);
+      console.log(`- 총 참가자: ${playersForMatch.length}명`);
       console.log(`- 생성된 경기: ${generated.length}개`);
       console.log(`- 목표 경기수: ${targetMatches}개`);
       console.log(`- 1인당 목표: ${perPlayerMinGames}경기`);
@@ -680,8 +680,8 @@ export default function PlayersTodayPage() {
     setLoading(true);
     try {
       const currentLevelInfoMap = await ensureLevelInfoMap();
-      const present = effectiveTodayPlayers.filter(p => p.status === 'present');
-      if (present.length < 4) { alert('최소 4명의 출석자가 필요합니다.'); return; }
+      const present = effectiveTodayPlayers;
+      if (present.length < 4) { alert('최소 4명의 참가자가 필요합니다.'); return; }
       // normalize levels for scoring
       const playersForMatch = attachScoresWithMap(
         present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }))
@@ -725,8 +725,8 @@ export default function PlayersTodayPage() {
     setLoading(true);
     try {
       const currentLevelInfoMap = await ensureLevelInfoMap();
-      const present = effectiveTodayPlayers.filter(p => p.status === 'present');
-      if (present.length < 4) { alert('최소 4명의 출석자가 필요합니다.'); return; }
+      const present = effectiveTodayPlayers;
+      if (present.length < 4) { alert('최소 4명의 참가자가 필요합니다.'); return; }
       const playersForMatch = attachScoresWithMap(
         present.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }))
         ,
@@ -768,8 +768,8 @@ export default function PlayersTodayPage() {
 
   const handleManualAssign = () => {
     if (!effectiveTodayPlayers) return;
-    const present = effectiveTodayPlayers.filter(p => p.status === 'present');
-    if (present.length < 4) { alert('최소 4명의 출석자가 필요합니다.'); return; }
+    const present = effectiveTodayPlayers;
+    if (present.length < 4) { alert('최소 4명의 참가자가 필요합니다.'); return; }
 
     // target matches 계산 및 빈 슬롯 생성
     const targetMatches = Math.ceil((present.length * perPlayerMinGames) / 4);
@@ -1217,7 +1217,7 @@ export default function PlayersTodayPage() {
           }}
           onAssignMatches={handleDirectAssign}
           isManualMode={isManualEditing}
-          presentPlayers={effectiveTodayPlayers?.filter(p => p.status === 'present') || []}
+          presentPlayers={effectiveTodayPlayers || []}
           onManualMatchChange={handleManualMatchChange}
         />
       </div>

@@ -65,14 +65,6 @@ export default function AdminPage() {
           </Link>
 
           <Link
-            href="/admin/members"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-purple-400 hover:bg-purple-50 sm:p-4"
-          >
-            <h3 className="text-sm font-medium text-gray-900 sm:text-base">👥 회원관리</h3>
-            <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">회원 정보와 권한을 관리하세요</p>
-          </Link>
-
-          <Link
             href="/admin/tournament-bracket"
             className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-indigo-400 hover:bg-indigo-50 sm:p-4"
           >
@@ -80,13 +72,25 @@ export default function AdminPage() {
             <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">대진표와 결과 현황을 확인하세요</p>
           </Link>
 
-          <Link
-            href="/manual"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-sky-400 hover:bg-sky-50 sm:p-4"
-          >
-            <h3 className="text-sm font-medium text-gray-900 sm:text-base">📖 사용설명서</h3>
-            <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">시스템 기능과 관리 이용 안내서를 확인하세요</p>
-          </Link>
+          {profile?.role !== 'manager' && (
+            <>
+              <Link
+                href="/admin/members"
+                className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-purple-400 hover:bg-purple-50 sm:p-4"
+              >
+                <h3 className="text-sm font-medium text-gray-900 sm:text-base">👥 회원관리</h3>
+                <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">회원 정보와 권한을 관리하세요</p>
+              </Link>
+
+              <Link
+                href="/manual"
+                className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-sky-400 hover:bg-sky-50 sm:p-4"
+              >
+                <h3 className="text-sm font-medium text-gray-900 sm:text-base">📖 사용설명서</h3>
+                <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">시스템 기능과 관리 이용 안내서를 확인하세요</p>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>

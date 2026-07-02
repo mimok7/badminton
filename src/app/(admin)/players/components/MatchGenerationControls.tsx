@@ -29,7 +29,7 @@ export default function MatchGenerationControls({
     return null;
   }
 
-  const presentPlayersList = todayPlayers.filter(p => p.status === 'present');
+  const presentPlayersList = todayPlayers;
   const presentPlayers = presentPlayersList.length;
   const expectedMatches = Math.ceil((presentPlayers * perPlayerMinGames) / 4);
 
@@ -41,15 +41,23 @@ export default function MatchGenerationControls({
           <div className="flex items-center gap-2">
             <Target className="h-5 w-5 text-indigo-500 shrink-0" />
             <label className="font-semibold text-gray-700 text-sm sm:text-base">1인당 목표 경기수:</label>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              value={perPlayerMinGames}
-              onChange={(e) => setPerPlayerMinGames(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-14 px-2 py-1 border border-gray-300 rounded text-center font-bold text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            />
-            <span className="text-sm font-medium text-gray-600">경기</span>
+            <div className="flex gap-1.5">
+              {[1, 2, 3].map((val) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setPerPlayerMinGames(val)}
+                  className={`w-9 h-8 font-bold text-sm rounded-lg border transition-all ${
+                    perPlayerMinGames === val
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  {val}
+                </button>
+              ))}
+            </div>
+            <span className="text-sm font-medium text-gray-600 ml-0.5">경기</span>
           </div>
 
           <button
@@ -87,13 +95,13 @@ export default function MatchGenerationControls({
             </div>
             
             <div className="px-4 py-2 bg-slate-50 border-b text-xs font-semibold text-slate-500">
-              출석 완료: {presentPlayers}명
+              참가자: {presentPlayers}명
             </div>
 
             <div className="p-4 overflow-y-auto flex-1">
               {presentPlayers === 0 ? (
                 <div className="text-center py-8 text-sm text-slate-400">
-                  현재 출석한 참가자가 없습니다.
+                  현재 등록된 참가자가 없습니다.
                 </div>
               ) : (
                 <div className="grid grid-cols-5 gap-2">
@@ -131,7 +139,7 @@ export default function MatchGenerationControls({
       <div className="mb-6">
         <h3 className="text-lg font-semibold mb-3">🎯 새로운 경기 일정 생성</h3>
         <p className="text-sm text-gray-600 mb-4">
-          출석한 선수들로 경기를 생성합니다. 생성된 경기는 경기 일정에 추가되고, 
+          참가자들로 경기를 생성합니다. 생성된 경기는 경기 일정에 추가되고, 
           <strong className="text-blue-600"> 경기 배정 관리</strong>에서 실제 진행할 경기를 선택할 수 있습니다.
         </p>
         

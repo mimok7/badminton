@@ -91,7 +91,7 @@ export async function POST(request: Request) {
           gm.team1_player2_id,
           gm.team2_player1_id,
           gm.team2_player2_id,
-        ].filter(Boolean);
+        ].filter((id): id is string => Boolean(id));
 
         hasLatecomer = players.some((playerId) => !presentUserIds.has(playerId));
       }
@@ -115,13 +115,13 @@ export async function POST(request: Request) {
     if (courtsError) throw courtsError;
     
     const courtNumbers = courts && courts.length > 0 
-      ? courts.map((c, idx) => c.order_index ?? idx + 1)
+      ? (courts as any[]).map((c, idx) => c.order_index ?? idx + 1)
       : [1, 2, 3, 4];
       
     const N = courtNumbers.length;
 
     // 6. Slot-based Match Assigner
-    const orderedMatches: typeof schedulesWithLatecomers = [];
+    const orderedMatches: Array<{ match: typeof schedulesWithLatecomers[0]; slotIdx: number }> = [];
     const playerLastSlot = new Map<string, number>();
 
     const assignMatches = (matchesToAssign: typeof schedulesWithLatecomers) => {
@@ -211,12 +211,6 @@ export async function POST(request: Request) {
        }
     };
 
-    // orderedMatches now contains { match, slotIdx } tuples
-    const orderedMatchTuples: Array<{ match: typeof schedulesWithLatecomers[0]; slotIdx: number }> = [];
-    // Re-declare to use the typed version
-    (orderedMatches as unknown as Array<{ match: typeof schedulesWithLatecomers[0]; slotIdx: number }>)
-      .forEach(item => orderedMatchTuples.push(item));
-
     assignMatches(normalMatches);
     assignMatches(latecomerMatches);
 
@@ -229,7 +223,7 @@ export async function POST(request: Request) {
 
     // 7. Build updates — use slotIdx for time so all courts in the same round share the same time
     // This ensures a player CANNOT be in two different courts at the same time
-    const allResults = orderedMatches as unknown as Array<{ match: typeof schedulesWithLatecomers[0]; slotIdx: number }>;
+    const allResults = orderedMatches;
     
     const updates = allResults.map(({ match: schedule, slotIdx }) => {
       // slotIdx is the absolute round index — same for all courts in the same round

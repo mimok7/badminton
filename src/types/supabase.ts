@@ -400,6 +400,7 @@ export type Database = {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
+  referee_id: string | null;
   };
   Insert: {
     id?: string;
@@ -421,6 +422,7 @@ export type Database = {
   updated_by?: string | null;
   created_at?: string;
   updated_at?: string;
+  referee_id?: string | null;
   };
   Update: {
     id?: string | null;
@@ -442,6 +444,7 @@ export type Database = {
   updated_by?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  referee_id?: string | null;
   };
   Relationships: [];
 };

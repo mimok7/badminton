@@ -416,7 +416,6 @@ export default function TodayMatches() {
           body: JSON.stringify({ schedule_id: match.id, action: 'release' })
         }).catch(() => null);
       }
-      setVisibleScoreboards(prev => ({ ...prev, [match.id]: false }));
     }
   };
 

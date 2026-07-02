@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function POST(request: Request) {
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single();
-    const claimerId = profile?.id || user.id;
+    const claimerId = (profile as any)?.id || user.id;
 
     const body = await request.json().catch(() => ({}));
     const { schedule_id, action } = body as { schedule_id: string; action: 'claim' | 'release' };
@@ -19,19 +19,21 @@ export async function POST(request: Request) {
       .from('match_schedules').select('id, referee_id').eq('id', schedule_id).single();
     if (fetchError || !schedule) return NextResponse.json({ error: '경기를 찾을 수 없습니다.' }, { status: 404 });
 
+    const s = schedule as any;
+
     if (action === 'claim') {
-      if (schedule.referee_id && schedule.referee_id !== claimerId)
-        return NextResponse.json({ error: 'already_claimed', referee_id: schedule.referee_id }, { status: 409 });
+      if (s.referee_id && s.referee_id !== claimerId)
+        return NextResponse.json({ error: 'already_claimed', referee_id: s.referee_id }, { status: 409 });
       const { error: updateError } = await adminSupabase
-        .from('match_schedules').update({ referee_id: claimerId }).eq('id', schedule_id);
+        .from('match_schedules').update({ referee_id: claimerId } as any).eq('id', schedule_id);
       if (updateError && !updateError.message?.includes('referee_id')) throw updateError;
       return NextResponse.json({ success: true, referee_id: claimerId });
     }
     if (action === 'release') {
-      if (schedule.referee_id && schedule.referee_id !== claimerId)
+      if (s.referee_id && s.referee_id !== claimerId)
         return NextResponse.json({ error: 'not_referee' }, { status: 403 });
       const { error: updateError } = await adminSupabase
-        .from('match_schedules').update({ referee_id: null }).eq('id', schedule_id);
+        .from('match_schedules').update({ referee_id: null } as any).eq('id', schedule_id);
       if (updateError && !updateError.message?.includes('referee_id')) throw updateError;
       return NextResponse.json({ success: true, referee_id: null });
     }

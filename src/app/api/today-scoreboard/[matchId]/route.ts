@@ -25,6 +25,10 @@ export async function GET(_request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Match not found', details: error?.message }, { status: 404 });
     }
 
+    if (!scheduleMatch.generated_match_id) {
+      return NextResponse.json({ error: 'Generated Match ID is missing' }, { status: 400 });
+    }
+
     // 2. Fetch generated_matches
     const { data: generatedMatch } = await adminSupabase
       .from('generated_matches')
@@ -50,12 +54,12 @@ export async function GET(_request: Request, context: RouteContext) {
     const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
 
     const team1 = [
-      profileMap.get(generatedMatch.team1_player1_id) || 'Unknown',
+      generatedMatch.team1_player1_id ? profileMap.get(generatedMatch.team1_player1_id) || 'Unknown' : 'Unknown',
       generatedMatch.team1_player2_id ? profileMap.get(generatedMatch.team1_player2_id) || 'Unknown' : ''
     ].filter(Boolean);
 
     const team2 = [
-      profileMap.get(generatedMatch.team2_player1_id) || 'Unknown',
+      generatedMatch.team2_player1_id ? profileMap.get(generatedMatch.team2_player1_id) || 'Unknown' : 'Unknown',
       generatedMatch.team2_player2_id ? profileMap.get(generatedMatch.team2_player2_id) || 'Unknown' : ''
     ].filter(Boolean);
 
@@ -100,13 +104,13 @@ export async function GET(_request: Request, context: RouteContext) {
     const isAdmin = currentUserRole === 'admin' || currentUserRole === 'manager';
     const canEdit = isReferee || isAdmin;
 
-    const matchResult = scheduleMatch.match_result || {};
+    const matchResult = (scheduleMatch.match_result as any) || {};
 
     return NextResponse.json({
       match: {
         id: scheduleMatch.id,
         tournament_id: null,
-        round: scheduleMatch.slot_index + 1,
+        round: 1,
         match_number: generatedMatch.match_number,
         team1,
         team2,
@@ -152,7 +156,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     // We only support absolute score updates from scoreboard UI or completion
     if (score1 !== undefined || score2 !== undefined || winner !== undefined) {
-      const matchResult = scheduleMatch.match_result || {};
+      const matchResult = (scheduleMatch.match_result as any) || {};
       const newResult = {
         ...matchResult,
         team1_score: score1 !== undefined ? score1 : matchResult.team1_score,

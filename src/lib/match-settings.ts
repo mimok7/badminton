@@ -1,8 +1,4 @@
-import { mkdir, readFile, writeFile } from 'fs/promises';
-import path from 'path';
-
-const SETTINGS_DIR = path.join(process.cwd(), 'data');
-const SETTINGS_PATH = path.join(SETTINGS_DIR, 'match-settings.json');
+import { getSupabaseAdminClient } from '@/lib/supabase-server';
 
 export type MatchSettings = {
   autoGenerateEnabled: boolean;
@@ -14,18 +10,45 @@ const DEFAULT_MATCH_SETTINGS: MatchSettings = {
 
 export async function readMatchSettings(): Promise<MatchSettings> {
   try {
-    const content = await readFile(SETTINGS_PATH, 'utf8');
-    const parsed = JSON.parse(content);
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('match_settings')
+      .select('auto_generate_enabled')
+      .eq('id', 'default')
+      .single();
+
+    if (error || !data) {
+      return DEFAULT_MATCH_SETTINGS;
+    }
+
     return {
-      autoGenerateEnabled: typeof parsed.autoGenerateEnabled === 'boolean' ? parsed.autoGenerateEnabled : false,
+      autoGenerateEnabled: data.auto_generate_enabled ?? false,
     };
-  } catch {
+  } catch (error) {
+    console.error('Failed to read match settings from Supabase:', error);
     return DEFAULT_MATCH_SETTINGS;
   }
 }
 
 export async function writeMatchSettings(settings: MatchSettings): Promise<MatchSettings> {
-  await mkdir(SETTINGS_DIR, { recursive: true });
-  await writeFile(SETTINGS_PATH, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
-  return settings;
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { error } = await supabase
+      .from('match_settings')
+      .upsert({
+        id: 'default',
+        auto_generate_enabled: settings.autoGenerateEnabled,
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      console.error('Failed to write match settings to Supabase:', error);
+      throw error;
+    }
+
+    return settings;
+  } catch (error) {
+    console.error('Error in writeMatchSettings:', error);
+    throw error;
+  }
 }

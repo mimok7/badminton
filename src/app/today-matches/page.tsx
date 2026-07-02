@@ -11,7 +11,7 @@ import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/sch
 import { getSupabaseClient } from '@/lib/supabase';
 import { getFriendlyErrorMessage } from '@/lib/utils';
 
-function getMatchStatusMeta(status?: string | null, options?: { isWaiting?: boolean }) {
+function getMatchStatusMeta(status?: string | null) {
   if (status === 'completed') {
     return {
       label: '완료',
@@ -33,15 +33,8 @@ function getMatchStatusMeta(status?: string | null, options?: { isWaiting?: bool
     };
   }
 
-  if (options?.isWaiting) {
-    return {
-      label: '대기',
-      chipClass: 'bg-blue-100 text-blue-700',
-    };
-  }
-
   return {
-    label: '배정',
+    label: '대기',
     chipClass: 'bg-slate-100 text-slate-700',
   };
 }
@@ -68,10 +61,6 @@ function getDisplayMatchLabel(match: ScheduledMatchView, fallbackOrder: number) 
     return description.replace(/^\[일반 경기\]\s*/u, '');
   }
 
-  if (typeof match.match_number === 'number' && match.match_number > 0) {
-    return `게임 #${match.match_number}`;
-  }
-
   return `게임 #${fallbackOrder}`;
 }
 
@@ -92,24 +81,14 @@ function getDisplayMatchSequence(match: ScheduledMatchView, fallbackOrder: numbe
   return String(fallbackOrder);
 }
 
-function getCourtKey(match: ScheduledMatchView) {
-  const courtName = match.court_name?.trim();
-  if (courtName) return courtName;
-  if (typeof match.court_number === 'number' && match.court_number > 0) {
-    return `court:${match.court_number}`;
-  }
 
-  return `match:${match.id}`;
-}
 
 export default function TodayMatches() {
-  const { user, profile, loading: userLoading } = useUser();
+  const { user, profile, loading: userLoading, isAdmin } = useUser();
   const [matches, setMatches] = useState<ScheduledMatchView[]>([]);
   const [loading, setLoading] = useState(true);
   const [startSaving, setStartSaving] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
-  const [scoreDrafts, setScoreDrafts] = useState<Record<string, { team1: string; team2: string }>>({});
-  const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const supabase = getSupabaseClient();
@@ -134,30 +113,6 @@ export default function TodayMatches() {
     const today = getKoreaDate();
     const todayMatches = await fetchScheduledMatchesForDate(supabase, today);
     setMatches(todayMatches);
-    setScoreDrafts((current) => {
-      const nextDrafts = { ...current };
-
-      todayMatches.forEach((match) => {
-        const team1Score = match.match_result?.team1_score;
-        const team2Score = match.match_result?.team2_score;
-        const isScoreStarted =
-          (typeof team1Score === 'number' && team1Score > 0) ||
-          (typeof team2Score === 'number' && team2Score > 0);
-
-        const existing = nextDrafts[match.id];
-
-        nextDrafts[match.id] = {
-          team1: isScoreStarted
-            ? String(team1Score ?? 0)
-            : (existing?.team1 ?? (team1Score !== undefined ? String(team1Score) : '')),
-          team2: isScoreStarted
-            ? String(team2Score ?? 0)
-            : (existing?.team2 ?? (team2Score !== undefined ? String(team2Score) : '')),
-        };
-      });
-
-      return nextDrafts;
-    });
   };
 
   useEffect(() => {
@@ -223,26 +178,11 @@ export default function TodayMatches() {
     );
   }
 
-  const canManageMatches = isAdminOrManagerRole(profile?.role);
+  const canManageMatches = isAdmin;
 
   const myParticipantIds = new Set(
     [user?.id, profile?.id, profile?.user_id].filter((value): value is string => Boolean(value))
   );
-
-  const activeCourtKeys = new Set(
-    matches.filter((match) => match.status === 'in_progress').map((match) => getCourtKey(match))
-  );
-  const waitingMatchIds = new Set<string>();
-
-  activeCourtKeys.forEach((courtKey) => {
-    const nextScheduledMatch = matches.find(
-      (match) => match.status === 'scheduled' && getCourtKey(match) === courtKey
-    );
-
-    if (nextScheduledMatch) {
-      waitingMatchIds.add(nextScheduledMatch.id);
-    }
-  });
 
   const isPlayerInMatch = (match: ScheduledMatchView) => {
     return [
@@ -262,8 +202,6 @@ export default function TodayMatches() {
     }
     return null;
   };
-
-  const getCourtLabel = (match: ScheduledMatchView) => match.court_name || `코트 ${match.court_number || '미정'}`;
 
   const primaryMatch = matches.find((match) => match.status === 'in_progress')
     || matches.find((match) => match.status === 'scheduled')
@@ -347,122 +285,10 @@ export default function TodayMatches() {
     return '👤';
   };
 
-  const updateScoreDraft = (matchId: string, team: 'team1' | 'team2', value: string) => {
-    setScoreDrafts((current) => ({
-      ...current,
-      [matchId]: {
-        team1: team === 'team1' ? value : current[matchId]?.team1 ?? '',
-        team2: team === 'team2' ? value : current[matchId]?.team2 ?? '',
-      },
-    }));
-  };
-
-  const toggleScoreboard = () => {
-    // Kept as dummy for compatibility if needed, but not used anymore.
-  };
-
-  const handleScoreInputFocus = async (match: ScheduledMatchView) => {
-    // Auto-claim referee role when input is focused, if we haven't already and no one else has
-    if (!match.referee_id) {
-      try {
-        const res = await fetch('/api/match-referee', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ schedule_id: match.id, action: 'claim' })
-        });
-        if (res.ok) {
-          await loadTodayMatches();
-        } else {
-          const payload = await res.json().catch(() => null);
-          if (payload?.error === 'already_claimed') {
-            alert('다른 관리자가 이미 점수를 입력 중입니다. 조회만 가능합니다.');
-            await loadTodayMatches();
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  };
-
-  const handleMatchResultSave = async (match: ScheduledMatchView) => {
-    if (!match.generated_match_id) return;
-
-    const team1Value = scoreDrafts[match.id]?.team1 ?? '';
-    const team2Value = scoreDrafts[match.id]?.team2 ?? '';
-    const team1Score = Number(team1Value);
-    const team2Score = Number(team2Value);
-
-    if (!Number.isFinite(team1Score) || !Number.isFinite(team2Score)) {
-      alert('점수를 숫자로 입력해주세요.');
-      return;
-    }
-
-    if (team1Score === team2Score) {
-      alert('무승부는 저장할 수 없습니다.');
-      return;
-    }
-
-    try {
-      setSavingMatchId(match.id);
-      const response = await fetch('/api/match-results', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          match_id: match.generated_match_id,
-          winner_team1: team1Score > team2Score,
-          team1_score: team1Score,
-          team2_score: team2Score,
-        }),
-      });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || '점수 저장에 실패했습니다.');
-      }
-
-      await loadTodayMatches();
-    } catch (error) {
-      console.error('게임 결과 저장 오류:', error);
-      alert(getFriendlyErrorMessage(error));
-    } finally {
-      setSavingMatchId(null);
-      // Release referee role on save
-      if (match.referee_id === profile?.id) {
-        await fetch('/api/match-referee', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ schedule_id: match.id, action: 'release' })
-        }).catch(() => null);
-      }
-    }
-  };
-
-  const uniqueCourts = Array.from(
-    new Map(
-      matches.map(m => [m.court_number, m.court_name || `코트 ${m.court_number || '미정'}`])
-    ).entries()
-  )
-    .filter(([num]) => num !== null && num > 0)
-    .sort((a, b) => (a[0] || 0) - (b[0] || 0)) as [number, string][];
-
-  const courtMatchCounts: Record<string, number> = {};
   const processedMatches = matches.map((match, index) => {
     const matchOrder = match.match_number ?? index + 1;
     const displayMatchLabel = getDisplayMatchLabel(match, matchOrder);
-    
-    const courtKey = match.court_name || String(match.court_number || '?');
-    courtMatchCounts[courtKey] = (courtMatchCounts[courtKey] || 0) + 1;
-    
-    let courtPrefix = String(match.court_number || '?');
-    if (match.court_name) {
-      const numMatch = match.court_name.match(/\d+/);
-      if (numMatch) {
-        courtPrefix = numMatch[0];
-      }
-    }
-    const displayMatchSequence = `${courtPrefix}-${courtMatchCounts[courtKey]}`;
+    const displayMatchSequence = String(index + 1);
     
     return {
       ...match,
@@ -475,37 +301,15 @@ export default function TodayMatches() {
 
   const renderMatchCard = (match: typeof filteredMatches[0]) => {
     const inMatch = isPlayerInMatch(match);
-    const statusMeta = getMatchStatusMeta(match.status, {
-      isWaiting: waitingMatchIds.has(match.id),
-    });
+    const statusMeta = getMatchStatusMeta(match.status);
     const team1Outcome = getMatchOutcomeMeta(match.status, match.match_result?.winner ?? null, 'team1');
     const team2Outcome = getMatchOutcomeMeta(match.status, match.match_result?.winner ?? null, 'team2');
-    // Score input is fully editable if:
-    // 1. The match is in_progress or scheduled AND
-    // 2. No one else has claimed the referee role
-    // Any attendee can become the referee by interacting with it first.
-    const canBeReferee = Boolean(
-      match.generated_match_id &&
-      (match.status === 'in_progress' || match.status === 'scheduled')
-    );
-    const hasActiveRefereeLock = match.referee_id && match.referee_id !== profile?.id;
-    const isScoreStarted =
-      (typeof match.match_result?.team1_score === 'number' && match.match_result.team1_score > 0) ||
-      (typeof match.match_result?.team2_score === 'number' && match.match_result.team2_score > 0);
-    const isEditable = canBeReferee && !hasActiveRefereeLock && !isScoreStarted;
-    
-    const scoreDraft = scoreDrafts[match.id] ?? { team1: '', team2: '' };
-    const canSaveScore =
-      isEditable &&
-      scoreDraft.team1.trim().length > 0 &&
-      scoreDraft.team2.trim().length > 0;
 
     const displayMatchLabel = match.displayMatchLabel;
     const displayMatchSequence = match.displayMatchSequence;
 
-    // Scoreboard values — show draft if entered (by referee), else saved result
-    const sbTeam1 = match.match_result?.team1_score !== undefined ? String(match.match_result.team1_score) : (scoreDraft.team1 !== '' ? scoreDraft.team1 : '-');
-    const sbTeam2 = match.match_result?.team2_score !== undefined ? String(match.match_result.team2_score) : (scoreDraft.team2 !== '' ? scoreDraft.team2 : '-');
+    const sbTeam1 = match.match_result?.team1_score !== undefined ? String(match.match_result.team1_score) : '-';
+    const sbTeam2 = match.match_result?.team2_score !== undefined ? String(match.match_result.team2_score) : '-';
 
     return (
       <article
@@ -531,7 +335,6 @@ export default function TodayMatches() {
               </h3>
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
                 <span>⏰ {match.match_time || '시간 미정'}</span>
-                <span>🏟️ {getCourtLabel(match)}</span>
               </div>
             </div>
           </div>
@@ -546,28 +349,12 @@ export default function TodayMatches() {
               >
                 판
               </Link>
-              
-              {isEditable && (
-                <button
-                  type="button"
-                  onClick={() => { void handleMatchResultSave(match); }}
-                  disabled={!canSaveScore || savingMatchId === match.id}
-                  className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {savingMatchId === match.id ? '저장 중...' : '저장'}
-                </button>
-              )}
             </div>
           </div>
         </div>
 
         {/* Scoreboard — always visible */}
         <div className="mt-3 rounded-[18px] bg-slate-50 px-3 py-3">
-          {hasActiveRefereeLock && (
-            <div className="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-center text-xs font-medium text-blue-700">
-              🔒 다른 참석자가 점수를 입력 중입니다 (조회 전용)
-            </div>
-          )}
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             {/* Team 1 */}
             <div className="text-left">
@@ -584,41 +371,21 @@ export default function TodayMatches() {
               )}
             </div>
 
-            {/* Score display / input */}
+            {/* Score display */}
             <div className="flex flex-col items-center gap-1">
-              {isEditable ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number" min={0} inputMode="numeric"
-                    value={scoreDraft.team1}
-                    onFocus={() => { void handleScoreInputFocus(match); }}
-                    onChange={(e) => updateScoreDraft(match.id, 'team1', e.target.value)}
-                    className="h-12 w-12 rounded-xl border-2 border-slate-300 bg-white text-center text-xl font-bold text-blue-700 outline-none transition focus:border-blue-500"
-                  />
-                  <span className="text-lg font-bold text-slate-400">:</span>
-                  <input
-                    type="number" min={0} inputMode="numeric"
-                    value={scoreDraft.team2}
-                    onFocus={() => { void handleScoreInputFocus(match); }}
-                    onChange={(e) => updateScoreDraft(match.id, 'team2', e.target.value)}
-                    className="h-12 w-12 rounded-xl border-2 border-slate-300 bg-white text-center text-xl font-bold text-emerald-700 outline-none transition focus:border-emerald-500"
-                  />
+              <div className="flex items-center gap-2">
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold ${
+                  match.match_result?.winner === 'team1' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {sbTeam1}
                 </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-2xl font-bold ${
-                    match.match_result?.winner === 'team1' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {sbTeam1}
-                  </div>
-                  <span className="text-lg font-bold text-slate-400">:</span>
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-2xl font-bold ${
-                    match.match_result?.winner === 'team2' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {sbTeam2}
-                  </div>
+                <span className="text-sm font-bold text-slate-400">:</span>
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold ${
+                  match.match_result?.winner === 'team2' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {sbTeam2}
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Team 2 */}
@@ -681,12 +448,6 @@ export default function TodayMatches() {
                 <span className="text-slate-300">내 게임 : </span>
                 <span className="font-semibold text-white">{matches.filter(isPlayerInMatch).length}</span>
               </div>
-              <div className="rounded-md bg-white/10 px-2 py-1">
-                <span className="text-slate-300">코트 : </span>
-                <span className="font-semibold text-white">
-                  {matches.length > 0 ? Math.max(...matches.map((m) => m.court_number || 0)) : 0}
-                </span>
-              </div>
             </div>
           </div>
 
@@ -704,7 +465,7 @@ export default function TodayMatches() {
                       className="flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60 shrink-0"
                     >
                       <span>⏳</span>
-                      {optimizing ? '재배정...' : '지각 뒤로'}
+                      {optimizing ? '정렬 중...' : '순서정렬'}
                     </button>
                   )}
                   <button
@@ -748,62 +509,11 @@ export default function TodayMatches() {
             <h3 className="mt-4 text-lg font-semibold text-slate-900">오늘 배정된 게임이 없습니다</h3>
             <p className="mt-2 text-sm leading-6 text-slate-500">관리자가 게임을 배정하면 여기에 표시됩니다.</p>
           </section>
-        ) : (() => {
-          const unassignedMatches = filteredMatches.filter(m => !m.court_number || m.court_number === 0);
-          const activeCourtsToRender = uniqueCourts;
-
-          const showUnassigned = unassignedMatches.length > 0;
-          const columnsCount = activeCourtsToRender.length + (showUnassigned ? 1 : 0);
-          
-          const gridClass = 
-            columnsCount === 1 ? 'grid-cols-1' :
-            columnsCount === 2 ? 'grid-cols-1 md:grid-cols-2' :
-            columnsCount === 3 ? 'grid-cols-1 md:grid-cols-3' :
-            'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
-
-          return (
-            <div 
-              className={`grid gap-4 items-start ${gridClass} grid-layout`}
-              style={{ '--cols-count': columnsCount } as React.CSSProperties}
-            >
-              {activeCourtsToRender.map(([num, name]) => {
-                const courtMatches = filteredMatches.filter(m => m.court_number === num);
-                if (courtMatches.length === 0) {
-                  return (
-                    <div key={num} className="rounded-[24px] border border-slate-200/80 bg-white/40 p-4 text-center">
-                      <h2 className="text-sm font-bold text-slate-700 border-b pb-2 mb-3">
-                        {name}
-                      </h2>
-                      <p className="text-xs text-slate-400 py-4">배정된 게임 없음</p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div key={num} className="space-y-3">
-                    <h2 className="text-sm font-bold text-slate-700 bg-white/80 border border-slate-200/60 rounded-xl py-2 px-3 shadow-xs">
-                      {name}
-                    </h2>
-                    <div className="space-y-3">
-                      {courtMatches.map(renderMatchCard)}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {showUnassigned && (
-                <div className="space-y-3">
-                  <h2 className="text-sm font-bold text-slate-700 bg-white/80 border border-slate-200/60 rounded-xl py-2 px-3 shadow-xs">
-                    코트 미정
-                  </h2>
-                  <div className="space-y-3">
-                    {unassignedMatches.map(renderMatchCard)}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredMatches.map(renderMatchCard)}
+          </div>
+        )}
         </div>
       </div>
     </div>

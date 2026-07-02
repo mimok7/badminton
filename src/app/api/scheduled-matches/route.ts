@@ -77,8 +77,8 @@ export async function GET(request: Request) {
       .from('match_schedules')
       .select('id, generated_match_id, match_date, scheduled_date, scheduled_time, start_time, court_number, location, description, status, match_result')
       .or(`match_date.eq.${date},scheduled_date.eq.${date}`)
-      .order('court_number', { ascending: true })
       .order('scheduled_time', { ascending: true })
+      .order('court_number', { ascending: true })
       .order('start_time', { ascending: true });
 
     if (schedulesError) {
@@ -289,15 +289,15 @@ export async function GET(request: Request) {
     });
 
     matches.sort((left, right) => {
-      // 1. Sort by court number
-      const courtDiff = (left.court_number ?? 999) - (right.court_number ?? 999);
-      if (courtDiff !== 0) return courtDiff;
-
-      // 2. Within the same court, sort by scheduled_time (this is what we update with optimize)
+      // 1. Sort by scheduled_time (match_time) first
       const leftTime = left.match_time || '';
       const rightTime = right.match_time || '';
       const timeDiff = leftTime.localeCompare(rightTime, 'ko');
       if (timeDiff !== 0) return timeDiff;
+
+      // 2. Sort by court number (if any)
+      const courtDiff = (left.court_number ?? 999) - (right.court_number ?? 999);
+      if (courtDiff !== 0) return courtDiff;
 
       // 3. Fallback: description order
       const leftOrder = parseGeneratedDescriptionOrder(left.description);

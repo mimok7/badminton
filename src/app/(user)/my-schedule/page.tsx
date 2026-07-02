@@ -10,7 +10,8 @@ import Link from 'next/link';
 import { NotificationService } from '@/utils/notification-service';
 import { getProfileByUserId } from '@/lib/auth';
 import { formatCurrentUserNameWithCoins, formatNameWithCoins } from '@/lib/player-display';
-import { fetchScheduledMatchesForDate } from '@/lib/scheduled-matches';
+import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
+import type { CoinSettlementMode } from '@/app/api/coin-settings/route';
 import { useLevelInfoMap } from '@/hooks/useLevelInfoMap';
 import { getLevelNameFromCode } from '@/lib/level-info';
 import {
@@ -168,6 +169,337 @@ interface MatchBetState {
 
 type MatchCenterTab = 'upcoming' | 'results' | 'tournaments';
 
+function getMatchStatusMeta(status?: string | null) {
+  if (status === 'completed') {
+    return {
+      label: '완료',
+      chipClass: 'bg-emerald-100 text-emerald-700',
+    };
+  }
+
+  if (status === 'in_progress') {
+    return {
+      label: '진행중',
+      chipClass: 'bg-amber-100 text-amber-700',
+    };
+  }
+
+  if (status === 'cancelled') {
+    return {
+      label: '취소',
+      chipClass: 'bg-rose-100 text-rose-700',
+    };
+  }
+
+  return {
+    label: '대기',
+    chipClass: 'bg-slate-100 text-slate-700',
+  };
+}
+
+function getCourtLabel(match: ScheduledMatchView) {
+  return match.court_name || `코트 ${match.court_number || '미정'}`;
+}
+
+type MatchResultSummary = {
+  winner?: 'team1' | 'team2';
+  score?: string;
+  team1_score?: number;
+  team2_score?: number;
+  total_losing_pool?: number;
+};
+
+
+function AssignedMatchCard({
+  match,
+  matchOrder,
+  showBetCardForMatch,
+  profile,
+  coinSettlementMode,
+  onRefresh,
+}: any) {
+  const [score1, setScore1] = useState('');
+  const [score2, setScore2] = useState('');
+  const [resultSaving, setResultSaving] = useState(false);
+  const [bet, setBet] = useState(DEFAULT_MATCH_WAGER);
+  const [betSaving, setBetSaving] = useState(false);
+
+  const isEditable = match.status === 'scheduled' || match.status === 'in_progress';
+  const statusMeta = getMatchStatusMeta(match.status);
+
+  useEffect(() => {
+    const loadState = async () => {
+      if (!match.id) return;
+      try {
+        if (showBetCardForMatch && match.generated_match_id) {
+          const betResponse = await fetch(`/api/match-bets?match_id=${match.generated_match_id}`, { credentials: 'include' });
+          const betPayload = await betResponse.json().catch(() => null);
+          if (betResponse.ok) {
+            const myBet = (betPayload?.bets || []).find((item: any) => item.profile_id === profile?.id);
+            setBet(myBet?.wager_amount ?? DEFAULT_MATCH_WAGER);
+          }
+        }
+
+        if (isEditable) {
+          const draft = window.localStorage.getItem(`match_draft_${match.id}`);
+          if (draft) {
+            try {
+              const parsed = JSON.parse(draft);
+              setScore1(parsed.team1Score ?? '');
+              setScore2(parsed.team2Score ?? '');
+            } catch {}
+          }
+        }
+      } catch (err) {}
+    };
+    loadState();
+  }, [match.id, profile?.id, isEditable, showBetCardForMatch]);
+
+  const handleScore1 = (val: string) => {
+    setScore1(val);
+    window.localStorage.setItem(`match_draft_${match.id}`, JSON.stringify({ team1Score: val, team2Score: score2 }));
+  };
+
+  const handleScore2 = (val: string) => {
+    setScore2(val);
+    window.localStorage.setItem(`match_draft_${match.id}`, JSON.stringify({ team1Score: score1, team2Score: val }));
+  };
+
+  const handleResultSave = async () => {
+    if (!match.generated_match_id) return;
+    const team1Score = Number(score1);
+    const team2Score = Number(score2);
+
+    if (!Number.isFinite(team1Score) || !Number.isFinite(team2Score)) {
+      alert('점수를 숫자로 입력해주세요.');
+      return;
+    }
+    if (team1Score === team2Score) {
+      alert('무승부는 저장할 수 없습니다.');
+      return;
+    }
+
+    try {
+      setResultSaving(true);
+      const response = await fetch('/api/match-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          match_id: match.generated_match_id,
+          winner_team1: team1Score > team2Score,
+          team1_score: team1Score,
+          team2_score: team2Score,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || '점수 저장 실패');
+      }
+
+      window.localStorage.removeItem(`match_draft_${match.id}`);
+      await onRefresh();
+    } catch (error) {
+      console.error('경기 결과 저장 오류:', error);
+      alert(error instanceof Error ? error.message : '점수 저장 중 오류가 발생했습니다.');
+    } finally {
+      setResultSaving(false);
+    }
+  };
+
+  const handleBetSave = async (wagerAmount: number) => {
+    if (!match.generated_match_id) return;
+    try {
+      setBetSaving(true);
+      const response = await fetch('/api/match-bets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          match_id: match.generated_match_id,
+          wager_amount: wagerAmount,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || '배팅 저장 실패');
+      }
+      setBet(payload.wager_amount ?? wagerAmount);
+    } catch (error) {
+      console.error('배팅 저장 오류:', error);
+      alert(error instanceof Error ? error.message : '배팅 저장 중 오류가 발생했습니다.');
+    } finally {
+      setBetSaving(false);
+    }
+  };
+
+  const canComplete = score1 !== '' && score2 !== '' && score1 !== score2;
+
+  return (
+    <div key={match.id} className="rounded-[20px] bg-slate-50 p-4">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-800">
+        <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+          {match.generated_match?.match_number ? `게임 #${match.generated_match.match_number}` : (matchOrder > 0 ? `${matchOrder}번째 게임` : '게임')}
+        </span>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusMeta.chipClass}`}>
+          {statusMeta.label}
+        </span>
+        <span>{match.match_time || '시간 미정'}</span>
+      </div>
+
+      {isEditable ? (
+        <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5">
+          <div className="rounded-[16px] border border-blue-100 bg-white px-2.5 py-2.5 text-left">
+            <div className="text-sm leading-6 text-slate-800">
+              <div className="truncate font-medium text-slate-900">
+                {formatNameWithCoins(match.team1_player1_name, match.team1_player1_coin_balance)}
+              </div>
+              <div className="truncate font-medium text-slate-900">
+                {formatNameWithCoins(match.team1_player2_name, match.team1_player2_coin_balance)}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 px-0.5">
+            <input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={score1}
+              onChange={(e) => handleScore1(e.target.value)}
+              className="h-9 w-11 rounded-lg border border-slate-300 bg-white px-1 text-center text-sm font-bold text-slate-900 outline-none transition focus:border-slate-900"
+            />
+            <span className="text-[11px] font-semibold text-slate-400">:</span>
+            <input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={score2}
+              onChange={(e) => handleScore2(e.target.value)}
+              className="h-9 w-11 rounded-lg border border-slate-300 bg-white px-1 text-center text-sm font-bold text-slate-900 outline-none transition focus:border-slate-900"
+            />
+          </div>
+
+          <div className="rounded-[16px] border border-emerald-100 bg-white px-2.5 py-2.5 text-right">
+            <div className="text-sm leading-6 text-slate-800">
+              <div className="truncate font-medium text-slate-900">
+                {formatNameWithCoins(match.team2_player1_name, match.team2_player1_coin_balance)}
+              </div>
+              <div className="truncate font-medium text-slate-900">
+                {formatNameWithCoins(match.team2_player2_name, match.team2_player2_coin_balance)}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-blue-100 bg-white px-3 py-3 text-left">
+            <div className="text-sm leading-6 text-slate-800">
+              <div className="font-medium text-slate-900">
+                {formatNameWithCoins(match.team1_player1_name, match.team1_player1_coin_balance)}
+              </div>
+              <div className="font-medium text-slate-900">
+                {formatNameWithCoins(match.team1_player2_name, match.team1_player2_coin_balance)}
+              </div>
+            </div>
+            {match.match_result?.team1_score !== undefined ? (
+              <div className="mt-3 text-center text-2xl font-bold text-blue-700">
+                {match.match_result.team1_score}
+              </div>
+            ) : (
+              <div className="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-center text-xs text-slate-500">
+                {match.status === 'scheduled' ? '게임 완료 후 입력' : '점수 대기'}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-right">
+            <div className="text-sm leading-6 text-slate-800">
+              <div className="font-medium text-slate-900">
+                {formatNameWithCoins(match.team2_player1_name, match.team2_player1_coin_balance)}
+              </div>
+              <div className="font-medium text-slate-900">
+                {formatNameWithCoins(match.team2_player2_name, match.team2_player2_coin_balance)}
+              </div>
+            </div>
+            {match.match_result?.team2_score !== undefined ? (
+              <div className="mt-3 text-center text-2xl font-bold text-emerald-700">
+                {match.match_result.team2_score}
+              </div>
+            ) : (
+              <div className="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-center text-xs text-slate-500">
+                {match.status === 'scheduled' ? '게임 완료 후 입력' : '점수 대기'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isEditable && (
+        <div className="mt-3 flex items-center gap-2">
+          <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-700 shadow-sm">
+            현재 점수 {score1 || '0'} : {score2 || '0'}
+          </div>
+          <Button
+            onClick={handleResultSave}
+            disabled={resultSaving || !canComplete}
+            className="ml-auto h-8 rounded-xl px-5 text-xs"
+          >
+            {resultSaving ? '저장 중...' : '저장'}
+          </Button>
+        </div>
+      )}
+
+      {showBetCardForMatch && (
+        <div className="mt-3 space-y-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-900">코인 배팅</p>
+              <p className="text-xs text-amber-800">
+                기본 {DEFAULT_MATCH_WAGER}코인, 최대 {MAX_MATCH_WAGER}코인
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-amber-700">현재</p>
+              <p className="font-bold text-amber-900">{bet}코인</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {[1, 2, 3].map((wager) => {
+              const disabled =
+                betSaving ||
+                (coinSettlementMode === 'all_in_one' &&
+                  (profile?.coin_balance ?? 0) < wager) ||
+                (coinSettlementMode === 'split_by_match' &&
+                  (profile?.coin_balance ?? 0) < wager);
+
+              return (
+                <Button
+                  key={wager}
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={() => handleBetSave(wager)}
+                  className={`h-9 w-full rounded-xl border-amber-200 text-xs font-semibold ${
+                    bet === wager
+                      ? 'border-amber-500 bg-amber-500 text-white hover:bg-amber-600'
+                      : 'bg-white text-amber-700 hover:bg-amber-50 hover:text-amber-800'
+                  }`}
+                >
+                  {wager}코인
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MySchedulePage() {
   const { user, profile, loading: userLoading, isAdmin } = useUser();
   const router = useRouter();
@@ -205,6 +537,13 @@ export default function MySchedulePage() {
   const [matchResultStates, setMatchResultStates] = useState<Record<string, boolean | null>>({});
   const [selectedMatchBetState, setSelectedMatchBetState] = useState<MatchBetState>({ myProfileId: null, bets: {} });
   const [savingBet, setSavingBet] = useState(false);
+
+  // 내 게임 (대시보드) 영역용 상태
+  const [todayAssignedMatches, setTodayAssignedMatches] = useState<ScheduledMatchView[]>([]);
+  const [todayAllMatches, setTodayAllMatches] = useState<ScheduledMatchView[]>([]);
+
+  const [coinSettlementMode, setCoinSettlementMode] = useState<CoinSettlementMode | null>(null);
+
 
   const getTodayLocal = () => {
     const now = new Date();
@@ -374,7 +713,23 @@ export default function MySchedulePage() {
       );
       const todayLocal = getTodayLocal();
 
-      const todayAssignedMatches = await fetchScheduledMatchesForDate(supabase, todayLocal, user.id);
+      const [fetchedAssignedMatches, fetchedAllMatches, coinSettingsResponse] = await Promise.all([
+        fetchScheduledMatchesForDate(supabase, todayLocal, user.id),
+        fetchScheduledMatchesForDate(supabase, todayLocal),
+        fetch('/api/coin-settings', { credentials: 'include' })
+      ]);
+
+      if (coinSettingsResponse.ok) {
+        const payload = await coinSettingsResponse.json().catch(() => null);
+        setCoinSettlementMode(payload?.coinSettings?.settlementMode || null);
+      } else {
+        setCoinSettlementMode(null);
+      }
+
+      setTodayAssignedMatches(fetchedAssignedMatches);
+      setTodayAllMatches(fetchedAllMatches);
+      
+      const todayAssignedMatches = fetchedAssignedMatches;
       const assignedScheduleIds = new Set<string>();
 
       todayAssignedMatches.forEach((match, index) => {
@@ -384,6 +739,10 @@ export default function MySchedulePage() {
 
         const syntheticId = `generated_${match.generated_match_id}`;
         assignedScheduleIds.add(syntheticId);
+
+        // Find the global index in all scheduled matches
+        const globalIndex = fetchedAllMatches.findIndex(m => m.id === match.id);
+        const globalMatchNumber = globalIndex !== -1 ? globalIndex + 1 : (match.match_number ?? index + 1);
 
         matchesWithDetails.push({
           id: syntheticId,
@@ -397,7 +756,7 @@ export default function MySchedulePage() {
           generated_match: {
             id: match.generated_match_id,
             session_id: null,
-            match_number: match.match_number ?? index + 1,
+            match_number: globalMatchNumber,
             session_name: '오늘 배정 경기',
             team1_player1: {
               id: match.team1_player1 || undefined,
@@ -679,6 +1038,34 @@ export default function MySchedulePage() {
     }
   };
 
+  const prioritizedAssignedMatches = [...todayAssignedMatches].sort((left, right) => {
+    const timeL = left.match_time || '23:59';
+    const timeR = right.match_time || '23:59';
+    if (timeL !== timeR) return timeL.localeCompare(timeR);
+    const matchNumberDiff = (left.match_number ?? 9999) - (right.match_number ?? 9999);
+    if (matchNumberDiff !== 0) return matchNumberDiff;
+    return (left.court_number || 0) - (right.court_number || 0);
+  });
+  
+  const topMatch = prioritizedAssignedMatches.find(m => m.status !== 'completed' && m.status !== 'cancelled') || prioritizedAssignedMatches[0];
+  
+  const hasEditableTopMatch = Boolean(
+    topMatch?.generated_match_id &&
+      user?.id &&
+      (topMatch.status === 'in_progress' || topMatch.status === 'scheduled')
+  );
+  
+  const showTopMatchBetCard = hasEditableTopMatch && topMatch?.status === 'scheduled' && coinSettlementMode === 'zero_sum';
+
+  const refreshTopMatchSummary = async () => {
+    const today = getTodayLocal();
+    const [myMatches, allMatches] = await Promise.all([
+      fetchScheduledMatchesForDate(supabase, today, user?.id),
+      fetchScheduledMatchesForDate(supabase, today),
+    ]);
+    setTodayAssignedMatches(myMatches);
+    setTodayAllMatches(allMatches);
+  };
   // 경기 상태 색상
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1339,196 +1726,80 @@ export default function MySchedulePage() {
 
         <div className="rounded-[24px] bg-white px-3 py-3 shadow-sm">
           <div className="overflow-x-auto">
-            <div className="flex min-w-max gap-2">
-              <button
-                type="button"
-                onClick={() => selectTab('upcoming')}
-                className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
-                  activeTab === 'upcoming'
-                    ? 'bg-slate-950 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
+            <div className="flex w-full items-center justify-between gap-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => selectTab('upcoming')}
+                  className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                    activeTab === 'upcoming'
+                      ? 'bg-slate-950 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  오늘 내 경기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectTab('results')}
+                  className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                    activeTab === 'results'
+                      ? 'bg-slate-950 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  완료 기록
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectTab('tournaments')}
+                  className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                    activeTab === 'tournaments'
+                      ? 'bg-slate-950 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  대회 경기
+                </button>
+              </div>
+              <Link
+                href="/today-matches"
+                className="shrink-0 rounded-full bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-100 ml-auto whitespace-nowrap"
               >
-                예정 경기
-              </button>
-              <button
-                type="button"
-                onClick={() => selectTab('results')}
-                className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
-                  activeTab === 'results'
-                    ? 'bg-slate-950 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                완료 기록
-              </button>
-              <button
-                type="button"
-                onClick={() => selectTab('tournaments')}
-                className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
-                  activeTab === 'tournaments'
-                    ? 'bg-slate-950 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                대회 경기
-              </button>
+                오늘의 게임 &rarr;
+              </Link>
             </div>
           </div>
         </div>
 
         {activeTab === 'upcoming' && (
-          <div className="rounded-[24px] bg-white shadow-sm">
-            <div className="border-b border-slate-200/80 px-4 py-4">
-              <div className="flex flex-col gap-1">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">예정 경기</h2>
-                  <p className="text-sm text-slate-500">다가오는 경기 일정과 배정된 게임 구성을 한 번에 확인합니다.</p>
-                </div>
-              </div>
-            </div>
-
+          <div className="rounded-[24px] bg-white shadow-sm mt-3">
             {loading ? (
               <div className="p-12 text-center">
                 <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500"></div>
                 <p>경기 일정을 불러오는 중...</p>
               </div>
-            ) : upcomingMatches.length === 0 ? (
-              <div className="p-12 text-center">
-                <div className="mb-4 text-6xl">🏸</div>
-                <h3 className="mb-2 text-lg font-medium text-gray-900">예정된 경기가 없습니다</h3>
-                <p className="mb-4 text-gray-600">새로운 경기에 등록하거나 관리자의 배정을 기다려주세요.</p>
+            ) : topMatch ? (
+              <div className="p-4 space-y-3">
+                {prioritizedAssignedMatches.map((match, index) => {
+                  return (
+                    <AssignedMatchCard
+                      key={match.id}
+                      match={match}
+                      matchOrder={index + 1}
+                      showBetCardForMatch={topMatch?.id === match.id && showTopMatchBetCard}
+                      profile={profile}
+                      coinSettlementMode={coinSettlementMode}
+                      onRefresh={refreshTopMatchSummary}
+                    />
+                  );
+                })}
               </div>
             ) : (
-              <div className="divide-y divide-slate-200/80">
-                {upcomingMatches.map((match) => (
-                  <div key={match.id} className="p-2.5 py-2">
-                    <div className="flex flex-col gap-1.5">
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white">
-                            {formatMatchBadge(match)}
-                          </span>
-                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(match.status)}`}>
-                            {getStatusText(match.status)}
-                          </span>
-                        </div>
-
-                        <div className="rounded-xl bg-slate-50 px-3 py-1.5">
-                          <div className="flex flex-col gap-0.5">
-                            <div className="text-sm font-semibold text-slate-900">{getUpcomingCardTitle(match)}</div>
-                            <div className="pt-1 text-sm text-slate-700">
-                              {formatCompactDate(match.match_date)} · {formatTimeRange(match.start_time, match.end_time)}
-                            </div>
-                            <div className="text-sm font-medium text-slate-800">{match.location || '장소 미정'}</div>
-                          </div>
-                        </div>
-
-                        {match.generated_match && (
-                          <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-stretch gap-2">
-                            <div className="rounded-[20px] border border-blue-100 bg-blue-50/80 p-2 rounded-xl">
-                              <div className="mb-2 text-sm font-semibold text-blue-900">팀 A</div>
-                              <div className="space-y-1 text-xs">
-                                <div className={`rounded-lg px-2 py-1 text-xs ${match.generated_match.team1_player1.user_id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
-                                  {getPlayerName(match.generated_match.team1_player1)}
-                                </div>
-                                <div className={`rounded-lg px-2 py-1 text-xs ${match.generated_match.team1_player2.user_id === user?.id ? 'bg-white font-semibold text-blue-900 shadow-sm' : 'bg-blue-100/80 text-blue-800'}`}>
-                                  {getPlayerName(match.generated_match.team1_player2)}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex min-w-[56px] flex-col items-center justify-center rounded-xl bg-white px-1.5 py-1 text-center shadow-sm">
-                              <div className="text-[9px] font-semibold tracking-[0.14em] text-slate-400">점수</div>
-                              <div className="mt-0.5 flex items-center gap-0.5 text-slate-400 text-sm font-semibold">
-                                <span>-</span>
-                                <span className="text-[10px] font-medium text-slate-300">VS</span>
-                                <span>-</span>
-                              </div>
-                            </div>
-
-                            <div className="rounded-[20px] border border-rose-100 bg-rose-50/80 p-2 rounded-xl text-right">
-                              <div className="mb-2 text-sm font-semibold text-rose-900">팀 B</div>
-                              <div className="space-y-1 text-xs">
-                                <div className={`rounded-lg px-2 py-1 text-xs ${match.generated_match.team2_player1.user_id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
-                                  {getPlayerName(match.generated_match.team2_player1)}
-                                </div>
-                                <div className={`rounded-lg px-2 py-1 text-xs ${match.generated_match.team2_player2.user_id === user?.id ? 'bg-white font-semibold text-rose-900 shadow-sm' : 'bg-rose-100/80 text-rose-800'}`}>
-                                  {getPlayerName(match.generated_match.team2_player2)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {match.generated_match && (
-                        <div className="flex shrink-0 flex-col gap-2">
-                          {match.status === 'scheduled' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-10 rounded-xl border-slate-300 bg-white text-slate-700"
-                              onClick={() => handleScheduleDetails(match)}
-                            >
-                              일정 확인
-                            </Button>
-                          )}
-                          {match.status === 'in_progress' && (
-                            <>
-                              {(() => {
-                                const hasResult = matchResultStates[match.id];
-
-                                if (hasResult === null) {
-                                  return (
-                                    <Button variant="outline" size="sm" disabled>
-                                      확인 중...
-                                    </Button>
-                                  );
-                                }
-
-                                return hasResult ? (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleScheduleDetails(match)}
-                                    className="h-10 rounded-xl border-green-300 text-green-700 hover:bg-green-50"
-                                  >
-                                    결과 보기
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleCompleteInput(match)}
-                                    className="h-10 rounded-xl border-yellow-300 text-yellow-700 hover:bg-yellow-50"
-                                  >
-                                    완료 입력
-                                  </Button>
-                                );
-                              })()}
-                            </>
-                          )}
-                          {match.status === 'completed' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleScheduleDetails(match)}
-                              className="h-10 rounded-xl border-green-300 text-green-700 hover:bg-green-50"
-                            >
-                              결과 보기
-                            </Button>
-                          )}
-                          {match.status === 'cancelled' && (
-                            <Button variant="outline" size="sm" disabled className="border-gray-300 text-gray-500">
-                              취소됨
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="p-12 text-center">
+                <div className="mb-4 text-6xl">🏸</div>
+                <h3 className="mb-2 text-lg font-medium text-gray-900">예정된 내 게임이 없습니다</h3>
+                <p className="mb-4 text-gray-600">새로운 경기에 등록하거나 관리자의 배정을 기다려주세요.</p>
               </div>
             )}
           </div>

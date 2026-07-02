@@ -153,9 +153,15 @@ export async function POST(request: Request) {
   }
 
   const canManage = isAdminOrManagerRole(currentProfile.role);
+  const isParticipant = [
+    matchRow.team1_player1_id,
+    matchRow.team1_player2_id,
+    matchRow.team2_player1_id,
+    matchRow.team2_player2_id,
+  ].includes(user.id);
 
-  if (!canManage) {
-    return NextResponse.json({ error: '점수 저장은 관리자 또는 매니저만 가능합니다.' }, { status: 403 });
+  if (!canManage && !isParticipant) {
+    return NextResponse.json({ error: '점수 저장은 경기 참여자 또는 관리자만 가능합니다.' }, { status: 403 });
   }
 
   const { data: betRows, error: betError } = await adminSupabase

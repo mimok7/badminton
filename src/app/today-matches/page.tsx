@@ -642,8 +642,9 @@ export default function TodayMatches() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
+    <div className="force-landscape-wrapper text-slate-900">
+      <div className="force-landscape-content">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
         <section className="rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5">
           <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3">
             <div className="flex flex-col md:flex-row md:items-baseline gap-x-3 gap-y-1">
@@ -691,10 +692,7 @@ export default function TodayMatches() {
 
           {primaryMatch && (
             <div className="mt-4 rounded-[22px] bg-white/8 px-3 py-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="text-xs text-slate-300 leading-normal">
-                  📢 대기 중인 경기 관리를 진행할 수 있습니다.
-                </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3">
                 <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                   {canManageMatches && (
                     <button
@@ -806,6 +804,7 @@ export default function TodayMatches() {
             </div>
           );
         })()}
+        </div>
       </div>
     </div>
   );

@@ -38,6 +38,13 @@ export default function AdminCoinsPage() {
   const [coinSettings, setCoinSettings] = useState<CoinSettings>(DEFAULT_COIN_SETTINGS);
   const [savingSettings, setSavingSettings] = useState(false);
   const [clearingTransactions, setClearingTransactions] = useState(false);
+  const [resettingAll, setResettingAll] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  const isSuperAdmin = useMemo(() => {
+    if (!currentUser) return false;
+    return currentUser.email === 'kjh@hyojacho.es.kr' || currentUser.username === 'kjh' || currentUser.full_name === '김진호';
+  }, [currentUser]);
 
   const profileNameMap = useMemo(
     () => new Map(profiles.map((profile) => [profile.id, profile.full_name || profile.username || '회원'])),
@@ -57,6 +64,7 @@ export default function AdminCoinsPage() {
       setProfiles(payload?.profiles || []);
       setTransactions(payload?.transactions || []);
       setCoinSettings(payload?.coinSettings || DEFAULT_COIN_SETTINGS);
+      setCurrentUser(payload?.currentUser || null);
       setSetValues(
         Object.fromEntries((payload?.profiles || []).map((profile: CoinProfile) => [profile.id, String(profile.coin_balance ?? 0)]))
       );
@@ -160,6 +168,24 @@ export default function AdminCoinsPage() {
       alert(error instanceof Error ? error.message : '코인 설정 저장 중 오류가 발생했습니다.');
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const resetAllCoins = async () => {
+    if (!confirm(`모든 회원의 코인을 현재 설정된 시작 코인(${coinSettings.initialCoinBalance}개)으로 일괄 변경하시겠습니까?\n이 작업은 취소할 수 없으며 기존 코인 잔액이 모두 덮어씌워집니다.`)) {
+      return;
+    }
+
+    try {
+      setResettingAll(true);
+      await runAction({ action: 'reset_all', coin_balance: coinSettings.initialCoinBalance });
+      await fetchData();
+      alert('모든 회원의 코인이 일괄 변경되었습니다.');
+    } catch (error) {
+      console.error('코인 일괄 변경 오류:', error);
+      alert(error instanceof Error ? error.message : '코인 일괄 변경 중 오류가 발생했습니다.');
+    } finally {
+      setResettingAll(false);
     }
   };
 
@@ -271,8 +297,8 @@ export default function AdminCoinsPage() {
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">전원 시작 코인</span>
+          <div className="space-y-2 col-span-full md:col-span-1">
+            <span className="text-sm font-medium text-slate-700">전원 시작 코인 설정</span>
             <div className="flex gap-2">
               <input
                 type="number"
@@ -297,9 +323,21 @@ export default function AdminCoinsPage() {
                 }
                 className="px-3 text-xs"
               >
-                재설정
+                기본값(30)
               </Button>
+              {isSuperAdmin && (
+                <Button
+                  variant="destructive"
+                  type="button"
+                  disabled={resettingAll}
+                  onClick={resetAllCoins}
+                  className="px-3 text-xs whitespace-nowrap"
+                >
+                  {resettingAll ? '변경 중...' : '전원 일괄 초기화'}
+                </Button>
+              )}
             </div>
+            <p className="text-xs text-slate-500">저장 시 신규 가입자에게 기본 제공되는 코인이 됩니다.</p>
           </div>
 
           <div className="space-y-2">

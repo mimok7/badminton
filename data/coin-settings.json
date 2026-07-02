@@ -1,5 +1,5 @@
 {
-  "initialCoinBalance": 10,
+  "initialCoinBalance": 30,
   "settlementMode": "zero_sum",
   "fixedWinnerReward": 1,
   "attendanceReward": 5

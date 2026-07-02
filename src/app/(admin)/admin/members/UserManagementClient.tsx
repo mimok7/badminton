@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import type { AdminUser } from '@/types';
-import { createMember, deleteUser, updateUser, updateUsersBulk, updateRatingSettings, resetUserPassword } from './actions';
+import { createMember, deleteUser, updateUser, updateUsersBulk, updateRatingSettings, resetUserPassword, resetAttendanceAll, resetWinRateAll } from './actions';
 import type { UpdateUserPayload } from './actions';
 import { useRouter } from 'next/navigation';
 import { Activity, Calendar, Filter, Key, LayoutGrid, List, Save, Search, Shield, Trash2, UserPlus, Users, Trophy } from 'lucide-react';
@@ -50,6 +50,7 @@ function normalizeEditableRole(value?: string | null): 'user' | 'manager' {
 export default function UserManagementClient({
     users,
     myUserId,
+    myUserEmail,
     levelOptions: levelOptionsFromDb,
     attendanceSummary,
     initialTab,
@@ -57,6 +58,7 @@ export default function UserManagementClient({
 }: {
     users: AdminUser[];
     myUserId: string;
+    myUserEmail: string;
     levelOptions: LevelOption[];
     attendanceSummary: AttendanceSummary;
     initialTab: string;
@@ -95,6 +97,13 @@ export default function UserManagementClient({
         gender: '',
         role: 'user',
     });
+
+    const isSuperAdmin = useMemo(() => {
+        const me = users.find(u => u.id === myUserId);
+        if (!me) return myUserEmail === 'kjh@hyojacho.es.kr';
+        return me.email === 'kjh@hyojacho.es.kr' || me.username === 'kjh' || me.full_name === '김진호';
+    }, [users, myUserId, myUserEmail]);
+
     const levelOptions = useMemo(
         () => levelOptionsFromDb.length > 0
             ? levelOptionsFromDb
@@ -1200,6 +1209,28 @@ export default function UserManagementClient({
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <h2 className="text-lg font-semibold text-slate-900 px-1">회원별 출석 현황</h2>
                         <div className="flex justify-end gap-2">
+                            {isSuperAdmin && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (confirm('모든 회원의 출석 기록을 완전히 삭제하고 초기화하시겠습니까?\n이 작업은 취소할 수 없습니다.')) {
+                                            startTransition(async () => {
+                                                const res = await resetAttendanceAll();
+                                                if (res?.error) alert(`출석 초기화 실패: ${res.error}`);
+                                                else {
+                                                    alert('모든 회원의 출석 기록이 초기화되었습니다.');
+                                                    router.refresh();
+                                                }
+                                            });
+                                        }
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                                    disabled={isPending}
+                                >
+                                    <Trash2 className="size-3.5" />
+                                    전원 일괄 초기화
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => setViewMode('table')}
@@ -1293,6 +1324,28 @@ export default function UserManagementClient({
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <h2 className="text-lg font-semibold text-slate-900 px-1">회원별 승률 현황</h2>
                         <div className="flex justify-end gap-2">
+                            {isSuperAdmin && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (confirm('모든 회원의 승률(승/패 전적) 기록을 0으로 초기화하시겠습니까?\n이 작업은 취소할 수 없습니다.')) {
+                                            startTransition(async () => {
+                                                const res = await resetWinRateAll();
+                                                if (res?.error) alert(`승률 초기화 실패: ${res.error}`);
+                                                else {
+                                                    alert('모든 회원의 승률 기록이 초기화되었습니다.');
+                                                    router.refresh();
+                                                }
+                                            });
+                                        }
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                                    disabled={isPending}
+                                >
+                                    <Trash2 className="size-3.5" />
+                                    전원 일괄 초기화
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => setViewMode('table')}

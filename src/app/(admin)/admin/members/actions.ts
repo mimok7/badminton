@@ -193,6 +193,45 @@ export async function updateUsersBulk(
     return { success: true, updatedCount: items.length };
 }
 
+export async function resetAttendanceAll() {
+    if (!(await isAdmin())) {
+        return { error: '권한이 없습니다.' };
+    }
+    
+    const { error } = await supabaseAdmin
+        .from('attendances')
+        .delete()
+        .not('id', 'is', null);
+        
+    if (error) {
+        return { error: error.message };
+    }
+    
+    revalidatePath('/admin/members');
+    return { success: true };
+}
+
+export async function resetWinRateAll() {
+    if (!(await isAdmin())) {
+        return { error: '권한이 없습니다.' };
+    }
+    
+    const { error } = await supabaseAdmin
+        .from('profiles')
+        .update({
+            coin_wins: 0,
+            coin_losses: 0,
+        })
+        .not('id', 'is', null);
+        
+    if (error) {
+        return { error: error.message };
+    }
+    
+    revalidatePath('/admin/members');
+    return { success: true };
+}
+
 function romanizeSyllable(char: string): string {
     const customSyllables: Record<string, string> = {
         '유': 'yoo', '우': 'woo', '이': 'lee', '임': 'lim', '성': 'sung',

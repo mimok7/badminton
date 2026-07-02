@@ -194,6 +194,7 @@ export default async function AdminMembersPage({
       <UserManagementClient
         users={users}
         myUserId={user.id}
+        myUserEmail={user.email || ''}
         levelOptions={levelOptions}
         attendanceSummary={attendanceSummary}
         initialTab={initialTab}

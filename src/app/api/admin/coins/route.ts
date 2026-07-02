@@ -28,7 +28,7 @@ export async function GET() {
   const context = await requireAdmin();
   if ('error' in context) return context.error;
 
-  const { adminSupabase } = context;
+  const { adminSupabase, currentProfile } = context;
   const coinSettings = await readCoinSettings();
 
   const [{ data: profiles, error: profilesError }, { data: transactions, error: transactionsError }] = await Promise.all([
@@ -56,6 +56,7 @@ export async function GET() {
     coinSettings,
     profiles: profiles || [],
     transactions: transactions || [],
+    currentUser: currentProfile,
   });
 }
 

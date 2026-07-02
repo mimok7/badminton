@@ -171,20 +171,14 @@ function PlayersPage() {
 
       // 경기 생성 로직 (from match-utils)
   const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
-  const generatedMatches = createBalancedDoublesMatches(playersForMatch, 4, perPlayerMinGames); // 최대 코트 수
+  const generatedMatches = createBalancedDoublesMatches(playersForMatch, perPlayerMinGames);
       
       if (generatedMatches.length === 0) {
         alert('균형잡힌 경기를 생성할 수 없습니다.');
         return;
       }
 
-      // court 속성 추가
-      const matchesWithCourt = generatedMatches.map((match, index) => ({
-        ...match,
-        court: index + 1
-      }));
-
-      setMatches(matchesWithCourt);
+      setMatches(generatedMatches);
       setPlayerGameCounts(calculatePlayerGameCounts(generatedMatches));
       
       console.log(`✅ 레벨별 경기 생성 완료: ${generatedMatches.length}경기`);
@@ -214,14 +208,12 @@ function PlayersPage() {
 
   // 유틸: 팀은 랜덤으로 섞되, 상대팀은 실력 유사하게 페어링
   const { createRandomBalancedDoublesMatches } = await import('@/utils/match-utils');
-  const generated = createRandomBalancedDoublesMatches(selectedPlayers, 4, perPlayerMinGames);
-  // 코트 번호 재부여(순서 기반)
-  const matchesWithCourt = generated.map((m, idx) => ({ ...m, court: idx + 1 }));
+  const generated = createRandomBalancedDoublesMatches(selectedPlayers, perPlayerMinGames);
 
-  setMatches(matchesWithCourt);
-  setPlayerGameCounts(calculatePlayerGameCounts(matchesWithCourt));
+  setMatches(generated);
+  setPlayerGameCounts(calculatePlayerGameCounts(generated));
       
-  console.log(`✅ 랜덤 경기 생성 완료: ${matchesWithCourt.length}경기`);
+  console.log(`✅ 랜덤 경기 생성 완료: ${generated.length}경기`);
     } catch (error) {
       console.error('❌ 랜덤 경기 생성 중 오류:', error);
     } finally {
@@ -252,20 +244,14 @@ function PlayersPage() {
 
       // 혼성+동성 조합 경기 생성 로직 (from match-utils)
   const { createMixedAndSameSexDoublesMatches } = await import('@/utils/match-utils');
-  const generatedMatches = createMixedAndSameSexDoublesMatches(playersForMatch, 4, perPlayerMinGames); // 최대 코트 수
+  const generatedMatches = createMixedAndSameSexDoublesMatches(playersForMatch, perPlayerMinGames);
       
       if (generatedMatches.length === 0) {
         alert('혼합복식 경기를 생성할 수 없습니다. 남녀 선수 구성을 확인해주세요.');
         return;
       }
 
-      // court 속성 추가
-      const matchesWithCourt = generatedMatches.map((match, index) => ({
-        ...match,
-        court: index + 1
-      }));
-
-      setMatches(matchesWithCourt);
+      setMatches(generatedMatches);
       setPlayerGameCounts(calculatePlayerGameCounts(generatedMatches));
       
       console.log(`✅ 혼복 경기 생성 완료: ${generatedMatches.length}경기`);

@@ -1,8 +1,8 @@
 import { Player, Match, Team } from '@/types';
 import { getTeamScore, getTeamFairnessScore, getTeamMatchScore, jitter, getMinimumMatchCount, countUniquePlayersInMatches, reorderMatchesToAvoidConsecutive, MAX_TEAM_SCORE_DIFF } from './match-helpers';
 
-export function createBalancedDoublesMatches(playersInput: Player[], numberOfCourts: number, minGamesPerPlayer = 1): Match[] {
-  if (!Array.isArray(playersInput) || playersInput.length < 4 || numberOfCourts <= 0) return [];
+export function createBalancedDoublesMatches(playersInput: Player[], minGamesPerPlayer = 1): Match[] {
+  if (!Array.isArray(playersInput) || playersInput.length < 4) return [];
 
   const players = [...playersInput].sort((a, b) => a.id.localeCompare(b.id));
   const normalized = players.map(p => ({ ...p, skill_level: (p.skill_level || 'E2').toUpperCase() }));
@@ -35,16 +35,15 @@ export function createBalancedDoublesMatches(playersInput: Player[], numberOfCou
     return teams;
   };
 
-  const createRound = (pool: Player[], maxCourts: number): { matches: Match[]; used: Set<string> } => {
+  const createRound = (pool: Player[]): { matches: Match[]; used: Set<string> } => {
     const used = new Set<string>();
     const matches: Match[] = [];
     
     // 레벨(점수) 높은 순서로 정렬된 풀 사용
     const sortedPool = [...pool].sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
     const possible = buildPossibleTeams(sortedPool);
-    let court = 1;
 
-    for (let i = 0; i < possible.length && court <= maxCourts; i++) {
+    for (let i = 0; i < possible.length; i++) {
       const t1 = possible[i];
       const p1 = t1.team.player1.id; const p2 = t1.team.player2.id;
       if (used.has(p1) || used.has(p2)) continue;
@@ -70,10 +69,9 @@ export function createBalancedDoublesMatches(playersInput: Player[], numberOfCou
         });
         const picked = candidates[0]; // 가장 균형이 잘 맞는 상대를 고정 선택
         
-        const matchId = `match-balanced-d-${Date.now()}-${court}-${t1.team.player1.id.slice(0, 4)}-${picked.team.player1.id.slice(0, 4)}-${Math.random().toString(36).slice(2, 6)}`;
-        matches.push({ id: matchId, team1: t1.team, team2: picked.team, court });
+        const matchId = `match-balanced-d-${Date.now()}-${t1.team.player1.id.slice(0, 4)}-${picked.team.player1.id.slice(0, 4)}-${Math.random().toString(36).slice(2, 6)}`;
+        matches.push({ id: matchId, team1: t1.team, team2: picked.team });
         used.add(p1); used.add(p2); used.add(picked.team.player1.id); used.add(picked.team.player2.id);
-        court += 1;
       }
     }
     return { matches, used };
@@ -149,7 +147,7 @@ export function createBalancedDoublesMatches(playersInput: Player[], numberOfCou
         
         for (let i = 0; i < numMatchesToGenerate; i++) {
           const four = shuffled.slice(i * 4, i * 4 + 4);
-          const { matches: round } = createRound(four, 1);
+          const { matches: round } = createRound(four);
           if (round && round.length > 0) {
             const m = round[0];
             const diff = Math.abs(getTeamScore(m.team1) - getTeamScore(m.team2));
@@ -163,8 +161,7 @@ export function createBalancedDoublesMatches(playersInput: Player[], numberOfCou
               currentSchedule.push({
                 id: `match-forced-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
                 team1: pairing.t1,
-                team2: pairing.t2,
-                court: 1
+                team2: pairing.t2
               });
             }
           }
@@ -177,7 +174,6 @@ export function createBalancedDoublesMatches(playersInput: Player[], numberOfCou
       }
       
       for (const m of bestSchedule) {
-        m.court = (result.length % numberOfCourts) + 1;
         result.push(m);
         counts[m.team1.player1.id]++;
         counts[m.team1.player2.id]++;
@@ -186,10 +182,9 @@ export function createBalancedDoublesMatches(playersInput: Player[], numberOfCou
       }
     } else {
       const candidates = pool.slice(0, 4);
-      const { matches: round } = createRound(candidates, 1);
+      const { matches: round } = createRound(candidates);
       if (round && round.length > 0) {
         const m = round[0];
-        m.court = (result.length % numberOfCourts) + 1;
         result.push(m);
         counts[m.team1.player1.id]++;
         counts[m.team1.player2.id]++;
@@ -201,8 +196,7 @@ export function createBalancedDoublesMatches(playersInput: Player[], numberOfCou
           result.push({
             id: `match-forced-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
             team1: pairing.t1,
-            team2: pairing.t2,
-            court: (result.length % numberOfCourts) + 1
+            team2: pairing.t2
           });
           counts[pairing.t1.player1.id]++;
           counts[pairing.t1.player2.id]++;

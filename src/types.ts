@@ -22,8 +22,8 @@ export interface Team {
 }
 
 export interface Match {
-  id: string; // 경기 ID 추가
-  court: number;
+  id?: string; // 경기 ID 추가
+  court?: number;
   team1: Team;
   team2: Team;
 }

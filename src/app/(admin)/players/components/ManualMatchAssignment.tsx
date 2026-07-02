@@ -63,8 +63,7 @@ export default function ManualMatchAssignment({
       team2: {
         player1: p3,
         player2: p4
-      },
-      court: matches.length + 1
+      }
     };
 
     setMatches(prev => [...prev, newMatch]);
@@ -231,7 +230,7 @@ export default function ManualMatchAssignment({
                           </div>
                         </div>
                         <button
-                          onClick={() => handleRemoveMatch(match.id)}
+                          onClick={() => match.id && handleRemoveMatch(match.id)}
                           className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
                         >
                           삭제

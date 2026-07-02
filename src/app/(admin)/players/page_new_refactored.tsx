@@ -226,7 +226,7 @@ function PlayersPage() {
   const playersForMatch: Player[] = presentPlayers.map(toPlayer);
 
   const numberOfCourts = Math.max(1, Math.floor(presentPlayers.length / 4));
-  const generatedMatches = createBalancedDoublesMatches(playersForMatch, numberOfCourts, perPlayerMinGames);
+  const generatedMatches = createBalancedDoublesMatches(playersForMatch, perPlayerMinGames);
       
       if (generatedMatches.length === 0) {
         alert('균형잡힌 경기를 생성할 수 없습니다.');

@@ -1358,13 +1358,13 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     try {
       if (matchType === 'level_based') {
         const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
-        generatedMatches = createBalancedDoublesMatches(players, 4, 1);
+        generatedMatches = createBalancedDoublesMatches(players, 1);
       } else if (matchType === 'mixed_doubles') {
         const { createMixedAndSameSexDoublesMatches } = await import('@/utils/match-utils');
-        generatedMatches = createMixedAndSameSexDoublesMatches(players, 4, 1);
+        generatedMatches = createMixedAndSameSexDoublesMatches(players, 1);
       } else {
         const { createRandomBalancedDoublesMatches } = await import('@/utils/match-utils');
-        generatedMatches = createRandomBalancedDoublesMatches(players, 4, 1);
+        generatedMatches = createRandomBalancedDoublesMatches(players, 1);
       }
     } catch (error) {
       console.error('경기 생성 함수 로드 오류:', error);

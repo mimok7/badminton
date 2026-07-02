@@ -81,7 +81,7 @@ export default function MatchTable({ matches, todayPlayers, myUserId }: MatchTab
         <table className="w-full text-sm text-left text-gray-500">
           <thead className="text-xs text-gray-700 uppercase bg-gray-50">
             <tr>
-              <th scope="col" className="px-4 py-3">코트</th>
+
               <th scope="col" className="px-4 py-3">팀 1</th>
               <th scope="col" className="px-4 py-3">팀 2</th>
             </tr>
@@ -94,7 +94,7 @@ export default function MatchTable({ matches, todayPlayers, myUserId }: MatchTab
 
               return (
                 <tr key={index} className={cn("border-b", isMyMatch ? "bg-blue-100 font-semibold" : "bg-white")}>
-                  <td className="px-4 py-3 text-center font-mono">{match.court}</td>
+
                   <td className="px-4 py-3">{getPlayerLabel(match.team1.player1)} / {getPlayerLabel(match.team1.player2)}</td>
                   <td className="px-4 py-3">{getPlayerLabel(match.team2.player1)} / {getPlayerLabel(match.team2.player2)}</td>
                 </tr>

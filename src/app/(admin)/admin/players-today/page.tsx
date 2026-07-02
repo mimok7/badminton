@@ -147,21 +147,7 @@ export default function PlayersTodayPage() {
       score: getLevelScoreFromCode(map, player.skill_level, 0),
     }));
 
-  const getConfiguredCourtCount = (playerCount?: number) => {
-    if (activeCourts.length > 0) {
-      return activeCourts.length;
-    }
 
-    return Math.max(4, Math.ceil((playerCount || 0) / 4));
-  };
-
-  const normalizeGeneratedCourts = <T extends Match>(generatedMatches: T[], courtCount: number) =>
-    generatedMatches.map((match, index) => ({
-      ...match,
-      court: typeof match.court === 'number' && match.court > 0
-        ? ((match.court - 1) % Math.max(1, courtCount)) + 1
-        : (index % Math.max(1, courtCount)) + 1,
-    }));
 
   const ensureLevelInfoMap = async () => {
     if (Object.keys(levelInfoMap).length > 0) {
@@ -621,21 +607,16 @@ export default function PlayersTodayPage() {
         currentLevelInfoMap
       );
       const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
-      const configuredCourtCount = getConfiguredCourtCount(playersForMatch.length);
+
       
       // 목표 경기수 계산
       const targetMatches = Math.ceil((playersForMatch.length * perPlayerMinGames) / 4);
       
-      // 재시도 로직: 최대 4회 시도하며 코트 수를 점진적으로 증가
       let generated: any[] = [];
       let attempts = 0;
-      let maxCourts = configuredCourtCount;
       
       while (attempts < 4) {
-        generated = normalizeGeneratedCourts(
-          createBalancedDoublesMatches(playersForMatch, maxCourts, perPlayerMinGames),
-          maxCourts
-        );
+        generated = await Promise.resolve(createBalancedDoublesMatches(playersForMatch, perPlayerMinGames));
         
         const counts = calculatePlayerGameCounts(generated);
         const missing = playersForMatch.filter(p => (counts[p.id] || 0) < perPlayerMinGames);
@@ -646,9 +627,6 @@ export default function PlayersTodayPage() {
         }
         
         attempts += 1;
-        if (activeCourts.length === 0) {
-          maxCourts = Math.min(playersForMatch.length, maxCourts + 2);
-        }
       }
       
       // 최종 검증: 모든 참가자가 포함되었는지 확인
@@ -703,19 +681,12 @@ export default function PlayersTodayPage() {
         const targetMatches = Math.ceil((playersForMatch.length * perPlayerMinGames) / 4);
         let generated: any[] = [];
         let attempts = 0;
-        let maxCourts = getConfiguredCourtCount(playersForMatch.length);
         while (attempts < 4) {
-          generated = normalizeGeneratedCourts(
-            createRandomBalancedDoublesMatches(playersForMatch, maxCourts, perPlayerMinGames),
-            maxCourts
-          );
+          generated = await Promise.resolve(createRandomBalancedDoublesMatches(playersForMatch, perPlayerMinGames));
           const counts = calculatePlayerGameCounts(generated);
           const missing = playersForMatch.filter(p => (counts[p.id] || 0) < perPlayerMinGames);
           if (generated.length >= targetMatches && missing.length === 0) break;
           attempts += 1;
-          if (activeCourts.length === 0) {
-            maxCourts = Math.min(playersForMatch.length, maxCourts + 2);
-          }
         }
       const finalCounts = calculatePlayerGameCounts(generated);
       const stillMissing = playersForMatch.filter(p => (finalCounts[p.id] || 0) < perPlayerMinGames);
@@ -749,20 +720,12 @@ export default function PlayersTodayPage() {
         // try generation multiple times, expanding per-round courts if needed to improve coverage
         let generated: any[] = [];
         let attempts = 0;
-        let maxCourts = getConfiguredCourtCount(playersForMatch.length);
         while (attempts < 4) {
-          generated = normalizeGeneratedCourts(
-            createMixedAndSameSexDoublesMatches(playersForMatch, maxCourts, perPlayerMinGames),
-            maxCourts
-          );
+          generated = await Promise.resolve(createMixedAndSameSexDoublesMatches(playersForMatch, perPlayerMinGames));
           const counts = calculatePlayerGameCounts(generated);
           const missing = playersForMatch.filter(p => (counts[p.id] || 0) < perPlayerMinGames);
           if (generated.length >= targetMatches && missing.length === 0) break;
-          // try again with more courts to create more variety
           attempts += 1;
-          if (activeCourts.length === 0) {
-            maxCourts = Math.min(playersForMatch.length, maxCourts + 2);
-          }
         }
       // final check
       const finalCounts = calculatePlayerGameCounts(generated);
@@ -784,12 +747,11 @@ export default function PlayersTodayPage() {
 
     // target matches 계산 및 빈 슬롯 생성
     const targetMatches = Math.ceil((present.length * perPlayerMinGames) / 4);
-    const configuredCourtCount = getConfiguredCourtCount(present.length);
+
     const emptyMatches: any[] = Array.from({ length: Math.max(1, targetMatches) }).map((_, i) => ({
       id: `manual-empty-${Date.now()}-${i}`,
       team1: { player1: null, player2: null },
       team2: { player1: null, player2: null },
-      court: (i % Math.max(1, configuredCourtCount)) + 1
     }));
 
     setMatches(emptyMatches);

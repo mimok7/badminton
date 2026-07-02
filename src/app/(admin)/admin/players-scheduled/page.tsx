@@ -178,14 +178,14 @@ export default function PlayersScheduledPage() {
       if (mode === 'level') {
         const { createBalancedDoublesMatches } = await import('@/utils/match-utils');
         const normalized = players.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }));
-        generated = createBalancedDoublesMatches(normalized, 4, perPlayerMinGames);
+        generated = createBalancedDoublesMatches(normalized, perPlayerMinGames);
       } else if (mode === 'random') {
         const { createRandomBalancedDoublesMatches } = await import('@/utils/match-utils');
-        generated = createRandomBalancedDoublesMatches(players, 4, perPlayerMinGames);
+        generated = createRandomBalancedDoublesMatches(players, perPlayerMinGames);
       } else {
         const { createMixedAndSameSexDoublesMatches } = await import('@/utils/match-utils');
         const normalized = players.map(p => ({ ...p, skill_level: normalizeLevel(p.skill_level) }));
-        generated = createMixedAndSameSexDoublesMatches(normalized, 4, perPlayerMinGames);
+        generated = createMixedAndSameSexDoublesMatches(normalized, perPlayerMinGames);
       }
       const withCourt = generated.map((m, i) => ({ ...m, court: i + 1 }));
       setMatches(withCourt);

@@ -4,8 +4,8 @@ import { getTeamFairnessScore, getTeamMatchScore, getTeamScore, jitter, reorderM
 const isMale = (p: Player) => (p.gender || '').toLowerCase() === 'm' || (p.gender || '').toLowerCase() === 'male' || (p.gender || '').toLowerCase() === 'man';
 const isFemale = (p: Player) => (p.gender || '').toLowerCase() === 'f' || (p.gender || '').toLowerCase() === 'female' || (p.gender || '').toLowerCase() === 'woman' || (p.gender || '').toLowerCase() === 'w';
 
-export function createMixedAndSameSexDoublesMatches(playersInput: Player[], numberOfCourts: number, minGamesPerPlayer = 1): Match[] {
-  if (!Array.isArray(playersInput) || playersInput.length < 4 || numberOfCourts <= 0) return [];
+export function createMixedAndSameSexDoublesMatches(playersInput: Player[], minGamesPerPlayer = 1): Match[] {
+  if (!Array.isArray(playersInput) || playersInput.length < 4) return [];
 
   const players = [...playersInput].sort((a, b) => a.id.localeCompare(b.id));
   const counts: Record<string, number> = {};
@@ -150,8 +150,7 @@ export function createMixedAndSameSexDoublesMatches(playersInput: Player[], numb
     return {
       id: `match-mixed-${Date.now()}-${result.length}-${bestSelection.team1.player1.id.slice(0, 4)}`,
       team1: bestSelection.team1,
-      team2: bestSelection.team2,
-      court: (result.length % numberOfCourts) + 1,
+      team2: bestSelection.team2
     };
   };
 
@@ -194,8 +193,7 @@ export function createMixedAndSameSexDoublesMatches(playersInput: Player[], numb
             match = {
               id: `match-mixed-forced-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
               team1: { player1: four[0], player2: four[1] },
-              team2: { player1: four[2], player2: four[3] },
-              court: 1,
+              team2: { player1: four[2], player2: four[3] }
             };
           }
           const diff = Math.abs(getTeamScore(match.team1) - getTeamScore(match.team2));
@@ -211,7 +209,6 @@ export function createMixedAndSameSexDoublesMatches(playersInput: Player[], numb
       
       for (const match of bestSchedule) {
         match.id = `match-mixed-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`;
-        match.court = (result.length % numberOfCourts) + 1;
         applyMatch(match);
       }
     } else {
@@ -221,8 +218,7 @@ export function createMixedAndSameSexDoublesMatches(playersInput: Player[], numb
         nextMatch = {
           id: `match-mixed-forced-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
           team1: { player1: candidates[0], player2: candidates[1] },
-          team2: { player1: candidates[2], player2: candidates[3] },
-          court: (result.length % numberOfCourts) + 1,
+          team2: { player1: candidates[2], player2: candidates[3] }
         };
       } else {
         nextMatch.id = `match-mixed-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`;

@@ -1,8 +1,8 @@
 import { Player, Match, Team } from '@/types';
 import { shuffle, getLevelGroup, getTeamScore, getTeamMatchScore, reorderMatchesToAvoidConsecutive, MAX_TEAM_SCORE_DIFF } from './match-helpers';
 
-export function createRandomBalancedDoublesMatches(playersInput: Player[], numberOfCourts: number, minGamesPerPlayer = 1): Match[] {
-  if (!Array.isArray(playersInput) || playersInput.length < 4 || numberOfCourts <= 0) return [];
+export function createRandomBalancedDoublesMatches(playersInput: Player[], minGamesPerPlayer = 1): Match[] {
+  if (!Array.isArray(playersInput) || playersInput.length < 4) return [];
 
   const players = [...playersInput].sort((a, b) => a.id.localeCompare(b.id));
   const counts: Record<string, number> = {};
@@ -77,8 +77,7 @@ export function createRandomBalancedDoublesMatches(playersInput: Player[], numbe
         result.push({
           id: `match-rand-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
           team1: pairing.t1,
-          team2: pairing.t2,
-          court: (result.length % numberOfCourts) + 1
+          team2: pairing.t2
         });
         counts[pairing.t1.player1.id]++;
         counts[pairing.t1.player2.id]++;
@@ -93,8 +92,7 @@ export function createRandomBalancedDoublesMatches(playersInput: Player[], numbe
         result.push({
           id: `match-rand-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
           team1: pairing.t1,
-          team2: pairing.t2,
-          court: (result.length % numberOfCourts) + 1
+          team2: pairing.t2
         });
         counts[pairing.t1.player1.id]++;
         counts[pairing.t1.player2.id]++;

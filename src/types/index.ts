@@ -15,7 +15,7 @@ export interface Team {
 
 export interface Match {
   id?: string;
-  court: number;
+  court?: number;
   team1: Team;
   team2: Team;
 }

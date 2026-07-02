@@ -87,16 +87,15 @@ async function recoverTournamentMatches(
     gender: 'mixed',
   }));
 
-  const numberOfCourts = 4;
   const minGamesPerPlayer = Math.max(1, tournament.matches_per_player || 1);
 
   let generatedMatches;
   if (tournament.match_type === 'level_based') {
-    generatedMatches = createBalancedDoublesMatches(players, numberOfCourts, minGamesPerPlayer);
+    generatedMatches = createBalancedDoublesMatches(players, minGamesPerPlayer);
   } else if (tournament.match_type === 'mixed_doubles') {
-    generatedMatches = createMixedAndSameSexDoublesMatches(players, numberOfCourts, minGamesPerPlayer);
+    generatedMatches = createMixedAndSameSexDoublesMatches(players, minGamesPerPlayer);
   } else {
-    generatedMatches = createRandomBalancedDoublesMatches(players, numberOfCourts, minGamesPerPlayer);
+    generatedMatches = createRandomBalancedDoublesMatches(players, minGamesPerPlayer);
   }
 
   const matchesToInsert = generatedMatches.map((match, index) => ({
@@ -105,7 +104,7 @@ async function recoverTournamentMatches(
     match_number: index + 1,
     team1: [match.team1.player1.name, match.team1.player2.name],
     team2: [match.team2.player1.name, match.team2.player2.name],
-    court: `Court ${match.court || ((index % numberOfCourts) + 1)}`,
+    court: '',
     status: 'pending' as const,
     scheduled_time: null,
     score_team1: null,

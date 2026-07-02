@@ -178,5 +178,5 @@ export async function isUserAdmin(
   supabase: ProfileLookupClient,
   user: User | null | undefined
 ): Promise<boolean> {
-  return isAdminRole(await getUserRole(supabase, user));
+  return isAdminOrManagerRole(await getUserRole(supabase, user));
 }

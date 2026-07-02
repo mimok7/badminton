@@ -35,7 +35,8 @@ function PlayersPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [playerGameCounts, setPlayerGameCounts] = useState<Record<string, number>>({});
-  const [perPlayerMinGames, setPerPlayerMinGames] = useState(1);
+  const [perPlayerMinGames, setPerPlayerMinGames] = useState<number>(1);
+  const [assignTarget, setAssignTarget] = useState<'attendees' | 'participants'>('attendees');
   
   // 배정 관련 상태
   const [matchSessions, setMatchSessions] = useState<MatchSession[]>([]);
@@ -545,6 +546,8 @@ function PlayersPage() {
               todayPlayers={todayPlayers}
               perPlayerMinGames={perPlayerMinGames}
               setPerPlayerMinGames={setPerPlayerMinGames}
+              assignTarget={assignTarget}
+              setAssignTarget={setAssignTarget}
               onGenerateByLevel={handleAssignByLevel}
               onGenerateRandom={handleAssignRandom}
               onGenerateMixed={handleAssignMixed}

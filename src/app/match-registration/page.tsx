@@ -39,6 +39,8 @@ interface UserMatchInfo {
   schedule: MatchSchedule;
   participation: MatchParticipant | null;
   isRegistered: boolean;
+  isWaitlisted?: boolean;
+  waitlistPosition?: number;
   actualParticipantCount: number;
   participants: Array<{
     id: string;
@@ -143,7 +145,7 @@ export default function MatchRegistrationPage() {
         .from('match_participants')
         .select('id, user_id, status, registered_at, match_schedule_id')
         .in('match_schedule_id', scheduleIds)
-        .eq('status', 'registered');
+        .in('status', ['registered', 'waitlisted']);
 
       if (participationsRes.error) {
         console.error('참가 정보 조회 오류:', participationsRes.error);
@@ -208,16 +210,29 @@ export default function MatchRegistrationPage() {
       const nextUserMatches = schedulesList.map((schedule) => {
         const participation =
           participationsData.find((item) => item.match_schedule_id === schedule.id && item.status === 'registered') ||
+          participationsData.find((item) => item.match_schedule_id === schedule.id && item.status === 'waitlisted') ||
           participationsData.find((item) => item.match_schedule_id === schedule.id) ||
           null;
-        const participants = participantsBySchedule[schedule.id] || [];
+        const allParticipantsForSchedule = participantsBySchedule[schedule.id] || [];
+        
+        const registeredParticipants = allParticipantsForSchedule.filter(p => p.status === 'registered');
+        const waitlistedParticipants = allParticipantsForSchedule
+          .filter(p => p.status === 'waitlisted')
+          .sort((a, b) => new Date(a.registered_at).getTime() - new Date(b.registered_at).getTime());
+
+        let waitlistPosition = 0;
+        if (participation?.status === 'waitlisted') {
+          waitlistPosition = waitlistedParticipants.findIndex(p => p.user_id === participation.user_id) + 1;
+        }
 
         return {
           schedule,
           participation,
           isRegistered: participation?.status === 'registered',
-          actualParticipantCount: participants.length,
-          participants,
+          isWaitlisted: participation?.status === 'waitlisted',
+          waitlistPosition,
+          actualParticipantCount: registeredParticipants.length,
+          participants: allParticipantsForSchedule,
         };
       });
 
@@ -231,7 +246,7 @@ export default function MatchRegistrationPage() {
     }
   }, [participantKeys, supabase]);
 
-  const registerForMatch = async (scheduleId: string) => {
+  const registerForMatch = async (scheduleId: string, isWaitlist: boolean = false) => {
     if (!user) return;
 
     if (participantKeys.length === 0) {
@@ -256,6 +271,7 @@ export default function MatchRegistrationPage() {
 
       const existingParticipation =
         (existingParticipations || []).find((item) => item.status === 'registered') ||
+        (existingParticipations || []).find((item) => item.status === 'waitlisted') ||
         (existingParticipations || [])[0] ||
         null;
 
@@ -263,16 +279,23 @@ export default function MatchRegistrationPage() {
         alert('이미 이 경기에 참가 신청하셨습니다.');
         return;
       }
+      
+      if (existingParticipation?.status === 'waitlisted') {
+        alert('이미 이 경기에 대기 신청하셨습니다.');
+        return;
+      }
 
-      if (existingParticipation?.status === 'cancelled') {
+      const targetStatus = isWaitlist ? 'waitlisted' : 'registered';
+
+      if (existingParticipation?.status === 'cancelled' || existingParticipation?.status === 'absent') {
         const { error: updateError } = await supabase
           .from('match_participants')
-          .update({ status: 'registered' })
+          .update({ status: targetStatus, registered_at: new Date().toISOString() })
           .eq('id', existingParticipation.id);
 
         if (updateError) {
           console.error('참가 상태 변경 오류:', updateError);
-          alert('참가 신청 중 오류가 발생했습니다.');
+          alert('신청 중 오류가 발생했습니다.');
           return;
         }
       } else {
@@ -285,7 +308,7 @@ export default function MatchRegistrationPage() {
             .insert({
               match_schedule_id: scheduleId,
               user_id: participantKey,
-              status: 'registered',
+              status: targetStatus,
             });
 
           if (!error) {
@@ -299,7 +322,7 @@ export default function MatchRegistrationPage() {
           if (error.code === '23505') {
             const { error: restoreError } = await supabase
               .from('match_participants')
-              .update({ status: 'registered' })
+              .update({ status: targetStatus, registered_at: new Date().toISOString() })
               .eq('match_schedule_id', scheduleId)
               .eq('user_id', participantKey);
 
@@ -314,30 +337,32 @@ export default function MatchRegistrationPage() {
         }
 
         if (insertError || !insertedWithKey) {
-          console.error('참가 신청 오류:', insertError);
-          alert(`참가 신청 중 오류가 발생했습니다: ${insertError?.message || '알 수 없는 오류'}`);
+          console.error('신청 오류:', insertError);
+          alert(`신청 중 오류가 발생했습니다: ${insertError?.message || '알 수 없는 오류'}`);
           return;
         }
       }
 
       setUserMatches((previous) =>
         previous.map((matchInfo) => {
-          if (matchInfo.schedule.id !== scheduleId || matchInfo.isRegistered) {
+          if (matchInfo.schedule.id !== scheduleId || matchInfo.isRegistered || matchInfo.isWaitlisted) {
             return matchInfo;
           }
 
           const tempParticipantId = `temp-${participantKeys[0]}-${Date.now()}`;
           return {
             ...matchInfo,
-            isRegistered: true,
+            isRegistered: !isWaitlist,
+            isWaitlisted: isWaitlist,
+            waitlistPosition: isWaitlist ? (matchInfo.participants.filter(p => p.status === 'waitlisted').length + 1) : 0,
             participation: {
               id: tempParticipantId,
               match_schedule_id: scheduleId,
               user_id: participantKeys[0],
-              status: 'registered',
+              status: targetStatus,
               registered_at: new Date().toISOString(),
             },
-            actualParticipantCount: matchInfo.actualParticipantCount + 1,
+            actualParticipantCount: isWaitlist ? matchInfo.actualParticipantCount : matchInfo.actualParticipantCount + 1,
             participants: [
               ...matchInfo.participants,
               {
@@ -346,7 +371,7 @@ export default function MatchRegistrationPage() {
                 username: profile?.username || '',
                 full_name: profile?.full_name || '',
                 skill_level: profile?.skill_level || null,
-                status: 'registered',
+                status: targetStatus,
               },
             ],
           };
@@ -354,10 +379,10 @@ export default function MatchRegistrationPage() {
       );
 
       setTimeout(fetchSchedulesAndParticipation, 300);
-      alert('참가 신청이 완료되었습니다.');
+      alert(isWaitlist ? '대기 신청이 완료되었습니다.' : '참가 신청이 완료되었습니다.');
     } catch (error) {
-      console.error('참가 신청 중 오류:', error);
-      alert('참가 신청 중 오류가 발생했습니다.');
+      console.error('신청 중 오류:', error);
+      alert('신청 중 오류가 발생했습니다.');
     } finally {
       setRegistering(null);
     }
@@ -472,7 +497,7 @@ export default function MatchRegistrationPage() {
     };
   }, [fetchSchedulesAndParticipation, supabase]);
 
-  const registeredMatches = userMatches.filter((match) => match.isRegistered);
+  const myMatches = userMatches.filter((match) => match.isRegistered || match.isWaitlisted);
 
   return (
     <RequireAuth>
@@ -587,13 +612,25 @@ export default function MatchRegistrationPage() {
                             >
                               {registering === matchInfo.schedule.id ? '처리 중...' : '참가 취소'}
                             </Button>
+                          ) : matchInfo.isWaitlisted ? (
+                            <Button
+                              onClick={() => cancelRegistration(matchInfo.schedule.id)}
+                              disabled={registering === matchInfo.schedule.id}
+                              variant="outline"
+                              className="relative h-10 flex-1 rounded-full border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                            >
+                              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white shadow-sm ring-2 ring-white">
+                                {matchInfo.waitlistPosition}
+                              </span>
+                              {registering === matchInfo.schedule.id ? '처리 중...' : '대기 취소'}
+                            </Button>
                           ) : (
                             <Button
-                              onClick={() => registerForMatch(matchInfo.schedule.id)}
-                              disabled={registering === matchInfo.schedule.id || isFull}
-                              className="h-10 flex-1 rounded-full bg-slate-950 text-white hover:bg-slate-800"
+                              onClick={() => registerForMatch(matchInfo.schedule.id, isFull)}
+                              disabled={registering === matchInfo.schedule.id}
+                              className={`h-10 flex-1 rounded-full text-white ${isFull ? 'bg-slate-500 hover:bg-slate-600' : 'bg-slate-950 hover:bg-slate-800'}`}
                             >
-                              {registering === matchInfo.schedule.id ? '신청 중...' : '참가 신청'}
+                              {registering === matchInfo.schedule.id ? '신청 중...' : isFull ? '대기 신청' : '참가 신청'}
                             </Button>
                           )}
                         </div>
@@ -611,12 +648,12 @@ export default function MatchRegistrationPage() {
             )}
           </section>
 
-          {registeredMatches.length > 0 && (
+          {myMatches.length > 0 && (
             <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
               <p className="text-xs text-slate-500">내 현황</p>
               <h2 className="mt-1 text-lg font-semibold text-slate-900">신청한 경기</h2>
               <div className="mt-4 space-y-3">
-                {registeredMatches.map((matchInfo) => (
+                {myMatches.map((matchInfo) => (
                   <div key={`my-${matchInfo.schedule.id}`} className="rounded-[20px] bg-slate-50 px-4 py-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -629,9 +666,15 @@ export default function MatchRegistrationPage() {
                         </p>
                         <p className="mt-1 text-sm text-slate-600">{matchInfo.schedule.start_time || '시간 미정'} · {matchInfo.schedule.location || '장소 미정'}</p>
                       </div>
-                      <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                        참가 확정
-                      </span>
+                      {matchInfo.isWaitlisted ? (
+                        <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700">
+                          대기 {matchInfo.waitlistPosition}번
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                          참가 확정
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}

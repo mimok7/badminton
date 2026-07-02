@@ -521,7 +521,7 @@ export default function TodayMatches() {
                 href={`/today-scoreboard/${match.id}`}
                 className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700"
               >
-                점수판
+                판
               </Link>
               
               {isEditable && (
@@ -619,26 +619,7 @@ export default function TodayMatches() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb] text-slate-900 force-landscape-container">
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media (max-width: 767px) and (orientation: portrait) {
-          .force-landscape-container {
-            transform: rotate(90deg) !important;
-            transform-origin: top left !important;
-            width: 100vh !important;
-            height: 100vw !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 100% !important;
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-          }
-          .force-landscape-container .grid-layout {
-            display: grid !important;
-            grid-template-columns: repeat(var(--cols-count, 2), minmax(0, 1fr)) !important;
-          }
-        }
-      `}} />
+    <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
         <section className="rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5">
           <div className="flex items-center justify-between">

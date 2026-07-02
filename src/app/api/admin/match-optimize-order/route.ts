@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single();
 
-    if (!isAdminOrManagerRole(profile?.role)) {
+    if (!isAdminOrManagerRole((profile as any)?.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

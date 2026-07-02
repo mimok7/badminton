@@ -11,7 +11,7 @@ import { NotificationService } from '@/utils/notification-service';
 import { getProfileByUserId } from '@/lib/auth';
 import { formatCurrentUserNameWithCoins, formatNameWithCoins } from '@/lib/player-display';
 import { fetchScheduledMatchesForDate, type ScheduledMatchView } from '@/lib/scheduled-matches';
-import type { CoinSettlementMode } from '@/app/api/coin-settings/route';
+import type { CoinSettlementMode } from '@/lib/coins';
 import { useLevelInfoMap } from '@/hooks/useLevelInfoMap';
 import { getLevelNameFromCode } from '@/lib/level-info';
 import {

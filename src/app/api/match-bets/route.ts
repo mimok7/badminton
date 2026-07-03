@@ -96,12 +96,13 @@ export async function GET(request: Request) {
 
   let proposal = null;
   if (proposalRow) {
-    const responses = (proposalRow.responses as Record<string, string>) || {};
+    const row = proposalRow as any;
+    const responses = (row.responses as Record<string, string>) || {};
     proposal = {
-      proposed_by: proposalRow.proposed_by,
+      proposed_by: row.proposed_by,
       proposed_by_name: '누군가',
-      wager_amount: proposalRow.wager_amount,
-      status: proposalRow.status,
+      wager_amount: row.wager_amount,
+      status: row.status,
       my_response: responses[currentProfile.id] || null,
     };
   }
@@ -182,16 +183,17 @@ export async function POST(request: Request) {
       .eq('match_id', matchId)
       .maybeSingle();
 
-    if (!proposal || proposal.status !== 'pending') {
+    if (!proposal || (proposal as any).status !== 'pending') {
       return NextResponse.json({ error: '유효한 대기 중인 제안이 없습니다.' }, { status: 400 });
     }
 
-    if (proposal.proposed_by === currentProfile.id) {
+    const propAny = proposal as any;
+    if (propAny.proposed_by === currentProfile.id) {
       return NextResponse.json({ error: '제안자는 응답할 수 없습니다.' }, { status: 400 });
     }
 
-    let newStatus = proposal.status;
-    const responses = (proposal.responses as Record<string, string>) || {};
+    let newStatus = propAny.status;
+    const responses = (propAny.responses as Record<string, string>) || {};
     
     responses[currentProfile.id] = responseStr;
 
@@ -209,7 +211,7 @@ export async function POST(request: Request) {
         const betUpserts = participantIds.map(pid => ({
           match_id: matchId,
           profile_id: pid,
-          wager_amount: proposal.wager_amount,
+          wager_amount: propAny.wager_amount,
           updated_at: new Date().toISOString(),
         }));
 

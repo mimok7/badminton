@@ -62,6 +62,12 @@ function getResponseLabel(status?: string | null) {
   return '대기';
 }
 
+function getResponseBadgeClass(status?: string | null) {
+  if (status === 'accepted') return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25';
+  if (status === 'held') return 'bg-amber-500/10 text-amber-600 border-amber-500/25';
+  return 'bg-slate-100 text-slate-500 border-slate-200';
+}
+
 export default function ChallengePage() {
   const { profile } = useUser();
   const [loading, setLoading] = useState(true);
@@ -525,19 +531,27 @@ export default function ChallengePage() {
                       
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                         <div className="rounded-xl border border-slate-200/60 bg-white px-3 py-2.5">
-                          <div className="text-slate-400 mb-1">파트너</div>
-                          <div className="font-semibold text-slate-700 truncate">{formatNameWithCoins(challenge.partner?.name || '선수', challenge.partner?.coin_balance)}</div>
-                          <div className="mt-1.5 inline-flex items-center rounded-md bg-slate-50 border border-slate-150 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                            {getResponseLabel(challenge.partner?.response)}
+                          <div className="text-slate-400 mb-1.5">파트너</div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-bold text-slate-800 text-[13px]">
+                              {formatNameWithCoins(challenge.partner?.name || '선수', challenge.partner?.coin_balance)}
+                            </span>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-extrabold border ${getResponseBadgeClass(challenge.partner?.response)}`}>
+                              {getResponseLabel(challenge.partner?.response)}
+                            </span>
                           </div>
                         </div>
 
                         {challenge.opponents.map((opponent, idx) => (
                           <div key={opponent.id} className="rounded-xl border border-slate-200/60 bg-white px-3 py-2.5">
-                            <div className="text-slate-400 mb-1">상대 {idx + 1}</div>
-                            <div className="font-semibold text-slate-700 truncate">{formatNameWithCoins(opponent.name, opponent.coin_balance)}</div>
-                            <div className="mt-1.5 inline-flex items-center rounded-md bg-slate-50 border border-slate-150 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                              {getResponseLabel(opponent.response)}
+                            <div className="text-slate-400 mb-1.5">상대 {idx + 1}</div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-bold text-slate-800 text-[13px]">
+                                {formatNameWithCoins(opponent.name, opponent.coin_balance)}
+                              </span>
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-extrabold border ${getResponseBadgeClass(opponent.response)}`}>
+                                {getResponseLabel(opponent.response)}
+                              </span>
                             </div>
                           </div>
                         ))}

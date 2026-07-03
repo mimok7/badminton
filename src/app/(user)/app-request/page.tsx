@@ -368,7 +368,7 @@ export default function AppRequestPage() {
                       {isAdmin && (
                         <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-200/50">
                           <Button
-                            size="xs"
+                            size="sm"
                             onClick={() => void handleUpdateStatus(item.id, 'in_progress')}
                             disabled={updatingId === item.id || item.status === 'in_progress'}
                             className="bg-sky-600 hover:bg-sky-700 text-white h-7 text-xs px-2.5 rounded-lg"
@@ -376,7 +376,7 @@ export default function AppRequestPage() {
                             진행 중
                           </Button>
                           <Button
-                            size="xs"
+                            size="sm"
                             onClick={() => void handleUpdateStatus(item.id, 'completed')}
                             disabled={updatingId === item.id || item.status === 'completed'}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs px-2.5 rounded-lg"
@@ -384,7 +384,7 @@ export default function AppRequestPage() {
                             완료 처리
                           </Button>
                           <Button
-                            size="xs"
+                            size="sm"
                             variant="outline"
                             onClick={() => void handleUpdateStatus(item.id, 'rejected')}
                             disabled={updatingId === item.id || item.status === 'rejected'}

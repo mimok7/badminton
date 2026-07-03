@@ -180,14 +180,16 @@ export async function notifyWaitingMatchesForSession(adminSupabase: any, session
 
       notificationsToInsert.push({
         user_id: participant.user_id,
-        title: '경기 준비 알림',
+        title: '📢 경기 시작 대기 안내',
         message: [
-          '경기 준비 알림',
-          '',
-          `${courtLabel} · ${timeLabel}`,
-          `선수: ${playerNames.join(', ') || '참가 선수 확인 필요'}`,
-          '',
-          '곧 경기가 시작됩니다. 미리 코트로 이동해 준비해 주세요.',
+          '🚨 경기 준비 알림',
+          '━━━━━━━━━━━━━━━━━━━━',
+          `📍 코트: ${courtLabel}`,
+          `⏰ 시간: ${timeLabel}`,
+          '━━━━━━━━━━━━━━━━━━━━',
+          `👥 선수: ${playerNames.join(', ') || '참가 선수 확인 필요'}`,
+          '━━━━━━━━━━━━━━━━━━━━',
+          '곧 경기가 시작됩니다. 원활한 진행을 위해 미리 해당 코트로 이동하여 준비해 주세요. 🏸',
         ].join('\n'),
         type: 'match_preparation',
         related_match_id: match.id,

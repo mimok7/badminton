@@ -58,32 +58,52 @@ const TYPE_COLORS: Record<string, string> = {
   survey: "bg-rose-100 text-rose-700",
 };
 
-/** 마침표 뒤에 줄바꿈을 삽입하여 가독성을 높임 */
 function formatMessageWithBreaks(message: string): React.ReactNode {
-  // 마침표(.), 느낌표(!), 물음표(?) 뒤에 공백이 아닌 문자가 오면 줄바꿈
-  const segments = message.split(/([.!?])\s+/g);
-  const lines: string[] = [];
-  let current = "";
+  if (!message) return null;
 
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i];
-    if (seg === "." || seg === "!" || seg === "?") {
-      current += seg;
-      lines.push(current.trim());
-      current = "";
-    } else {
-      current += seg;
+  let lines: string[] = [];
+  if (message.includes('\n')) {
+    lines = message.split('\n');
+  } else {
+    const segments = message.split(/([.!?])\s+/g);
+    let current = "";
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      if (seg === "." || seg === "!" || seg === "?") {
+        current += seg;
+        lines.push(current.trim());
+        current = "";
+      } else {
+        current += seg;
+      }
     }
+    if (current.trim()) lines.push(current.trim());
   }
-  if (current.trim()) lines.push(current.trim());
 
   return (
     <>
-      {lines.map((line, idx) => (
-        <span key={idx} className="block leading-relaxed">
-          {line}
-        </span>
-      ))}
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={idx} className="h-1.5" />;
+        }
+        
+        const isHeader = trimmed.startsWith('🚨') || trimmed.startsWith('📢') || trimmed.startsWith('📌');
+        const isDivider = trimmed.includes('━━') || trimmed.includes('━━━') || trimmed.includes('----');
+        
+        let lineClass = "block leading-relaxed text-slate-600";
+        if (isHeader) {
+          lineClass = "block font-extrabold text-[13px] text-indigo-950 mb-1 mt-0.5";
+        } else if (isDivider) {
+          lineClass = "block text-slate-300 font-light tracking-tighter opacity-70 my-0.5 overflow-hidden whitespace-nowrap";
+        }
+
+        return (
+          <span key={idx} className={lineClass}>
+            {trimmed}
+          </span>
+        );
+      })}
     </>
   );
 }

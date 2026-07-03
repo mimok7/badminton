@@ -116,7 +116,7 @@ function formatCourtLabel(court: string) {
   const bracketMatch = trimmedCourt.match(/^\[.+?\]\s*(.+)$/i);
   const courtName = bracketMatch ? bracketMatch[1].trim() : trimmedCourt;
 
-  const customPatternMatch = courtName.match(/_(\d+)코트$/i);
+  const customPatternMatch = courtName.match(/(\d+)코트$/i);
   if (customPatternMatch?.[1]) {
     return `${customPatternMatch[1]}코트`;
   }
@@ -148,6 +148,64 @@ const formatScheduledTime = (timeStr: string | undefined | null) => {
   }
   return '';
 };
+
+function avoidConsecutiveMatches(
+  matches: Match[],
+  C: number,
+  baseDate: string,
+  startTime: string,
+  timeInterval: number
+): Match[] {
+  const result = [...matches];
+  const cleanName = (name: string) => name.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
+
+  for (let i = 0; i < result.length; i++) {
+    const slotStart = Math.floor(i / C) * C;
+    const currentSlotPlayers = new Set<string>();
+    for (let j = slotStart; j < i; j++) {
+      [...result[j].team1, ...result[j].team2].map(cleanName).forEach(p => currentSlotPlayers.add(p));
+    }
+
+    const matchPlayers = [...result[i].team1, ...result[i].team2].map(cleanName);
+    const hasOverlap = matchPlayers.some(p => currentSlotPlayers.has(p));
+
+    if (hasOverlap) {
+      let swapIdx = -1;
+      for (let k = i + 1; k < result.length; k++) {
+        const candidatePlayers = [...result[k].team1, ...result[k].team2].map(cleanName);
+        if (!candidatePlayers.some(p => currentSlotPlayers.has(p))) {
+          swapIdx = k;
+          break;
+        }
+      }
+      if (swapIdx !== -1) {
+        const temp = result[i];
+        result[i] = result[swapIdx];
+        result[swapIdx] = temp;
+      }
+    }
+  }
+
+  const [startHour, startMin] = (startTime || '17:30').split(':').map(Number);
+
+  return result.map((match, idx) => {
+    const slot = Math.floor(idx / C);
+    const courtNum = (idx % C) + 1;
+    
+    const totalMins = startHour * 60 + startMin + (slot * timeInterval);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    const scheduledTime = `${baseDate || '2026-07-01'}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+
+    return {
+      ...match,
+      match_number: idx + 1,
+      court: `${courtNum}코트`,
+      round: 1,
+      scheduled_time: scheduledTime,
+    };
+  });
+}
 
 function formatTournamentTitle(title: string) {
   return title
@@ -368,6 +426,55 @@ function groupMatchesByCourt(matches: Match[]): MatchGroupSection[] {
     });
 }
 
+function groupMatchesByTime(matches: Match[]): MatchGroupSection[] {
+  const grouped = new Map<string, Match[]>();
+
+  matches.forEach((match) => {
+    let timeLabel = '(시간 미정)';
+    if (match.scheduled_time) {
+      const formatted = formatScheduledTime(match.scheduled_time);
+      if (formatted) {
+        timeLabel = formatted;
+      }
+    }
+    const current = grouped.get(timeLabel) || [];
+    current.push(match);
+    grouped.set(timeLabel, current);
+  });
+
+  return Array.from(grouped.entries())
+    .map(([groupName, groupedMatches]) => {
+      const sortedMatches = [...groupedMatches].sort((a, b) => {
+        const aCourt = formatCourtLabel(a.court);
+        const bCourt = formatCourtLabel(b.court);
+        if (aCourt === '코트 미정') return 1;
+        if (bCourt === '코트 미정') return -1;
+        return aCourt.localeCompare(bCourt, 'ko', { numeric: true });
+      });
+      return {
+        groupName,
+        matches: sortedMatches,
+      };
+    })
+    .sort((a, b) => {
+      if (a.groupName === '(시간 미정)') return 1;
+      if (b.groupName === '(시간 미정)') return -1;
+      
+      const parseTimeToMinutes = (label: string) => {
+        const parts = label.split(' ');
+        if (parts.length !== 2) return 0;
+        const ampm = parts[0];
+        const [h, m] = parts[1].split(':').map(Number);
+        let total = h * 60 + m;
+        if (ampm === '오후' && h !== 12) total += 12 * 60;
+        if (ampm === '오전' && h === 12) total -= 12 * 60;
+        return total;
+      };
+
+      return parseTimeToMinutes(a.groupName) - parseTimeToMinutes(b.groupName);
+    });
+}
+
 function getGroupIcon(groupName: string) {
   const name = groupName.trim();
   if (name.includes('상위') || name.includes('A')) return '🥇';
@@ -536,10 +643,19 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [teamAssignmentsByTournament, setTeamAssignmentsByTournament] = useState<TeamAssignmentMap>({});
-  const [viewMode, setViewMode] = useState<'round' | 'court'>('round');
+  const [viewMode, setViewMode] = useState<'round' | 'court' | 'time'>('court');
   const [layoutMode, setLayoutMode] = useState<'card' | 'table'>('card');
   const [allTournamentsMatches, setAllTournamentsMatches] = useState<Match[]>([]);
   const [selectedCourtFilter, setSelectedCourtFilter] = useState<string>('all');
+
+  const [batchCourts, setBatchCourts] = useState(4);
+  const [batchStartTime, setBatchStartTime] = useState('17:30');
+  const [batchInterval, setBatchInterval] = useState(10);
+  const [batchDate, setBatchDate] = useState('');
+  const [applyingBatch, setApplyingBatch] = useState(false);
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [editCourtDraft, setEditCourtDraft] = useState('');
+  const [editTimeDraft, setEditTimeDraft] = useState('');
 
   const getMatchTournament = (match: Match) => {
     return tournaments.find((t) => t.id === match.tournament_id) || null;
@@ -738,6 +854,10 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       const name = p.full_name?.trim();
       if (!name) return false;
       const cleanNameLower = name.toLowerCase();
+      
+      // 경기에 참가한 선수만 드롭다운에 표시되도록 제한
+      if (!playerMatchesMap.has(cleanNameLower)) return false;
+      
       return !excludedPlayers.has(cleanNameLower) || (match.referee_name && match.referee_name.toLowerCase().includes(cleanNameLower));
     });
 
@@ -1030,6 +1150,109 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
         return (left.match_number || 0) - (right.match_number || 0);
       });
 
+  const handleApplyCourtAndTimeBatch = async () => {
+    if (!selectedTournament) {
+      alert('대회를 선택하세요.');
+      return;
+    }
+
+    // Gather ALL matches from all tournaments on the same date
+    const sameDateTournaments = tournaments.filter(
+      (t) => t.tournament_date === selectedTournament.tournament_date
+    );
+    const sameDateTournamentIds = new Set(sameDateTournaments.map((t) => t.id));
+
+    // Use allTournamentsMatches filtered to same date, or fall back to matches
+    const allMatchesForDate = allTournamentsMatches.filter(
+      (m) => m.tournament_id && sameDateTournamentIds.has(m.tournament_id)
+    );
+    const targetMatches = allMatchesForDate.length > 0 ? allMatchesForDate : matches;
+
+    if (targetMatches.length === 0) {
+      alert('배정할 경기가 없습니다.');
+      return;
+    }
+    
+    if (!confirm(`같은 날짜(${selectedTournament.tournament_date})의 모든 경기(${targetMatches.length}개)에 코트와 시간을 일괄 배정하고 저장하시겠습니까?`)) {
+      return;
+    }
+
+    setApplyingBatch(true);
+    try {
+      const C = batchCourts > 0 ? batchCourts : 4;
+      const baseDate = batchDate || selectedTournament.tournament_date || '2026-07-01';
+      const sTime = batchStartTime || '17:30';
+      const interval = batchInterval || 10;
+
+      // Run ALL matches through scheduling as ONE unified list
+      const optimized = avoidConsecutiveMatches(targetMatches, C, baseDate, sTime, interval);
+
+      // Batch update DB
+      const matchesToUpdate = optimized.filter(m => m.id).map(m => ({
+        id: m.id,
+        court: m.court,
+        scheduled_time: m.scheduled_time,
+        match_number: m.match_number,
+        round: m.round
+      }));
+
+      if (matchesToUpdate.length > 0) {
+        const response = await fetch('/api/admin/tournament-matches/batch-update', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ matches: matchesToUpdate })
+        });
+
+        if (!response.ok) {
+          const resData = await response.json().catch(() => null);
+          throw new Error(resData?.error || '일괄 업데이트에 실패했습니다.');
+        }
+      }
+
+      alert(`코트와 시간 일괄 배정이 완료되었습니다. (${matchesToUpdate.length}경기)`);
+      // Reload all tournaments to refresh the view
+      await fetchMatches(selectedTournament.id);
+    } catch (error: any) {
+      console.error('일괄 배정 오류:', error);
+      alert('일괄 배정 처리 중 오류가 발생했습니다: ' + error.message);
+    } finally {
+      setApplyingBatch(false);
+    }
+  };
+
+  const handleUpdateMatchSchedule = async (matchId: string, newCourt: string, newTime: string) => {
+    try {
+      let finalTime: string | null = null;
+      if (newTime) {
+        const baseDate = selectedTournament?.tournament_date || '2026-07-01';
+        finalTime = `${baseDate}T${newTime}:00`;
+      }
+
+      const response = await fetch('/api/admin/tournament-matches/schedule', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match_id: matchId,
+          court: newCourt || null,
+          scheduled_time: finalTime
+        })
+      });
+
+      if (!response.ok) {
+        const resData = await response.json().catch(() => null);
+        throw new Error(resData?.error || '일정 수정에 실패했습니다.');
+      }
+
+      setMatches((prev) =>
+        prev.map((m) => (m.id === matchId ? { ...m, court: newCourt, scheduled_time: finalTime } : m))
+      );
+      setEditingMatchId(null);
+    } catch (error: any) {
+      console.error('개별 경기 일정 수정 오류:', error);
+      alert('일정 수정 중 오류가 발생했습니다: ' + error.message);
+    }
+  };
+
   const getTournamentMetrics = (tournamentId?: string | null) => {
     if (!tournamentId) {
       return null;
@@ -1319,6 +1542,120 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
   const generateMatchesFromTeam = async (teamAssignment: TeamAssignment, matchesPerPlayer: number, matchType: string) => {
     if (!teamAssignment) return [] as Match[];
 
+    const isMultiTeam = teamAssignment.team_type === '2teams' || 
+                        (teamAssignment.racket_team && teamAssignment.racket_team.length > 0 && 
+                         teamAssignment.shuttle_team && teamAssignment.shuttle_team.length > 0);
+
+    if (isMultiTeam) {
+      const racketPlayers = (teamAssignment.racket_team || []).map(p => p.trim()).filter(Boolean);
+      const shuttlePlayers = (teamAssignment.shuttle_team || []).map(p => p.trim()).filter(Boolean);
+
+      if (racketPlayers.length < 2 || shuttlePlayers.length < 2) {
+        alert('각 팀에 최소 2명의 선수가 필요합니다.');
+        return [];
+      }
+
+      const playerMatchCount: Record<string, number> = {};
+      [...racketPlayers, ...shuttlePlayers].forEach(p => playerMatchCount[p] = 0);
+
+      const finalMatches: Match[] = [];
+      const totalRounds = Math.max(1, matchesPerPlayer);
+      let currentMatchNumber = 1;
+
+      for (let round = 1; round <= totalRounds; round += 1) {
+        const makePairs = (pool: string[]) => {
+          const sorted = [...pool].sort((a, b) => {
+            const aCount = playerMatchCount[a] || 0;
+            const bCount = playerMatchCount[b] || 0;
+            if (aCount !== bCount) return aCount - bCount;
+            return Math.random() - 0.5;
+          });
+
+          const pairs: string[][] = [];
+          const avail = [...sorted];
+          while (avail.length >= 2) {
+            pairs.push([avail.shift()!, avail.shift()!]);
+          }
+          return pairs;
+        };
+
+        const racketPairs = makePairs(racketPlayers);
+        const shuttlePairs = makePairs(shuttlePlayers);
+
+        const minPairs = Math.min(racketPairs.length, shuttlePairs.length);
+        for (let i = 0; i < minPairs; i++) {
+          const team1 = racketPairs[i];
+          const team2 = shuttlePairs[i];
+
+          finalMatches.push({
+            round,
+            match_number: currentMatchNumber,
+            team1,
+            team2,
+            court: `Court ${((currentMatchNumber - 1) % 4) + 1}`,
+            status: 'pending',
+          });
+
+          [...team1, ...team2].forEach(p => {
+            playerMatchCount[p] = (playerMatchCount[p] || 0) + 1;
+          });
+
+          currentMatchNumber += 1;
+        }
+      }
+
+      // 목표 경기수 미달 선수 구제 로직 (Multi-team 버전)
+      const maxTotalMatches = Math.ceil((([...racketPlayers, ...shuttlePlayers].length) * totalRounds) / 4);
+      while (finalMatches.length < maxTotalMatches) {
+        const unplayedRacket = racketPlayers.filter(p => (playerMatchCount[p] || 0) < totalRounds);
+        const unplayedShuttle = shuttlePlayers.filter(p => (playerMatchCount[p] || 0) < totalRounds);
+
+        if (unplayedRacket.length === 0 && unplayedShuttle.length === 0) {
+          break;
+        }
+
+        const getPair = (pool: string[]) => {
+          const sorted = [...pool].sort((a, b) => {
+            const aCount = playerMatchCount[a] || 0;
+            const bCount = playerMatchCount[b] || 0;
+            const aIsUnplayed = aCount < totalRounds ? 1 : 0;
+            const bIsUnplayed = bCount < totalRounds ? 1 : 0;
+            if (aIsUnplayed !== bIsUnplayed) return bIsUnplayed - aIsUnplayed;
+            return aCount - bCount;
+          });
+          return sorted.slice(0, 2);
+        };
+
+        const team1 = getPair(racketPlayers);
+        const team2 = getPair(shuttlePlayers);
+
+        if (team1.length < 2 || team2.length < 2) {
+          break;
+        }
+
+        finalMatches.push({
+          round: totalRounds + 1,
+          match_number: currentMatchNumber,
+          team1,
+          team2,
+          court: `Court ${((currentMatchNumber - 1) % 4) + 1}`,
+          status: 'pending',
+        });
+
+        [...team1, ...team2].forEach(p => {
+          playerMatchCount[p] = (playerMatchCount[p] || 0) + 1;
+        });
+
+        currentMatchNumber += 1;
+      }
+
+      const maxCourts = 4;
+      const baseDate = teamAssignment.assignment_date || '2026-07-01';
+      const startTime = '17:30';
+      const timeInterval = 10;
+      return avoidConsecutiveMatches(finalMatches, maxCourts, baseDate, startTime, timeInterval);
+    }
+
     const playerList: string[] = [];
 
     if (teamAssignment.team_type === 'pairs' && teamAssignment.pairs_data) {
@@ -1422,7 +1759,11 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       }
     }
 
-    return finalMatches;
+    const maxCourts = 4;
+    const baseDate = teamAssignment.assignment_date || '2026-07-01';
+    const startTime = '17:30';
+    const timeInterval = 10;
+    return avoidConsecutiveMatches(finalMatches, maxCourts, baseDate, startTime, timeInterval);
   };
 
   const createTournamentWithMatches = async (matchesPerPlayer: number, matchType: string) => {
@@ -1745,7 +2086,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
 
   const currentMatchesForView = useMemo(() => {
     if (!selectedTournament) return [];
-    if (viewMode === 'court') {
+    if (viewMode === 'court' || viewMode === 'time') {
       const activeTournamentsForDate = tournaments.filter(
         (t) => t.tournament_date === selectedTournament.tournament_date
       );
@@ -1774,6 +2115,9 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
         return allSections;
       }
       return allSections.filter(s => s.groupName === selectedCourtFilter);
+    }
+    if (viewMode === 'time') {
+      return groupMatchesByTime(currentMatchesForView);
     }
     return isPairCustomTournament
       ? groupMatchesByPairGroup(currentMatchesForView)
@@ -1882,17 +2226,17 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
               <div className="space-y-6">
                 <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
                   <div className={`mb-4 flex flex-wrap items-center justify-between gap-3 ${viewMode === 'round' ? 'border-b border-slate-100 pb-4' : ''}`}>
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-col items-start sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
                       <h2 className="text-lg font-semibold text-slate-900">
                         <span className="text-slate-400 mr-2">|</span>대회 회차와 대진표
                       </h2>
                       
-                      {/* 라운드순 / 코트순 Toggle: one step larger (text-sm) and aligned left */}
-                      <div className="inline-flex rounded-full bg-slate-100 p-0.5 shadow-sm">
+                      {/* 라운드순 / 코트순 / 시간순 Toggle: one step larger (text-sm) and aligned left */}
+                      <div className="inline-flex rounded-full bg-slate-100 p-0.5 shadow-sm self-end sm:self-auto">
                         <button
                           type="button"
                           onClick={() => setViewMode('round')}
-                          className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
+                          className={`hidden sm:inline-block rounded-full px-3 py-1 text-sm font-semibold transition ${
                             viewMode === 'round' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
                           }`}
                         >
@@ -1907,10 +2251,19 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                         >
                           코트순
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('time')}
+                          className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
+                            viewMode === 'time' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          시간순
+                        </button>
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="inline-flex rounded-full bg-slate-100 p-0.5 shadow-sm">
+                      <div className="hidden sm:inline-flex rounded-full bg-slate-100 p-0.5 shadow-sm">
                         <button
                           type="button"
                           onClick={() => setLayoutMode('card')}
@@ -2023,6 +2376,70 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                 {selectedTournament ? (
                   <>
                     <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+                      {adminMode && (
+                        <div className="mb-6 rounded-[20px] border border-blue-200 bg-blue-50/50 p-4 shadow-sm">
+                          <h4 className="text-sm font-bold text-blue-900 mb-3 flex items-center gap-1.5">
+                            <span>⚡</span> 코트 및 시간 일괄 배정
+                          </h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 mb-1.5">코트 수:</label>
+                              <div className="flex gap-1">
+                                {[1, 2, 3, 4, 5].map((num) => (
+                                  <button
+                                    key={`batch-court-${num}`}
+                                    type="button"
+                                    onClick={() => setBatchCourts(num)}
+                                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                                      batchCourts === num
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {num}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 mb-1.5">시작시간:</label>
+                              <input
+                                type="time"
+                                value={batchStartTime}
+                                onChange={(e) => setBatchStartTime(e.target.value)}
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 h-[32px] focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 mb-1.5">간격:</label>
+                              <select
+                                value={batchInterval}
+                                onChange={(e) => setBatchInterval(Number(e.target.value))}
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 h-[32px] focus:outline-none focus:border-blue-500"
+                              >
+                                {[5, 10, 15, 20, 25, 30].map((min) => (
+                                  <option key={min} value={min}>
+                                    {min}분
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <button
+                                type="button"
+                                onClick={handleApplyCourtAndTimeBatch}
+                                disabled={applyingBatch}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs py-2 px-4 rounded-lg shadow-sm transition h-[32px] disabled:bg-slate-300"
+                              >
+                                {applyingBatch ? '배정 중...' : '배정 및 저장'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <div className="mb-4 flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900">
                           대진표 ({currentMatchesForView.length}경기)
@@ -2085,8 +2502,8 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                     <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-700">
                                       <tr>
                                         <th className="px-4 py-3">회차/경기</th>
-                                        {viewMode === 'court' && <th className="px-4 py-3">그룹</th>}
-                                        {viewMode === 'round' && <th className="px-4 py-3">코트</th>}
+                                        {(viewMode === 'court' || viewMode === 'time') && <th className="px-4 py-3">그룹</th>}
+                                        {(viewMode === 'round' || viewMode === 'time') && <th className="px-4 py-3">코트</th>}
                                         <th className="px-4 py-3 text-right">팀 1</th>
                                         <th className="px-4 py-3 text-center">점수 입력</th>
                                         <th className="px-4 py-3">팀 2</th>
@@ -2117,16 +2534,88 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                             <td className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
                                               {displayRound}회차 - {displayMatchNumber}경기
                                             </td>
-                                            {viewMode === 'court' && (
+                                            {(viewMode === 'court' || viewMode === 'time') && (
                                               <td className="px-4 py-3 whitespace-nowrap">
                                                 <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
                                                   {getGroupIcon(groupLabel)} {groupLabel}
                                                 </span>
                                               </td>
                                             )}
-                                            {viewMode === 'round' && (
+                                            {(viewMode === 'round' || viewMode === 'time') && (
                                               <td className="px-4 py-3 font-medium text-slate-600 whitespace-nowrap">
-                                                {formatCourtLabel(match.court)}
+                                                {adminMode ? (
+                                                  editingMatchId === match.id ? (
+                                                    <div className="flex flex-col gap-1.5">
+                                                      <select
+                                                        value={editCourtDraft}
+                                                        onChange={(e) => setEditCourtDraft(e.target.value)}
+                                                        className="rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                                                      >
+                                                        <option value="">(코트 미배정)</option>
+                                                        {[1, 2, 3, 4, 5].map((num) => (
+                                                          <option key={num} value={`${num}코트`}>
+                                                            {num}코트
+                                                          </option>
+                                                        ))}
+                                                      </select>
+                                                      <input
+                                                        type="time"
+                                                        value={editTimeDraft}
+                                                        onChange={(e) => setEditTimeDraft(e.target.value)}
+                                                        className="rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                                                      />
+                                                      <div className="flex gap-1 mt-1">
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => {
+                                                            if (match.id) void handleUpdateMatchSchedule(match.id, editCourtDraft, editTimeDraft);
+                                                          }}
+                                                          className="bg-blue-600 text-white rounded px-2 py-0.5 text-[10px] font-bold"
+                                                        >
+                                                          저장
+                                                        </button>
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => setEditingMatchId(null)}
+                                                          className="bg-slate-200 text-slate-700 rounded px-2 py-0.5 text-[10px] font-bold"
+                                                        >
+                                                          취소
+                                                        </button>
+                                                      </div>
+                                                    </div>
+                                                  ) : (
+                                                    <div className="flex items-center gap-2">
+                                                      <div>
+                                                        <div className="font-semibold text-slate-950">{formatCourtLabel(match.court) || '(코트 미배정)'}</div>
+                                                        {match.scheduled_time && (
+                                                          <div className="text-[10px] text-emerald-600 font-bold mt-0.5">
+                                                            {formatScheduledTime(match.scheduled_time)}
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          setEditingMatchId(match.id || null);
+                                                          setEditCourtDraft(match.court || '');
+                                                          setEditTimeDraft(match.scheduled_time ? (match.scheduled_time.split('T')[1] || '').substring(0, 5) : '');
+                                                        }}
+                                                        className="text-[10px] text-blue-600 hover:underline font-semibold"
+                                                      >
+                                                        ✏️ 일정수정
+                                                      </button>
+                                                    </div>
+                                                  )
+                                                ) : (
+                                                  <div>
+                                                    <div className="font-semibold text-slate-950">{formatCourtLabel(match.court) || '(코트 미배정)'}</div>
+                                                    {match.scheduled_time && (
+                                                      <div className="text-[10px] text-emerald-600 font-bold mt-0.5">
+                                                        {formatScheduledTime(match.scheduled_time)}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )}
                                               </td>
                                             )}
                                             <td className="px-4 py-3 text-right font-bold text-slate-800 whitespace-nowrap">
@@ -2249,22 +2738,91 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                     return (
                                       <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-2xl sm:rounded-[24px] border p-2.5 sm:p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
                                         <div className="flex items-start justify-between gap-2 sm:gap-3">
-                                          <div>
-                                            <p className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel}</p>
-                                            <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
-                                              {pairGroupLabel && (
-                                                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
-                                              )}
-                                              {match.scheduled_time && (
-                                                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-800">
-                                                  ⏰ {formatScheduledTime(match.scheduled_time)}
-                                                </span>
-                                              )}
+                                          {adminMode ? (
+                                            editingMatchId === match.id ? (
+                                              <div className="flex flex-col gap-1.5 w-full">
+                                                <div className="flex gap-2">
+                                                  <select
+                                                    value={editCourtDraft}
+                                                    onChange={(e) => setEditCourtDraft(e.target.value)}
+                                                    className="rounded border border-slate-200 bg-white px-2 py-1 text-xs flex-1"
+                                                  >
+                                                    <option value="">(코트 미배정)</option>
+                                                    {[1, 2, 3, 4, 5].map((num) => (
+                                                      <option key={num} value={`${num}코트`}>
+                                                        {num}코트
+                                                      </option>
+                                                    ))}
+                                                  </select>
+                                                  <input
+                                                    type="time"
+                                                    value={editTimeDraft}
+                                                    onChange={(e) => setEditTimeDraft(e.target.value)}
+                                                    className="rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                                                  />
+                                                </div>
+                                                <div className="flex gap-1.5 mt-1 justify-end">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      if (match.id) void handleUpdateMatchSchedule(match.id, editCourtDraft, editTimeDraft);
+                                                    }}
+                                                    className="bg-blue-600 text-white rounded px-3 py-1 text-xs font-bold shadow-sm"
+                                                  >
+                                                    저장
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setEditingMatchId(null)}
+                                                    className="bg-slate-200 text-slate-700 rounded px-3 py-1 text-xs font-bold"
+                                                  >
+                                                    취소
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <div className="flex items-start justify-between w-full">
+                                                <div>
+                                                  <p className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel || '(코트 미배정)'}</p>
+                                                  <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
+                                                    {pairGroupLabel && (
+                                                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
+                                                    )}
+                                                    {match.scheduled_time && (
+                                                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-800">
+                                                        ⏰ {formatScheduledTime(match.scheduled_time)}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setEditingMatchId(match.id || null);
+                                                    setEditCourtDraft(match.court || '');
+                                                    setEditTimeDraft(match.scheduled_time ? (match.scheduled_time.split('T')[1] || '').substring(0, 5) : '');
+                                                  }}
+                                                  className="text-[11px] text-blue-600 hover:underline font-semibold whitespace-nowrap"
+                                                >
+                                                  ✏️ 일정수정
+                                                </button>
+                                              </div>
+                                            )
+                                          ) : (
+                                            <div>
+                                              <p className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel || '(코트 미배정)'}</p>
+                                              <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
+                                                {pairGroupLabel && (
+                                                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
+                                                )}
+                                                {match.scheduled_time && (
+                                                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-800">
+                                                    ⏰ {formatScheduledTime(match.scheduled_time)}
+                                                  </span>
+                                                )}
+                                              </div>
                                             </div>
-                                          </div>
-                                          <span className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
-                                            {isCompleted ? '완료' : isPending ? '대기중' : '진행중'}
-                                          </span>
+                                          )}
                                         </div>
 
                                         <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_100px_minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_120px_minmax(0,1fr)] items-stretch gap-1.5 sm:gap-3 text-sm">
@@ -2670,7 +3228,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                     <div className="mb-4">
                       <div className="rounded-[20px] border border-slate-200 bg-slate-50/70 p-3">
                         <div className={`mb-3 flex flex-wrap items-center justify-between gap-3 ${viewMode === 'round' ? 'border-b border-slate-200/50 pb-3' : ''}`}>
-                          <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex flex-col items-start sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
                             <div>
                               <p className="text-xs font-medium text-slate-500">대회 선택</p>
                               <h3 className="mt-1 text-base font-semibold text-slate-900">
@@ -2678,12 +3236,12 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                               </h3>
                             </div>
                             
-                            {/* 라운드순 / 코트순 Toggle: one step larger (text-sm) and aligned left */}
-                            <div className="inline-flex rounded-full bg-slate-200 p-0.5 shadow-sm">
+                            {/* 라운드순 / 코트순 / 시간순 Toggle: one step larger (text-sm) and aligned left */}
+                            <div className="inline-flex rounded-full bg-slate-200 p-0.5 shadow-sm self-end sm:self-auto">
                               <button
                                 type="button"
                                 onClick={() => setViewMode('round')}
-                                className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
+                                className={`hidden sm:inline-block rounded-full px-3 py-1 text-sm font-semibold transition ${
                                   viewMode === 'round' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
                                 }`}
                               >
@@ -2698,11 +3256,20 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                               >
                                 코트순
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => setViewMode('time')}
+                                className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
+                                  viewMode === 'time' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                                }`}
+                              >
+                                시간순
+                              </button>
                             </div>
                           </div>
                           
                           <div className="flex flex-wrap items-center gap-2">
-                            <div className="inline-flex rounded-full bg-slate-200 p-0.5 shadow-sm">
+                            <div className="hidden sm:inline-flex rounded-full bg-slate-200 p-0.5 shadow-sm">
                               <button
                                 type="button"
                                 onClick={() => setLayoutMode('card')}

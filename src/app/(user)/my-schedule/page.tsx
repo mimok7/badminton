@@ -1422,6 +1422,11 @@ export default function MySchedulePage() {
     // bracket 접두사(예: [상위 그룹]) 제거
     raw = raw.replace(/^\[.*?\]\s*/g, '');
 
+    const customPatternMatch = raw.match(/(\d+)코트$/i);
+    if (customPatternMatch?.[1]) {
+      return `${customPatternMatch[1]}코트`;
+    }
+
     // court 1 -> Court 1 형식 통일
     if (/^court\s*\d+/i.test(raw)) {
       raw = raw.replace(/^court/i, 'Court');

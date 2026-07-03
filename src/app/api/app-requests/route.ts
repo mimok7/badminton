@@ -92,6 +92,25 @@ export async function POST(request: Request) {
       throw new Error(insertError.message);
     }
 
+    // Find admin profile for 김진호 (name is '김진호' or username is 'kjh')
+    const { data: targetAdmins } = await adminSupabase
+      .from('profiles')
+      .select('id')
+      .or('full_name.eq.김진호,username.eq.kjh');
+
+    if (targetAdmins && targetAdmins.length > 0) {
+      const requesterName = currentProfile.full_name || currentProfile.username || '회원';
+      const notificationInserts = targetAdmins.map((adm) => ({
+        user_id: adm.id,
+        title: '새 앱 수정 요청',
+        message: `${requesterName}님이 [${category}] 수정 요청을 보냈습니다. 대상 메뉴: ${menuName || '없음'}`,
+        type: 'general',
+        is_read: false,
+      }));
+
+      await adminSupabase.from('notifications').insert(notificationInserts);
+    }
+
     return NextResponse.json({ request: newRequest });
   } catch (error) {
     console.error('Create app request error:', error);

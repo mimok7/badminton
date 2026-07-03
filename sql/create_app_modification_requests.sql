@@ -3,6 +3,7 @@ CREATE TABLE public.app_modification_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     requester_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     category TEXT NOT NULL,
+    menu_name TEXT,
     content TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'rejected')),
     requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

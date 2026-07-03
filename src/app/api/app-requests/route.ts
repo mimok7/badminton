@@ -68,6 +68,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const category = String(body?.category || '').trim();
+  const menuName = String(body?.menu_name || '').trim();
   const content = String(body?.content || '').trim();
 
   if (!category || !content) {
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
       .insert({
         requester_id: currentProfile.id,
         category,
+        menu_name: menuName || null,
         content,
         status: 'pending',
       })

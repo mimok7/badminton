@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, MessageSquareCode, CheckCircle, Clock, RefreshCw, Send, Trash2, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Sparkles, MessageSquareCode, CheckCircle, Clock, RefreshCw, Send, Trash2, HelpCircle, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
 import { getKoreaDate } from '@/lib/date';
@@ -14,6 +14,7 @@ type AppRequestItem = {
   status: 'pending' | 'in_progress' | 'completed' | 'rejected';
   requested_at: string;
   completed_at: string | null;
+  menu_name: string | null;
   requester?: {
     full_name: string | null;
     username: string | null;
@@ -51,7 +52,20 @@ export default function AppRequestPage() {
   const [requests, setRequests] = useState<AppRequestItem[]>([]);
   
   const [category, setCategory] = useState('');
+  const [menuName, setMenuName] = useState('');
+  const [customMenuName, setCustomMenuName] = useState('');
   const [content, setContent] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyContent = async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  };
 
   const loadRequests = async () => {
     try {
@@ -80,19 +94,27 @@ export default function AppRequestPage() {
       return;
     }
 
+    const finalMenuName = menuName === '기타 (직접 입력)' ? customMenuName : menuName;
+
     try {
       setSaving(true);
       const res = await fetch('/api/app-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ category, content }),
+        body: JSON.stringify({ 
+          category, 
+          menu_name: finalMenuName || null,
+          content 
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(data?.error || '요청 전송에 실패했습니다.');
       }
       setCategory('');
+      setMenuName('');
+      setCustomMenuName('');
       setContent('');
       alert('앱 수정 요청이 정상적으로 전송되었습니다.');
       await loadRequests();
@@ -192,6 +214,49 @@ export default function AppRequestPage() {
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">대상 메뉴</label>
+                <div className="relative">
+                  <select
+                    value={menuName}
+                    onChange={(e) => setMenuName(e.target.value)}
+                    required
+                    className="block w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-sm text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+                  >
+                    <option value="">수정을 원하는 메뉴를 선택하세요</option>
+                    <option value="공지사항/알림">공지사항/알림</option>
+                    <option value="게임 제안">게임 제안</option>
+                    <option value="오늘 게임">오늘 게임</option>
+                    <option value="참가 신청">참가 신청</option>
+                    <option value="내 게임">내 게임</option>
+                    <option value="회원 목록">회원 목록</option>
+                    <option value="대회 대진표">대회 대진표</option>
+                    <option value="상품 교환">상품 교환</option>
+                    <option value="사용자 설명서">사용자 설명서</option>
+                    <option value="기타 (직접 입력)">기타 (직접 입력)</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {menuName === '기타 (직접 입력)' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">메뉴명 직접 입력</label>
+                  <input
+                    type="text"
+                    value={customMenuName}
+                    onChange={(e) => setCustomMenuName(e.target.value)}
+                    placeholder="예: 관리자 페이지, 로그인 화면 등"
+                    required
+                    className="block w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-sm text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10"
+                  />
+                </div>
+              )}
+
+              <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">상세 내용</label>
                 <textarea
                   value={content}
@@ -262,8 +327,28 @@ export default function AppRequestPage() {
                         </span>
                       </div>
 
-                      <div className="text-sm text-slate-800 whitespace-pre-wrap mb-3 leading-relaxed">
-                        {item.content}
+                      {item.menu_name && (
+                        <div className="text-[11px] font-bold text-slate-500 mb-2">
+                          대상 메뉴: <span className="text-indigo-600 bg-indigo-50/50 border border-indigo-100/60 px-2 py-0.5 rounded">{item.menu_name}</span>
+                        </div>
+                      )}
+
+                      <div className="relative group rounded-xl bg-slate-100/50 border border-slate-200/40 p-3 mb-3">
+                        <div className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed pr-8">
+                          {item.content}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyContent(item.id, item.content)}
+                          className="absolute top-2.5 right-2.5 p-1 rounded-md text-slate-400 hover:bg-slate-200/50 hover:text-slate-600 transition"
+                          title="상세내용 복사"
+                        >
+                          {copiedId === item.id ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                       </div>
 
                       <div className="flex flex-col gap-1 text-[11px] text-slate-400 border-t border-slate-200/30 pt-2.5">

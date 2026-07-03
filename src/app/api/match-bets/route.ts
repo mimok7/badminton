@@ -73,14 +73,11 @@ export async function GET(request: Request) {
 
   const { adminSupabase, currentProfile, participantIds } = context;
 
-  const { data: betRows, error } = await adminSupabase
+  // Get current individual bets (for fallback if no proposal or rejected)
+  const { data: betRows } = await adminSupabase
     .from('match_coin_bets')
     .select('profile_id, wager_amount')
     .eq('match_id', matchId);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
 
   const bets = participantIds.map((profileId) => {
     const row = (betRows || []).find((item) => item.profile_id === profileId);
@@ -90,60 +87,151 @@ export async function GET(request: Request) {
     };
   });
 
+  // Get current proposal
+  const { data: proposalRow } = await adminSupabase
+    .from('match_wager_proposals')
+    .select('*')
+    .eq('match_id', matchId)
+    .maybeSingle(); // Use maybeSingle to avoid throw on no row
+
+  let proposal = null;
+  if (proposalRow) {
+    const responses = (proposalRow.responses as Record<string, string>) || {};
+    proposal = {
+      proposed_by: proposalRow.proposed_by,
+      proposed_by_name: '누군가',
+      wager_amount: proposalRow.wager_amount,
+      status: proposalRow.status,
+      my_response: responses[currentProfile.id] || null,
+    };
+  }
+
   return NextResponse.json({
     match_id: matchId,
     my_profile_id: currentProfile.id,
     defaultWager: DEFAULT_MATCH_WAGER,
     maxWager: MAX_MATCH_WAGER,
     bets,
+    proposal,
   });
 }
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const matchId = Number(body?.match_id);
-  const wagerAmount = Number(body?.wager_amount);
+  const action = body?.action || 'propose'; // 'propose' or 'respond'
 
-  if (!Number.isFinite(matchId) || !Number.isInteger(wagerAmount)) {
+  if (!Number.isFinite(matchId)) {
     return NextResponse.json({ error: 'Invalid input data' }, { status: 400 });
-  }
-
-  if (wagerAmount < DEFAULT_MATCH_WAGER || wagerAmount > MAX_MATCH_WAGER) {
-    return NextResponse.json({ error: `배팅 코인은 ${DEFAULT_MATCH_WAGER}~${MAX_MATCH_WAGER}개만 가능합니다.` }, { status: 400 });
   }
 
   const context = await getAuthorizedContext(matchId);
   if ('error' in context) return context.error;
 
-  const { adminSupabase, currentProfile, match } = context;
+  const { adminSupabase, currentProfile, match, participantIds } = context;
 
   if (match.status === 'in_progress' || match.status === 'completed' || match.status === 'cancelled') {
     return NextResponse.json({ error: '진행중이거나 완료된 경기에는 배팅을 변경할 수 없습니다.' }, { status: 400 });
   }
 
-  if ((currentProfile.coin_balance ?? 0) < wagerAmount) {
-    return NextResponse.json({ error: '보유 코인보다 큰 배팅은 설정할 수 없습니다.' }, { status: 400 });
-  }
+  if (action === 'propose') {
+    const wagerAmount = Number(body?.wager_amount);
+    if (!Number.isInteger(wagerAmount)) {
+      return NextResponse.json({ error: 'Invalid wager_amount' }, { status: 400 });
+    }
+    if (wagerAmount < DEFAULT_MATCH_WAGER || wagerAmount > MAX_MATCH_WAGER) {
+      return NextResponse.json({ error: `배팅 코인은 ${DEFAULT_MATCH_WAGER}~${MAX_MATCH_WAGER}개만 가능합니다.` }, { status: 400 });
+    }
+    if ((currentProfile.coin_balance ?? 0) < wagerAmount) {
+      return NextResponse.json({ error: '보유 코인보다 큰 배팅은 설정할 수 없습니다.' }, { status: 400 });
+    }
 
-  const { error } = await adminSupabase
-    .from('match_coin_bets')
-    .upsert(
-      {
-        match_id: matchId,
-        profile_id: currentProfile.id,
-        wager_amount: wagerAmount,
+    // Insert or update proposal
+    const { error } = await adminSupabase
+      .from('match_wager_proposals')
+      .upsert(
+        {
+          match_id: matchId,
+          proposed_by: currentProfile.id,
+          wager_amount: wagerAmount,
+          status: 'pending',
+          responses: {}, // clear responses
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'match_id' }
+      );
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Reset everyone's actual bet to 1 while pending
+    await adminSupabase.from('match_coin_bets').delete().eq('match_id', matchId);
+
+    return NextResponse.json({ success: true, status: 'pending' });
+  } 
+  else if (action === 'respond') {
+    const responseStr = body?.response;
+    if (responseStr !== 'accept' && responseStr !== 'reject') {
+      return NextResponse.json({ error: 'Invalid response' }, { status: 400 });
+    }
+
+    const { data: proposal } = await adminSupabase
+      .from('match_wager_proposals')
+      .select('*')
+      .eq('match_id', matchId)
+      .maybeSingle();
+
+    if (!proposal || proposal.status !== 'pending') {
+      return NextResponse.json({ error: '유효한 대기 중인 제안이 없습니다.' }, { status: 400 });
+    }
+
+    if (proposal.proposed_by === currentProfile.id) {
+      return NextResponse.json({ error: '제안자는 응답할 수 없습니다.' }, { status: 400 });
+    }
+
+    let newStatus = proposal.status;
+    const responses = (proposal.responses as Record<string, string>) || {};
+    
+    responses[currentProfile.id] = responseStr;
+
+    if (responseStr === 'reject') {
+      newStatus = 'rejected';
+      // Rest of the match_coin_bets are already default 1
+    } else {
+      // Check if everyone has accepted
+      // Proposer is implicitly accepted. The other 3 must accept.
+      const acceptCount = Object.values(responses).filter((r) => r === 'accept').length;
+      if (acceptCount >= participantIds.length - 1) {
+        newStatus = 'accepted';
+        
+        // Update all participants to the new wager
+        const betUpserts = participantIds.map(pid => ({
+          match_id: matchId,
+          profile_id: pid,
+          wager_amount: proposal.wager_amount,
+          updated_at: new Date().toISOString(),
+        }));
+
+        await adminSupabase.from('match_coin_bets').upsert(betUpserts, { onConflict: 'match_id,profile_id' });
+      }
+    }
+
+    const { error } = await adminSupabase
+      .from('match_wager_proposals')
+      .update({
+        status: newStatus,
+        responses: responses,
         updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'match_id,profile_id' }
-    );
+      })
+      .eq('match_id', matchId);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, status: newStatus });
   }
 
-  return NextResponse.json({
-    match_id: matchId,
-    profile_id: currentProfile.id,
-    wager_amount: wagerAmount,
-  });
+  return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 }

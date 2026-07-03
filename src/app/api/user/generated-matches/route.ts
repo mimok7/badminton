@@ -4,7 +4,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase-server';
 export async function POST(request: Request) {
   try {
     const adminSupabase = getSupabaseAdminClient();
-    const { participantIds } = await request.json();
+    const { participantIds, status } = await request.json();
 
     if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
       return NextResponse.json({ error: 'Invalid participant IDs' }, { status: 400 });
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       )
       .join(',');
 
-    const { data: matches, error } = await adminSupabase
+    let query = adminSupabase
       .from('generated_matches')
       .select(`
         *,
@@ -49,6 +49,18 @@ export async function POST(request: Request) {
       `)
       .or(participantMatchFilter)
       .order('match_number', { ascending: false });
+
+    if (status) {
+      if (status === 'upcoming') {
+        query = query.neq('status', 'completed');
+      } else if (status === 'completed') {
+        query = query.eq('status', 'completed');
+      } else {
+        query = query.eq('status', status);
+      }
+    }
+
+    const { data: matches, error } = await query;
 
     if (error) {
       console.error('Failed to fetch generated_matches via API:', error);

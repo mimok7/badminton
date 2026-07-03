@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getProfileByUserId } from '@/lib/auth';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+import { getKoreaDate } from '@/lib/date';
 
 type ChallengeRow = {
   id: string;
@@ -83,6 +84,72 @@ export async function POST(request: Request) {
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  if (overallStatus === 'accepted') {
+    const today = getKoreaDate();
+    
+    let { data: session } = await adminSupabase
+      .from('match_sessions')
+      .select('id')
+      .eq('session_date', today)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!session) {
+      const { data: newSession, error: sessionError } = await adminSupabase
+        .from('match_sessions')
+        .insert({
+          session_name: '오늘의 게임',
+          session_date: today,
+          total_matches: 0,
+          assigned_matches: 0,
+        })
+        .select('id')
+        .single();
+      if (!sessionError && newSession) {
+        session = newSession;
+      }
+    }
+
+    if (session) {
+      const { data: maxMatchResult } = await adminSupabase
+        .from('generated_matches')
+        .select('match_number')
+        .eq('session_id', session.id)
+        .order('match_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+        
+      const nextMatchNumber = (maxMatchResult?.match_number || 0) + 1;
+
+      const { data: generatedMatch, error: matchInsertError } = await adminSupabase
+        .from('generated_matches')
+        .insert({
+          session_id: session.id,
+          match_number: nextMatchNumber,
+          team1_player1_id: challenge.challenger_id,
+          team1_player2_id: challenge.partner_id,
+          team2_player1_id: challenge.opponent1_id,
+          team2_player2_id: challenge.opponent2_id,
+          status: 'scheduled',
+        })
+        .select('id')
+        .single();
+
+      if (matchInsertError) {
+        console.error('Failed to create generated match for challenge:', matchInsertError);
+      } else if (generatedMatch) {
+        await adminSupabase.from('match_schedules').insert({
+          generated_match_id: generatedMatch.id,
+          match_date: today,
+          scheduled_date: today,
+          description: '[일반 경기] 제안 게임',
+          status: 'scheduled',
+        });
+      }
+    }
   }
 
   const responderName = currentProfile.full_name || currentProfile.username || '회원';

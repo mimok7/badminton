@@ -1167,6 +1167,7 @@ export default function PlayersTodayPage() {
 
         <MatchGenerationControls
           todayPlayers={targetPlayersForMatch}
+          allPlayers={effectiveTodayPlayers}
           perPlayerMinGames={perPlayerMinGames}
           setPerPlayerMinGames={setPerPlayerMinGames}
           assignTarget={assignTarget}

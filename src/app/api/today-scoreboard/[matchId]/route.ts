@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { getUserRole, getProfileByUserId } from '@/lib/auth';
+import { syncSessionMatchFlow } from '@/lib/match-session-flow';
+import { notifyWaitingMatchesForSession } from '@/lib/match-preparation-notifications';
 
 type RouteContext = { params: Promise<{ matchId: string }> };
 
@@ -184,6 +186,37 @@ export async function PATCH(request: Request, context: RouteContext) {
 
       if (updateError) {
         throw updateError;
+      }
+
+      // If the match was completed, we MUST also update generated_matches and trigger the flow!
+      if (isCompleted && scheduleMatch.generated_match_id) {
+        const { error: genError } = await adminSupabase
+          .from('generated_matches')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            match_result: newResult,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', scheduleMatch.generated_match_id);
+
+        if (genError) {
+          throw genError;
+        }
+
+        // Fetch session_id to trigger flow
+        const { data: genMatch } = await adminSupabase
+          .from('generated_matches')
+          .select('session_id')
+          .eq('id', scheduleMatch.generated_match_id)
+          .single();
+
+        if (genMatch?.session_id) {
+          await syncSessionMatchFlow(adminSupabase, genMatch.session_id, {
+            completedMatchId: scheduleMatch.generated_match_id
+          });
+          await notifyWaitingMatchesForSession(adminSupabase, genMatch.session_id);
+        }
       }
     }
 

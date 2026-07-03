@@ -6,6 +6,7 @@ import { Users, X, Info, Target } from 'lucide-react';
 
 interface MatchGenerationControlsProps {
   todayPlayers: ExtendedPlayer[] | null;
+  allPlayers?: ExtendedPlayer[] | null;
   perPlayerMinGames: number;
   setPerPlayerMinGames: (games: number) => void;
   onGenerateByLevel: () => void;
@@ -18,6 +19,7 @@ interface MatchGenerationControlsProps {
 
 export default function MatchGenerationControls({
   todayPlayers,
+  allPlayers,
   perPlayerMinGames,
   setPerPlayerMinGames,
   onGenerateByLevel,
@@ -29,11 +31,12 @@ export default function MatchGenerationControls({
 }: MatchGenerationControlsProps) {
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
 
-  if (!todayPlayers || todayPlayers.length === 0) {
+  const playersToUseForCheck = allPlayers || todayPlayers;
+  if (!playersToUseForCheck || playersToUseForCheck.length === 0) {
     return null;
   }
 
-  const presentPlayersList = todayPlayers;
+  const presentPlayersList = todayPlayers || [];
   const presentPlayers = presentPlayersList.length;
   const expectedMatches = Math.ceil((presentPlayers * perPlayerMinGames) / 4);
 
@@ -65,46 +68,97 @@ export default function MatchGenerationControls({
         </button>
       </div>
 
-      {/* 1인당 경기수 설정 */}
-      <div className="mb-4 p-4 bg-gray-50 rounded border">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-indigo-500 shrink-0" />
-            <label className="font-semibold text-gray-700 text-sm sm:text-base">1인당 목표 경기수:</label>
-            <div className="flex gap-1.5">
-              {[1, 2, 3].map((val) => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => setPerPlayerMinGames(val)}
-                  className={`w-9 h-8 font-bold text-sm rounded-lg border transition-all ${
-                    perPlayerMinGames === val
-                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-                  }`}
-                >
-                  {val}
-                </button>
-              ))}
+      {presentPlayers === 0 ? (
+        <div className="mb-6 p-6 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+          <p className="text-sm font-medium text-slate-600">
+            선택된 대상({assignTarget === 'attendees' ? '출석자' : '참가자'})에 해당하는 선수가 없습니다.
+          </p>
+          <p className="text-xs text-slate-400 mt-1.5">
+            {assignTarget === 'attendees' 
+              ? '상단의 출석 관리에서 회원을 출석 상태로 변경해 주시거나, 참가자로 배정해 주세요.' 
+              : '경기 참가 신청을 한 선수가 없습니다.'}
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* 1인당 경기수 설정 */}
+          <div className="mb-4 p-4 bg-gray-50 rounded border">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-indigo-500 shrink-0" />
+                <label className="font-semibold text-gray-700 text-sm sm:text-base">1인당 목표 경기수:</label>
+                <div className="flex gap-1.5">
+                  {[1, 2, 3].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setPerPlayerMinGames(val)}
+                      className={`w-9 h-8 font-bold text-sm rounded-lg border transition-all ${
+                        perPlayerMinGames === val
+                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                      }`}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-sm font-medium text-gray-600 ml-0.5">경기</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowParticipantsModal(true)}
+                className="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-2xs"
+              >
+                <Users className="h-4 w-4 text-indigo-500" />
+                <span>참가자 ({presentPlayers}명)</span>
+              </button>
             </div>
-            <span className="text-sm font-medium text-gray-600 ml-0.5">경기</span>
+            
+            <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
+              <Info className="h-3.5 w-3.5 text-slate-400" />
+              <span>예상 총 경기수: {expectedMatches}경기 (전원 참여)</span>
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowParticipantsModal(true)}
-            className="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-2xs"
-          >
-            <Users className="h-4 w-4 text-indigo-500" />
-            <span>참가자 ({presentPlayers}명)</span>
-          </button>
-        </div>
-        
-        <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
-          <Info className="h-3.5 w-3.5 text-slate-400" />
-          <span>예상 총 경기수: {expectedMatches}경기 (전원 참여)</span>
-        </div>
-      </div>
+          {/* 경기 생성 버튼들 */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-3">🎯 새로운 경기 일정 생성</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              참가자들로 경기를 생성합니다. 생성된 경기는 경기 일정에 추가되고, 
+              <strong className="text-blue-600"> 경기 배정 관리</strong>에서 실제 진행할 경기를 선택할 수 있습니다.
+            </p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <button 
+                className="bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
+                onClick={onManualAssign}
+              >
+                ✋ 수동 배정
+              </button>
+              <button 
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
+                onClick={onGenerateByLevel}
+              >
+                📊 레벨별 경기
+              </button>
+              <button 
+                className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
+                onClick={onGenerateRandom}
+              >
+                🎲 랜덤 경기
+              </button>
+              <button 
+                className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
+                onClick={onGenerateMixed}
+              >
+                👫 혼합복식
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 참가자 팝업 모달 */}
       {showParticipantsModal && (
@@ -164,42 +218,6 @@ export default function MatchGenerationControls({
           </div>
         </div>
       )}
-
-      {/* 경기 생성 버튼들 */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-3">🎯 새로운 경기 일정 생성</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          참가자들로 경기를 생성합니다. 생성된 경기는 경기 일정에 추가되고, 
-          <strong className="text-blue-600"> 경기 배정 관리</strong>에서 실제 진행할 경기를 선택할 수 있습니다.
-        </p>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <button 
-            className="bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
-            onClick={onManualAssign}
-          >
-            ✋ 수동 배정
-          </button>
-          <button 
-            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
-            onClick={onGenerateByLevel}
-          >
-            📊 레벨별 경기
-          </button>
-          <button 
-            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
-            onClick={onGenerateRandom}
-          >
-            🎲 랜덤 경기
-          </button>
-          <button 
-            className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
-            onClick={onGenerateMixed}
-          >
-            👫 혼합복식
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

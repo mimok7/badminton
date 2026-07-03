@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/useUser';
@@ -90,6 +90,7 @@ export default function TodayMatches() {
   const [startSaving, setStartSaving] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'schedule' | 'ranking'>('schedule');
   const router = useRouter();
   const supabase = getSupabaseClient();
 
@@ -136,6 +137,74 @@ export default function TodayMatches() {
 
     fetchTodayMatches();
   }, [userLoading, user?.id, supabase]);
+
+  const rankings = useMemo(() => {
+    interface PlayerStats {
+      id: string;
+      name: string;
+      gender: string | null;
+      coin_balance: number | null;
+      wins: number;
+      losses: number;
+      draws: number;
+      played: number;
+      winRate: number;
+    }
+
+    const statsMap = new Map<string, PlayerStats>();
+
+    const ensurePlayer = (id: string, name: string, gender: string | null, coin_balance: number | null) => {
+      if (!statsMap.has(id)) {
+        statsMap.set(id, { id, name, gender, coin_balance, wins: 0, losses: 0, draws: 0, played: 0, winRate: 0 });
+      }
+      return statsMap.get(id)!;
+    };
+
+    matches.forEach(match => {
+      if (match.status === 'completed' && match.match_result?.winner) {
+        const winner = match.match_result.winner;
+        
+        const team1 = [
+          { id: match.team1_player1, name: match.team1_player1_name, gender: match.team1_player1_gender, coin: match.team1_player1_coin_balance },
+          { id: match.team1_player2, name: match.team1_player2_name, gender: match.team1_player2_gender, coin: match.team1_player2_coin_balance }
+        ].filter(p => p.id);
+
+        const team2 = [
+          { id: match.team2_player1, name: match.team2_player1_name, gender: match.team2_player1_gender, coin: match.team2_player1_coin_balance },
+          { id: match.team2_player2, name: match.team2_player2_name, gender: match.team2_player2_gender, coin: match.team2_player2_coin_balance }
+        ].filter(p => p.id);
+
+        team1.forEach(p => {
+          const stats = ensurePlayer(p.id!, p.name!, p.gender, p.coin);
+          stats.played += 1;
+          if (winner === 'team1') stats.wins += 1;
+          else if (winner === 'team2') stats.losses += 1;
+          else stats.draws += 1;
+        });
+
+        team2.forEach(p => {
+          const stats = ensurePlayer(p.id!, p.name!, p.gender, p.coin);
+          stats.played += 1;
+          if (winner === 'team2') stats.wins += 1;
+          else if (winner === 'team1') stats.losses += 1;
+          else stats.draws += 1;
+        });
+      }
+    });
+
+    const rankingsList = Array.from(statsMap.values()).map(s => {
+      s.winRate = s.played > 0 ? (s.wins / s.played) * 100 : 0;
+      return s;
+    });
+
+    rankingsList.sort((a, b) => {
+      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return b.played - a.played;
+    });
+
+    return rankingsList;
+  }, [matches]);
 
   if (userLoading || loading) {
     return (
@@ -216,14 +285,43 @@ export default function TodayMatches() {
   const handlePrimaryMatchStart = async () => {
     if (!primaryMatch?.generated_match_id || !canStartPrimaryMatch) return;
 
+    let capacity: number | null = null;
+    if (primaryMatch.status === 'scheduled') {
+      const capacityInput = prompt('동시 진행할 게임 수를 입력해 주세요 (숫자):', '2');
+      if (capacityInput === null) return; // User cancelled
+      capacity = parseInt(capacityInput, 10);
+      if (isNaN(capacity) || capacity <= 0) {
+        alert('올바른 숫자를 입력해 주세요.');
+        return;
+      }
+    }
+
     try {
       setStartSaving(true);
+
+      // Automatically run optimize order silently first
+      if (primaryMatch.status === 'scheduled') {
+        const optimizeRes = await fetch('/api/admin/match-optimize-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            date: getKoreaDate(),
+          }),
+        });
+
+        if (!optimizeRes.ok) {
+          console.warn('자동 순서정렬 실패 (매치 시작은 계속 진행):', await optimizeRes.text().catch(() => ''));
+        }
+      }
+
       const response = await fetch('/api/match-start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           match_id: primaryMatch.generated_match_id,
+          capacity,
         }),
       });
 
@@ -289,7 +387,7 @@ export default function TodayMatches() {
     const matchOrder = match.match_number ?? index + 1;
     const displayMatchLabel = getDisplayMatchLabel(match, matchOrder);
     const displayMatchSequence = String(index + 1);
-    
+
     return {
       ...match,
       displayMatchLabel,
@@ -314,9 +412,8 @@ export default function TodayMatches() {
     return (
       <article
         key={match.id}
-        className={`rounded-[24px] border p-4 shadow-sm transition-all ${
-          inMatch ? 'border-amber-200 bg-amber-50/80' : 'border-slate-200 bg-white'
-        }`}
+        className={`rounded-[24px] border p-4 shadow-sm transition-all ${inMatch ? 'border-amber-200 bg-amber-50/80' : 'border-slate-200 bg-white'
+          }`}
       >
         {/* Header row */}
         <div className="flex items-start justify-between gap-3">
@@ -374,15 +471,13 @@ export default function TodayMatches() {
             {/* Score display */}
             <div className="flex flex-col items-center gap-1">
               <div className="flex items-center gap-2">
-                <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold ${
-                  match.match_result?.winner === 'team1' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
-                }`}>
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold ${match.match_result?.winner === 'team1' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
+                  }`}>
                   {sbTeam1}
                 </div>
                 <span className="text-sm font-bold text-slate-400">:</span>
-                <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold ${
-                  match.match_result?.winner === 'team2' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                }`}>
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold ${match.match_result?.winner === 'team2' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                  }`}>
                   {sbTeam2}
                 </div>
               </div>
@@ -412,108 +507,183 @@ export default function TodayMatches() {
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <div className="w-full">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
-        <section className="rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5">
-          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3">
-            <div className="flex flex-col md:flex-row md:items-baseline gap-x-3 gap-y-1">
-              <h1 className="text-lg font-semibold whitespace-nowrap">🏸 오늘의 게임</h1>
-              <span className="text-[11px] text-slate-400 font-normal leading-tight">
-                {canManageMatches
-                  ? '점수 입력과 게임 시작은 매니저 이상 권한으로 사용할 수 있습니다.'
-                  : '모든 회원이 오늘 게임을 볼 수 있으며, 점수 입력과 게임 시작은 매니저 이상만 가능합니다.'}
-              </span>
-            </div>
-            <Link
-              href="/dashboard"
-              className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/15 self-end sm:self-auto"
-            >
-              홈
-            </Link>
-          </div>
-          
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
-            <span className="text-slate-300 font-medium">
-              {new Date().toLocaleDateString('ko-KR', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                weekday: 'long',
-              })}
-            </span>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="rounded-md bg-white/10 px-2 py-1">
-                <span className="text-slate-300">총 게임 : </span>
-                <span className="font-semibold text-white">{matches.length}</span>
+          <section className="rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5">
+            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3">
+              <div className="flex flex-col md:flex-row md:items-baseline gap-x-3 gap-y-1">
+                <h1 className="text-lg font-semibold whitespace-nowrap">🏸 전체 게임</h1>
               </div>
-              <div className="rounded-md bg-white/10 px-2 py-1">
-                <span className="text-slate-300">내 게임 : </span>
-                <span className="font-semibold text-white">{matches.filter(isPlayerInMatch).length}</span>
+              <div className="flex gap-2 self-end sm:self-auto">
+                <Link
+                  href="/my-schedule"
+                  className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/15"
+                >
+                  내게임
+                </Link>
+                <Link
+                  href="/dashboard"
+                  className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/15"
+                >
+                  홈
+                </Link>
               </div>
             </div>
-          </div>
 
-          {primaryMatch && (
-            <div className="mt-4 rounded-[22px] bg-white/8 px-3 py-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3">
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                  {canManageMatches && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleOptimizeOrder();
-                      }}
-                      disabled={optimizing}
-                      className="flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60 shrink-0"
-                    >
-                      <span>⏳</span>
-                      {optimizing ? '정렬 중...' : '순서정렬'}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => { void handleRefresh(); }}
-                    disabled={refreshing}
-                    className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/15 disabled:opacity-60 shrink-0"
-                  >
-                    <span className={refreshing ? 'inline-block animate-spin' : ''}>🔄</span>
-                    {refreshing ? '로딩...' : '새로고침'}
-                  </button>
-                  {canStartPrimaryMatch ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handlePrimaryMatchStart();
-                      }}
-                      disabled={startSaving}
-                      className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:opacity-60 shrink-0"
-                    >
-                      {startSaving
-                        ? '처리 중...'
-                        : primaryMatch.status === 'in_progress'
-                          ? '진행중'
-                          : '게임 시작'}
-                    </button>
-                  ) : (
-                    <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-medium text-slate-200 shrink-0">
-                      {primaryMatch.status === 'in_progress' ? '진행 중' : '자동 시작 대기'}
-                    </span>
-                  )}
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
+              <span className="text-slate-300 font-medium">
+                {new Date().toLocaleDateString('ko-KR', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  weekday: 'long',
+                })}
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="rounded-md bg-white/10 px-2 py-1">
+                  <span className="text-slate-300">총 게임 : </span>
+                  <span className="font-semibold text-white">{matches.length}</span>
+                </div>
+                <div className="rounded-md bg-white/10 px-2 py-1">
+                  <span className="text-slate-300">내 게임 : </span>
+                  <span className="font-semibold text-white">{matches.filter(isPlayerInMatch).length}</span>
                 </div>
               </div>
             </div>
-          )}
-        </section>
 
-        {matches.length === 0 ? (
-          <section className="rounded-[24px] bg-white px-4 py-10 text-center shadow-sm">
-            <div className="text-5xl">🏸</div>
-            <h3 className="mt-4 text-lg font-semibold text-slate-900">오늘 배정된 게임이 없습니다</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">관리자가 게임을 배정하면 여기에 표시됩니다.</p>
+            {primaryMatch && (
+              <div className="mt-4">
+                {primaryMatch.status === 'scheduled' && (
+                  <div className="mb-3 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3.5 py-2.5 text-[13px] font-medium text-amber-400 flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>순서 정렬을 실행한 후 게임 시작을 하세요</span>
+                  </div>
+                )}
+                <div className="rounded-[22px] bg-white/8 px-3 py-3">
+                  <div className="flex items-center justify-between gap-3 w-full">
+                    {/* Left side: Refresh button */}
+                    <button
+                      type="button"
+                      onClick={() => { void handleRefresh(); }}
+                      disabled={refreshing}
+                      className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/15 disabled:opacity-60 shrink-0"
+                    >
+                      <span className={refreshing ? 'inline-block animate-spin' : ''}>🔄</span>
+                      {refreshing ? '로딩...' : '새로고침'}
+                    </button>
+
+                    {/* Right side: Admin actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {canManageMatches && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleOptimizeOrder();
+                          }}
+                          disabled={optimizing}
+                          className="flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60 shrink-0"
+                        >
+                          <span>⏳</span>
+                          {optimizing ? '정렬 중...' : '순서 정렬'}
+                        </button>
+                      )}
+                      {canStartPrimaryMatch ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handlePrimaryMatchStart();
+                          }}
+                          disabled={startSaving}
+                          className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:opacity-60 shrink-0"
+                        >
+                          {startSaving
+                            ? '처리 중...'
+                            : primaryMatch.status === 'in_progress'
+                              ? '진행중'
+                              : '게임 시작'}
+                        </button>
+                      ) : (
+                        <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-medium text-slate-200 shrink-0">
+                          {primaryMatch.status === 'in_progress' ? '진행 중' : '자동 시작 대기'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredMatches.map(renderMatchCard)}
+
+          <div className="flex border-b border-slate-200 mt-2 gap-6 px-2">
+            <button
+              onClick={() => setActiveTab('schedule')}
+              className={`pb-2 text-sm font-semibold transition ${
+                activeTab === 'schedule'
+                  ? 'border-b-[3px] border-slate-800 text-slate-900'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              경기 일정
+            </button>
+            <button
+              onClick={() => setActiveTab('ranking')}
+              className={`pb-2 text-sm font-semibold transition ${
+                activeTab === 'ranking'
+                  ? 'border-b-[3px] border-slate-800 text-slate-900'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              결과 및 순위
+            </button>
           </div>
-        )}
+
+          {activeTab === 'schedule' ? (
+            matches.length === 0 ? (
+              <section className="rounded-[24px] bg-white px-4 py-10 text-center shadow-sm">
+                <div className="text-5xl">🏸</div>
+                <h3 className="mt-4 text-lg font-semibold text-slate-900">오늘 배정된 게임이 없습니다</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-500">관리자가 게임을 배정하면 여기에 표시됩니다.</p>
+              </section>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                {filteredMatches.map(renderMatchCard)}
+              </div>
+            )
+          ) : (
+            <div className="mt-2 rounded-[24px] bg-white p-4 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900 mb-4">개인별 순위 (승률순)</h2>
+              {rankings.length === 0 ? (
+                <div className="py-8 text-center text-sm text-slate-500">완료된 경기가 없습니다.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-slate-600">
+                    <thead className="border-b border-slate-100 bg-slate-50/50 text-xs font-semibold uppercase text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3 whitespace-nowrap">순위</th>
+                        <th className="px-4 py-3 whitespace-nowrap">이름</th>
+                        <th className="px-4 py-3 text-center whitespace-nowrap">전적</th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap">승률</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {rankings.map((p, idx) => (
+                        <tr key={p.id} className="hover:bg-slate-50 transition">
+                          <td className="px-4 py-3 font-medium text-slate-900">{idx + 1}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {getPlayerIcon(p.gender)} {formatNameWithCoins(p.name, p.coin_balance)}
+                          </td>
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
+                            {p.played}전 {p.wins}승 {p.losses}패
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                            {p.winRate.toFixed(1)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

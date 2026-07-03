@@ -49,6 +49,7 @@ interface UserMatchInfo {
     full_name: string | null;
     skill_level: string | null;
     status: string;
+    registered_at?: string;
   }>;
 }
 
@@ -200,6 +201,7 @@ export default function MatchRegistrationPage() {
           full_name: profileInfo.full_name || null,
           skill_level: profileInfo.skill_level ?? null,
           status: participant.status,
+          registered_at: participant.registered_at,
         };
 
         if (!acc[key]) acc[key] = [];
@@ -232,7 +234,10 @@ export default function MatchRegistrationPage() {
           isWaitlisted: participation?.status === 'waitlisted',
           waitlistPosition,
           actualParticipantCount: registeredParticipants.length,
-          participants: allParticipantsForSchedule,
+          participants: [
+            ...registeredParticipants,
+            ...waitlistedParticipants
+          ],
         };
       });
 
@@ -507,7 +512,7 @@ export default function MatchRegistrationPage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs text-slate-300">경기 신청</p>
-                <h1 className="mt-1 text-2xl font-semibold">참가 가능한 경기를 확인하세요</h1>
+                <h1 className="mt-1 text-2xl font-semibold">경기 참가 신청</h1>
               </div>
               <Link
                 href="/dashboard"
@@ -524,9 +529,7 @@ export default function MatchRegistrationPage() {
                 레벨 {profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정')}
               </span>
             </div>
-            <p className="mt-4 text-sm leading-6 text-slate-300">
-              원하는 일정에 바로 참가 신청하고, 신청한 경기 수와 현재 참가 인원을 한 화면에서 확인할 수 있습니다.
-            </p>
+
           </section>
 
           <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
@@ -711,9 +714,15 @@ export default function MatchRegistrationPage() {
                           weekday: 'short',
                         })} · {activeMatch.schedule.start_time || '시간 미정'}
                       </h3>
-                      <p className="mt-1 text-sm text-slate-600">
-                        {activeMatch.schedule.location || '장소 미정'} · {activeMatch.actualParticipantCount} / {activeMatch.schedule.max_participants}명
-                      </p>
+                      {(() => {
+                        const waitlistCount = activeMatch.participants.filter((p) => p.status === 'waitlisted').length;
+                        return (
+                          <p className="mt-1 text-sm text-slate-600">
+                            {activeMatch.schedule.location || '장소 미정'} · {activeMatch.actualParticipantCount} / {activeMatch.schedule.max_participants}명
+                            {waitlistCount > 0 && ` · 대기 ${waitlistCount}명`}
+                          </p>
+                        );
+                      })()}
                     </div>
 
                     <Button
@@ -728,18 +737,28 @@ export default function MatchRegistrationPage() {
                   <div className="mt-4 max-h-[70vh] overflow-y-auto">
                     {activeMatch.participants.length > 0 ? (
                       <div className="grid grid-cols-4 gap-2">
-                        {activeMatch.participants.map((participant, index) => (
-                          <div
-                            key={participant.id || `${participant.user_id}-${index}`}
-                            className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700"
-                          >
-                            <div className="flex flex-col items-center gap-1 text-center">
-                              <span className="font-medium text-slate-900">
+                        {activeMatch.participants.map((participant, index) => {
+                          const isWaitlisted = participant.status === 'waitlisted';
+                          const waitlistNumber = isWaitlisted 
+                            ? activeMatch.participants.filter(p => p.status === 'waitlisted').findIndex(p => p.id === participant.id) + 1
+                            : 0;
+
+                          return (
+                            <div
+                              key={participant.id || `${participant.user_id}-${index}`}
+                              className={`relative rounded-2xl border px-3 py-3 text-sm flex flex-col items-center justify-center gap-1 text-center ${isWaitlisted ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-slate-200 bg-slate-50 text-slate-700'}`}
+                            >
+                              {isWaitlisted && (
+                                <span className="absolute -top-2 -right-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-500 px-1.5 text-[11px] font-bold text-white shadow-sm ring-2 ring-white">
+                                  대기 {waitlistNumber}
+                                </span>
+                              )}
+                              <span className={`font-medium ${isWaitlisted ? 'text-blue-900' : 'text-slate-900'}`}>
                                 {participant.full_name || participant.username || '이름 없음'}
                               </span>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">

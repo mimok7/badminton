@@ -31,6 +31,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const matchId = Number(body?.match_id);
+  const capacity = typeof body?.capacity === 'number' && body.capacity > 0 ? body.capacity : null;
 
   if (!Number.isFinite(matchId)) {
     return NextResponse.json({ error: 'Invalid match_id' }, { status: 400 });
@@ -158,6 +159,7 @@ export async function POST(request: Request) {
     try {
       const flowResult = await syncSessionMatchFlow(adminSupabase, matchRow.session_id, {
         initialize: true,
+        capacityOverride: capacity,
       });
       activeMatchIds = flowResult.activeMatchIds.length > 0 ? flowResult.activeMatchIds : activeMatchIds;
       const notificationResult = await notifyWaitingMatchesForSession(adminSupabase, matchRow.session_id);

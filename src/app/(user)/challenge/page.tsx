@@ -194,9 +194,7 @@ export default function ChallengePage() {
             <div>
               <p className="text-xs text-slate-300">Challenge Match</p>
               <h1 className="mt-1 text-2xl font-semibold">게임 제안</h1>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                오늘 참가 선수 중 현재 대기나 진행중 게임이 없는 선수에게 게임 제안을 할 수 있습니다.
-              </p>
+
             </div>
             <Link
               href="/dashboard"

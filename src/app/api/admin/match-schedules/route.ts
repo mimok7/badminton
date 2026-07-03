@@ -248,23 +248,36 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Schedule id is required' }, { status: 400 });
     }
 
-    const payload = {
+    const basePayload = {
       match_date: typeof body?.match_date === 'string' ? body.match_date : null,
       start_time: typeof body?.start_time === 'string' ? body.start_time : null,
       end_time: typeof body?.end_time === 'string' ? body.end_time : null,
       location: typeof body?.location === 'string' ? body.location : null,
       max_participants: typeof body?.max_participants === 'number' ? body.max_participants : null,
-      schedule_source: normalizeScheduleSource(body?.schedule_source),
       description: typeof body?.description === 'string' ? body.description : null,
       updated_by: user.id,
     };
 
-    const { data, error } = await adminSupabase
+    let updateResult = await adminSupabase
       .from('match_schedules')
-      .update(payload)
+      .update({
+        ...basePayload,
+        schedule_source: normalizeScheduleSource(body?.schedule_source),
+      })
       .eq('id', scheduleId)
       .select('*')
       .single();
+
+    if ((updateResult.error as { code?: string } | null)?.code === '42703') {
+      updateResult = await adminSupabase
+        .from('match_schedules')
+        .update(basePayload)
+        .eq('id', scheduleId)
+        .select('*')
+        .single();
+    }
+
+    const { data, error } = updateResult;
 
     if (error) {
       console.error('Admin match schedule update error:', error);

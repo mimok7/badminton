@@ -421,10 +421,14 @@ export default function ManualPage() {
                 </div>
 
                 <p className="text-slate-600 leading-relaxed mb-6">
-                  본인의 과거 경기 기록과 개인 성적 지표를 대시보드 형태로 종합하여 조회하는 메뉴입니다.
+                  오늘 내 게임의 현황을 보여주고 점수 입력 및 코인배팅을 진행하며, 본인의 과거 경기 기록과 개인 성적 지표를 대시보드 형태로 종합하여 조회하는 메뉴입니다.
                 </p>
 
                 <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <h4 className="font-bold text-slate-800">🔥 오늘 내 게임 현황 & 배팅</h4>
+                    <p className="text-sm text-slate-600 mt-1">오늘 예정된 내 게임 일정을 실시간 확인하고, 직접 스코어 점수를 기입하거나 게임 코인 배팅을 걸어 매치를 더욱 흥미진진하게 즐길 수 있습니다.</p>
+                  </div>
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <h4 className="font-bold text-slate-800">📈 개인 통계 요약</h4>
                     <p className="text-sm text-slate-600 mt-1">총 게임 횟수, 승률, 누적 승리 수 및 스코어 득실차를 종합 분석하여 통계 수치로 알려줍니다.</p>

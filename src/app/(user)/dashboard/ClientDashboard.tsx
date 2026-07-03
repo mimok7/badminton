@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, CalendarDays, Gift, LogOut, Shield, Swords, Target, Trophy, UserCircle2, Zap, Bell, BookOpen } from 'lucide-react';
+import { ArrowRight, CalendarDays, Gift, LogOut, Shield, Swords, Target, Trophy, UserCircle2, Zap, Bell, BookOpen, MessageSquarePlus } from 'lucide-react';
 
 import MatchNotifications from '@/components/MatchNotifications';
 import { Button } from '@/components/ui/button';
@@ -79,6 +79,12 @@ const quickLinks = [
     title: '사용자 설명서',
     description: '시스템 기능 및 이용 안내 가이드를 확인합니다.',
     icon: BookOpen,
+  },
+  {
+    href: '/app-request',
+    title: '앱 수정 요청',
+    description: '기능 건의 및 버그 제보를 작성하여 전달합니다.',
+    icon: MessageSquarePlus,
   },
 ];
 

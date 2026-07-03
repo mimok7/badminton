@@ -1885,7 +1885,7 @@ export default function TournamentMatchesPage() {
 
             convertedMatches.push({
               tournament_id: '',
-              round: totalRounds + 1,
+              round: effectiveMatchesPerPlayer + 1,
               match_number: convertedMatches.length + 1,
               team1: team1Players,
               team2: team2Players,
@@ -1944,7 +1944,7 @@ export default function TournamentMatchesPage() {
 
             convertedMatches.push({
               tournament_id: '',
-              round: totalRounds + 1,
+              round: effectiveMatchesPerPlayer + 1,
               match_number: convertedMatches.length + 1,
               team1: team1.map((p) => p.name),
               team2: team2.map((p) => p.name),
@@ -1970,10 +1970,10 @@ export default function TournamentMatchesPage() {
         );
       }
 
-      const optimizedMatches = avoidConsecutiveMatches(convertedMatches, maxCourts, tournamentDate, startTime, timeInterval).map(m => ({
+      const optimizedMatches: Match[] = avoidConsecutiveMatches(convertedMatches, maxCourts, tournamentDate, startTime, timeInterval).map(m => ({
         ...m,
         court: '',
-        scheduled_time: null
+        scheduled_time: undefined
       }));
       
       // 최종 점수 차이 분석

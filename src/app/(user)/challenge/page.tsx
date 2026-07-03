@@ -395,11 +395,32 @@ export default function ChallengePage() {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">한마디 메시지</label>
+                    <div className="relative mb-2">
+                      <select
+                        onChange={(event) => {
+                          if (event.target.value) {
+                            setNote(event.target.value);
+                          }
+                        }}
+                        defaultValue=""
+                        className="block w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs text-slate-600 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+                      >
+                        <option value="">자주 쓰는 메시지 선택</option>
+                        <option value="다음 코트 비면 바로 붙어요!">다음 코트 비면 바로 붙어요!</option>
+                        <option value="한 게임 시원하게 하시죠!">한 게임 시원하게 하시죠!</option>
+                        <option value="도전 신청합니다! 준비해 주세요.">도전 신청합니다! 준비해 주세요.</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
                     <div className="relative">
                       <textarea
                         value={note}
                         onChange={(event) => setNote(event.target.value)}
-                        placeholder="예: 다음 경기 비면 도전합니다!"
+                        placeholder="메시지를 직접 입력하거나 위 드롭다운에서 선택하세요."
                         rows={3}
                         className="block w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 placeholder-slate-400"
                       />

@@ -287,7 +287,7 @@ export default function TodayMatches() {
 
     let capacity: number | null = null;
     if (primaryMatch.status === 'scheduled') {
-      const capacityInput = prompt('동시 진행할 게임 수를 입력해 주세요 (숫자):', '2');
+      const capacityInput = prompt('동시 진행할 게임 수(코트수)를 입력해 주세요 (숫자):', '2');
       if (capacityInput === null) return; // User cancelled
       capacity = parseInt(capacityInput, 10);
       if (isNaN(capacity) || capacity <= 0) {

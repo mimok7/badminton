@@ -153,24 +153,24 @@ export default function AppRequestPage() {
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         
         {/* Header Banner */}
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 px-6 py-8 text-white shadow-xl mb-6">
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 px-4 py-5 sm:px-6 sm:py-8 text-white shadow-xl mb-6">
           <div className="absolute right-0 top-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl"></div>
           
           <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
+            <div className="pr-16 sm:pr-0">
               <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
                 <MessageSquareCode className="h-3.5 w-3.5" />
                 App Feedback
               </div>
               <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight">앱 수정 요청</h1>
-              <p className="mt-2 text-sm text-slate-400">버그 제보나 기능 건의사항을 관리자에게 직접 요청할 수 있습니다.</p>
+              <p className="mt-2 text-xs sm:text-sm text-slate-400">버그 제보나 기능 건의사항을 관리자에게 직접 요청할 수 있습니다.</p>
             </div>
             
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 self-start sm:self-auto rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 active:scale-95 border border-white/5"
+              className="absolute top-0.5 right-0 sm:relative sm:top-auto sm:right-auto inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 active:scale-95 border border-white/5"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               홈
             </Link>
           </div>

@@ -46,12 +46,12 @@ export default function ManualPage() {
   return (
     <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-gray-50 to-blue-50/30 pb-16">
       {/* 프리미엄 헤더 영역 */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white py-8 px-6 shadow-md select-none">
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white py-5 px-4 sm:py-8 sm:px-6 shadow-md select-none">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-black/10 rounded-full blur-2xl -ml-20 -mb-20"></div>
         
         <div className="relative max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
+          <div className="pr-16 md:pr-0">
             <div className="flex items-center gap-2 mb-2 bg-white/20 w-fit px-3 py-0.5 rounded-full text-[10px] font-semibold tracking-wide backdrop-blur-sm">
               <Sparkles className="size-3" /> SYSTEM GUIDE
             </div>
@@ -61,7 +61,7 @@ export default function ManualPage() {
           </div>
           <Link 
             href="/dashboard" 
-            className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white rounded-full px-4 py-2 text-xs font-semibold tracking-wide border border-white/20 backdrop-blur-sm transition-all shadow-sm shrink-0 w-fit"
+            className="absolute top-0.5 right-0 md:relative md:top-auto md:right-auto flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white rounded-full px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold tracking-wide border border-white/20 backdrop-blur-sm transition-all shadow-sm shrink-0 w-fit"
           >
             <ArrowLeft className="size-3.5" /> 홈
           </Link>

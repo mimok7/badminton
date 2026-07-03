@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getProfileByUserId } from '@/lib/auth';
+import { getProfileByUserId, getUserRole } from '@/lib/auth';
 import { getKoreaDate } from '@/lib/date';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 
@@ -313,6 +313,9 @@ export async function GET() {
     return NextResponse.json({ error: '프로필을 찾을 수 없습니다.' }, { status: 404 });
   }
 
+  const userRole = await getUserRole(serverSupabase, user);
+  const isAdmin = ['admin', 'manager'].includes(userRole || '');
+
   try {
     const today = getKoreaDate();
     const {
@@ -362,6 +365,7 @@ export async function GET() {
           : currentBlockedByMatch
             ? 'in_progress_match'
             : null,
+        isAdmin,
       },
       eligiblePlayers,
       incomingChallenges: serializedChallenges.filter((challenge) => challenge.challenger?.id !== currentProfile.id),

@@ -43,6 +43,7 @@ type ChallengePayload = {
     coin_balance: number;
     eligible: boolean;
     ineligible_reason?: 'in_progress_match' | 'challenge_pending_or_accepted' | null;
+    isAdmin: boolean;
   };
   eligiblePlayers: EligiblePlayer[];
   incomingChallenges: ChallengeItem[];
@@ -71,6 +72,32 @@ export default function ChallengePage() {
   const [opponent1Id, setOpponent1Id] = useState('');
   const [opponent2Id, setOpponent2Id] = useState('');
   const [note, setNote] = useState('');
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetEligibility = async () => {
+    if (!confirm('현재 대기/수락 상태인 모든 게임 제안을 보류 상태로 변경하여 배정되지 않은 선수들을 대기 상태로 초기화하시겠습니까?')) {
+      return;
+    }
+    
+    try {
+      setResetting(true);
+      const response = await fetch('/api/challenges/reset', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error || '초기화에 실패했습니다.');
+      }
+      alert('초기화 완료되었습니다.');
+      await loadChallenges();
+    } catch (error) {
+      console.error('Reset error:', error);
+      alert(error instanceof Error ? error.message : '오류가 발생했습니다.');
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const loadChallenges = async () => {
     try {
@@ -212,7 +239,7 @@ export default function ChallengePage() {
               className="inline-flex items-center gap-2 self-start sm:self-auto rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 active:scale-95 border border-white/5"
             >
               <ArrowLeft className="h-4 w-4" />
-              대시보드
+              홈
             </Link>
           </div>
           
@@ -227,14 +254,27 @@ export default function ChallengePage() {
               </span>
             </div>
             
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold ${
-              payload?.currentProfile.eligible 
-                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-            }`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${payload?.currentProfile.eligible ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
-              {payload?.currentProfile.eligible ? '제안 가능' : '제안 불가'}
-            </span>
+            {!payload?.currentProfile.eligible && payload?.currentProfile.isAdmin ? (
+              <button
+                type="button"
+                onClick={handleResetEligibility}
+                disabled={resetting}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+                title="클릭하여 배정되지 않은 선수의 게임제안 제한 풀기"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+                {resetting ? '해제 중...' : '제안 불가 (해제)'}
+              </button>
+            ) : (
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold ${
+                payload?.currentProfile.eligible 
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${payload?.currentProfile.eligible ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
+                {payload?.currentProfile.eligible ? '제안 가능' : '제안 불가'}
+              </span>
+            )}
           </div>
         </section>
 

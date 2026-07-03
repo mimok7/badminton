@@ -1813,13 +1813,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     return tabs;
   }, [selectedTournament, isPairCustomTournament, pairGroupsList]);
 
-  if (loading) {
-    return (
-      <div className={`flex min-h-screen items-center justify-center px-4 ${adminMode ? 'bg-gray-50' : 'bg-[#f5f7fb]'}`}>
-        <div className="rounded-full bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">대진표를 불러오는 중입니다</div>
-      </div>
-    );
-  }
+
 
   const containerClassName = adminMode
     ? 'flex w-full max-w-none flex-col gap-6 px-1 py-2 2xl:px-3'
@@ -1977,7 +1971,12 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                   )}
 
                   {viewMode === 'round' && (
-                    tournaments.length === 0 ? (
+                    loading ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600 mb-4"></div>
+                        <p className="text-sm font-medium">대회 정보를 불러오는 중입니다...</p>
+                      </div>
+                    ) : tournaments.length === 0 ? (
                       <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                         저장된 대회가 없습니다.
                       </div>
@@ -2032,7 +2031,12 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                           )}
                         </h3>
                       </div>
-                      {currentMatchesForView.length === 0 ? (
+                      {loading ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600 mb-4"></div>
+                          <p className="text-sm font-medium">대진표를 구성하는 중입니다...</p>
+                        </div>
+                      ) : currentMatchesForView.length === 0 ? (
                         <p className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 py-10 text-center text-sm text-slate-500">경기가 없습니다.</p>
                       ) : (
                         <div className="space-y-3 sm:space-y-6">
@@ -2705,7 +2709,12 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                         )}
 
                         {viewMode === 'round' && (
-                          tournaments.length === 0 ? (
+                          loading ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                              <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600 mb-4"></div>
+                              <p className="text-sm font-medium">대회 정보를 불러오는 중입니다...</p>
+                            </div>
+                          ) : tournaments.length === 0 ? (
                             <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-slate-500">
                               진행 중인 대회가 없습니다.
                             </div>
@@ -2761,7 +2770,12 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                       </div>
                     )}
 
-                    {currentMatchesForView.length === 0 ? (
+                    {loading ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600 mb-4"></div>
+                        <p className="text-sm font-medium">대진표를 구성하는 중입니다...</p>
+                      </div>
+                    ) : currentMatchesForView.length === 0 ? (
                       <p className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 py-10 text-center text-sm text-slate-500">경기가 없습니다.</p>
                     ) : (
                       <div className="space-y-3 sm:space-y-6">

@@ -206,11 +206,11 @@ export default function TodayMatches() {
     return rankingsList;
   }, [matches]);
 
-  if (userLoading || loading) {
+  if (userLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb] px-4">
         <div className="rounded-full bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-          오늘 게임을 불러오는 중입니다
+          사용자 정보를 확인하는 중입니다
         </div>
       </div>
     );
@@ -636,7 +636,12 @@ export default function TodayMatches() {
           </div>
 
           {activeTab === 'schedule' ? (
-            matches.length === 0 ? (
+            loading ? (
+              <div className="py-20 flex flex-col items-center justify-center text-slate-500">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800 mb-4"></div>
+                <p className="text-sm font-medium">오늘 게임 일정을 불러오는 중입니다...</p>
+              </div>
+            ) : matches.length === 0 ? (
               <section className="rounded-[24px] bg-white px-4 py-10 text-center shadow-sm">
                 <div className="text-5xl">🏸</div>
                 <h3 className="mt-4 text-lg font-semibold text-slate-900">오늘 배정된 게임이 없습니다</h3>
@@ -648,41 +653,48 @@ export default function TodayMatches() {
               </div>
             )
           ) : (
-            <div className="mt-2 rounded-[24px] bg-white p-4 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">개인별 순위 (승률순)</h2>
-              {rankings.length === 0 ? (
-                <div className="py-8 text-center text-sm text-slate-500">완료된 경기가 없습니다.</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm text-slate-600">
-                    <thead className="border-b border-slate-100 bg-slate-50/50 text-xs font-semibold uppercase text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3 whitespace-nowrap">순위</th>
-                        <th className="px-4 py-3 whitespace-nowrap">이름</th>
-                        <th className="px-4 py-3 text-center whitespace-nowrap">전적</th>
-                        <th className="px-4 py-3 text-right whitespace-nowrap">승률</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {rankings.map((p, idx) => (
-                        <tr key={p.id} className="hover:bg-slate-50 transition">
-                          <td className="px-4 py-3 font-medium text-slate-900">{idx + 1}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {getPlayerIcon(p.gender)} {formatNameWithCoins(p.name, p.coin_balance)}
-                          </td>
-                          <td className="px-4 py-3 text-center whitespace-nowrap">
-                            {p.played}전 {p.wins}승 {p.losses}패
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
-                            {p.winRate.toFixed(1)}%
-                          </td>
+            loading ? (
+              <div className="mt-2 rounded-[24px] bg-white p-10 flex flex-col items-center justify-center text-slate-500 shadow-sm">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800 mb-4"></div>
+                <p className="text-sm font-medium">결과를 불러오는 중입니다...</p>
+              </div>
+            ) : (
+              <div className="mt-2 rounded-[24px] bg-white p-4 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900 mb-4">개인별 순위 (승률순)</h2>
+                {rankings.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-slate-500">완료된 경기가 없습니다.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-slate-600">
+                      <thead className="border-b border-slate-100 bg-slate-50/50 text-xs font-semibold uppercase text-slate-500">
+                        <tr>
+                          <th className="px-4 py-3 whitespace-nowrap">순위</th>
+                          <th className="px-4 py-3 whitespace-nowrap">이름</th>
+                          <th className="px-4 py-3 text-center whitespace-nowrap">전적</th>
+                          <th className="px-4 py-3 text-right whitespace-nowrap">승률</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {rankings.map((p, idx) => (
+                          <tr key={p.id} className="hover:bg-slate-50 transition">
+                            <td className="px-4 py-3 font-medium text-slate-900">{idx + 1}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {getPlayerIcon(p.gender)} {formatNameWithCoins(p.name, p.coin_balance)}
+                            </td>
+                            <td className="px-4 py-3 text-center whitespace-nowrap">
+                              {p.played}전 {p.wins}승 {p.losses}패
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                              {p.winRate.toFixed(1)}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )
           )}
         </div>
       </div>

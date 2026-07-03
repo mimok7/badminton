@@ -208,50 +208,37 @@ export default function ChallengePage() {
     }
   };
 
-  if (loading && !payload) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f8fafc] px-4">
-        <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="h-8 w-8 animate-spin text-indigo-600" />
-          <div className="text-sm font-medium text-slate-500">
-            게임 제안 정보를 읽어오는 중...
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-12">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         
         {/* Header Section with sleek gradient banner */}
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 px-6 py-8 text-white shadow-xl mb-6">
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 px-3.5 py-4 sm:px-6 sm:py-6 text-white shadow-xl mb-5">
           <div className="absolute right-0 top-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl"></div>
           <div className="absolute left-1/3 bottom-0 -mb-20 h-64 w-64 rounded-full bg-violet-500/5 blur-3xl"></div>
           
           <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
+            <div className="pr-16 sm:pr-0">
               <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
                 <Sparkles className="h-3.5 w-3.5" />
                 Challenge Mode
               </div>
               <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight">게임 제안</h1>
-              <p className="mt-2 text-sm text-slate-400">마음에 드는 멤버를 골라 대결을 신청해 보세요.</p>
+              <p className="mt-1.5 text-xs sm:text-sm text-slate-400">마음에 드는 멤버를 골라 대결을 신청해 보세요.</p>
             </div>
             
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 self-start sm:self-auto rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 active:scale-95 border border-white/5"
+              className="absolute top-0.5 right-0 sm:relative sm:top-auto sm:right-auto inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 active:scale-95 border border-white/5"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               홈
             </Link>
           </div>
           
-          <div className="relative mt-6 flex flex-wrap items-center gap-2.5 pt-6 border-t border-white/10 text-xs">
-            <div className="flex items-center gap-2 rounded-full bg-white/5 border border-white/10 px-3.5 py-1.5 text-slate-200">
-              <Award className="h-3.5 w-3.5 text-indigo-400" />
+          <div className="relative mt-3.5 flex flex-wrap items-center gap-2 pt-3.5 border-t border-white/10 text-[11px]">
+            <div className="flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-slate-200">
+              <Award className="h-3 w-3 text-indigo-400" />
               <span className="font-semibold text-slate-100">
                 {formatCurrentUserNameWithCoins(
                   payload?.currentProfile.name || profile?.full_name || profile?.username || '회원', 
@@ -260,19 +247,24 @@ export default function ChallengePage() {
               </span>
             </div>
             
-            {!payload?.currentProfile.eligible && payload?.currentProfile.isAdmin ? (
+            {loading && !payload ? (
+              <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                상태 확인 중
+              </span>
+            ) : !payload?.currentProfile.eligible && payload?.currentProfile.isAdmin ? (
               <button
                 type="button"
                 onClick={handleResetEligibility}
                 disabled={resetting}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
                 title="클릭하여 배정되지 않은 선수의 게임제안 제한 풀기"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse"></span>
                 {resetting ? '해제 중...' : '제안 불가 (해제)'}
               </button>
             ) : (
-              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold ${
+              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold ${
                 payload?.currentProfile.eligible 
                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
                   : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
@@ -312,7 +304,12 @@ export default function ChallengePage() {
               </div>
             </div>
 
-            {payload && !payload.currentProfile.eligible ? (
+            {loading && !payload ? (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                <RefreshCw className="h-8 w-8 animate-spin mb-4 text-slate-300" />
+                <p className="text-sm font-medium">플레이어 정보를 불러오는 중입니다...</p>
+              </div>
+            ) : payload && !payload.currentProfile.eligible ? (
               <div className="rounded-2xl bg-rose-50/50 border border-rose-100 p-4 text-sm text-rose-700 flex gap-3">
                 <ShieldAlert className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
                 <div>
@@ -455,7 +452,12 @@ export default function ChallengePage() {
               </div>
 
               <div className="space-y-4">
-                {(payload?.incomingChallenges || []).length === 0 ? (
+                {loading && !payload ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                    <RefreshCw className="h-6 w-6 animate-spin mb-3 text-slate-300" />
+                    <p className="text-sm font-medium">정보를 불러오는 중입니다...</p>
+                  </div>
+                ) : (payload?.incomingChallenges || []).length === 0 ? (
                   <div className="rounded-2xl bg-slate-50/50 border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
                     받은 게임 제안이 현재 없습니다.
                   </div>
@@ -534,7 +536,12 @@ export default function ChallengePage() {
               </div>
 
               <div className="space-y-4">
-                {(payload?.outgoingChallenges || []).length === 0 ? (
+                {loading && !payload ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                    <RefreshCw className="h-6 w-6 animate-spin mb-3 text-slate-300" />
+                    <p className="text-sm font-medium">정보를 불러오는 중입니다...</p>
+                  </div>
+                ) : (payload?.outgoingChallenges || []).length === 0 ? (
                   <div className="rounded-2xl bg-slate-50/50 border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
                     아직 보낸 게임 제안이 없습니다.
                   </div>

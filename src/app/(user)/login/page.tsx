@@ -220,14 +220,6 @@ export default function LoginPage() {
 
       let nextPath = mustChangePassword ? '/change-password' : DEFAULT_USER_REDIRECT;
 
-      if (userId && !mustChangePassword) {
-        const profile = await getProfileByUserId(supabase, userId);
-        const isAdmin = isAdminRole(profile?.role);
-        nextPath = isAdmin
-          ? (shouldRedirectAdminToAdminDashboard() ? '/admin' : DEFAULT_ADMIN_REDIRECT)
-          : DEFAULT_USER_REDIRECT;
-      }
-
       const redirectTo =
         typeof window === 'undefined'
           ? null

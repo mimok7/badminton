@@ -871,20 +871,16 @@ export default function MySchedulePage() {
       const todayLocal = getTodayLocal();
 
       let fetchedAssignedMatches = todayAssignedMatches;
-      let fetchedAllMatches = todayAllMatches;
 
       // Only fetch scheduled matches and coin settings if we need to update upcoming matches
       if (tabToRefresh === 'all' || tabToRefresh === 'upcoming') {
-        const [aMatches, allM, coinSettingsResponse] = await Promise.all([
+        const [aMatches, coinSettingsResponse] = await Promise.all([
           fetchScheduledMatchesForDate(supabase, todayLocal, user.id),
-          fetchScheduledMatchesForDate(supabase, todayLocal),
           fetch('/api/coin-settings', { credentials: 'include' })
         ]);
 
         fetchedAssignedMatches = aMatches;
-        fetchedAllMatches = allM;
         setTodayAssignedMatches(aMatches);
-        setTodayAllMatches(allM);
 
         if (coinSettingsResponse.ok) {
           const payload = await coinSettingsResponse.json().catch(() => null);
@@ -898,19 +894,18 @@ export default function MySchedulePage() {
       if (tabToRefresh === 'results') {
         matchesWithDetails.push(...myMatches.filter(m => m.status === 'scheduled' || m.status === 'in_progress'));
       } else {
-      const todayAssignedMatches = fetchedAssignedMatches;
+        const todayAssignedMatches = fetchedAssignedMatches;
 
-      todayAssignedMatches.forEach((match, index) => {
-        if (!match.generated_match_id) {
-          return;
-        }
+        todayAssignedMatches.forEach((match, index) => {
+          if (!match.generated_match_id) {
+            return;
+          }
 
-        const syntheticId = `generated_${match.generated_match_id}`;
-        assignedScheduleIds.add(syntheticId);
+          const syntheticId = `generated_${match.generated_match_id}`;
+          assignedScheduleIds.add(syntheticId);
 
-        // Find the global index in all scheduled matches
-        const globalIndex = fetchedAllMatches.findIndex(m => m.id === match.id);
-        const globalMatchNumber = globalIndex !== -1 ? globalIndex + 1 : (match.match_number ?? index + 1);
+          // Use the match_number directly or fallback to index
+          const globalMatchNumber = match.match_number ?? index + 1;
 
         matchesWithDetails.push({
           id: syntheticId,

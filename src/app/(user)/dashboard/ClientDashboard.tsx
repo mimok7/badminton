@@ -19,11 +19,7 @@ import { getKoreaDate } from '@/lib/date';
 
 type AttendanceStatus = 'present' | 'lesson' | 'absent' | null;
 
-const ATTENDANCE_OPTIONS: Array<{ value: Exclude<AttendanceStatus, null>; label: string; chip: string }> = [
-  { value: 'present', label: '출석', chip: '출석' },
-  { value: 'lesson', label: '레슨', chip: '레슨' },
-  { value: 'absent', label: '퇴근', chip: '퇴근' },
-];
+
 
 const quickLinks = [
   {
@@ -96,12 +92,7 @@ function normalizeAttendanceStatus(value: string | null | undefined): Attendance
   return null;
 }
 
-function getAttendanceLabel(status: AttendanceStatus) {
-  if (status === 'present') return '출석';
-  if (status === 'lesson') return '레슨';
-  if (status === 'absent') return '퇴근';
-  return '미설정';
-}
+
 
 function getMatchStatusPriority(status: string) {
   if (status === 'in_progress') return 0;
@@ -159,64 +150,214 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
 
   const [loadingAttendance, setLoadingAttendance] = useState(true);
   const [myAttendanceStatus, setMyAttendanceStatus] = useState<AttendanceStatus>(null);
+  const [isRegisteredToday, setIsRegisteredToday] = useState(false);
+  const [todayRegistration, setTodayRegistration] = useState<any>(null);
+  const [todaySchedules, setTodaySchedules] = useState<any[]>([]);
   const [statusSaving, setStatusSaving] = useState(false);
 
-  useEffect(() => {
+  const fetchAttendanceAndRegistration = async () => {
     if (!userId) return;
+    try {
+      setLoadingAttendance(true);
+      const today = getKoreaDate();
 
-    const fetchAttendanceStatus = async () => {
-      try {
-        setLoadingAttendance(true);
-        const today = getKoreaDate();
-        const response = await fetch(`/api/attendance/status?date=${today}`);
-        const payload = await response.json().catch(() => null);
-
-        if (response.ok) {
-          setMyAttendanceStatus(normalizeAttendanceStatus(payload?.status));
-        } else {
-          setMyAttendanceStatus(null);
-        }
-      } catch (error) {
-        console.error('대시보드 출석 조회 오류:', error);
+      // 1. Fetch attendance status
+      const response = await fetch(`/api/attendance/status?date=${today}`);
+      const payload = await response.json().catch(() => null);
+      if (response.ok) {
+        setMyAttendanceStatus(normalizeAttendanceStatus(payload?.status));
+      } else {
         setMyAttendanceStatus(null);
-      } finally {
-        setLoadingAttendance(false);
       }
-    };
 
-    void fetchAttendanceStatus();
-  }, [userId]);
+      // 2. Fetch today's match schedules
+      const { data: schedulesData } = await supabase
+        .from('match_schedules')
+        .select('id, match_date')
+        .eq('match_date', today)
+        .eq('status', 'scheduled')
+        .is('generated_match_id', null);
+
+      const schedulesList = (schedulesData || []);
+      setTodaySchedules(schedulesList);
+
+      // 3. Fetch today's registration
+      const userProfileId = profile?.id || userId;
+      if (schedulesList.length > 0 && userProfileId) {
+        const scheduleIds = schedulesList.map((s) => s.id);
+        const { data: participations } = await supabase
+          .from('match_participants')
+          .select('id, status, match_schedule_id')
+          .in('match_schedule_id', scheduleIds)
+          .in('user_id', [userId, profile?.id].filter(Boolean) as string[])
+          .in('status', ['registered', 'waitlisted']);
+
+        if (participations && participations.length > 0) {
+          setIsRegisteredToday(true);
+          setTodayRegistration(participations[0]);
+        } else {
+          setIsRegisteredToday(false);
+          setTodayRegistration(null);
+        }
+      } else {
+        setIsRegisteredToday(false);
+        setTodayRegistration(null);
+      }
+    } catch (error) {
+      console.error('대시보드 상태 조회 오류:', error);
+    } finally {
+      setLoadingAttendance(false);
+    }
+  };
+
+  useEffect(() => {
+    if (userId && profile) {
+      void fetchAttendanceAndRegistration();
+    }
+  }, [userId, profile]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/login');
   };
 
+  const handleToggleRegistration = async () => {
+    if (statusSaving || loadingAttendance) return;
+
+    const userProfileId = profile?.id || userId;
+    if (!userProfileId) return;
+
+    try {
+      setStatusSaving(true);
+      const today = getKoreaDate();
+
+      if (isRegisteredToday && todayRegistration) {
+        const hasConfirmed = window.confirm('오늘 경기 참가신청이 취소됩니다. 정말 취소하시겠습니까?');
+        if (!hasConfirmed) {
+          setStatusSaving(false);
+          return;
+        }
+
+        // Cancel registration (update status to 'cancelled')
+        const { error } = await supabase
+          .from('match_participants')
+          .update({ status: 'cancelled' })
+          .eq('id', todayRegistration.id);
+
+        if (error) throw error;
+
+        // Also clear attendance if any
+        const { error: deleteError } = await supabase
+          .from('attendances')
+          .delete()
+          .eq('user_id', userProfileId)
+          .eq('attended_at', today);
+
+        if (deleteError) {
+          console.error('출석 초기화 실패:', deleteError);
+        }
+        setMyAttendanceStatus(null);
+        setIsRegisteredToday(false);
+        setTodayRegistration(null);
+        alert('참가 신청이 취소되었습니다.');
+      } else {
+        // Register for match
+        if (todaySchedules.length === 0) {
+          alert('오늘 예정된 경기 일정이 없습니다. 참가 신청을 할 수 없습니다.');
+          return;
+        }
+
+        const scheduleId = todaySchedules[0].id;
+
+        const { data: existing } = await supabase
+          .from('match_participants')
+          .select('id')
+          .eq('match_schedule_id', scheduleId)
+          .eq('user_id', userProfileId)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from('match_participants')
+            .update({ status: 'registered', registered_at: new Date().toISOString() })
+            .eq('id', existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('match_participants')
+            .insert({
+              match_schedule_id: scheduleId,
+              user_id: userProfileId,
+              status: 'registered',
+              registered_at: new Date().toISOString(),
+            });
+          if (error) throw error;
+        }
+
+        // Also delete attendance to revert to '참가' state
+        const { error: deleteError } = await supabase
+          .from('attendances')
+          .delete()
+          .eq('user_id', userProfileId)
+          .eq('attended_at', today);
+
+        if (deleteError) {
+          console.error('출석 초기화 실패:', deleteError);
+        }
+        setMyAttendanceStatus(null);
+        alert('참가 신청이 완료되었습니다.');
+      }
+      void fetchAttendanceAndRegistration();
+    } catch (e) {
+      console.error('참가 신청 처리 중 오류:', e);
+      alert('참가 신청 처리 중 오류가 발생했습니다.');
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
   const handleAttendanceStatusChange = async (nextStatus: Exclude<AttendanceStatus, null>) => {
-    if (statusSaving) return;
+    if (statusSaving || loadingAttendance) return;
+
+    const userProfileId = profile?.id || userId;
+    if (!userProfileId) return;
 
     const today = getKoreaDate();
 
     try {
       setStatusSaving(true);
+      const isAlreadyActive = myAttendanceStatus === nextStatus;
 
-      const response = await fetch('/api/attendance/status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: nextStatus,
-          attendedAt: today,
-        }),
-      });
+      if (isAlreadyActive) {
+        // Toggle off: delete attendance record
+        const { error } = await supabase
+          .from('attendances')
+          .delete()
+          .eq('user_id', userProfileId)
+          .eq('attended_at', today);
 
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Failed to save attendance status');
+        if (error) throw error;
+        setMyAttendanceStatus(null);
+      } else {
+        // Save attendance status
+        const response = await fetch('/api/attendance/status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status: nextStatus,
+            attendedAt: today,
+          }),
+        });
+
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Failed to save attendance status');
+        }
+
+        setMyAttendanceStatus(nextStatus);
       }
-
-      setMyAttendanceStatus(nextStatus);
     } catch (error) {
       console.error('출석 상태 저장 오류:', error);
       alert('상태 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -229,6 +370,16 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const displayName = rawDisplayName;
   const levelLabel = profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정');
 
+  let activeStateLabel = '미참가';
+  if (myAttendanceStatus === 'present') {
+    activeStateLabel = '출석';
+  } else if (myAttendanceStatus === 'lesson') {
+    activeStateLabel = '레슨';
+  } else if (myAttendanceStatus === 'absent') {
+    activeStateLabel = '퇴근';
+  } else {
+    activeStateLabel = isRegisteredToday ? '참가' : '미참가';
+  }
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
@@ -264,38 +415,70 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                 )}
               </div>
               <div className="mt-2 text-[12px] text-slate-300">
-                상태: <span className="font-medium text-white">{loadingAttendance ? '조회 중...' : getAttendanceLabel(myAttendanceStatus)}</span>
+                오늘 내 상태: <span className="font-medium text-white">{loadingAttendance ? '조회 중...' : activeStateLabel}</span>
               </div>
             </div>
           </div>
 
           <div className="mt-3 rounded-[18px] bg-white/8 px-2.5 py-2.5">
-            <div className="grid grid-cols-3 gap-1.5">
-              {ATTENDANCE_OPTIONS.map((option) => {
-                const isActive = myAttendanceStatus === option.value;
+            <div className="grid grid-cols-4 gap-1.5">
+              {/* 1. 참가 버튼 */}
+              <button
+                type="button"
+                disabled={statusSaving || loadingAttendance}
+                onClick={handleToggleRegistration}
+                className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
+                  isRegisteredToday && myAttendanceStatus === null
+                    ? 'bg-white text-slate-900'
+                    : 'bg-white/10 text-slate-100 hover:bg-white/20'
+                } disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                {isRegisteredToday ? '참가' : '미참가'}
+              </button>
 
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    disabled={statusSaving || loadingAttendance}
-                    onClick={() => {
-                      void handleAttendanceStatusChange(option.value);
-                    }}
-                    className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
-                      isActive
-                        ? 'bg-white text-slate-900'
-                        : 'bg-white/10 text-slate-100 hover:bg-white/20'
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
+              {/* 2. 출석 버튼 */}
+              <button
+                type="button"
+                disabled={statusSaving || loadingAttendance}
+                onClick={() => handleAttendanceStatusChange('present')}
+                className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
+                  myAttendanceStatus === 'present'
+                    ? 'bg-white text-slate-900'
+                    : 'bg-white/10 text-slate-100 hover:bg-white/20'
+                } disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                출석
+              </button>
+
+              {/* 3. 레슨 버튼 */}
+              <button
+                type="button"
+                disabled={statusSaving || loadingAttendance}
+                onClick={() => handleAttendanceStatusChange('lesson')}
+                className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
+                  myAttendanceStatus === 'lesson'
+                    ? 'bg-white text-slate-900'
+                    : 'bg-white/10 text-slate-100 hover:bg-white/20'
+                } disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                레슨
+              </button>
+
+              {/* 4. 퇴근 버튼 */}
+              <button
+                type="button"
+                disabled={statusSaving || loadingAttendance}
+                onClick={() => handleAttendanceStatusChange('absent')}
+                className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
+                  myAttendanceStatus === 'absent'
+                    ? 'bg-white text-slate-900'
+                    : 'bg-white/10 text-slate-100 hover:bg-white/20'
+                } disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                퇴근
+              </button>
             </div>
-
           </div>
-
         </section>
 
         <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">

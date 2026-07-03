@@ -480,13 +480,13 @@ export default function ChallengePage() {
                         <div className="flex items-center justify-between gap-2 bg-white rounded-xl border border-slate-100 px-3 py-2">
                           <span className="text-slate-400 text-xs">우리 팀</span>
                           <span className="font-semibold text-slate-700">
-                            {formatNameWithCoins(challenge.challenger?.name || '선수', challenge.challenger?.coin_balance)} &amp; {formatNameWithCoins(challenge.partner?.name || '선수', challenge.partner?.coin_balance)}
+                            {formatNameWithCoins(challenge.challenger?.name || '선수', challenge.challenger?.coin_balance)} & {formatNameWithCoins(challenge.partner?.name || '선수', challenge.partner?.coin_balance)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-2 bg-white rounded-xl border border-slate-100 px-3 py-2">
                           <span className="text-slate-400 text-xs">상대 팀</span>
                           <span className="font-semibold text-slate-700">
-                            {challenge.opponents.map((player) => formatNameWithCoins(player.name, player.coin_balance)).join(' &amp; ')}
+                            {challenge.opponents.map((player) => formatNameWithCoins(player.name, player.coin_balance)).join(' & ')}
                           </span>
                         </div>
                         

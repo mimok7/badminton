@@ -56,14 +56,14 @@ export default function ManualPage() {
               <Sparkles className="size-3" /> SYSTEM GUIDE
             </div>
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-              🏸 배드민턴 시스템 안내서
+              🏸 사용 설명서
             </h1>
           </div>
           <Link 
             href="/dashboard" 
             className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white rounded-full px-4 py-2 text-xs font-semibold tracking-wide border border-white/20 backdrop-blur-sm transition-all shadow-sm shrink-0 w-fit"
           >
-            <ArrowLeft className="size-3.5" /> 대시보드로 돌아가기
+            <ArrowLeft className="size-3.5" /> 홈
           </Link>
         </div>
       </div>

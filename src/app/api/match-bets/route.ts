@@ -89,7 +89,7 @@ export async function GET(request: Request) {
 
   // Get current proposal
   const { data: proposalRow } = await adminSupabase
-    .from('match_wager_proposals')
+    .from('match_wager_proposals' as any)
     .select('*')
     .eq('match_id', matchId)
     .maybeSingle(); // Use maybeSingle to avoid throw on no row
@@ -148,7 +148,7 @@ export async function POST(request: Request) {
 
     // Insert or update proposal
     const { error } = await adminSupabase
-      .from('match_wager_proposals')
+      .from('match_wager_proposals' as any)
       .upsert(
         {
           match_id: matchId,
@@ -177,7 +177,7 @@ export async function POST(request: Request) {
     }
 
     const { data: proposal } = await adminSupabase
-      .from('match_wager_proposals')
+      .from('match_wager_proposals' as any)
       .select('*')
       .eq('match_id', matchId)
       .maybeSingle();
@@ -218,7 +218,7 @@ export async function POST(request: Request) {
     }
 
     const { error } = await adminSupabase
-      .from('match_wager_proposals')
+      .from('match_wager_proposals' as any)
       .update({
         status: newStatus,
         responses: responses,

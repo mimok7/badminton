@@ -25,7 +25,7 @@ export async function GET() {
 
   try {
     let query = adminSupabase
-      .from('app_modification_requests')
+      .from('app_modification_requests' as any)
       .select('*, requester:profiles!requester_id(full_name, username)');
 
     if (!isAdmin) {
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 
   try {
     const { data: newRequest, error: insertError } = await adminSupabase
-      .from('app_modification_requests')
+      .from('app_modification_requests' as any)
       .insert({
         requester_id: currentProfile.id,
         category,
@@ -163,7 +163,7 @@ export async function PUT(request: Request) {
     }
 
     const { data: updatedRequest, error: updateError } = await adminSupabase
-      .from('app_modification_requests')
+      .from('app_modification_requests' as any)
       .update(updateData)
       .eq('id', requestId)
       .select('*')

@@ -153,9 +153,9 @@ export default function TodayMatches() {
 
     const statsMap = new Map<string, PlayerStats>();
 
-    const ensurePlayer = (id: string, name: string, gender: string | null, coin_balance: number | null) => {
+    const ensurePlayer = (id: string, name: string, gender: string | null | undefined, coin_balance: number | null | undefined) => {
       if (!statsMap.has(id)) {
-        statsMap.set(id, { id, name, gender, coin_balance, wins: 0, losses: 0, draws: 0, played: 0, winRate: 0 });
+        statsMap.set(id, { id, name, gender: gender ?? null, coin_balance: coin_balance ?? null, wins: 0, losses: 0, draws: 0, played: 0, winRate: 0 });
       }
       return statsMap.get(id)!;
     };

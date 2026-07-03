@@ -1,8 +1,7 @@
 'use client';
-
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Swords, Users } from 'lucide-react';
+import { ArrowLeft, Swords, Users, RefreshCw, Sparkles, MessageSquare, ShieldAlert, Award } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
@@ -50,10 +49,10 @@ type ChallengePayload = {
   outgoingChallenges: ChallengeItem[];
 };
 
-function getStatusChip(status: string) {
-  if (status === 'accepted') return 'bg-emerald-100 text-emerald-700';
-  if (status === 'held') return 'bg-amber-100 text-amber-800';
-  return 'bg-slate-100 text-slate-700';
+function getStatusBadgeClass(status: string) {
+  if (status === 'accepted') return 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20';
+  if (status === 'held') return 'bg-amber-500/10 text-amber-500 border border-amber-500/20';
+  return 'bg-slate-500/10 text-slate-500 border border-slate-500/20';
 }
 
 function getResponseLabel(status?: string | null) {
@@ -178,246 +177,342 @@ export default function ChallengePage() {
 
   if (loading && !payload) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb] px-4">
-        <div className="rounded-full bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-          게임 제안 페이지를 불러오는 중입니다
+      <div className="flex min-h-screen items-center justify-center bg-[#f8fafc] px-4">
+        <div className="flex flex-col items-center gap-3">
+          <RefreshCw className="h-8 w-8 animate-spin text-indigo-600" />
+          <div className="text-sm font-medium text-slate-500">
+            게임 제안 정보를 읽어오는 중...
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
-        <section className="rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5 sm:py-6">
-          <div className="flex items-start justify-between gap-3">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-12">
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        
+        {/* Header Section with sleek gradient banner */}
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 px-6 py-8 text-white shadow-xl mb-6">
+          <div className="absolute right-0 top-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl"></div>
+          <div className="absolute left-1/3 bottom-0 -mb-20 h-64 w-64 rounded-full bg-violet-500/5 blur-3xl"></div>
+          
+          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <p className="text-xs text-slate-300">Challenge Match</p>
-              <h1 className="mt-1 text-2xl font-semibold">게임 제안</h1>
-
+              <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
+                <Sparkles className="h-3.5 w-3.5" />
+                Challenge Mode
+              </div>
+              <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight">게임 제안</h1>
+              <p className="mt-2 text-sm text-slate-400">마음에 드는 멤버를 골라 대결을 신청해 보세요.</p>
             </div>
+            
             <Link
               href="/dashboard"
-              className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+              className="inline-flex items-center gap-2 self-start sm:self-auto rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 active:scale-95 border border-white/5"
             >
-              홈
+              <ArrowLeft className="h-4 w-4" />
+              대시보드
             </Link>
           </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">
-              {formatCurrentUserNameWithCoins(payload?.currentProfile.name || profile?.full_name || profile?.username || '회원', payload?.currentProfile.coin_balance ?? profile?.coin_balance)}
-            </span>
-            <span className={`rounded-full px-2.5 py-1 ${payload?.currentProfile.eligible ? 'bg-emerald-400/20 text-emerald-100' : 'bg-rose-400/20 text-rose-100'}`}>
+          
+          <div className="relative mt-6 flex flex-wrap items-center gap-2.5 pt-6 border-t border-white/10 text-xs">
+            <div className="flex items-center gap-2 rounded-full bg-white/5 border border-white/10 px-3.5 py-1.5 text-slate-200">
+              <Award className="h-3.5 w-3.5 text-indigo-400" />
+              <span className="font-semibold text-slate-100">
+                {formatCurrentUserNameWithCoins(
+                  payload?.currentProfile.name || profile?.full_name || profile?.username || '회원', 
+                  payload?.currentProfile.coin_balance ?? profile?.coin_balance
+                )}
+              </span>
+            </div>
+            
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold ${
+              payload?.currentProfile.eligible 
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+            }`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${payload?.currentProfile.eligible ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
               {payload?.currentProfile.eligible ? '제안 가능' : '제안 불가'}
             </span>
           </div>
         </section>
 
-        <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-500">새 게임 제안</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">파트너와 상대 선택</h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                후보 {eligiblePlayers.length}명
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  void loadChallenges();
-                }}
-                disabled={loading}
-                className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? '갱신 중' : '새로고침'}
-              </button>
-            </div>
-          </div>
-
-          {payload && !payload.currentProfile.eligible ? (
-            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700">
-              {payload.currentProfile.ineligible_reason === 'challenge_pending_or_accepted'
-                ? '현재 대기 또는 수락 상태의 게임 제안에 포함되어 있어 지금은 새 게임 제안을 만들 수 없습니다. (보류 상태가 되면 다시 후보에 표시됩니다.)'
-                : '현재 대기 또는 진행중인 배정 게임에 포함되어 있어 지금은 게임 제안을 할 수 없습니다.'}
-            </div>
-          ) : (
-            <div className="mt-4 space-y-4">
-              <div className="grid gap-3">
-                <label className="text-sm font-medium text-slate-700">
-                  내 파트너
-                  <select
-                    value={partnerId}
-                    onChange={(event) => setPartnerId(event.target.value)}
-                    className="mt-2 h-12 w-full rounded-2xl border border-slate-300 bg-white px-3 text-sm"
-                  >
-                    <option value="">선수를 선택하세요</option>
-                    {partnerOptions.map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {formatNameWithCoins(player.name, player.coin_balance)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="text-sm font-medium text-slate-700">
-                  상대 1
-                  <select
-                    value={opponent1Id}
-                    onChange={(event) => setOpponent1Id(event.target.value)}
-                    className="mt-2 h-12 w-full rounded-2xl border border-slate-300 bg-white px-3 text-sm"
-                  >
-                    <option value="">선수를 선택하세요</option>
-                    {opponent1Options.map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {formatNameWithCoins(player.name, player.coin_balance)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="text-sm font-medium text-slate-700">
-                  상대 2
-                  <select
-                    value={opponent2Id}
-                    onChange={(event) => setOpponent2Id(event.target.value)}
-                    className="mt-2 h-12 w-full rounded-2xl border border-slate-300 bg-white px-3 text-sm"
-                  >
-                    <option value="">선수를 선택하세요</option>
-                    {opponent2Options.map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {formatNameWithCoins(player.name, player.coin_balance)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="text-sm font-medium text-slate-700">
-                  한마디
-                  <textarea
-                    value={note}
-                    onChange={(event) => setNote(event.target.value)}
-                    placeholder="예: 다음 코트 비면 바로 붙어요."
-                    className="mt-2 min-h-24 w-full rounded-2xl border border-slate-300 bg-white px-3 py-3 text-sm"
-                  />
-                </label>
+        {/* 2-Column Responsive Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          {/* LEFT: Choose Partner & Opponents Form */}
+          <section className="lg:col-span-5 rounded-3xl bg-white border border-slate-100 px-5 py-6 shadow-sm hover:shadow-md transition">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Create a Match</p>
+                <h2 className="text-lg font-bold text-slate-900">새 게임 제안</h2>
               </div>
-
-              <Button onClick={handleCreateChallenge} disabled={saving} className="h-12 w-full rounded-2xl">
-                {saving ? '게임 제안 보내는 중...' : '게임 제안 보내기'}
-              </Button>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center rounded-md bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-500/10">
+                  대기 {eligiblePlayers.length}명
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void loadChallenges();
+                  }}
+                  disabled={loading}
+                  className="rounded-full p-2 border border-slate-100 hover:bg-slate-50 text-slate-500 transition-colors disabled:opacity-50"
+                  title="새로고침"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
             </div>
-          )}
-        </section>
 
-        <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-500">받은 게임 제안</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">수락 또는 보류</h2>
-            </div>
-            <Users className="size-4 text-slate-400" />
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {(payload?.incomingChallenges || []).length === 0 ? (
-              <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                받은 게임 제안이 없습니다.
+            {payload && !payload.currentProfile.eligible ? (
+              <div className="rounded-2xl bg-rose-50/50 border border-rose-100 p-4 text-sm text-rose-700 flex gap-3">
+                <ShieldAlert className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
+                <div>
+                  {payload.currentProfile.ineligible_reason === 'challenge_pending_or_accepted'
+                    ? '현재 대기 또는 수락 상태의 게임 제안에 포함되어 있어 지금은 새 게임 제안을 만들 수 없습니다. (보류 상태가 되면 다시 후보에 표시됩니다.)'
+                    : '현재 대기 또는 진행중인 배정 게임에 포함되어 있어 지금은 게임 제안을 할 수 없습니다.'}
+                </div>
               </div>
             ) : (
-              payload?.incomingChallenges.map((challenge) => (
-                <article key={challenge.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold text-slate-900">
-                      {challenge.challenger?.name}님의 게임 제안
-                    </div>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusChip(challenge.status)}`}>
-                      {getResponseLabel(challenge.status)}
-                    </span>
-                  </div>
-                  <div className="mt-3 space-y-2 text-sm text-slate-700">
-                    <div>우리 팀: {formatNameWithCoins(challenge.challenger?.name || '선수', challenge.challenger?.coin_balance)} + {formatNameWithCoins(challenge.partner?.name || '선수', challenge.partner?.coin_balance)}</div>
-                    <div>
-                      상대 팀: {challenge.opponents.map((player) => formatNameWithCoins(player.name, player.coin_balance)).join(' + ')}
-                    </div>
-                    {challenge.note && <div className="text-slate-500">메모: {challenge.note}</div>}
-                  </div>
-                  <div className="mt-3 flex items-center gap-2">
-                    <Button
-                      onClick={() => {
-                        void handleRespond(challenge.id, 'accepted');
-                      }}
-                      disabled={!challenge.can_respond || respondingId === challenge.id}
-                      className="h-10 flex-1 rounded-xl"
-                    >
-                      수락
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        void handleRespond(challenge.id, 'held');
-                      }}
-                      disabled={!challenge.can_respond || respondingId === challenge.id}
-                      className="h-10 flex-1 rounded-xl"
-                    >
-                      보류
-                    </Button>
-                  </div>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-500">보낸 게임 제안</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">응답 상태 확인</h2>
-            </div>
-            <Swords className="size-4 text-slate-400" />
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {(payload?.outgoingChallenges || []).length === 0 ? (
-              <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                아직 보낸 게임 제안이 없습니다.
-              </div>
-            ) : (
-              payload?.outgoingChallenges.map((challenge) => (
-                <article key={challenge.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold text-slate-900">
-                      {challenge.partner?.name} 파트너 게임 제안
-                    </div>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusChip(challenge.status)}`}>
-                      {getResponseLabel(challenge.status)}
-                    </span>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-sm text-slate-700">
-                    <div className="rounded-xl bg-white px-3 py-2">
-                      파트너: {formatNameWithCoins(challenge.partner?.name || '선수', challenge.partner?.coin_balance)} · {getResponseLabel(challenge.partner?.response)}
-                    </div>
-                    {challenge.opponents.map((opponent) => (
-                      <div key={opponent.id} className="rounded-xl bg-white px-3 py-2">
-                        상대: {formatNameWithCoins(opponent.name, opponent.coin_balance)} · {getResponseLabel(opponent.response)}
+              <div className="space-y-4">
+                <div className="space-y-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">내 파트너</label>
+                    <div className="relative">
+                      <select
+                        value={partnerId}
+                        onChange={(event) => setPartnerId(event.target.value)}
+                        className="block w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-sm text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+                      >
+                        <option value="">파트너 선택</option>
+                        {partnerOptions.map((player) => (
+                          <option key={player.id} value={player.id}>
+                            {formatNameWithCoins(player.name, player.coin_balance)}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
                       </div>
-                    ))}
+                    </div>
                   </div>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
 
-        <Link href="/dashboard" className="inline-flex items-center justify-center gap-1 text-sm font-medium text-slate-700">
-          대시보드로 돌아가기
-          <ArrowRight className="size-4" />
-        </Link>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">상대 팀 1</label>
+                    <div className="relative">
+                      <select
+                        value={opponent1Id}
+                        onChange={(event) => setOpponent1Id(event.target.value)}
+                        className="block w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-sm text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+                      >
+                        <option value="">첫 번째 상대 선택</option>
+                        {opponent1Options.map((player) => (
+                          <option key={player.id} value={player.id}>
+                            {formatNameWithCoins(player.name, player.coin_balance)}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">상대 팀 2</label>
+                    <div className="relative">
+                      <select
+                        value={opponent2Id}
+                        onChange={(event) => setOpponent2Id(event.target.value)}
+                        className="block w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-sm text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+                      >
+                        <option value="">두 번째 상대 선택</option>
+                        {opponent2Options.map((player) => (
+                          <option key={player.id} value={player.id}>
+                            {formatNameWithCoins(player.name, player.coin_balance)}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">한마디 메시지</label>
+                    <div className="relative">
+                      <textarea
+                        value={note}
+                        onChange={(event) => setNote(event.target.value)}
+                        placeholder="예: 다음 경기 비면 도전합니다!"
+                        rows={3}
+                        className="block w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 placeholder-slate-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleCreateChallenge}
+                  disabled={saving}
+                  className="h-12 w-full mt-4 rounded-2xl bg-indigo-600 font-semibold text-white shadow-lg shadow-indigo-600/15 hover:bg-indigo-700 transition active:scale-98"
+                >
+                  {saving ? '제안 전송 중...' : '제안 보내기'}
+                </Button>
+              </div>
+            )}
+          </section>
+
+          {/* RIGHT: Incoming & Outgoing Challenges */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* Incoming Challenges Section */}
+            <section className="rounded-3xl bg-white border border-slate-100 px-5 py-6 shadow-sm hover:shadow-md transition">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Received Challenges</p>
+                  <h2 className="text-lg font-bold text-slate-900">받은 게임 제안</h2>
+                </div>
+                <div className="rounded-full bg-indigo-50 p-2 text-indigo-600">
+                  <Users className="h-4 w-4" />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {(payload?.incomingChallenges || []).length === 0 ? (
+                  <div className="rounded-2xl bg-slate-50/50 border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
+                    받은 게임 제안이 현재 없습니다.
+                  </div>
+                ) : (
+                  payload?.incomingChallenges.map((challenge) => (
+                    <article key={challenge.id} className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:border-slate-200">
+                      <div className="flex items-center justify-between gap-3 border-b border-slate-200/50 pb-3 mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></div>
+                          <span className="text-sm font-bold text-slate-800">
+                            {challenge.challenger?.name}님의 매치 대결 요청
+                          </span>
+                        </div>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusBadgeClass(challenge.status)}`}>
+                          {getResponseLabel(challenge.status)}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2.5 text-sm text-slate-700 mb-4">
+                        <div className="flex items-center justify-between gap-2 bg-white rounded-xl border border-slate-100 px-3 py-2">
+                          <span className="text-slate-400 text-xs">우리 팀</span>
+                          <span className="font-semibold text-slate-700">
+                            {formatNameWithCoins(challenge.challenger?.name || '선수', challenge.challenger?.coin_balance)} &amp; {formatNameWithCoins(challenge.partner?.name || '선수', challenge.partner?.coin_balance)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 bg-white rounded-xl border border-slate-100 px-3 py-2">
+                          <span className="text-slate-400 text-xs">상대 팀</span>
+                          <span className="font-semibold text-slate-700">
+                            {challenge.opponents.map((player) => formatNameWithCoins(player.name, player.coin_balance)).join(' &amp; ')}
+                          </span>
+                        </div>
+                        
+                        {challenge.note && (
+                          <div className="flex gap-2 bg-indigo-50/30 rounded-xl px-3 py-2 border border-indigo-50/60 text-xs text-indigo-950 font-medium">
+                            <MessageSquare className="h-3.5 w-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                            <span>{challenge.note}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {challenge.can_respond && (
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-200/30">
+                          <Button
+                            onClick={() => void handleRespond(challenge.id, 'accepted')}
+                            disabled={respondingId === challenge.id}
+                            className="h-10 flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm active:scale-95"
+                          >
+                            수락
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => void handleRespond(challenge.id, 'held')}
+                            disabled={respondingId === challenge.id}
+                            className="h-10 flex-1 rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold active:scale-95 bg-white"
+                          >
+                            보류
+                          </Button>
+                        </div>
+                      )}
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+
+            {/* Outgoing Challenges Section */}
+            <section className="rounded-3xl bg-white border border-slate-100 px-5 py-6 shadow-sm hover:shadow-md transition">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Sent Challenges</p>
+                  <h2 className="text-lg font-bold text-slate-900">보낸 게임 제안</h2>
+                </div>
+                <div className="rounded-full bg-indigo-50 p-2 text-indigo-600">
+                  <Swords className="h-4 w-4" />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {(payload?.outgoingChallenges || []).length === 0 ? (
+                  <div className="rounded-2xl bg-slate-50/50 border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
+                    아직 보낸 게임 제안이 없습니다.
+                  </div>
+                ) : (
+                  payload?.outgoingChallenges.map((challenge) => (
+                    <article key={challenge.id} className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:border-slate-200">
+                      <div className="flex items-center justify-between gap-3 border-b border-slate-200/50 pb-3 mb-3">
+                        <span className="text-sm font-bold text-slate-800">
+                          {challenge.partner?.name} 파트너 제안 매치
+                        </span>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusBadgeClass(challenge.status)}`}>
+                          {getResponseLabel(challenge.status)}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                        <div className="rounded-xl border border-slate-200/60 bg-white px-3 py-2.5">
+                          <div className="text-slate-400 mb-1">파트너</div>
+                          <div className="font-semibold text-slate-700 truncate">{formatNameWithCoins(challenge.partner?.name || '선수', challenge.partner?.coin_balance)}</div>
+                          <div className="mt-1.5 inline-flex items-center rounded-md bg-slate-50 border border-slate-150 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                            {getResponseLabel(challenge.partner?.response)}
+                          </div>
+                        </div>
+
+                        {challenge.opponents.map((opponent, idx) => (
+                          <div key={opponent.id} className="rounded-xl border border-slate-200/60 bg-white px-3 py-2.5">
+                            <div className="text-slate-400 mb-1">상대 {idx + 1}</div>
+                            <div className="font-semibold text-slate-700 truncate">{formatNameWithCoins(opponent.name, opponent.coin_balance)}</div>
+                            <div className="mt-1.5 inline-flex items-center rounded-md bg-slate-50 border border-slate-150 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                              {getResponseLabel(opponent.response)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+
+          </div>
+        </div>
+
       </div>
     </div>
   );
 }
+

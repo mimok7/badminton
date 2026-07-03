@@ -463,15 +463,31 @@ export default function TeamManagementPage() {
   };
 
   // 오늘 출석한 선수들 조회
-  const fetchTodayPlayers = async () => {
+  const fetchTodayPlayers = async (scheduleId?: string | null, schedulesList?: any[]) => {
+    const targetScheduleId = scheduleId !== undefined ? scheduleId : selectedScheduleId;
+    const targetSchedules = schedulesList !== undefined ? schedulesList : schedules;
+
     try {
       // 우선: 선택된 스케줄이 있으면 해당 스케줄의 등록자만 사용
-      if (selectedScheduleId) {
+      if (targetScheduleId) {
+        const sched = targetSchedules.find(s => s.id === targetScheduleId);
+        if (sched && sched.participants) {
+          const names = sched.participants.map((p: any) => {
+            const profile = p.profiles || {};
+            const playerName = profile.full_name || profile.username || `선수-${p.user_id.substring(0, 4)}`;
+            const levelCode = String(profile.skill_level || '').toUpperCase() || 'N';
+            return `${playerName}(${levelCode})`;
+          });
+          setTodayPlayers(names);
+          return;
+        }
+
+        // 만약 schedules 리스트에 없거나 participants가 로드 안 된 경우 fallback 쿼리
         const { data: participants, error: participantsError } = await supabase
           .from('match_participants')
-          .select('user_id')
-          .eq('match_schedule_id', selectedScheduleId)
-          .eq('status', 'registered');
+          .select('user_id, status')
+          .eq('match_schedule_id', targetScheduleId)
+          .in('status', ['registered', 'attended']);
 
         if (participantsError) {
           console.error('선택 경기 참가자 조회 오류:', participantsError);
@@ -560,6 +576,7 @@ export default function TeamManagementPage() {
             schedule_source?: MatchScheduleSource | null;
             description?: string | null;
             generated_match_id?: number | null;
+            participants?: any[];
           }>;
         };
         const nextSchedules = (payload.schedules || []).map((schedule) => ({
@@ -572,7 +589,7 @@ export default function TeamManagementPage() {
         } else if (!selectedScheduleId) {
           setSelectedScheduleId(nextSchedules[0].id);
         }
-        return;
+        return nextSchedules;
       }
 
       const payload = await response.json().catch(() => null);
@@ -587,7 +604,7 @@ export default function TeamManagementPage() {
       if (error) {
         console.error('일정 목록 조회 오류:', error);
         setSchedules([]);
-        return;
+        return [];
       }
 
       const nextSchedules = (data || []).map((schedule) => ({
@@ -602,9 +619,11 @@ export default function TeamManagementPage() {
       } else if (!selectedScheduleId) {
         setSelectedScheduleId(nextSchedules[0].id);
       }
+      return nextSchedules;
     } catch (e) {
       console.error('일정 조회 실패:', e);
       setSchedules([]);
+      return [];
     }
   };
 
@@ -2225,9 +2244,10 @@ export default function TeamManagementPage() {
 
   useEffect(() => {
     const initializeData = async () => {
-      await fetchSchedulesList();
+      const loadedSchedules = await fetchSchedulesList();
       await fetchMemberPlayers();
-      await fetchTodayPlayers();
+      const initialScheduleId = loadedSchedules && loadedSchedules.length > 0 ? loadedSchedules[0].id : null;
+      await fetchTodayPlayers(initialScheduleId, loadedSchedules);
       await fetchRoundsData();
     };
     

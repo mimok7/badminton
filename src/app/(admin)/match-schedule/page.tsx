@@ -153,6 +153,10 @@ export default function MatchSchedulePage() {
   const [participantModalSubmitting, setParticipantModalSubmitting] = useState(false);
   const [selectedModalParticipantIds, setSelectedModalParticipantIds] = useState<string[]>([]);
 
+  // 일괄 추가 모달 상태
+  const [participantModalTab, setParticipantModalTab] = useState<'manual' | 'bulk'>('manual');
+  const [participantBulkInput, setParticipantBulkInput] = useState('');
+
   // 새 경기 생성 폼 데이터
   const [newSchedule, setNewSchedule] = useState({
     match_date: '',
@@ -806,6 +810,55 @@ export default function MatchSchedulePage() {
     }
   };
 
+  const resetParticipantsForSchedule = async (scheduleId: string) => {
+    if (!confirm('정말로 이 일정의 모든 참가 신청을 초기화하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      setParticipantActionLoading((prev) => ({ ...prev, [scheduleId]: true }));
+      
+      const { error: deleteErr } = await supabase
+        .from('match_participants')
+        .delete()
+        .eq('match_schedule_id', scheduleId);
+
+      if (deleteErr) {
+        console.error('참가자 초기화 오류:', deleteErr);
+        alert('참가자 초기화 중 오류가 발생했습니다.');
+        return;
+      }
+
+      const { error: updateErr } = await supabase
+        .from('match_schedules')
+        .update({ current_participants: 0 })
+        .eq('id', scheduleId);
+
+      if (updateErr) {
+        console.error('스케줄 참가자 수 업데이트 오류:', updateErr);
+      }
+
+      setSchedules((prev) =>
+        prev.map((schedule) => {
+          if (schedule.id !== scheduleId) return schedule;
+          return {
+            ...schedule,
+            participants: [],
+            current_participants: 0,
+          };
+        })
+      );
+
+      alert('참가자가 모두 초기화되었습니다.');
+      fetchSchedules();
+    } catch (error) {
+      console.error('참가자 초기화 중 오류:', error);
+      alert('참가자 초기화 중 오류가 발생했습니다.');
+    } finally {
+      setParticipantActionLoading((prev) => ({ ...prev, [scheduleId]: false }));
+    }
+  };
+
   const openParticipantModal = async (scheduleId: string) => {
     setParticipantModalScheduleId(scheduleId);
     setShowParticipantModal(true);
@@ -817,6 +870,8 @@ export default function MatchSchedulePage() {
     setParticipantModalScheduleId(null);
     setParticipantModalProfiles([]);
     setSelectedModalParticipantIds([]);
+    setParticipantModalTab('manual');
+    setParticipantBulkInput('');
   };
 
   const toggleModalParticipantSelection = (profileId: string) => {
@@ -912,6 +967,138 @@ export default function MatchSchedulePage() {
     } catch (error) {
       console.error('참가자 일괄 추가 중 오류:', error);
       alert('참가자 추가 중 오류가 발생했습니다.');
+    } finally {
+      setParticipantModalSubmitting(false);
+      if (participantModalScheduleId) {
+        setParticipantActionLoading((prev) => ({ ...prev, [participantModalScheduleId]: false }));
+      }
+    }
+  };
+
+  const handleBulkAddParticipants = async () => {
+    if (!participantModalScheduleId || !participantBulkInput.trim()) {
+      return;
+    }
+
+    try {
+      setParticipantModalSubmitting(true);
+      setParticipantActionLoading((prev) => ({ ...prev, [participantModalScheduleId]: true }));
+
+      // 1. 입력 텍스트 파싱 (괄호 내용 제거, 콤마 분리, 양끝 공백 제거)
+      const rawNames = participantBulkInput.split(',').map(n => n.trim()).filter(Boolean);
+      const namesToSearch = rawNames.map(n => n.replace(/\(.*?\)/g, '').trim()).filter(Boolean);
+
+      if (namesToSearch.length === 0) {
+        alert('추가할 이름을 인식할 수 없습니다.');
+        setParticipantModalSubmitting(false);
+        return;
+      }
+
+      // 2. 전체 프로필 목록 가져오기
+      const profilesRes = await fetch('/api/admin/match-schedules?profiles_query=&profiles_all=1', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      if (!profilesRes.ok) {
+        throw new Error('프로필 목록을 가져오는데 실패했습니다.');
+      }
+      const profilesPayload = await profilesRes.json();
+      const allProfiles: ParticipantSearchProfile[] = profilesPayload?.profiles || [];
+
+      // 3. 입력된 이름과 프로필 매칭
+      const matchedProfiles = namesToSearch.map(name => {
+        return allProfiles.find(p => p.full_name === name || p.username === name);
+      }).filter(Boolean) as ParticipantSearchProfile[];
+
+      const matchedUserIds = matchedProfiles.map(p => p.user_id).filter(Boolean) as string[];
+
+      if (matchedUserIds.length === 0) {
+        alert('입력된 이름과 일치하는 회원을 찾을 수 없습니다.');
+        setParticipantModalSubmitting(false);
+        return;
+      }
+
+      // 4. 현재 일정의 등록된 유저 ID 확인 (중복 등록 방지)
+      const currentSchedule = schedules.find(s => s.id === participantModalScheduleId);
+      const registeredUserIds = new Set(
+        (currentSchedule?.participants || [])
+          .filter((p) => p.status === 'registered' || p.status === 'attended')
+          .map((p) => p.user_id)
+      );
+
+      const targetUserIds = matchedUserIds.filter(id => !registeredUserIds.has(id));
+
+      if (targetUserIds.length === 0) {
+        alert('입력된 회원이 이미 모두 이 경기에 등록되어 있습니다.');
+        setParticipantModalSubmitting(false);
+        return;
+      }
+
+      // 5. API 호출하여 참가자 추가
+      const response = await fetch('/api/admin/match-schedules', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'add_participants',
+          scheduleId: participantModalScheduleId,
+          targetUserIds,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || '참가자 추가 중 오류가 발생했습니다.');
+      }
+
+      const payload = await response.json();
+      const addedParticipants = payload?.participants || [];
+      const currentParticipants = payload?.currentParticipants ?? null;
+
+      // 로컬 상태 업데이트
+      setSchedules((prevSchedules) =>
+        prevSchedules.map((s) => {
+          if (s.id !== participantModalScheduleId) return s;
+
+          const updatedParticipants = [...s.participants];
+          addedParticipants.forEach((newP: any) => {
+            const alreadyExists = updatedParticipants.some((p) => p.user_id === newP.user_id);
+            if (!alreadyExists) {
+              updatedParticipants.push({
+                id: newP.id,
+                user_id: newP.user_id,
+                registered_at: newP.registered_at,
+                status: newP.status,
+                profiles: newP.profiles,
+              } as MatchParticipant);
+            }
+          });
+
+          return {
+            ...s,
+            participants: updatedParticipants,
+            current_participants: currentParticipants ?? updatedParticipants.length,
+          };
+        })
+      );
+
+      closeParticipantModal();
+      await fetchSchedules();
+      
+      const notFoundCount = namesToSearch.length - matchedProfiles.length;
+      const alreadyRegisteredCount = matchedUserIds.length - targetUserIds.length;
+      
+      let alertMsg = `총 ${targetUserIds.length}명이 성공적으로 추가되었습니다.`;
+      if (notFoundCount > 0) alertMsg += `\n- 일치하는 회원 없음: ${notFoundCount}명`;
+      if (alreadyRegisteredCount > 0) alertMsg += `\n- 이미 등록된 회원: ${alreadyRegisteredCount}명`;
+      
+      alert(alertMsg);
+      
+    } catch (error: any) {
+      console.error('일괄 추가 중 오류:', error);
+      alert(error.message || '일괄 추가 중 오류가 발생했습니다.');
     } finally {
       setParticipantModalSubmitting(false);
       if (participantModalScheduleId) {
@@ -1222,6 +1409,17 @@ export default function MatchSchedulePage() {
                                   >
                                     참가자 추가
                                   </Button>
+                                  {schedule.participants.length > 0 && (
+                                    <Button
+                                      type="button"
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={() => resetParticipantsForSchedule(schedule.id)}
+                                      disabled={participantActionLoading[schedule.id] || participantModalSubmitting}
+                                    >
+                                      참가자 초기화
+                                    </Button>
+                                  )}
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -1482,7 +1680,7 @@ export default function MatchSchedulePage() {
             <div className="flex items-start justify-between gap-3 border-b px-4 py-3 sm:px-6 sm:py-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">경기 참가자 추가</h2>
-                <p className="hidden text-sm text-gray-500 sm:block">회원을 선택한 뒤 일괄 추가를 누르세요.</p>
+                <p className="hidden text-sm text-gray-500 sm:block">회원을 선택하거나 텍스트로 일괄 추가하세요.</p>
               </div>
               <button
                 type="button"
@@ -1492,63 +1690,102 @@ export default function MatchSchedulePage() {
                 닫기
               </button>
             </div>
-            <div className="flex items-center justify-between border-b bg-gray-50 px-4 py-2 text-xs sm:px-6 sm:py-3 sm:text-sm">
-              <span className="text-gray-600">추가 가능 회원 {participantModalProfiles.length}명</span>
+            
+            <div className="flex border-b bg-gray-50 px-4 sm:px-6">
               <button
                 type="button"
-                onClick={toggleSelectAllModalParticipants}
-                disabled={participantModalProfiles.length === 0 || participantModalLoading}
-                className="rounded-md border px-3 py-1 text-xs font-medium text-gray-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => setParticipantModalTab('manual')}
+                className={`border-b-2 px-4 py-3 text-sm font-medium ${
+                  participantModalTab === 'manual' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }`}
               >
-                {participantModalProfiles.length > 0 && selectedModalParticipantIds.length === participantModalProfiles.length
-                  ? '전체 해제'
-                  : '전체 선택'}
+                일반 추가
+              </button>
+              <button
+                type="button"
+                onClick={() => setParticipantModalTab('bulk')}
+                className={`border-b-2 px-4 py-3 text-sm font-medium ${
+                  participantModalTab === 'bulk' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }`}
+              >
+                일괄 추가 (텍스트)
               </button>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
-              {participantModalLoading ? (
-                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
-                  회원 목록을 불러오는 중입니다...
-                </div>
-              ) : participantModalProfiles.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
-                  추가 가능한 회원이 없습니다.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4 sm:gap-3">
-                  {participantModalProfiles.map((profile) => {
-                    const checked = selectedModalParticipantIds.includes(profile.id);
-                    const displayName = profile.full_name || profile.username || '이름 없음';
-                    const secondaryName =
-                      profile.full_name && profile.username && profile.full_name !== profile.username
-                        ? profile.username
-                        : null;
 
-                    return (
-                      <label
-                        key={profile.id}
-                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-                          checked ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-200'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleModalParticipantSelection(profile.id)}
-                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium text-gray-900">{displayName}</div>
-                          {secondaryName && (
-                            <div className="mt-1 text-sm text-gray-500">{secondaryName}</div>
-                          )}
-                        </div>
-                      </label>
-                    );
-                  })}
+            {participantModalTab === 'manual' ? (
+              <>
+                <div className="flex items-center justify-between border-b bg-gray-50 px-4 py-2 text-xs sm:px-6 sm:py-3 sm:text-sm">
+                  <span className="text-gray-600">추가 가능 회원 {participantModalProfiles.length}명</span>
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllModalParticipants}
+                    disabled={participantModalProfiles.length === 0 || participantModalLoading}
+                    className="rounded-md border px-3 py-1 text-xs font-medium text-gray-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {participantModalProfiles.length > 0 && selectedModalParticipantIds.length === participantModalProfiles.length
+                      ? '전체 해제'
+                      : '전체 선택'}
+                  </button>
                 </div>
-              )}
-            </div>
+                <div className="max-h-[60vh] overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
+                  {participantModalLoading ? (
+                    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
+                      회원 목록을 불러오는 중입니다...
+                    </div>
+                  ) : participantModalProfiles.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
+                      추가 가능한 회원이 없습니다.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4 sm:gap-3">
+                      {participantModalProfiles.map((profile) => {
+                        const checked = selectedModalParticipantIds.includes(profile.id);
+                        const displayName = profile.full_name || profile.username || '이름 없음';
+                        const secondaryName =
+                          profile.full_name && profile.username && profile.full_name !== profile.username
+                            ? profile.username
+                            : null;
+
+                        return (
+                          <label
+                            key={profile.id}
+                            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                              checked ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-200'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleModalParticipantSelection(profile.id)}
+                              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-medium text-gray-900">{displayName}</div>
+                              {secondaryName && (
+                                <div className="mt-1 text-sm text-gray-500">{secondaryName}</div>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="p-4 sm:p-6 max-h-[60vh] overflow-y-auto">
+                <div className="mb-3 text-sm text-gray-700">
+                  <p>아래 텍스트 영역에 쉼표(,)로 구분된 참가자 명단을 붙여넣으세요.</p>
+                  <p className="mt-1 text-xs text-gray-500">예시: 차송운(양갈비), 박기욱(닭갈비), 이태훈(양갈비)</p>
+                </div>
+                <textarea
+                  value={participantBulkInput}
+                  onChange={(e) => setParticipantBulkInput(e.target.value)}
+                  className="w-full h-48 rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="여기에 명단을 붙여넣으세요..."
+                />
+              </div>
+            )}
             <div className="flex items-center justify-end gap-2 border-t px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
               <button
                 type="button"
@@ -1559,11 +1796,16 @@ export default function MatchSchedulePage() {
               </button>
               <button
                 type="button"
-                onClick={addSelectedParticipantsToSchedule}
-                disabled={selectedModalParticipantIds.length === 0 || participantModalSubmitting || participantModalLoading}
+                onClick={participantModalTab === 'manual' ? addSelectedParticipantsToSchedule : handleBulkAddParticipants}
+                disabled={
+                  (participantModalTab === 'manual' && selectedModalParticipantIds.length === 0) ||
+                  (participantModalTab === 'bulk' && !participantBulkInput.trim()) ||
+                  participantModalSubmitting ||
+                  participantModalLoading
+                }
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
               >
-                {participantModalSubmitting ? '추가 중...' : '선택한 회원 추가'}
+                {participantModalSubmitting ? '추가 중...' : participantModalTab === 'manual' ? '선택한 회원 추가' : '일괄 추가'}
               </button>
             </div>
           </div>

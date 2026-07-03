@@ -2037,7 +2037,34 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                           <p className="text-sm font-medium">대진표를 구성하는 중입니다...</p>
                         </div>
                       ) : currentMatchesForView.length === 0 ? (
-                        <p className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 py-10 text-center text-sm text-slate-500">경기가 없습니다.</p>
+                        <div className="flex flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50/50 py-16 px-4 text-center shadow-inner">
+                          <style>{`
+                            @keyframes float {
+                              0%, 100% { transform: translateY(0px) rotate(0deg); }
+                              50% { transform: translateY(-6px) rotate(2deg); }
+                            }
+                            .animate-float {
+                              animation: float 3s ease-in-out infinite;
+                            }
+                          `}</style>
+                          <div className="relative mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 text-blue-500 ring-8 ring-blue-50/30 animate-float">
+                            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-10 w-10 text-blue-500">
+                              <path d="M28 44 C28 50, 36 50, 36 44 C36 41, 28 41, 28 44 Z" fill="currentColor" className="fill-blue-500/20" />
+                              <path d="M22 20 L28 41 M36 41 L42 20" />
+                              <path d="M26 20 L29 41" />
+                              <path d="M38 20 L35 41" />
+                              <path d="M32 20 L32 41" />
+                              <path d="M20 20 C20 20, 32 24, 44 20" fill="none" />
+                              <path d="M21.5 29 C21.5 29, 32 32, 42.5 29" fill="none" />
+                            </svg>
+                            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-ping opacity-75" />
+                            <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400" />
+                          </div>
+                          <h4 className="text-base font-semibold text-slate-800">아직 경기 대진표가 없습니다!</h4>
+                          <p className="mt-2 max-w-sm text-sm text-slate-500 leading-relaxed">
+                            대진표가 구성되면 이곳에서 경기 대진과 코트 배정, 실시간 스코어 및 경기 결과를 한눈에 확인하실 수 있습니다. 잠시만 기다려주세요!
+                          </p>
+                        </div>
                       ) : (
                         <div className="space-y-3 sm:space-y-6">
                           {renderMatchSections.map((section) => (
@@ -2583,7 +2610,34 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                     )}
                   </section>
                 ) : (
-                  <section className="rounded-[24px] border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-500 shadow-sm" />
+                  <div className="flex flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-white py-16 px-4 text-center shadow-sm">
+                    <style>{`
+                      @keyframes float-admin-empty {
+                        0%, 100% { transform: translateY(0px) rotate(0deg); }
+                        50% { transform: translateY(-6px) rotate(2deg); }
+                      }
+                      .animate-float-admin-empty {
+                        animation: float-admin-empty 3s ease-in-out infinite;
+                      }
+                    `}</style>
+                    <div className="relative mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 text-blue-500 ring-8 ring-blue-50/30 animate-float-admin-empty">
+                      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-10 w-10 text-blue-500">
+                        <path d="M28 44 C28 50, 36 50, 36 44 C36 41, 28 41, 28 44 Z" fill="currentColor" className="fill-blue-500/20" />
+                        <path d="M22 20 L28 41 M36 41 L42 20" />
+                        <path d="M26 20 L29 41" />
+                        <path d="M38 20 L35 41" />
+                        <path d="M32 20 L32 41" />
+                        <path d="M20 20 C20 20, 32 24, 44 20" fill="none" />
+                        <path d="M21.5 29 C21.5 29, 32 32, 42.5 29" fill="none" />
+                      </svg>
+                      <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-ping opacity-75" />
+                      <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400" />
+                    </div>
+                    <h4 className="text-base font-semibold text-slate-800">아직 등록된 대회가 없습니다!</h4>
+                    <p className="mt-2 max-w-sm text-sm text-slate-500 leading-relaxed">
+                      우측 상단 탭에서 새로운 대회(대진표)를 생성하고 대진표 구성을 완료하면 실시간 대진표 화면이 활성화됩니다.
+                    </p>
+                  </div>
                 )}
               </div>
             )}
@@ -2776,7 +2830,34 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                         <p className="text-sm font-medium">대진표를 구성하는 중입니다...</p>
                       </div>
                     ) : currentMatchesForView.length === 0 ? (
-                      <p className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 py-10 text-center text-sm text-slate-500">경기가 없습니다.</p>
+                      <div className="flex flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50/50 py-16 px-4 text-center shadow-inner">
+                        <style>{`
+                          @keyframes float-user {
+                            0%, 100% { transform: translateY(0px) rotate(0deg); }
+                            50% { transform: translateY(-6px) rotate(2deg); }
+                          }
+                          .animate-float-user {
+                            animation: float-user 3s ease-in-out infinite;
+                          }
+                        `}</style>
+                        <div className="relative mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 text-blue-500 ring-8 ring-blue-50/30 animate-float-user">
+                          <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-10 w-10 text-blue-500">
+                            <path d="M28 44 C28 50, 36 50, 36 44 C36 41, 28 41, 28 44 Z" fill="currentColor" className="fill-blue-500/20" />
+                            <path d="M22 20 L28 41 M36 41 L42 20" />
+                            <path d="M26 20 L29 41" />
+                            <path d="M38 20 L35 41" />
+                            <path d="M32 20 L32 41" />
+                            <path d="M20 20 C20 20, 32 24, 44 20" fill="none" />
+                            <path d="M21.5 29 C21.5 29, 32 32, 42.5 29" fill="none" />
+                          </svg>
+                          <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-ping opacity-75" />
+                          <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400" />
+                        </div>
+                        <h4 className="text-base font-semibold text-slate-800">아직 경기 대진표가 없습니다!</h4>
+                        <p className="mt-2 max-w-sm text-sm text-slate-500 leading-relaxed">
+                          대진표가 구성되면 이곳에서 경기 대진과 코트 배정, 실시간 스코어 및 경기 결과를 한눈에 확인하실 수 있습니다. 잠시만 기다려주세요!
+                        </p>
+                      </div>
                     ) : (
                       <div className="space-y-3 sm:space-y-6">
                         {renderMatchSections.map((section) => (
@@ -3170,7 +3251,34 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                 )}
               </div>
             ) : (
-              <section className="rounded-[24px] border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-500 shadow-sm" />
+              <div className="flex flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-white py-16 px-4 text-center shadow-sm">
+                <style>{`
+                  @keyframes float-user-empty {
+                    0%, 100% { transform: translateY(0px) rotate(0deg); }
+                    50% { transform: translateY(-6px) rotate(2deg); }
+                  }
+                  .animate-float-user-empty {
+                    animation: float-user-empty 3s ease-in-out infinite;
+                  }
+                `}</style>
+                <div className="relative mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 text-blue-500 ring-8 ring-blue-50/30 animate-float-user-empty">
+                  <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-10 w-10 text-blue-500">
+                    <path d="M28 44 C28 50, 36 50, 36 44 C36 41, 28 41, 28 44 Z" fill="currentColor" className="fill-blue-500/20" />
+                    <path d="M22 20 L28 41 M36 41 L42 20" />
+                    <path d="M26 20 L29 41" />
+                    <path d="M38 20 L35 41" />
+                    <path d="M32 20 L32 41" />
+                    <path d="M20 20 C20 20, 32 24, 44 20" fill="none" />
+                    <path d="M21.5 29 C21.5 29, 32 32, 42.5 29" fill="none" />
+                  </svg>
+                  <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400 animate-ping opacity-75" />
+                  <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-400" />
+                </div>
+                <h4 className="text-base font-semibold text-slate-800">아직 경기 대진표가 생성되지 않았습니다!</h4>
+                <p className="mt-2 max-w-sm text-sm text-slate-500 leading-relaxed">
+                  대진표가 구성되면 이곳에서 경기 대진과 코트 배정, 실시간 스코어 및 경기 결과를 한눈에 확인하실 수 있습니다. 잠시만 기다려주세요!
+                </p>
+              </div>
             )}
           </div>
         )}

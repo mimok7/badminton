@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+import { getKoreaDate } from '@/lib/date';
 
 type TeamAssignmentRow = {
   id: string;
@@ -291,6 +292,8 @@ export async function GET(request: Request) {
     const tournamentId = requestUrl.searchParams.get('tournament_id');
     const includeMatches = requestUrl.searchParams.get('include_matches');
 
+    const todayStr = getKoreaDate();
+
     // [Optimized Path] If a specific tournament_id is requested with matches
     if (tournamentId && (includeMatches === '1' || includeMatches === 'true')) {
       const { data: selectedTournament, error: tError } = await adminSupabase
@@ -299,7 +302,7 @@ export async function GET(request: Request) {
         .eq('id', tournamentId)
         .maybeSingle();
 
-      if (tError || !selectedTournament) {
+      if (tError || !selectedTournament || selectedTournament.tournament_date < todayStr) {
         return NextResponse.json({ error: 'Tournament not found' }, { status: 404 });
       }
 
@@ -344,6 +347,7 @@ export async function GET(request: Request) {
     const { data, error } = await adminSupabase
       .from('tournaments')
       .select('*')
+      .gte('tournament_date', todayStr)
       .order('round_number', { ascending: true })
       .order('tournament_date', { ascending: true })
       .order('created_at', { ascending: true });

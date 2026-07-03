@@ -14,6 +14,7 @@ type ParticipantProfile = {
   user_id?: string | null;
   username?: string | null;
   full_name?: string | null;
+  skill_level?: string | null;
 };
 
 async function requireAdmin() {
@@ -165,8 +166,8 @@ export async function GET(request: Request) {
 
     if (participantUserIds.length > 0) {
       const [byUserId, byId] = await Promise.all([
-        adminSupabase.from('profiles').select('id, user_id, username, full_name').in('user_id', participantUserIds),
-        adminSupabase.from('profiles').select('id, user_id, username, full_name').in('id', participantUserIds)
+        adminSupabase.from('profiles').select('id, user_id, username, full_name, skill_level').in('user_id', participantUserIds),
+        adminSupabase.from('profiles').select('id, user_id, username, full_name, skill_level').in('id', participantUserIds)
       ]);
 
       const profilesError = byUserId.error || byId.error;
@@ -184,6 +185,7 @@ export async function GET(request: Request) {
             user_id: profile.user_id,
             username: profile.username,
             full_name: profile.full_name,
+            skill_level: profile.skill_level,
           };
           if (profile.id) acc[profile.id] = mappedProfile;
           if (profile.user_id) acc[profile.user_id] = mappedProfile;
@@ -205,6 +207,7 @@ export async function GET(request: Request) {
             ? {
                 username: profilesMap[participant.user_id].username ?? undefined,
                 full_name: profilesMap[participant.user_id].full_name ?? undefined,
+                skill_level: profilesMap[participant.user_id].skill_level ?? undefined,
               }
             : undefined,
         });

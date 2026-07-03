@@ -12,6 +12,7 @@ import { getKoreaDate } from '@/lib/date';
 import { getLevelNameFromCode } from '@/lib/level-info';
 import { formatCurrentUserNameWithCoins } from '@/lib/player-display';
 import { getSupabaseClient } from '@/lib/supabase';
+import { inferScheduleSource } from '@/lib/match-schedule-source';
 
 interface MatchSchedule {
   id: string;
@@ -83,7 +84,7 @@ export default function MatchRegistrationPage() {
         .from('match_schedules')
         .select('id, generated_match_id, schedule_source, match_date, start_time, end_time, location, max_participants, status, description, current_participants')
         .eq('status', 'scheduled')
-        .gte('match_date', todayStr)
+        .or(`match_date.gte.${todayStr},schedule_source.eq.tournament,description.ilike.%[대회 경기]%`)
         .is('generated_match_id', null)
         .order('match_date', { ascending: true })
         .order('start_time', { ascending: true })
@@ -100,29 +101,36 @@ export default function MatchRegistrationPage() {
         .filter((schedule) => {
           const description = schedule.description || '';
           return schedule.generated_match_id == null
-            && schedule.schedule_source !== 'generated'
+            && inferScheduleSource(schedule as any) !== 'generated'
             && !description.includes('자동 배정된 경기');
         })
         .map((schedule) => ({
           ...schedule,
           status: schedule.status || 'scheduled',
         }));
-      const visibleDates = new Set<string>();
+        
+      let recurringCount = 0;
       schedulesList = filteredSchedules.filter((schedule) => {
         if (!schedule.match_date) {
           return false;
         }
 
-        if (visibleDates.has(schedule.match_date)) {
-          return true;
+        const source = inferScheduleSource(schedule as any);
+
+        if (source === 'tournament') {
+          return true; // 대회 경기는 항상 표시
         }
 
-        if (visibleDates.size >= 5) {
-          return false;
+        if (source === 'recurring') {
+          if (schedule.match_date >= todayStr) {
+            if (recurringCount < 10) {
+              recurringCount++;
+              return true; // 정기 모임은 오늘 이후 10개 표시
+            }
+          }
         }
 
-        visibleDates.add(schedule.match_date);
-        return true;
+        return false;
       });
 
       setSchedules(schedulesList);
@@ -560,13 +568,20 @@ export default function MatchRegistrationPage() {
                     <article key={matchInfo.schedule.id} className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
                       <div className="space-y-3">
                         <div>
-                          <p className="text-base font-semibold text-slate-900">
-                            {formatMatchDate(matchInfo.schedule.match_date, {
-                              month: 'long',
-                              day: 'numeric',
-                              weekday: 'short',
-                            })}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-base font-semibold text-slate-900">
+                              {formatMatchDate(matchInfo.schedule.match_date, {
+                                month: 'long',
+                                day: 'numeric',
+                                weekday: 'short',
+                              })}
+                            </p>
+                            {inferScheduleSource(matchInfo.schedule as any) === 'tournament' && (
+                              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
+                                대회 경기
+                              </span>
+                            )}
+                          </div>
                           <div className="mt-2 space-y-1.5 text-sm text-slate-600">
                             <div className="flex items-center gap-2">
                               <CalendarDays className="size-4 text-slate-400" />

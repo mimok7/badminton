@@ -157,72 +157,35 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const { user, profile, isAdmin: userIsAdmin } = useUser();
   const levelInfoMap = useLevelInfoMap();
 
-  const [loading, setLoading] = useState(true);
-  const [todayPlayersCount, setTodayPlayersCount] = useState(0);
-  const [todayMatchesCount, setTodayMatchesCount] = useState(0);
+  const [loadingAttendance, setLoadingAttendance] = useState(true);
   const [myAttendanceStatus, setMyAttendanceStatus] = useState<AttendanceStatus>(null);
   const [statusSaving, setStatusSaving] = useState(false);
-  const [todayAssignedMatches, setTodayAssignedMatches] = useState<ScheduledMatchView[]>([]);
-  const [todayAllMatches, setTodayAllMatches] = useState<ScheduledMatchView[]>([]);
-  const [topMatchResultSaving, setTopMatchResultSaving] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
 
-    const fetchTodaySummary = async () => {
+    const fetchAttendanceStatus = async () => {
       try {
-        setLoading(true);
+        setLoadingAttendance(true);
         const today = getKoreaDate();
+        const response = await fetch(`/api/attendance/status?date=${today}`);
+        const payload = await response.json().catch(() => null);
 
-        const [
-          { count: playersCount },
-          { count: matchCount },
-          allMatches,
-          attendanceResponse,
-        ] = await Promise.all([
-          supabase
-            .from('attendances')
-            .select('*', { count: 'exact', head: true })
-            .eq('attended_at', today),
-          supabase
-            .from('match_schedules')
-            .select('*', { count: 'exact', head: true })
-            .eq('match_date', today),
-          fetchScheduledMatchesForDate(supabase, today),
-          fetch(`/api/attendance/status?date=${today}`),
-        ]);
-
-        // Filter user's matches client-side instead of making a second API call
-        const myMatches = allMatches.filter(match =>
-          [match.team1_player1, match.team1_player2, match.team2_player1, match.team2_player2].includes(userId)
-        );
-
-        const attendancePayload = await attendanceResponse.json().catch(() => null);
-
-        setTodayPlayersCount(playersCount || 0);
-        setTodayMatchesCount(matchCount || 0);
-        setTodayAssignedMatches(myMatches);
-        setTodayAllMatches(allMatches);
-
-        if (attendanceResponse.ok) {
-          setMyAttendanceStatus(normalizeAttendanceStatus(attendancePayload?.status));
+        if (response.ok) {
+          setMyAttendanceStatus(normalizeAttendanceStatus(payload?.status));
         } else {
           setMyAttendanceStatus(null);
         }
       } catch (error) {
-        console.error('대시보드 조회 오류:', error);
-        setTodayPlayersCount(0);
-        setTodayMatchesCount(0);
+        console.error('대시보드 출석 조회 오류:', error);
         setMyAttendanceStatus(null);
-        setTodayAssignedMatches([]);
-        setTodayAllMatches([]);
       } finally {
-        setLoading(false);
+        setLoadingAttendance(false);
       }
     };
 
-    fetchTodaySummary();
-  }, [supabase, userId]);
+    void fetchAttendanceStatus();
+  }, [userId]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -266,15 +229,6 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const displayName = rawDisplayName;
   const levelLabel = profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정');
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb] px-4">
-        <div className="rounded-full bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-          대시보드를 불러오는 중입니다
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
@@ -310,7 +264,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                 )}
               </div>
               <div className="mt-2 text-[12px] text-slate-300">
-                상태: <span className="font-medium text-white">{getAttendanceLabel(myAttendanceStatus)}</span>
+                상태: <span className="font-medium text-white">{loadingAttendance ? '조회 중...' : getAttendanceLabel(myAttendanceStatus)}</span>
               </div>
             </div>
           </div>
@@ -324,7 +278,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                   <button
                     key={option.value}
                     type="button"
-                    disabled={statusSaving}
+                    disabled={statusSaving || loadingAttendance}
                     onClick={() => {
                       void handleAttendanceStatusChange(option.value);
                     }}

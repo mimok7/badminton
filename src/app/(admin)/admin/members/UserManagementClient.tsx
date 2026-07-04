@@ -1184,7 +1184,7 @@ export default function UserManagementClient({
                             전체 저장
                         </button>
                     </section>
-                    <div className="flex justify-end gap-2">
+                    <div className="hidden md:flex justify-end gap-2">
                         <button
                             type="button"
                             onClick={() => setViewMode('table')}

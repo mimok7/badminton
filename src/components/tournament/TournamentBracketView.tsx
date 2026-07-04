@@ -2818,7 +2818,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                     const cleanCourtLabel = match.court ? match.court.replace(/^\[.+?\]\s*/i, '').trim() : '';
 
                                     return (
-                                      <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-2xl sm:rounded-[24px] border p-2.5 sm:p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
+                                      <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-2xl sm:rounded-[24px] border p-2 sm:p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
                                         <div className="flex items-start justify-between gap-2 sm:gap-3">
                                           {adminMode ? (
                                             editingMatchId === match.id ? (
@@ -2901,13 +2901,13 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                           )}
                                         </div>
 
-                                        <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_100px_minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_120px_minmax(0,1fr)] items-stretch gap-1.5 sm:gap-3 text-sm">
-                                          <div className="flex min-w-0 flex-col justify-center rounded-xl bg-white px-2 py-2 text-left text-slate-800">
+                                        <div className="mt-1.5 sm:mt-2.5 grid grid-cols-[minmax(0,1fr)_100px_minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_120px_minmax(0,1fr)] items-stretch gap-1.5 sm:gap-3 text-sm">
+                                          <div className="flex min-w-0 flex-col justify-center rounded-xl bg-white px-2 py-1 text-left text-slate-800">
                                             <span className="text-[10px] sm:text-xs font-semibold text-blue-600">팀1</span>
                                             <div className="mt-0.5 whitespace-pre-line text-xs font-bold leading-normal text-slate-800">{match.team1.join('\n')}</div>
                                           </div>
 
-                                          <div className="flex flex-col items-center justify-center gap-1 rounded-xl bg-slate-50 px-1 py-1.5 text-center">
+                                          <div className="flex flex-col items-center justify-center gap-1 rounded-xl bg-slate-50 px-1 py-1 text-center">
                                             <div className="flex items-center gap-0.5">
                                               <input
                                                 type="number"
@@ -2959,13 +2959,13 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                             </button>
                                           </div>
 
-                                          <div className="flex min-w-0 flex-col justify-center rounded-xl bg-white px-2 py-2 text-right text-slate-800">
+                                          <div className="flex min-w-0 flex-col justify-center rounded-xl bg-white px-2 py-1 text-right text-slate-800">
                                             <span className="text-[10px] sm:text-xs font-semibold text-rose-600">팀2</span>
                                             <div className="mt-0.5 whitespace-pre-line text-xs font-bold leading-normal text-slate-800">{match.team2.join('\n')}</div>
                                           </div>
                                         </div>
 
-                                        <div className="mt-2.5 flex flex-nowrap items-center justify-between gap-1.5 sm:gap-2">
+                                        <div className="mt-1.5 sm:mt-2.5 flex flex-nowrap items-center justify-between gap-1.5 sm:gap-2">
                                           <div className="flex flex-1 items-center gap-0.5 sm:gap-1 min-w-0">
                                             <span className="text-[10px] sm:text-xs font-medium text-slate-500 whitespace-nowrap">심판:</span>
                                             <select
@@ -3615,7 +3615,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                   const cleanCourtLabel = match.court ? match.court.replace(/^\[.+?\]\s*/i, '').trim() : '';
 
                                   return (
-                                    <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-2xl sm:rounded-[24px] border p-2.5 sm:p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
+                                    <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-2xl sm:rounded-[24px] border p-2 sm:p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
                                       <div className="flex items-start justify-between gap-2 sm:gap-3">
                                         <div className="flex flex-wrap items-center gap-1.5">
                                           <span className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel}</span>
@@ -3633,24 +3633,24 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                         </span>
                                       </div>
 
-                                      <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_76px_minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_84px_minmax(0,1fr)] items-stretch gap-1.5 sm:gap-3">
-                                        <div className="flex min-w-0 flex-col justify-center rounded-xl sm:rounded-2xl bg-white px-2 py-2 sm:px-3 sm:py-4 text-left text-slate-800">
+                                      <div className="mt-1.5 sm:mt-2.5 grid grid-cols-[minmax(0,1fr)_76px_minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_84px_minmax(0,1fr)] items-stretch gap-1.5 sm:gap-3">
+                                        <div className="flex min-w-0 flex-col justify-center rounded-xl sm:rounded-2xl bg-white px-2 py-1 sm:px-3 sm:py-4 text-left text-slate-800">
                                           <span className="text-[10px] sm:text-xs font-semibold text-blue-600">팀1</span>
                                           <div className="mt-0.5 whitespace-pre-line text-xs sm:text-sm font-bold sm:font-medium leading-normal sm:leading-6 sm:text-base text-slate-800">{match.team1.join('\n')}</div>
                                         </div>
-                                        <div className="flex flex-col items-center justify-center rounded-xl sm:rounded-2xl bg-slate-900 px-1 py-2 sm:px-2 sm:py-4 text-center text-white">
+                                        <div className="flex flex-col items-center justify-center rounded-xl sm:rounded-2xl bg-slate-900 px-1 py-1 sm:px-2 sm:py-4 text-center text-white">
                                           <div className="text-[9px] sm:text-[11px] font-medium text-slate-300">{isCompleted ? '점수' : '매치'}</div>
                                           <div className="mt-0.5 sm:mt-1 text-xs sm:text-lg font-bold sm:font-semibold sm:text-xl">
                                             {isCompleted ? `${match.score_team1 ?? 0}:${match.score_team2 ?? 0}` : 'VS'}
                                           </div>
                                         </div>
-                                        <div className="flex min-w-0 flex-col justify-center rounded-xl sm:rounded-2xl bg-white px-2 py-2 sm:px-3 sm:py-4 text-right text-slate-800">
+                                        <div className="flex min-w-0 flex-col justify-center rounded-xl sm:rounded-2xl bg-white px-2 py-1 sm:px-3 sm:py-4 text-right text-slate-800">
                                           <span className="text-[10px] sm:text-xs font-semibold text-rose-600">팀2</span>
                                           <div className="mt-0.5 whitespace-pre-line text-xs sm:text-sm font-bold sm:font-medium leading-normal sm:leading-6 sm:text-base text-slate-800">{match.team2.join('\n')}</div>
                                         </div>
                                       </div>
 
-                                      <div className="mt-2 sm:mt-3 flex justify-end">
+                                      <div className="mt-1.5 sm:mt-2.5 flex justify-end">
                                         {isCompleted ? (
                                           match.id ? (
                                             <Link

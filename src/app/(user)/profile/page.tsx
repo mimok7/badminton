@@ -599,7 +599,7 @@ export default function ProfilePage() {
             </div>
 
             {/* 회원 상세 정보 */}
-            <div className="flex-1 w-full text-center sm:text-left">
+            <div className="flex-1 w-full text-center sm:text-left px-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <p className="text-xs text-slate-300">안녕하세요</p>

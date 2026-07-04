@@ -509,7 +509,7 @@ export default function TodayMatches() {
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
           <section className="rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5">
             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3">
-              <div className="flex flex-col md:flex-row md:items-baseline gap-x-3 gap-y-1">
+              <div className="flex flex-col md:flex-row md:items-baseline gap-x-3 gap-y-1 pl-2">
                 <h1 className="text-lg font-semibold whitespace-nowrap">🏸 전체 게임</h1>
               </div>
               <div className="flex gap-2 self-end sm:self-auto">
@@ -528,7 +528,7 @@ export default function TodayMatches() {
               </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] px-2">
               <span className="text-slate-300 font-medium">
                 {new Date().toLocaleDateString('ko-KR', {
                   year: 'numeric',

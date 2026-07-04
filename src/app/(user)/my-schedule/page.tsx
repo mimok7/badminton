@@ -1900,7 +1900,7 @@ export default function MySchedulePage() {
               </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2 px-2">
               {summaryItems.map((item) => (
                 <span
                   key={item.label}

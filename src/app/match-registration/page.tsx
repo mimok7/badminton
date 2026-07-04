@@ -533,7 +533,7 @@ export default function MatchRegistrationPage() {
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
           <section className="rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="pl-2">
                 <p className="text-xs text-slate-300">경기 신청</p>
                 <h1 className="mt-1 text-2xl font-semibold">경기 참가 신청</h1>
               </div>
@@ -544,7 +544,7 @@ export default function MatchRegistrationPage() {
                 홈
               </Link>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs px-2">
               <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">
                 {formatCurrentUserNameWithCoins(profile?.full_name || profile?.username || '회원', profile?.coin_balance)}님
               </span>

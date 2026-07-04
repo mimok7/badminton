@@ -2178,7 +2178,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
       <div className={containerClassName}>
         <section className={`${adminMode ? 'rounded-[32px] border border-slate-200 bg-white px-6 py-6 shadow-sm' : 'rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5 sm:py-6'}`}>
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className={adminMode ? '' : 'px-2'}>
               <p className={`text-xs ${adminMode ? 'text-slate-500' : 'text-slate-300'}`}>{adminMode ? 'Admin Tournament Center' : 'Tournament Center'}</p>
               <h1 className={`mt-1 ${adminMode ? 'text-3xl font-bold text-slate-900' : 'text-2xl font-semibold text-white'}`}>{title}</h1>
               {description && (

@@ -124,7 +124,7 @@ export default function MatchGenerationControls({
 
           {/* 경기 생성 버튼들 */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-3">🎯 새로운 경기 일정 생성</h3>
+            <h3 className="text-base font-semibold mb-2">🎯 새로운 경기 일정 생성</h3>
             <p className="hidden md:block text-sm text-gray-600 mb-4">
               참가자들로 경기를 생성합니다. 생성된 경기는 경기 일정에 추가되고, 
               <strong className="text-blue-600"> 경기 배정 관리</strong>에서 실제 진행할 경기를 선택할 수 있습니다.
@@ -132,25 +132,25 @@ export default function MatchGenerationControls({
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <button 
-                className="bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
+                className="bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 py-2 px-3 rounded-lg text-sm font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
                 onClick={onManualAssign}
               >
                 ✋ 수동 배정
               </button>
               <button 
-                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 py-2 px-3 rounded-lg text-sm font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
                 onClick={onGenerateByLevel}
               >
                 📊 레벨별 경기
               </button>
               <button 
-                className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
+                className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-2 px-3 rounded-lg text-sm font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
                 onClick={onGenerateRandom}
               >
                 🎲 랜덤 경기
               </button>
               <button 
-                className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 py-3 px-4 rounded-xl font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
+                className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 py-2 px-3 rounded-lg text-sm font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-1.5"
                 onClick={onGenerateMixed}
               >
                 👫 혼합복식

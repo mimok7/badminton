@@ -54,7 +54,7 @@ export default function GeneratedMatchesList({
     const level = String(player.skill_level || 'E2').toUpperCase();
     const gender = getGenderLabel(player.gender);
     const meta = gender ? `${gender}/${level}` : level;
-    return `${player.name}(${meta}) ${getAccuratePlayerScore(player).toFixed(1)}점`;
+    return `${player.name}(${meta})`;
   };
 
   const getPlayerName = (player: any) => {

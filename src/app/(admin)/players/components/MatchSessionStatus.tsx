@@ -251,14 +251,13 @@ export default function MatchSessionStatus({
 
   const renderPlayerLine = (name: string, skillLevel: string, score: number) => (
     <div className="text-sm text-gray-800">
-      {name} <span className="font-medium">({(skillLevel || 'E2').toUpperCase()})</span>{' '}
-      <span className="text-gray-500">{score.toFixed(1)}점</span>
+      {name} <span className="font-medium">({(skillLevel || 'E2').toUpperCase()})</span>
     </div>
   );
 
   const renderAssignedPlayer = (name: string | null | undefined, skillLevel: string, score: number) => (
     <div className="truncate text-sm text-gray-800">
-      {name || '선수 미정'} <span className="text-gray-500">({skillLevel}) {score.toFixed(1)}점</span>
+      {name || '선수 미정'} <span className="text-gray-500">({skillLevel})</span>
     </div>
   );
 

@@ -88,6 +88,7 @@ export default function UserManagementClient({
     const [sortKey, setSortKey] = useState<MemberSortKey>('member');
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
     const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
+    const [isMobile, setIsMobile] = useState(false);
     const [memberList, setMemberList] = useState<AdminUser[]>(users);
     const [newMember, setNewMember] = useState({
         full_name: '',
@@ -128,8 +129,9 @@ export default function UserManagementClient({
     }, [users]);
 
     useEffect(() => {
-        const isMobile = window.matchMedia('(max-width: 768px)').matches;
-        if (isMobile) {
+        const checkMobile = window.matchMedia('(max-width: 768px)').matches;
+        setIsMobile(checkMobile);
+        if (checkMobile) {
             setViewMode('card');
             setSelectedTab('members');
         }
@@ -1271,7 +1273,7 @@ export default function UserManagementClient({
                         </div>
                     </div>
 
-                    {viewMode === 'table' ? (
+                    {(viewMode === 'table' || isMobile) ? (
                         <section className="rounded-lg border border-slate-200 bg-white overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="min-w-full text-sm">
@@ -1388,7 +1390,7 @@ export default function UserManagementClient({
                         </div>
                     </div>
 
-                    {viewMode === 'table' ? (
+                    {(viewMode === 'table' || isMobile) ? (
                         <section className="rounded-lg border border-slate-200 bg-white overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="min-w-full text-sm">

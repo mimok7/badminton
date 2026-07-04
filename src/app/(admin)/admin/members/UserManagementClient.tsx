@@ -915,13 +915,13 @@ export default function UserManagementClient({
                                 </div>
 
                                 {/* Level Code & Score Display */}
-                                <div className="flex flex-col">
+                                <div className="hidden md:flex flex-col">
                                     <span className="text-xs text-slate-400 font-medium">레벨 코드</span>
                                     <div className="mt-1 font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-center font-mono">
                                         {currentLevelCode || '-'}
                                     </div>
                                 </div>
-                                <div className="flex flex-col">
+                                <div className="hidden md:flex flex-col">
                                     <span className="text-xs text-slate-400 font-medium">급수 점수</span>
                                     <div className="mt-1 font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-center">
                                         {typeof currentLevelOption?.score === 'number' ? `${currentLevelOption.score}점` : '-'}

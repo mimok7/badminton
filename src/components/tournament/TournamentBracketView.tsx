@@ -2342,6 +2342,15 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                           시간순
                         </button>
                       </div>
+
+                      <button
+                        onClick={() => {
+                          if (selectedTournament) void fetchMatches(selectedTournament.id);
+                        }}
+                        className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 shadow-sm self-end sm:self-auto"
+                      >
+                        🔁 새로고침
+                      </button>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="hidden sm:inline-flex rounded-full bg-slate-100 p-0.5 shadow-sm">
@@ -2364,14 +2373,6 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                           테이블
                         </button>
                       </div>
-                      <button
-                        onClick={() => {
-                          if (selectedTournament) void fetchMatches(selectedTournament.id);
-                        }}
-                        className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 shadow-sm"
-                      >
-                        🔁 새로고침
-                      </button>
                     </div>
                   </div>
                   {viewMode === 'court' && uniqueCourts.length > 0 && (
@@ -3341,6 +3342,15 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                 시간순
                               </button>
                             </div>
+
+                            <button
+                              onClick={() => {
+                                if (selectedTournament) void fetchMatches(selectedTournament.id);
+                              }}
+                              className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 shadow-sm self-end sm:self-auto"
+                            >
+                              🔁 새로고침
+                            </button>
                           </div>
                           
                           <div className="flex flex-wrap items-center gap-2">
@@ -3364,14 +3374,6 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                 테이블
                               </button>
                             </div>
-                            <button
-                              onClick={() => {
-                                if (selectedTournament) void fetchMatches(selectedTournament.id);
-                              }}
-                              className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 shadow-sm"
-                            >
-                              🔁 새로고침
-                            </button>
                           </div>
                         </div>
                         {viewMode === 'court' && uniqueCourts.length > 0 && (

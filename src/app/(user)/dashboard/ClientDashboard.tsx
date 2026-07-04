@@ -418,6 +418,14 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                 오늘 내 상태: <span className="font-medium text-white">{loadingAttendance ? '조회 중...' : activeStateLabel}</span>
               </div>
             </div>
+            <button
+              onClick={handleSignOut}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-white/15 border-0 focus:outline-none shrink-0"
+              title="로그아웃"
+            >
+              <LogOut className="size-3.5" />
+              로그아웃
+            </button>
           </div>
 
           <div className="mt-3 rounded-[18px] bg-white/8 px-2.5 py-2.5">
@@ -511,21 +519,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
           </div>
         </section>
 
-        <section className="rounded-[24px] bg-white px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs text-slate-500">계정</p>
-              <h2 className="mt-1 text-base font-semibold text-slate-900">추가 동작</h2>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              <LogOut className="size-4" />
-              로그아웃
-            </button>
-          </div>
-        </section>
+
       </div>
     </div>
   );

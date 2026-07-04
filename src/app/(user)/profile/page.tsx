@@ -601,12 +601,14 @@ export default function ProfilePage() {
             {/* 회원 상세 정보 */}
             <div className="flex-1 w-full text-center sm:text-left px-2">
               <div className="space-y-1">
-                <h1 className="text-2xl font-semibold leading-none">{displayName}</h1>
-                <div className="mt-3 flex flex-wrap justify-center sm:justify-start items-center gap-2 text-xs">
+                <div className="flex flex-wrap justify-center sm:justify-start items-center gap-2 text-xs">
                   <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">레벨 {levelLabel}</span>
                   <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">{roleLabel}</span>
                   <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-amber-100">코인 {profile?.coin_balance ?? 0}</span>
                 </div>
+                <p className="mt-3 text-[11px] text-slate-400 leading-normal bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 inline-block text-left">
+                  📢 서로의 얼굴 익히기 위해서 필요하니 꼭 등록해 주세요.
+                </p>
               </div>
             </div>
           </div>
@@ -619,48 +621,7 @@ export default function ProfilePage() {
           </Link>
         </section>
 
-        <section className="rounded-[24px] bg-white px-3 py-3 sm:px-5 sm:py-5 shadow-sm">
-          <div>
-            <p className="text-xs text-slate-500">프로필 수정</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">성별 변경</h2>
-          </div>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="mt-4 space-y-5">
-              <FormField
-                control={form.control}
-                name="gender"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium text-slate-700">성별 선택</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ''}>
-                      <FormControl>
-                        <SelectTrigger className="h-12 rounded-2xl border-slate-300 bg-white">
-                          <SelectValue placeholder="성별을 선택하세요" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="male">남성</SelectItem>
-                        <SelectItem value="female">여성</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex flex-col">
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="h-12 w-full rounded-2xl bg-[#0f172a] text-base font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-                >
-                  {isSubmitting ? '업데이트 중...' : '프로필 업데이트'}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </section>
 
         <section className="rounded-[24px] bg-white px-3 py-3 sm:px-5 sm:py-5 shadow-sm">
           <div>

@@ -150,7 +150,7 @@ export default function AppRequestPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-12">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto w-full max-w-6xl px-4 pt-0 pb-6 sm:px-6 sm:pt-0 sm:pb-8">
         
         {/* Header Banner */}
         <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] mb-6">

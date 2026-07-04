@@ -535,10 +535,6 @@ export default function MatchRegistrationPage() {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
             <div className="relative z-10 flex items-center justify-between px-1">
               <div className="space-y-0.5 pl-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
-                  <Target className="h-3.5 w-3.5" />
-                  참가 신청
-                </span>
                 <h1 className="text-xl font-bold tracking-tight">경기 참가 신청</h1>
                 <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">예정 경기 참가 여부를 등록합니다.</p>
               </div>

@@ -157,10 +157,6 @@ export default function AppRequestPage() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
           <div className="relative z-10 flex items-center justify-between px-1">
             <div className="space-y-0.5 pl-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
-                <MessageSquareCode className="h-3.5 w-3.5" />
-                문의 건의
-              </span>
               <h1 className="text-xl font-bold tracking-tight">앱 수정 요청</h1>
               <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">버그 제보나 기능 건의사항을 관리자에게 직접 요청할 수 있습니다.</p>
             </div>

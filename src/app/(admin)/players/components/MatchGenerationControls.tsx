@@ -43,7 +43,7 @@ export default function MatchGenerationControls({
   return (
     <div>
       {/* 배정 대상 설정 */}
-      <div className="mb-3 flex bg-slate-100 p-1 rounded-lg w-fit">
+      <div className="hidden md:flex mb-3 bg-slate-100 p-1 rounded-lg w-fit">
         <button
           type="button"
           onClick={() => setAssignTarget('attendees')}
@@ -125,7 +125,7 @@ export default function MatchGenerationControls({
           {/* 경기 생성 버튼들 */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold mb-3">🎯 새로운 경기 일정 생성</h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="hidden md:block text-sm text-gray-600 mb-4">
               참가자들로 경기를 생성합니다. 생성된 경기는 경기 일정에 추가되고, 
               <strong className="text-blue-600"> 경기 배정 관리</strong>에서 실제 진행할 경기를 선택할 수 있습니다.
             </p>

@@ -356,37 +356,39 @@ function MatchResultsPage() {
     const team2Text = `${getPlayerName(gm.team2_player1)}, ${getPlayerName(gm.team2_player2)}`;
 
     return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex flex-col gap-2">
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-slate-800">게임 {gm.match_number}</span>
           {getStatusBadge(match.status)}
         </div>
         
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          <div className="text-center min-w-0">
-            <div className="text-[10px] font-bold text-blue-600 mb-0.5">라켓팀</div>
-            <div className="truncate text-xs font-semibold text-slate-800" title={team1Text}>{team1Text}</div>
-          </div>
-          
-          <div className="flex items-center gap-1">
+        <div className="space-y-2">
+          {/* 라켓팀 행 */}
+          <div className="flex items-center justify-between gap-3 bg-blue-50/50 border border-blue-100/60 rounded-lg px-2.5 py-1.5">
+            <div className="min-w-0 flex-1">
+              <span className="inline-block text-[9px] font-bold text-blue-600 bg-blue-100/80 px-1.5 py-0.5 rounded-sm mr-2 select-none">라켓팀</span>
+              <span className="text-xs font-semibold text-slate-800 truncate" title={team1Text}>{team1Text}</span>
+            </div>
             <input
               type="number"
               value={team1Score}
               onChange={(e) => setTeam1Score(Number(e.target.value))}
-              className="w-9 h-7 border border-slate-300 rounded text-center text-xs font-bold bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+              className="w-12 h-8 border border-slate-300 rounded-md text-center text-xs font-bold bg-white focus:ring-1 focus:ring-blue-500 outline-none shrink-0"
             />
-            <span className="text-xs font-bold text-slate-400">:</span>
+          </div>
+          
+          {/* 셔틀팀 행 */}
+          <div className="flex items-center justify-between gap-3 bg-red-50/50 border border-red-100/60 rounded-lg px-2.5 py-1.5">
+            <div className="min-w-0 flex-1">
+              <span className="inline-block text-[9px] font-bold text-red-600 bg-red-100/80 px-1.5 py-0.5 rounded-sm mr-2 select-none">셔틀팀</span>
+              <span className="text-xs font-semibold text-slate-800 truncate" title={team2Text}>{team2Text}</span>
+            </div>
             <input
               type="number"
               value={team2Score}
               onChange={(e) => setTeam2Score(Number(e.target.value))}
-              className="w-9 h-7 border border-slate-300 rounded text-center text-xs font-bold bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+              className="w-12 h-8 border border-slate-300 rounded-md text-center text-xs font-bold bg-white focus:ring-1 focus:ring-blue-500 outline-none shrink-0"
             />
-          </div>
-          
-          <div className="text-center min-w-0">
-            <div className="text-[10px] font-bold text-red-600 mb-0.5">셔틀팀</div>
-            <div className="truncate text-xs font-semibold text-slate-800" title={team2Text}>{team2Text}</div>
           </div>
         </div>
 

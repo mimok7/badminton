@@ -359,46 +359,39 @@ function MatchResultsPage() {
           {getStatusBadge(match.status)}
         </div>
         
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          {/* 왼쪽: 라켓팀 (선수 위아래 배치) */}
-          <div className="flex flex-col items-center justify-center bg-blue-50/40 border border-blue-100/50 rounded-lg p-2 min-h-[72px] text-center min-w-0">
-            <div className="text-[9px] font-bold text-blue-600 mb-1 select-none">라켓팀</div>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
+          {/* 왼쪽: 라켓팀 (선수 위아래 배치, 여백 최소화) */}
+          <div className="flex flex-col items-center justify-center bg-blue-50/40 border border-blue-100/50 rounded-lg p-1.5 min-h-[64px] text-center min-w-0">
+            <div className="text-[8px] font-bold text-blue-600 mb-0.5 select-none">라켓팀</div>
             <div className="flex flex-col gap-0.5 w-full min-w-0">
               <div className="truncate text-xs font-semibold text-slate-800">{getPlayerName(gm.team1_player1)}</div>
               <div className="truncate text-xs font-semibold text-slate-800">{getPlayerName(gm.team1_player2)}</div>
             </div>
           </div>
           
-          {/* 가운데: 점수 위아래 배치 (라켓팀 점수 위, 셔틀팀 점수 아래) */}
-          <div className="flex flex-col items-center justify-center gap-1 px-1 shrink-0">
-            {/* 라켓팀 점수 */}
-            <div className="flex flex-col items-center">
-              <span className="text-[8px] font-bold text-blue-500 uppercase select-none mb-0.5">라켓점수</span>
+          {/* 가운데: 점수 좌우 배치 */}
+          <div className="flex flex-col items-center justify-center px-1.5 shrink-0">
+            <span className="text-[8px] font-bold text-slate-400 uppercase select-none mb-1">VS / SCORE</span>
+            <div className="flex items-center gap-1">
               <input
                 type="number"
                 value={team1Score}
                 onChange={(e) => setTeam1Score(Number(e.target.value))}
-                className="w-10 h-7 border border-blue-300 bg-blue-50/30 rounded text-center text-xs font-bold text-blue-700 focus:ring-1 focus:ring-blue-500 outline-none"
+                className="w-9 h-7 border border-blue-300 bg-blue-50/20 rounded text-center text-xs font-bold text-blue-700 focus:ring-1 focus:ring-blue-500 outline-none"
               />
-            </div>
-            
-            <div className="h-[1px] w-6 bg-slate-200 my-0.5" />
-            
-            {/* 셔틀팀 점수 */}
-            <div className="flex flex-col items-center">
+              <span className="text-xs font-bold text-slate-400">:</span>
               <input
                 type="number"
                 value={team2Score}
                 onChange={(e) => setTeam2Score(Number(e.target.value))}
-                className="w-10 h-7 border border-red-300 bg-red-50/30 rounded text-center text-xs font-bold text-red-700 focus:ring-1 focus:ring-red-500 outline-none"
+                className="w-9 h-7 border border-red-300 bg-red-50/20 rounded text-center text-xs font-bold text-red-700 focus:ring-1 focus:ring-red-500 outline-none"
               />
-              <span className="text-[8px] font-bold text-red-500 uppercase select-none mt-0.5">셔틀점수</span>
             </div>
           </div>
           
-          {/* 오른쪽: 셔틀팀 (선수 위아래 배치) */}
-          <div className="flex flex-col items-center justify-center bg-red-50/40 border border-red-100/50 rounded-lg p-2 min-h-[72px] text-center min-w-0">
-            <div className="text-[9px] font-bold text-red-600 mb-1 select-none">셔틀팀</div>
+          {/* 오른쪽: 셔틀팀 (선수 위아래 배치, 여백 최소화) */}
+          <div className="flex flex-col items-center justify-center bg-red-50/40 border border-red-100/50 rounded-lg p-1.5 min-h-[64px] text-center min-w-0">
+            <div className="text-[8px] font-bold text-red-600 mb-0.5 select-none">셔틀팀</div>
             <div className="flex flex-col gap-0.5 w-full min-w-0">
               <div className="truncate text-xs font-semibold text-slate-800">{getPlayerName(gm.team2_player1)}</div>
               <div className="truncate text-xs font-semibold text-slate-800">{getPlayerName(gm.team2_player2)}</div>

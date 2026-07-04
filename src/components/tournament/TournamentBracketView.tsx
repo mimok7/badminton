@@ -2308,15 +2308,25 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                 <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
                   <div className={`mb-4 flex flex-wrap items-center justify-between gap-3 ${viewMode === 'round' ? 'border-b border-slate-100 pb-4' : ''}`}>
                     <div className="flex flex-col items-start sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                      <h2 className="text-lg font-semibold text-slate-900">
-                        <span className="text-slate-400 mr-2">|</span>대회 회차와 대진표
-                      </h2>
+                      <div className="flex items-center justify-between w-full sm:w-auto gap-2">
+                        <h2 className="text-lg font-semibold text-slate-900">
+                          <span className="text-slate-400 mr-2">|</span>대회 회차와 대진표
+                        </h2>
+                        <button
+                          onClick={() => {
+                            if (selectedTournament) void fetchMatches(selectedTournament.id);
+                          }}
+                          className="inline-flex sm:hidden items-center justify-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 shadow-sm"
+                        >
+                          🔁 새로고침
+                        </button>
+                      </div>
                       
                       <button
                         onClick={() => {
                           if (selectedTournament) void fetchMatches(selectedTournament.id);
                         }}
-                        className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 shadow-sm self-end sm:self-auto"
+                        className="hidden sm:inline-block rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 shadow-sm self-end sm:self-auto"
                       >
                         🔁 새로고침
                       </button>
@@ -3305,18 +3315,28 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                       <div className="rounded-[20px] border border-slate-200 bg-slate-50/70 p-3">
                         <div className={`mb-3 flex flex-wrap items-center justify-between gap-3 ${viewMode === 'round' ? 'border-b border-slate-200/50 pb-3' : ''}`}>
                           <div className="flex flex-col items-start sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                            <div>
-                              <p className="text-xs font-medium text-slate-500">대회 선택</p>
-                              <h3 className="mt-1 text-base font-semibold text-slate-900">
-                                <span className="text-slate-400 mr-2">|</span>대회 회차와 대진표
-                              </h3>
+                            <div className="flex items-center justify-between w-full sm:w-auto gap-2">
+                              <div>
+                                <p className="text-xs font-medium text-slate-500">대회 선택</p>
+                                <h3 className="mt-1 text-base font-semibold text-slate-900">
+                                  <span className="text-slate-400 mr-2">|</span>대회 회차와 대진표
+                                </h3>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  if (selectedTournament) void fetchMatches(selectedTournament.id);
+                                }}
+                                className="inline-flex sm:hidden items-center justify-center rounded-full bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 shadow-sm"
+                              >
+                                🔁 새로고침
+                              </button>
                             </div>
                             
                             <button
                               onClick={() => {
                                 if (selectedTournament) void fetchMatches(selectedTournament.id);
                               }}
-                              className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 shadow-sm self-end sm:self-auto"
+                              className="hidden sm:inline-block rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 shadow-sm self-end sm:self-auto"
                             >
                               🔁 새로고침
                             </button>

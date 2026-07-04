@@ -70,7 +70,7 @@ description: 사용자 앱(src/app/(user)/*)의 UI/UX 디자인 일관성 유지
   <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
   
   <div className="relative z-10 flex items-center justify-between px-1">
-    <div className="space-y-0.5">
+    <div className="space-y-0.5 pl-2">
       {/* 뱃지 영역 - Lucide 아이콘과 한글 텍스트 결합 */}
       <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
         <Icon className="h-3.5 w-3.5" />
@@ -108,6 +108,8 @@ description: 사용자 앱(src/app/(user)/*)의 UI/UX 디자인 일관성 유지
 3. **일관된 폰트 크기** - 제목은 `text-xl font-bold`, 뱃지는 `text-[11px] font-semibold`, 설명은 `text-xs text-slate-400`을 사용하여 페이지가 바뀌어도 시각적 균형이 깨지지 않도록 합니다.
 4. **모바일 설명글 숨김 (공간 절약)** - 모바일 기기에서의 상단 헤더 세로폭을 줄이기 위해, 설명글 단락(`<p className="...">`)에는 반드시 `hidden sm:block` 클래스를 추가하여 모바일 환경에서는 노출되지 않도록 가려줍니다.
 5. **모바일/컴팩트 화면 공간 절약 (인라인 괄호 표기)** - 경기 수 및 시간 정보가 제목/코트명 아래에 여러 줄로 표시되어 모바일 화면을 낭비하는 현상을 막기 위해, 코트 헤더의 경기 수는 `1코트(13경기)` 형식으로, 개별 매치의 일정/시간 정보는 `1코트(오후 01:30)` 형식과 같이 줄바꿈 및 아이콘(⏰) 없이 **인라인 괄호 표기법**으로 통일해 공간을 혁신적으로 절약합니다.
+6. **제목 영역 좌측 여백 추가** - 히어로 카드 내부의 제목 및 배지가 카드 왼쪽 경계에 너무 바짝 밀착하여 답답하게 보이는 현상을 방지하기 위해, 제목 컬럼인 `<div className="space-y-0.5">` 컨테이너에는 반드시 `pl-2` 클래스를 추가하여 적절한 내부 여백을 확보합니다.
+
 
 
 

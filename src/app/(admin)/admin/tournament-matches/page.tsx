@@ -3316,32 +3316,34 @@ export default function TournamentMatchesPage() {
                                   <span>{match.court}</span>
                                   <span>경기 #{match.match_number}</span>
                                 </div>
-                                <div className="grid grid-cols-1 gap-2 items-center">
-                                  <div className={`rounded-lg p-2.5 flex items-center justify-between ${
+                                <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-center w-full">
+                                  <div className={`rounded-lg p-2.5 flex items-center justify-between text-left ${
                                     hasResult && match.winner === 'team1' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
                                   }`}>
                                     <div className="truncate">
                                       <span className="text-sm font-semibold text-slate-900">{match.team1.map(getPlayerName).join(' / ')}</span>
                                       {team1Score > 0 && (
-                                        <div className="text-[10px] text-slate-400">합계 {team1Score.toFixed(1)}점</div>
+                                        <div className="text-[10px] text-slate-400">합계 {team1Score.toFixed(0)}점</div>
                                       )}
                                     </div>
                                     {hasResult && (
                                       <span className="text-sm font-bold text-amber-700 ml-2">{match.score_team1}</span>
                                     )}
                                   </div>
+
+                                  <div className="text-center text-xs font-semibold text-slate-400 px-1">VS</div>
                                   
-                                  <div className={`rounded-lg p-2.5 flex items-center justify-between ${
+                                  <div className={`rounded-lg p-2.5 flex items-center justify-between text-right flex-row-reverse ${
                                     hasResult && match.winner === 'team2' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
                                   }`}>
                                     <div className="truncate">
                                       <span className="text-sm font-semibold text-slate-900">{match.team2.map(getPlayerName).join(' / ')}</span>
                                       {team2Score > 0 && (
-                                        <div className="text-[10px] text-slate-400">합계 {team2Score.toFixed(1)}점</div>
+                                        <div className="text-[10px] text-slate-400">합계 {team2Score.toFixed(0)}점</div>
                                       )}
                                     </div>
                                     {hasResult && (
-                                      <span className="text-sm font-bold text-amber-700 ml-2">{match.score_team2}</span>
+                                      <span className="text-sm font-bold text-amber-700 mr-2">{match.score_team2}</span>
                                     )}
                                   </div>
                                 </div>
@@ -3379,8 +3381,8 @@ export default function TournamentMatchesPage() {
                                     <span>{match.court}</span>
                                     <span>경기 #{match.match_number}</span>
                                   </div>
-                                  <div className="grid grid-cols-1 gap-2 items-center">
-                                    <div className={`rounded-lg p-2.5 flex items-center justify-between ${
+                                  <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-center w-full">
+                                    <div className={`rounded-lg p-2.5 flex items-center justify-between text-left ${
                                       hasResult && match.winner === 'team1' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
                                     }`}>
                                       <div className="truncate text-sm font-semibold text-slate-900">
@@ -3390,15 +3392,17 @@ export default function TournamentMatchesPage() {
                                         <span className="text-sm font-bold text-amber-700 ml-2">{match.score_team1}</span>
                                       )}
                                     </div>
+
+                                    <div className="text-center text-xs font-semibold text-slate-400 px-1">VS</div>
                                     
-                                    <div className={`rounded-lg p-2.5 flex items-center justify-between ${
+                                    <div className={`rounded-lg p-2.5 flex items-center justify-between text-right flex-row-reverse ${
                                       hasResult && match.winner === 'team2' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
                                     }`}>
                                       <div className="truncate text-sm font-semibold text-slate-900">
                                         {match.team2.map(getPlayerName).join(' / ')}
                                       </div>
                                       {hasResult && (
-                                        <span className="text-sm font-bold text-amber-700 ml-2">{match.score_team2}</span>
+                                        <span className="text-sm font-bold text-amber-700 mr-2">{match.score_team2}</span>
                                       )}
                                     </div>
                                   </div>

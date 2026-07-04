@@ -256,6 +256,45 @@ export default function TournamentMatchesPage() {
     );
   };
 
+  const getPlayerTeamNameForAssignment = (playerName: string, assignment: TeamAssignment | null | undefined): string => {
+    if (!assignment) return '';
+    const cleanName = getPlayerName(playerName);
+    
+    if (assignment.team_type === '2teams') {
+      const isRacket = assignment.racket_team?.some(p => getPlayerName(p) === cleanName);
+      if (isRacket) return '라켓팀';
+      const isShuttle = assignment.shuttle_team?.some(p => getPlayerName(p) === cleanName);
+      if (isShuttle) return '셔틀팀';
+    } else if (assignment.team_type === '3teams') {
+      if (assignment.team1?.some(p => getPlayerName(p) === cleanName)) return '1팀';
+      if (assignment.team2?.some(p => getPlayerName(p) === cleanName)) return '2팀';
+      if (assignment.team3?.some(p => getPlayerName(p) === cleanName)) return '3팀';
+    } else if (assignment.team_type === '4teams') {
+      if (assignment.team1?.some(p => getPlayerName(p) === cleanName)) return '1팀';
+      if (assignment.team2?.some(p => getPlayerName(p) === cleanName)) return '2팀';
+      if (assignment.team3?.some(p => getPlayerName(p) === cleanName)) return '3팀';
+      if (assignment.team4?.some(p => getPlayerName(p) === cleanName)) return '4팀';
+    }
+    
+    return '';
+  };
+
+  const renderTeamBadgeForAssignment = (playerName: string, assignment: TeamAssignment | null | undefined) => {
+    const teamName = getPlayerTeamNameForAssignment(playerName, assignment);
+    if (!teamName) return null;
+    const shortName = teamName.replace('팀', '');
+    const colorClass = teamName === '라켓팀' 
+      ? 'bg-blue-100 text-blue-800' 
+      : teamName === '셔틀팀' 
+      ? 'bg-red-100 text-red-800' 
+      : 'bg-slate-100 text-slate-800';
+    return (
+      <span className={`ml-1 inline-flex items-center rounded px-1 py-0.2 text-[8px] font-bold ${colorClass}`}>
+        {shortName}
+      </span>
+    );
+  };
+
   const normalizePlayerLookupKey = (value: string | undefined | null): string =>
     String(value || '').trim();
 
@@ -886,6 +925,7 @@ export default function TournamentMatchesPage() {
     subtitle?: string;
     teamType: string;
     matches: Match[];
+    selectedTeamAssignment?: TeamAssignment | null;
   } | null>(null);
   const [levelInfoMap, setLevelInfoMap] = useState<LevelInfoMap>({});
   const [playerGenderMap, setPlayerGenderMap] = useState<PlayerGenderMap>({});
@@ -1125,6 +1165,7 @@ export default function TournamentMatchesPage() {
         subtitle: `${tournament.tournament_date} · ${tournament.round_number}회차 · 총 ${data.matches?.length || 0}경기`,
         teamType: tournament.team_type,
         matches: data.matches || [],
+        selectedTeamAssignment: data.selectedTeamAssignment ? normalizeTeamAssignment(data.selectedTeamAssignment) : null,
       });
     } catch (error) {
       console.error(error);
@@ -3321,10 +3362,20 @@ export default function TournamentMatchesPage() {
                                     hasResult && match.winner === 'team1' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
                                   }`}>
                                     <div className="truncate">
-                                      <span className="text-sm font-semibold text-slate-900">{match.team1.map(getPlayerName).join(' / ')}</span>
-                                      {team1Score > 0 && (
-                                        <div className="text-[10px] text-slate-400">합계 {team1Score.toFixed(0)}점</div>
-                                      )}
+                                      <div className="flex items-center gap-1 flex-wrap">
+                                        {match.team1.map((p, idx) => (
+                                          <span key={p} className="inline-flex items-center">
+                                            {idx > 0 && <span className="mx-1 text-slate-300">/</span>}
+                                            <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
+                                            {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
+                                          </span>
+                                        ))}
+                                        {team1Score > 0 && (
+                                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded ml-1 shrink-0">
+                                            {team1Score.toFixed(0)}점
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                     {hasResult && (
                                       <span className="text-sm font-bold text-amber-700 ml-2">{match.score_team1}</span>
@@ -3336,11 +3387,21 @@ export default function TournamentMatchesPage() {
                                   <div className={`rounded-lg p-2.5 flex items-center justify-between text-right flex-row-reverse ${
                                     hasResult && match.winner === 'team2' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
                                   }`}>
-                                    <div className="truncate">
-                                      <span className="text-sm font-semibold text-slate-900">{match.team2.map(getPlayerName).join(' / ')}</span>
-                                      {team2Score > 0 && (
-                                        <div className="text-[10px] text-slate-400">합계 {team2Score.toFixed(0)}점</div>
-                                      )}
+                                    <div className="truncate text-right">
+                                      <div className="flex items-center gap-1 flex-wrap justify-end flex-row-reverse">
+                                        {match.team2.map((p, idx) => (
+                                          <span key={p} className="inline-flex items-center flex-row-reverse">
+                                            {idx > 0 && <span className="mx-1 text-slate-300">/</span>}
+                                            <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
+                                            {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
+                                          </span>
+                                        ))}
+                                        {team2Score > 0 && (
+                                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mr-1 shrink-0">
+                                            {team2Score.toFixed(0)}점
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                     {hasResult && (
                                       <span className="text-sm font-bold text-amber-700 mr-2">{match.score_team2}</span>
@@ -3382,29 +3443,64 @@ export default function TournamentMatchesPage() {
                                     <span>경기 #{match.match_number}</span>
                                   </div>
                                   <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-center w-full">
-                                    <div className={`rounded-lg p-2.5 flex items-center justify-between text-left ${
-                                      hasResult && match.winner === 'team1' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
-                                    }`}>
-                                      <div className="truncate text-sm font-semibold text-slate-900">
-                                        {match.team1.map(getPlayerName).join(' / ')}
-                                      </div>
-                                      {hasResult && (
-                                        <span className="text-sm font-bold text-amber-700 ml-2">{match.score_team1}</span>
-                                      )}
-                                    </div>
+                                    {(() => {
+                                      const team1Score = (match.team1_levels || []).reduce((sum, score) => sum + score, 0);
+                                      const team2Score = (match.team2_levels || []).reduce((sum, score) => sum + score, 0);
 
-                                    <div className="text-center text-xs font-semibold text-slate-400 px-1">VS</div>
-                                    
-                                    <div className={`rounded-lg p-2.5 flex items-center justify-between text-right flex-row-reverse ${
-                                      hasResult && match.winner === 'team2' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
-                                    }`}>
-                                      <div className="truncate text-sm font-semibold text-slate-900">
-                                        {match.team2.map(getPlayerName).join(' / ')}
-                                      </div>
-                                      {hasResult && (
-                                        <span className="text-sm font-bold text-amber-700 mr-2">{match.score_team2}</span>
-                                      )}
-                                    </div>
+                                      return (
+                                        <>
+                                          <div className={`rounded-lg p-2.5 flex items-center justify-between text-left ${
+                                            hasResult && match.winner === 'team1' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
+                                          }`}>
+                                            <div className="truncate">
+                                              <div className="flex items-center gap-1 flex-wrap">
+                                                {match.team1.map((p, idx) => (
+                                                  <span key={p} className="inline-flex items-center">
+                                                    {idx > 0 && <span className="mx-1 text-slate-300">/</span>}
+                                                    <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
+                                                    {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
+                                                  </span>
+                                                ))}
+                                                {team1Score > 0 && (
+                                                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded ml-1 shrink-0">
+                                                    {team1Score.toFixed(0)}점
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                            {hasResult && (
+                                              <span className="text-sm font-bold text-amber-700 ml-2">{match.score_team1}</span>
+                                            )}
+                                          </div>
+
+                                          <div className="text-center text-xs font-semibold text-slate-400 px-1">VS</div>
+                                          
+                                          <div className={`rounded-lg p-2.5 flex items-center justify-between text-right flex-row-reverse ${
+                                            hasResult && match.winner === 'team2' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
+                                          }`}>
+                                            <div className="truncate text-right">
+                                              <div className="flex items-center gap-1 flex-wrap justify-end flex-row-reverse">
+                                                {match.team2.map((p, idx) => (
+                                                  <span key={p} className="inline-flex items-center flex-row-reverse">
+                                                    {idx > 0 && <span className="mx-1 text-slate-300">/</span>}
+                                                    <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
+                                                    {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
+                                                  </span>
+                                                ))}
+                                                {team2Score > 0 && (
+                                                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mr-1 shrink-0">
+                                                    {team2Score.toFixed(0)}점
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                            {hasResult && (
+                                              <span className="text-sm font-bold text-amber-700 mr-2">{match.score_team2}</span>
+                                            )}
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                   {hasResult && (
                                     <div className="mt-2 text-center text-xs font-semibold text-emerald-600 bg-emerald-50 py-1 rounded">

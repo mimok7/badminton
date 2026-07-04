@@ -223,7 +223,7 @@ export default function ChallengePage() {
                 게임 제안
               </span>
               <h1 className="text-xl font-bold tracking-tight">게임 제안</h1>
-              <p className="text-xs text-slate-400 mt-0.5">마음에 드는 멤버를 골라 대결을 신청해 보세요.</p>
+              <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">마음에 드는 멤버를 골라 대결을 신청해 보세요.</p>
             </div>
             
             <Link href="/dashboard">

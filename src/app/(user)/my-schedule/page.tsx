@@ -1878,7 +1878,7 @@ export default function MySchedulePage() {
                 내 일정
               </span>
               <h1 className="text-xl font-bold tracking-tight">내 게임 현황</h1>
-              <p className="text-xs text-slate-400 mt-0.5">내 예정 경기 일정과 완료된 게임 기록을 확인합니다.</p>
+              <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">내 예정 경기 일정과 완료된 게임 기록을 확인합니다.</p>
             </div>
             
             <div className="flex gap-2 shrink-0 items-center">

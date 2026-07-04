@@ -57,7 +57,7 @@ export default function ManualPage() {
                 시스템 안내
               </span>
               <h1 className="text-xl font-bold tracking-tight">사용 설명서</h1>
-              <p className="text-xs text-slate-400 mt-0.5">시스템 기능 및 이용 안내 가이드를 확인합니다.</p>
+              <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">시스템 기능 및 이용 안내 가이드를 확인합니다.</p>
             </div>
             <Link href="/dashboard">
               <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">

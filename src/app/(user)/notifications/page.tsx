@@ -281,7 +281,7 @@ export default function NotificationsPage() {
                   알림 센터
                 </span>
                 <h1 className="text-xl font-bold tracking-tight">공지사항 및 알림</h1>
-                <p className="text-xs text-slate-400 mt-0.5">새로운 클럽 공지사항과 내 알림을 확인합니다.</p>
+                <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">새로운 클럽 공지사항과 내 알림을 확인합니다.</p>
               </div>
               <Link href="/dashboard">
                 <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">

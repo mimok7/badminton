@@ -78,7 +78,7 @@ export default function TodayMatches() {
                 오늘 경기
               </span>
               <h1 className="text-xl font-bold tracking-tight">오늘의 경기 일정</h1>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">
                 {new Date().toLocaleDateString('ko-KR', { 
                   year: 'numeric', 
                   month: 'long', 

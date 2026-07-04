@@ -78,7 +78,7 @@ description: 사용자 앱(src/app/(user)/*)의 UI/UX 디자인 일관성 유지
       </span>
       {/* 제목 및 설명 영역 */}
       <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-      <p className="text-xs text-slate-400 mt-0.5">{description}</p>
+      <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">{description}</p>
     </div>
     
     {/* 홈 버튼 - ArrowLeft 아이콘과 "홈" 텍스트 결합 */}
@@ -106,4 +106,6 @@ description: 사용자 앱(src/app/(user)/*)의 UI/UX 디자인 일관성 유지
 1. **중복된 텍스트 금지** - 뱃지(`badgeLabel`), 제목(`title`), 설명(`description`)에서 서로 중복되거나 무의미하게 반복되는 단어는 제거하여 핵심만 간결하게 표시합니다.
 2. **홈 버튼 통일** - 모든 서브 페이지의 헤더 오른쪽 영역에는 대시보드로 복귀하는 **"홈"** 버튼을 고정 배치합니다. 버튼은 항상 `ArrowLeft` 아이콘을 앞에 배치하고 라벨은 `"홈"`으로 통일합니다 (`"대시보드"`, `"대시보드로 돌아가기"` 등 다른 텍스트 사용 금지).
 3. **일관된 폰트 크기** - 제목은 `text-xl font-bold`, 뱃지는 `text-[11px] font-semibold`, 설명은 `text-xs text-slate-400`을 사용하여 페이지가 바뀌어도 시각적 균형이 깨지지 않도록 합니다.
+4. **모바일 설명글 숨김 (공간 절약)** - 모바일 기기에서의 상단 헤더 세로폭을 줄이기 위해, 설명글 단락(`<p className="...">`)에는 반드시 `hidden sm:block` 클래스를 추가하여 모바일 환경에서는 노출되지 않도록 가려줍니다.
+
 

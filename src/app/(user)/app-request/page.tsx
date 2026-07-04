@@ -162,7 +162,7 @@ export default function AppRequestPage() {
                 문의 건의
               </span>
               <h1 className="text-xl font-bold tracking-tight">앱 수정 요청</h1>
-              <p className="text-xs text-slate-400 mt-0.5">버그 제보나 기능 건의사항을 관리자에게 직접 요청할 수 있습니다.</p>
+              <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">버그 제보나 기능 건의사항을 관리자에게 직접 요청할 수 있습니다.</p>
             </div>
             
             <Link href="/dashboard">

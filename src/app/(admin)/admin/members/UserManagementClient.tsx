@@ -835,17 +835,17 @@ export default function UserManagementClient({
                                         className="w-full font-bold text-lg text-slate-800 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-slate-400 focus:outline-none px-1 py-0.5 rounded"
                                         placeholder="회원 이름"
                                     />
-                                    <div className="text-xs text-slate-400 mt-1 px-1">
+                                    <div className="hidden md:block text-xs text-slate-400 mt-1 px-1">
                                         아이디: {user.username || '-'}
                                     </div>
                                 </div>
                                 <div className="shrink-0 flex flex-col items-end gap-1">
                                     {normalizedRole === 'admin' ? (
-                                        <span className="inline-flex items-center rounded-md bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">
+                                        <span className="hidden md:inline-flex items-center rounded-md bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">
                                             admin
                                         </span>
                                     ) : (
-                                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
+                                        <span className={`hidden md:inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
                                             normalizedRole === 'manager' 
                                                 ? 'bg-indigo-100 text-indigo-700' 
                                                 : 'bg-slate-100 text-slate-700'
@@ -854,7 +854,7 @@ export default function UserManagementClient({
                                         </span>
                                     )}
                                     {user.email && (
-                                        <span className="text-[10px] text-slate-400 font-medium">연결됨</span>
+                                        <span className="hidden md:inline text-[10px] text-slate-400 font-medium">연결됨</span>
                                     )}
                                 </div>
                             </div>

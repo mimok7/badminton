@@ -555,7 +555,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pt-0 pb-4 sm:gap-5 sm:px-5 sm:pt-0 sm:pb-5">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-2.5 pt-0 pb-3 sm:gap-5 sm:px-5 sm:pt-0 sm:pb-5">
         <section className="rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5 sm:py-6">
           <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6">
             {/* 프로필 이미지 업로더 (사각 모서리 타원 모양 - rounded-[32px]) */}
@@ -621,7 +621,7 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+        <section className="rounded-[24px] bg-white px-3 py-3 sm:px-5 sm:py-5 shadow-sm">
           <div>
             <p className="text-xs text-slate-500">프로필 수정</p>
             <h2 className="mt-1 text-lg font-semibold text-slate-900">성별 변경</h2>
@@ -664,7 +664,7 @@ export default function ProfilePage() {
           </Form>
         </section>
 
-        <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+        <section className="rounded-[24px] bg-white px-3 py-3 sm:px-5 sm:py-5 shadow-sm">
           <div>
             <p className="text-xs text-slate-500">보안 설정</p>
             <h2 className="mt-1 text-lg font-semibold text-slate-900">비밀번호 변경</h2>

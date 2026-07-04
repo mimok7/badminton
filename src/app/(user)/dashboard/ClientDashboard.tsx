@@ -385,7 +385,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <MatchNotifications />
 
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pt-0 pb-4 sm:gap-5 sm:px-5 sm:pt-0 sm:pb-5">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-2.5 pt-0 pb-3 sm:gap-5 sm:px-5 sm:pt-0 sm:pb-5">
         <section className="rounded-[24px] bg-[#0f172a] px-4 py-3 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
           <div className="flex items-start justify-between gap-3 px-2">
             <div>
@@ -481,7 +481,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
           </div>
         </section>
 
-        <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
+        <section className="rounded-[24px] bg-white px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
           <div>
             <p className="text-xs text-slate-500">바로가기</p>
             <h2 className="mt-1 text-lg font-semibold text-slate-900">자주 쓰는 메뉴</h2>
@@ -495,7 +495,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-[20px] border border-slate-200 bg-slate-50 px-3 py-4 transition hover:bg-slate-100"
+                  className="rounded-[20px] border border-slate-200 bg-slate-50 px-2.5 py-3 transition hover:bg-slate-100"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2 min-w-0">
@@ -504,14 +504,14 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                     </div>
                     <ArrowRight className="mt-0.5 size-4 shrink-0 text-slate-400" />
                   </div>
-                  <p className="mt-2 break-keep text-xs leading-5 text-slate-500">{item.description}</p>
+                  <p className="mt-1 break-keep text-xs leading-5 text-slate-500">{item.description}</p>
                 </Link>
               );
             })}
           </div>
         </section>
 
-        <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
+        <section className="rounded-[24px] bg-white px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs text-slate-500">계정</p>

@@ -1868,7 +1868,7 @@ export default function MySchedulePage() {
 
   return (
     <div className="min-h-screen bg-[#f5f7fb]">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pt-0 pb-4 sm:gap-5 sm:px-5 sm:pt-0 sm:pb-5">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-2.5 pt-0 pb-3 sm:gap-5 sm:px-5 sm:pt-0 sm:pb-5">
         <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
           <div className="relative z-10 flex items-center justify-between px-1">

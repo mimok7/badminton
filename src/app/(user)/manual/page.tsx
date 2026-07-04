@@ -47,7 +47,7 @@ export default function ManualPage() {
   return (
     <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-gray-50 to-blue-50/30 pb-16">
       {/* ── 다크 그라디언트 헤더 ── */}
-      <div className="max-w-6xl mx-auto px-4 mt-0">
+      <div className="max-w-6xl mx-auto px-2.5 mt-0">
         <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
           <div className="relative z-10 flex items-center justify-between px-1">
@@ -83,7 +83,7 @@ export default function ManualPage() {
         </span>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 mt-6">
+      <div className="max-w-6xl mx-auto px-2.5 mt-4 sm:mt-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* 가이드 목차 (PC에서는 상시 노출, 모바일에서는 토글 상태에 따라 노출) */}

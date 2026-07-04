@@ -307,58 +307,16 @@ function MatchResultsPage() {
     return Array.from(groupsMap.values());
   }, [assignedMatches]);
 
-  // 모바일 전용 결과 제출 카드 컴포넌트
-  function MobileMatchResultCard({ match, onSaved }: { match: AssignedMatch, onSaved: () => void }) {
-    const [team1Score, setTeam1Score] = useState<number | ''>(match.generated_match?.match_result?.team1_score ?? '');
-    const [team2Score, setTeam2Score] = useState<number | ''>(match.generated_match?.match_result?.team2_score ?? '');
-    const [submitting, setSubmitting] = useState(false);
-
-    const submitResult = async () => {
-      if (!match || !match.generated_match) return;
-
-      if (team1Score === '' || team2Score === '') {
-        alert('점수를 모두 입력해주세요.');
-        return;
-      }
-
-      if (Number(team1Score) === Number(team2Score)) {
-        alert('무승부는 저장할 수 없습니다.');
-        return;
-      }
-
-      setSubmitting(true);
-      try {
-        const payload = {
-          match_id: match.generated_match.id,
-          winner_team1: Number(team1Score) > Number(team2Score),
-          team1_score: Number(team1Score),
-          team2_score: Number(team2Score)
-        };
-
-        const res = await fetch('/api/match-results', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || '결과 저장 중 오류');
-
-        alert(`결과 저장 완료`);
-        onSaved();
-      } catch (err) {
-        console.error('결과 저장 오류:', err);
-        alert(getFriendlyErrorMessage(err));
-      } finally {
-        setSubmitting(false);
-      }
-    };
-
+  // 모바일 전용 결과 제출 카드 컴포넌트 (조회 전용)
+  function MobileMatchResultCard({ match }: { match: AssignedMatch, onSaved: () => void }) {
     const gm = match.generated_match;
     if (!gm) return null;
 
+    const t1Score = gm.match_result?.team1_score !== undefined && gm.match_result?.team1_score !== null ? gm.match_result.team1_score : '-';
+    const t2Score = gm.match_result?.team2_score !== undefined && gm.match_result?.team2_score !== null ? gm.match_result.team2_score : '-';
+
     return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex flex-col gap-2.5">
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-slate-800">게임 {gm.match_number}</span>
           {getStatusBadge(match.status)}
@@ -374,29 +332,13 @@ function MatchResultsPage() {
             </div>
           </div>
           
-          {/* 가운데: 점수 좌우 배치 (크기 증가) */}
-          <div className="flex flex-col items-center justify-center px-1 shrink-0">
-            <span className="text-[8px] font-bold text-slate-400 uppercase select-none mb-1">VS</span>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={team1Score}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setTeam1Score(val === '' ? '' : Number(val));
-                }}
-                className="w-11 h-8 border border-blue-300 bg-blue-50/20 rounded text-center text-sm font-bold text-blue-700 focus:ring-1 focus:ring-blue-500 outline-none"
-              />
+          {/* 가운데: 점수 조회 (텍스트 노출) */}
+          <div className="flex flex-col items-center justify-center px-2.5 shrink-0">
+            <span className="text-[8px] font-bold text-slate-400 uppercase select-none mb-0.5">SCORE</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-extrabold text-blue-600">{t1Score}</span>
               <span className="text-xs font-bold text-slate-400">:</span>
-              <input
-                type="number"
-                value={team2Score}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setTeam2Score(val === '' ? '' : Number(val));
-                }}
-                className="w-11 h-8 border border-red-300 bg-red-50/20 rounded text-center text-sm font-bold text-red-700 focus:ring-1 focus:ring-red-500 outline-none"
-              />
+              <span className="text-sm font-extrabold text-red-600">{t2Score}</span>
             </div>
           </div>
           
@@ -408,21 +350,6 @@ function MatchResultsPage() {
               <div className="truncate text-xs font-semibold text-slate-800">{getPlayerName(gm.team2_player2)}</div>
             </div>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between border-t border-slate-200/60 pt-2 mt-1">
-          <div className="text-[10px] text-slate-500 truncate">
-            {gm.match_result ? (
-              <span className="font-semibold text-emerald-600">
-                결과: {gm.match_result.winner === 'team1' ? '라켓' : '셔틀'} 승 ({gm.match_result.team1_score}:{gm.match_result.team2_score})
-              </span>
-            ) : (
-              <span>결과 미입력</span>
-            )}
-          </div>
-          <Button onClick={submitResult} disabled={submitting} size="sm" className="h-6 px-2 text-[10px] font-semibold shrink-0">
-            {submitting ? '...' : gm.match_result ? '수정' : '저장'}
-          </Button>
         </div>
       </div>
     );

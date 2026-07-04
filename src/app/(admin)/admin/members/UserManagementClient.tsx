@@ -104,6 +104,12 @@ export default function UserManagementClient({
         return me.email === 'kjh@hyojacho.es.kr' || me.username === 'kjh' || me.full_name === '김진호';
     }, [users, myUserId, myUserEmail]);
 
+    const isCurrentUserAdmin = useMemo(() => {
+        const me = users.find(u => u.id === myUserId);
+        if (!me) return myUserEmail === 'kjh@hyojacho.es.kr';
+        return me.role === 'admin' || me.email === 'kjh@hyojacho.es.kr' || me.username === 'kjh' || me.full_name === '김진호';
+    }, [users, myUserId, myUserEmail]);
+
     const levelOptions = useMemo(
         () => levelOptionsFromDb.length > 0
             ? levelOptionsFromDb
@@ -707,8 +713,9 @@ export default function UserManagementClient({
                                         ) : (
                                             <select
                                                 value={normalizeEditableRole(draft.role)}
+                                                disabled={!isCurrentUserAdmin}
                                                 onChange={(e) => updateDraft(user.id, { role: e.target.value as 'user' | 'manager' })}
-                                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
                                             >
                                                 <option value="user">user</option>
                                                 <option value="manager">manager</option>
@@ -718,8 +725,9 @@ export default function UserManagementClient({
                                     <td className="px-4 py-3 align-top">
                                         <select
                                             value={currentLevelCode}
+                                            disabled={!isCurrentUserAdmin}
                                             onChange={(e) => updateDraft(user.id, { skill_level: e.target.value })}
-                                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
                                         >
                                             {levelOptions.map((levelCode) => {
                                                 const option = getLevelOptionMeta(levelCode);
@@ -855,8 +863,9 @@ export default function UserManagementClient({
                                     ) : (
                                         <select
                                             value={normalizeEditableRole(draft.role)}
+                                            disabled={!isCurrentUserAdmin}
                                             onChange={(e) => updateDraft(user.id, { role: e.target.value as 'user' | 'manager' })}
-                                            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm bg-white"
+                                            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-500"
                                         >
                                             <option value="user">일반회원 (user)</option>
                                             <option value="manager">매니저 (manager)</option>
@@ -884,8 +893,9 @@ export default function UserManagementClient({
                                     <span className="text-xs text-slate-400 font-medium">급수</span>
                                     <select
                                         value={currentLevelCode}
+                                        disabled={!isCurrentUserAdmin}
                                         onChange={(e) => updateDraft(user.id, { skill_level: e.target.value })}
-                                        className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm bg-white"
+                                        className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-500"
                                     >
                                         {levelOptions.map((levelCode) => {
                                             const option = getLevelOptionMeta(levelCode);
@@ -1493,8 +1503,9 @@ export default function UserManagementClient({
                         />
                         <select
                             value={newMember.skill_level}
+                            disabled={!isCurrentUserAdmin}
                             onChange={(e) => setNewMember((prev) => ({ ...prev, skill_level: e.target.value }))}
-                            className="h-11 rounded-md border border-amber-300 bg-white px-3 text-sm"
+                            className="h-11 rounded-md border border-amber-300 bg-white px-3 text-sm disabled:bg-slate-50 disabled:text-slate-500"
                         >
                             {levelOptions.map((levelCode) => {
                                 const option = getLevelOptionMeta(levelCode);

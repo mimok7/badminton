@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CalendarDays, MapPin, Users } from 'lucide-react';
+import { ArrowRight, CalendarDays, MapPin, Users, Target, ArrowLeft } from 'lucide-react';
 
 import { RequireAuth } from '@/components/AuthGuard';
 import { Button } from '@/components/ui/button';
@@ -530,21 +530,27 @@ export default function MatchRegistrationPage() {
   return (
     <RequireAuth>
       <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
-          <section className="rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
-            <div className="flex items-start justify-between gap-3">
-              <div className="pl-2">
-                <p className="text-xs text-slate-300">경기 신청</p>
-                <h1 className="mt-1 text-2xl font-semibold">경기 참가 신청</h1>
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-2.5 pt-0 pb-3 sm:gap-5 sm:px-5 sm:pt-0 sm:pb-5">
+          <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
+            <div className="relative z-10 flex items-center justify-between px-1">
+              <div className="space-y-0.5 pl-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
+                  <Target className="h-3.5 w-3.5" />
+                  참가 신청
+                </span>
+                <h1 className="text-xl font-bold tracking-tight">경기 참가 신청</h1>
+                <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">예정 경기 참가 여부를 등록합니다.</p>
               </div>
-              <Link
-                href="/dashboard"
-                className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15"
-              >
-                홈
+              <Link href="/dashboard">
+                <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  홈
+                </Button>
               </Link>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs px-2">
+            
+            <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 text-[11px]">
               <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">
                 {formatCurrentUserNameWithCoins(profile?.full_name || profile?.username || '회원', profile?.coin_balance)}님
               </span>
@@ -552,10 +558,9 @@ export default function MatchRegistrationPage() {
                 레벨 {profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정')}
               </span>
             </div>
-
           </section>
 
-          <section className="rounded-[24px] bg-white px-4 py-4 shadow-sm">
+          <section className="rounded-[24px] bg-white px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-slate-500">예정 일정</p>

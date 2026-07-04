@@ -506,7 +506,7 @@ export default function TodayMatches() {
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <div className="w-full">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-2.5 pt-0 pb-3 sm:gap-5 sm:px-5 sm:pt-0 sm:pb-5">
           <section className="rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5">
             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3">
               <div className="flex flex-col md:flex-row md:items-baseline gap-x-3 gap-y-1 pl-2">

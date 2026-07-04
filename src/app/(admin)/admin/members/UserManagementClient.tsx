@@ -125,6 +125,7 @@ export default function UserManagementClient({
         const isMobile = window.matchMedia('(max-width: 768px)').matches;
         if (isMobile) {
             setViewMode('card');
+            setSelectedTab('members');
         }
     }, []);
 
@@ -961,7 +962,7 @@ export default function UserManagementClient({
                                 회원 정보, 권한, 급수, 출석 흐름을 한 화면에서 정리하도록 묶었습니다.
                             </p>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+                        <div className="hidden md:grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
                             <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
                                 <div className="text-xs uppercase tracking-wide text-slate-500">전체 회원</div>
                                 <div className="mt-1 text-lg font-semibold text-slate-900 sm:text-2xl">{memberList.length}</div>
@@ -983,7 +984,7 @@ export default function UserManagementClient({
                 </div>
                 <div className="border-b border-slate-200 px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
-                        <button type="button" onClick={() => setSelectedTab('overview')} className={tabButtonClass('overview')}>
+                        <button type="button" onClick={() => setSelectedTab('overview')} className={tabButtonClass('overview', 'hidden md:inline-flex')}>
                             <Users className="size-4" />
                             개요
                         </button>
@@ -1009,7 +1010,7 @@ export default function UserManagementClient({
                         </button>
                     </div>
                 </div>
-                <div className="px-4 py-4 sm:px-6 sm:py-5">
+                <div className="hidden md:block px-4 py-4 sm:px-6 sm:py-5">
                     <div className="grid gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
                         <label className="relative block">
                             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />

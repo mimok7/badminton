@@ -2197,12 +2197,6 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     return counts;
   }, [targetStatsMatches]);
 
-  const courtStatsText = useMemo(() => {
-    const entries = Object.entries(courtCounts);
-    if (entries.length === 0) return '없음';
-    return entries.map(([court, count]) => `${court}(${count})`).join(', ');
-  }, [courtCounts]);
-
   const myMatchesCount = useMemo(() => {
     const searchNames = [profile?.full_name, profile?.username]
       .filter((name): name is string => typeof name === 'string' && name.length > 0)
@@ -2255,15 +2249,29 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
             </div>
 
             {/* 통계 부분 추가 */}
-            <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 text-[11px] text-slate-200">
+            <div className="relative z-10 mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 pt-3 border-t border-white/10 text-[11px] text-slate-200">
               <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1">
                 총게임: <span className="font-semibold text-white">{targetStatsMatches.length}경기</span>
               </span>
               <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1">
                 내게임: <span className="font-semibold text-white">{myMatchesCount}경기</span>
               </span>
-              <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1">
-                코트별 게임: <span className="font-semibold text-white">{courtStatsText}</span>
+              <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1 inline-flex items-center gap-1.5">
+                <span>코트:</span>
+                <span className="inline-flex items-center gap-2">
+                  {Object.entries(courtCounts).map(([court, count]) => {
+                    const digits = court.replace(/[^0-9]/g, '');
+                    const label = digits || (court.includes('미정') ? '?' : court);
+                    return (
+                      <span key={court} className="inline-flex items-center gap-1">
+                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[9px] font-bold text-white">
+                          {label}
+                        </span>
+                        <span className="font-semibold text-white">{count}</span>
+                      </span>
+                    );
+                  })}
+                </span>
               </span>
             </div>
           </section>

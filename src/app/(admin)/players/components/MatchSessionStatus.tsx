@@ -454,8 +454,8 @@ export default function MatchSessionStatus({
                     <thead>
                       <tr className="bg-gray-100">
                         <th className="border border-gray-300 px-2 py-2 text-center text-sm font-semibold">회차</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center text-sm font-semibold">라켓팀</th>
-                        <th className="border border-gray-300 px-3 py-2 text-center text-sm font-semibold">셔틀팀</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center text-sm font-semibold">팀 1</th>
+                        <th className="border border-gray-300 px-3 py-2 text-center text-sm font-semibold">팀 2</th>
                         <th className="border border-gray-300 px-2 py-2 text-center text-sm font-semibold">점수 차이</th>
                         {onDeleteSessionMatch && (
                           <th className="border border-gray-300 px-2 py-2 text-center text-sm font-semibold">삭제</th>

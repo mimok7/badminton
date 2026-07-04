@@ -44,8 +44,8 @@ export default function ManualMatchesEditor({ matches, presentPlayers, onChange,
           <thead>
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-sm">회차</th>
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-sm">라켓팀</th>
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-sm">셔틀팀</th>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-sm">팀 1</th>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-sm">팀 2</th>
             </tr>
           </thead>
           <tbody>

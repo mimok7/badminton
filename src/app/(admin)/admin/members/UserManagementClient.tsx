@@ -1079,7 +1079,7 @@ export default function UserManagementClient({
             {selectedTab === 'overview' && (
                 <div className="grid gap-4 lg:grid-cols-4 lg:gap-6">
                     {/* 1. 급수 분포 */}
-                    <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5 lg:col-span-2">
+                    <section className="hidden md:block rounded-lg border border-slate-200 bg-white p-4 sm:p-5 lg:col-span-2">
                         <h2 className="text-lg font-semibold text-slate-900">급수 분포</h2>
                         <div className="mt-3 grid gap-2 sm:mt-4 sm:gap-3 grid-cols-2 xl:grid-cols-3">
                             {levelSummary.map((item) => (

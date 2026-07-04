@@ -508,17 +508,10 @@ export default function GeneratedMatchesList({
         </p>
         {/* 세션명은 자동 생성됩니다. */}
         
-        <div className="mb-4">
-          <div className="p-3 border rounded-lg bg-white">
-            <div className="font-medium text-green-700">🔥 오늘 바로 배정</div>
-            <p className="text-sm text-gray-600">이 페이지는 항상 오늘 바로 배정으로 작동합니다. 생성된 경기는 즉시 배정됩니다.</p>
-          </div>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-row gap-2">
           <button
             onClick={onClearMatches}
-            className="flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-medium transition-colors"
+            className="flex-1 py-2 px-3 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg text-xs font-semibold transition-colors"
             disabled={loading}
           >
             경기 초기화
@@ -535,7 +528,7 @@ export default function GeneratedMatchesList({
               onAssignMatches();
             }}
             disabled={loading || matches.length === 0}
-            className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 disabled:bg-gray-400 text-white rounded-lg font-medium transition-all shadow-lg"
+            className="flex-1 py-2 px-3 bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 disabled:bg-gray-400 text-white rounded-lg text-xs font-semibold transition-all shadow-sm"
           >
             {loading ? '배정 중...' : '✨ 배정하기'}
           </button>

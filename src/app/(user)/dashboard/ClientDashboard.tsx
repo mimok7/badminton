@@ -490,12 +490,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         </section>
 
         <section className="rounded-[24px] bg-white px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
-          <div>
-            <p className="text-xs text-slate-500">바로가기</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">자주 쓰는 메뉴</h2>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {quickLinks.map((item) => {
               const Icon = item.icon;
 

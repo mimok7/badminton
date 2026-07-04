@@ -255,8 +255,8 @@ export default function MatchSessionStatus({
     </div>
   );
 
-  const renderAssignedPlayer = (name: string | null | undefined, skillLevel: string, score: number) => (
-    <div className="truncate text-sm text-gray-800">
+  const renderAssignedPlayer = (name: string | null | undefined, skillLevel: string, score: number, align?: 'left' | 'right') => (
+    <div className={`truncate text-xs text-gray-800 ${align === 'right' ? 'text-right' : 'text-left'}`}>
       {name || '선수 미정'} <span className="text-gray-500">({skillLevel})</span>
     </div>
   );
@@ -557,7 +557,7 @@ export default function MatchSessionStatus({
             <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
               <div>
                 <h4 className="text-lg font-semibold text-gray-900">배정된 경기</h4>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="hidden md:block mt-1 text-sm text-gray-500">
                   배정 순서대로 이어서 확인하거나 상세 대진표로 나눠서 볼 수 있습니다.
                 </p>
               </div>
@@ -628,21 +628,21 @@ export default function MatchSessionStatus({
                       </div>
 
                       {match ? (
-                        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
-                          <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-3">
+                        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 w-full">
+                          <div className="rounded-lg border border-sky-100 bg-sky-50 px-2 py-1.5 text-left">
                             <div className="mb-1 text-xs font-semibold text-sky-700">
-                              팀 A · 합계 {match.team1_total_score.toFixed(0)}점
+                              팀 A · {match.team1_total_score.toFixed(0)}점
                             </div>
-                            {renderAssignedPlayer(match.team1_player1_name, match.team1_player1_skill_level, match.team1_player1_score)}
-                            {renderAssignedPlayer(match.team1_player2_name, match.team1_player2_skill_level, match.team1_player2_score)}
+                            {renderAssignedPlayer(match.team1_player1_name, match.team1_player1_skill_level, match.team1_player1_score, 'left')}
+                            {renderAssignedPlayer(match.team1_player2_name, match.team1_player2_skill_level, match.team1_player2_score, 'left')}
                           </div>
-                          <div className="text-center text-sm font-semibold text-slate-400">VS</div>
-                          <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-3">
+                          <div className="text-center text-xs font-semibold text-slate-400 px-1">VS</div>
+                          <div className="rounded-lg border border-rose-100 bg-rose-50 px-2 py-1.5 text-right">
                             <div className="mb-1 text-xs font-semibold text-rose-700">
-                              팀 B · 합계 {match.team2_total_score.toFixed(0)}점
+                              팀 B · {match.team2_total_score.toFixed(0)}점
                             </div>
-                            {renderAssignedPlayer(match.team2_player1_name, match.team2_player1_skill_level, match.team2_player1_score)}
-                            {renderAssignedPlayer(match.team2_player2_name, match.team2_player2_skill_level, match.team2_player2_score)}
+                            {renderAssignedPlayer(match.team2_player1_name, match.team2_player1_skill_level, match.team2_player1_score, 'right')}
+                            {renderAssignedPlayer(match.team2_player2_name, match.team2_player2_skill_level, match.team2_player2_score, 'right')}
                           </div>
                         </div>
                       ) : (
@@ -676,20 +676,21 @@ export default function MatchSessionStatus({
 
                       {match ? (
                         <div className="mt-3 rounded-lg border border-white/70 bg-white/80 p-3">
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
+                          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 w-full">
+                            <div className="rounded-lg border border-sky-100 bg-sky-50 px-2 py-1.5 text-left">
                               <div className="mb-1 text-xs font-semibold text-sky-700">
-                                팀 A · 합계 {match.team1_total_score.toFixed(0)}점
+                                팀 A · {match.team1_total_score.toFixed(0)}점
                               </div>
-                              {renderAssignedPlayer(match.team1_player1_name, match.team1_player1_skill_level, match.team1_player1_score)}
-                              {renderAssignedPlayer(match.team1_player2_name, match.team1_player2_skill_level, match.team1_player2_score)}
+                              {renderAssignedPlayer(match.team1_player1_name, match.team1_player1_skill_level, match.team1_player1_score, 'left')}
+                              {renderAssignedPlayer(match.team1_player2_name, match.team1_player2_skill_level, match.team1_player2_score, 'left')}
                             </div>
-                            <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
+                            <div className="text-center text-xs font-semibold text-slate-400 px-1">VS</div>
+                            <div className="rounded-lg border border-rose-100 bg-rose-50 px-2 py-1.5 text-right">
                               <div className="mb-1 text-xs font-semibold text-rose-700">
-                                팀 B · 합계 {match.team2_total_score.toFixed(0)}점
+                                팀 B · {match.team2_total_score.toFixed(0)}점
                               </div>
-                              {renderAssignedPlayer(match.team2_player1_name, match.team2_player1_skill_level, match.team2_player1_score)}
-                              {renderAssignedPlayer(match.team2_player2_name, match.team2_player2_skill_level, match.team2_player2_score)}
+                              {renderAssignedPlayer(match.team2_player1_name, match.team2_player1_skill_level, match.team2_player1_score, 'right')}
+                              {renderAssignedPlayer(match.team2_player2_name, match.team2_player2_skill_level, match.team2_player2_score, 'right')}
                             </div>
                           </div>
                           <div className="mt-2 text-xs text-gray-500">

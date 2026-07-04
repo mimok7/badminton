@@ -37,7 +37,7 @@ export default function AdminPage() {
         <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
           <Link
             href="/admin/players-today"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-blue-400 hover:bg-blue-50 sm:p-4"
+            className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-blue-400 hover:bg-blue-50 sm:p-4 shadow-sm"
           >
             <h3 className="text-sm font-medium text-gray-900 sm:text-base">⚡ 오늘경기</h3>
             <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">오늘 경기 생성과 배정을 진행하세요</p>
@@ -45,7 +45,7 @@ export default function AdminPage() {
 
           <Link
             href="/match-results"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-green-400 hover:bg-green-50 sm:p-4"
+            className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-green-400 hover:bg-green-50 sm:p-4 shadow-sm"
           >
             <h3 className="text-sm font-medium text-gray-900 sm:text-base">🏆 경기결과</h3>
             <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">경기 결과를 입력하고 확인하세요</p>
@@ -53,7 +53,7 @@ export default function AdminPage() {
 
           <Link
             href="/team-management"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-orange-400 hover:bg-orange-50 sm:p-4"
+            className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-orange-400 hover:bg-orange-50 sm:p-4 shadow-sm"
           >
             <h3 className="text-sm font-medium text-gray-900 sm:text-base">🤝 팀관리</h3>
             <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">대회용 팀을 구성하고 관리하세요</p>
@@ -61,7 +61,7 @@ export default function AdminPage() {
 
           <Link
             href="/admin/tournament-matches"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-amber-400 hover:bg-amber-50 sm:p-4"
+            className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-amber-400 hover:bg-amber-50 sm:p-4 shadow-sm"
           >
             <h3 className="text-sm font-medium text-gray-900 sm:text-base">🎪 대회 경기</h3>
             <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">대회를 생성하고 경기 일정을 관리하세요</p>
@@ -69,7 +69,7 @@ export default function AdminPage() {
 
           <Link
             href="/admin/pair-tournament-settings"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-yellow-400 hover:bg-yellow-50 sm:p-4"
+            className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-yellow-400 hover:bg-yellow-50 sm:p-4 shadow-sm"
           >
             <h3 className="text-sm font-medium text-gray-900 sm:text-base">👥 페어 대회</h3>
             <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">페어전 전용 설정으로 그룹별 대회를 생성하세요</p>
@@ -77,7 +77,7 @@ export default function AdminPage() {
 
           <Link
             href="/admin/tournament-bracket"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-indigo-400 hover:bg-indigo-50 sm:p-4"
+            className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-indigo-400 hover:bg-indigo-50 sm:p-4 shadow-sm"
           >
             <h3 className="text-sm font-medium text-gray-900 sm:text-base">📊 대진표</h3>
             <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">대진표와 결과 현황을 확인하세요</p>
@@ -85,7 +85,7 @@ export default function AdminPage() {
 
           <Link
             href="/admin/notifications"
-            className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-pink-400 hover:bg-pink-50 sm:p-4"
+            className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-pink-400 hover:bg-pink-50 sm:p-4 shadow-sm"
           >
             <h3 className="text-sm font-medium text-gray-900 sm:text-base">📢 공지사항</h3>
             <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">클럽의 공지사항을 등록하고 관리하세요</p>
@@ -95,7 +95,7 @@ export default function AdminPage() {
             <>
               <Link
                 href="/admin/members"
-                className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-purple-400 hover:bg-purple-50 sm:p-4"
+                className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-purple-400 hover:bg-purple-50 sm:p-4 shadow-sm"
               >
                 <h3 className="text-sm font-medium text-gray-900 sm:text-base">👥 회원관리</h3>
                 <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">회원 정보와 권한을 관리하세요</p>
@@ -103,7 +103,7 @@ export default function AdminPage() {
 
               <Link
                 href="/admin/manual"
-                className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-sky-400 hover:bg-sky-50 sm:p-4"
+                className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-sky-400 hover:bg-sky-50 sm:p-4 shadow-sm"
               >
                 <h3 className="text-sm font-medium text-gray-900 sm:text-base">📖 사용설명서</h3>
                 <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">시스템 기능과 관리 이용 안내서를 확인하세요</p>

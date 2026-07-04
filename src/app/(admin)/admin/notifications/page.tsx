@@ -37,7 +37,7 @@ export default function AdminNotificationsPage() {
 
   // 1. Filter rows by type
   const filteredRows = useMemo(() => {
-    if (filterType === 'all') return rows;
+    if (filterType === 'all') return [];
     return rows.filter(r => r.type === filterType);
   }, [rows, filterType]);
 
@@ -528,7 +528,6 @@ export default function AdminNotificationsPage() {
           {/* 타입 필터 버튼 */}
           <div className="flex flex-wrap gap-1.5">
             {[
-              { value: 'all', label: '전체' },
               { value: 'general', label: '일반 알림' },
               { value: 'match_preparation', label: '경기 준비' },
               { value: 'match_result', label: '경기 결과' },
@@ -592,7 +591,9 @@ export default function AdminNotificationsPage() {
         {rows.length === 0 ? (
           <div className="text-gray-500 text-sm py-8 text-center bg-slate-50 rounded-xl border border-dashed">등록된 알림이 없습니다.</div>
         ) : displayRows.length === 0 ? (
-          <div className="text-gray-500 text-sm py-8 text-center bg-slate-50 rounded-xl border border-dashed">조건에 맞는 알림 내역이 없습니다.</div>
+          <div className="text-gray-500 text-sm py-8 text-center bg-slate-50 rounded-xl border border-dashed">
+            {filterType === 'all' ? '알림 타입을 선택하시면 해당 내역이 표시됩니다.' : '조건에 맞는 알림 내역이 없습니다.'}
+          </div>
         ) : viewMode === 'card' ? (
           /* 카드 보기 (5열 구성) */
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">

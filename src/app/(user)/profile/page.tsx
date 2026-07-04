@@ -600,15 +600,15 @@ export default function ProfilePage() {
 
             {/* 회원 상세 정보 */}
             <div className="flex-1 w-full text-center sm:text-left px-2">
-              <div className="space-y-1">
+              <div className="space-y-2">
+                <p className="text-[11px] text-slate-400 leading-normal bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 inline-block text-left">
+                  📢 서로의 얼굴 익히기 위해서 필요하니 꼭 등록해 주세요.
+                </p>
                 <div className="flex flex-wrap justify-center sm:justify-start items-center gap-2 text-xs">
                   <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">레벨 {levelLabel}</span>
                   <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">{roleLabel}</span>
                   <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-amber-100">코인 {profile?.coin_balance ?? 0}</span>
                 </div>
-                <p className="mt-3 text-[11px] text-slate-400 leading-normal bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 inline-block text-left">
-                  📢 서로의 얼굴 익히기 위해서 필요하니 꼭 등록해 주세요.
-                </p>
               </div>
             </div>
           </div>

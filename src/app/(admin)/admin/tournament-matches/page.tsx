@@ -3346,8 +3346,12 @@ export default function TournamentMatchesPage() {
                         <h4 className="mb-3 text-base font-semibold text-slate-900">{groupName} ({groupedMatches.length}경기)</h4>
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                           {groupedMatches.map((match) => {
-                            const team1Score = (match.team1_levels || []).reduce((sum, score) => sum + score, 0);
-                            const team2Score = (match.team2_levels || []).reduce((sum, score) => sum + score, 0);
+                            const team1Score = (match.team1_levels && match.team1_levels.length > 0)
+                              ? match.team1_levels.reduce((sum, score) => sum + score, 0)
+                              : match.team1.reduce((sum, p) => sum + getPlayerScore(p), 0);
+                            const team2Score = (match.team2_levels && match.team2_levels.length > 0)
+                              ? match.team2_levels.reduce((sum, score) => sum + score, 0)
+                              : match.team2.reduce((sum, p) => sum + getPlayerScore(p), 0);
                             const hasResult = match.score_team1 != null && match.score_team2 != null;
 
                             return (
@@ -3361,51 +3365,49 @@ export default function TournamentMatchesPage() {
                                   <div className={`rounded-lg p-2.5 flex items-center justify-between text-left ${
                                     hasResult && match.winner === 'team1' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
                                   }`}>
-                                    <div className="truncate">
-                                      <div className="flex items-center gap-1 flex-wrap">
-                                        {match.team1.map((p, idx) => (
-                                          <span key={p} className="inline-flex items-center">
-                                            {idx > 0 && <span className="mx-1 text-slate-300">/</span>}
-                                            <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
-                                            {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
-                                          </span>
-                                        ))}
-                                        {team1Score > 0 && (
-                                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded ml-1 shrink-0">
-                                            {team1Score.toFixed(0)}점
-                                          </span>
-                                        )}
-                                      </div>
+                                    <div className="flex flex-col items-start gap-1 w-full">
+                                      {match.team1.map(p => (
+                                        <div key={p} className="inline-flex items-center">
+                                          <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
+                                          {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
+                                        </div>
+                                      ))}
+                                      {team1Score > 0 && (
+                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mt-0.5">
+                                          합계 {team1Score.toFixed(0)}점
+                                        </span>
+                                      )}
                                     </div>
-                                    {hasResult && (
-                                      <span className="text-sm font-bold text-amber-700 ml-2">{match.score_team1}</span>
-                                    )}
                                   </div>
 
-                                  <div className="text-center text-xs font-semibold text-slate-400 px-1">VS</div>
+                                  <div className="flex flex-col items-center justify-center min-w-[2.5rem] px-2 py-1 bg-slate-100 rounded-lg shadow-inner">
+                                    {hasResult ? (
+                                      <div className="flex flex-col items-center font-bold text-sm leading-none gap-1">
+                                        <span className="text-blue-600">{match.score_team1}</span>
+                                        <span className="text-[9px] text-slate-400 font-semibold">VS</span>
+                                        <span className="text-red-600">{match.score_team2}</span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs font-semibold text-slate-400">VS</span>
+                                    )}
+                                  </div>
                                   
                                   <div className={`rounded-lg p-2.5 flex items-center justify-between text-right flex-row-reverse ${
                                     hasResult && match.winner === 'team2' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
                                   }`}>
-                                    <div className="truncate text-right">
-                                      <div className="flex items-center gap-1 flex-wrap justify-end flex-row-reverse">
-                                        {match.team2.map((p, idx) => (
-                                          <span key={p} className="inline-flex items-center flex-row-reverse">
-                                            {idx > 0 && <span className="mx-1 text-slate-300">/</span>}
-                                            <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
-                                            {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
-                                          </span>
-                                        ))}
-                                        {team2Score > 0 && (
-                                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mr-1 shrink-0">
-                                            {team2Score.toFixed(0)}점
-                                          </span>
-                                        )}
-                                      </div>
+                                    <div className="flex flex-col items-end gap-1 w-full">
+                                      {match.team2.map(p => (
+                                        <div key={p} className="inline-flex items-center flex-row-reverse">
+                                          <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
+                                          {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
+                                        </div>
+                                      ))}
+                                      {team2Score > 0 && (
+                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mt-0.5">
+                                          합계 {team2Score.toFixed(0)}점
+                                        </span>
+                                      )}
                                     </div>
-                                    {hasResult && (
-                                      <span className="text-sm font-bold text-amber-700 mr-2">{match.score_team2}</span>
-                                    )}
                                   </div>
                                 </div>
                                 {hasResult && (
@@ -3444,59 +3446,61 @@ export default function TournamentMatchesPage() {
                                   </div>
                                   <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-center w-full">
                                     {(() => {
-                                      const team1Score = (match.team1_levels || []).reduce((sum, score) => sum + score, 0);
-                                      const team2Score = (match.team2_levels || []).reduce((sum, score) => sum + score, 0);
+                                      const team1Score = (match.team1_levels && match.team1_levels.length > 0)
+                                        ? match.team1_levels.reduce((sum, score) => sum + score, 0)
+                                        : match.team1.reduce((sum, p) => sum + getPlayerScore(p), 0);
+                                      const team2Score = (match.team2_levels && match.team2_levels.length > 0)
+                                        ? match.team2_levels.reduce((sum, score) => sum + score, 0)
+                                        : match.team2.reduce((sum, p) => sum + getPlayerScore(p), 0);
 
                                       return (
                                         <>
                                           <div className={`rounded-lg p-2.5 flex items-center justify-between text-left ${
                                             hasResult && match.winner === 'team1' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
                                           }`}>
-                                            <div className="truncate">
-                                              <div className="flex items-center gap-1 flex-wrap">
-                                                {match.team1.map((p, idx) => (
-                                                  <span key={p} className="inline-flex items-center">
-                                                    {idx > 0 && <span className="mx-1 text-slate-300">/</span>}
-                                                    <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
-                                                    {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
-                                                  </span>
-                                                ))}
-                                                {team1Score > 0 && (
-                                                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded ml-1 shrink-0">
-                                                    {team1Score.toFixed(0)}점
-                                                  </span>
-                                                )}
-                                              </div>
+                                            <div className="flex flex-col items-start gap-1 w-full">
+                                              {match.team1.map(p => (
+                                                <div key={p} className="inline-flex items-center">
+                                                  <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
+                                                  {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
+                                                </div>
+                                              ))}
+                                              {team1Score > 0 && (
+                                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mt-0.5">
+                                                  합계 {team1Score.toFixed(0)}점
+                                                </span>
+                                              )}
                                             </div>
-                                            {hasResult && (
-                                              <span className="text-sm font-bold text-amber-700 ml-2">{match.score_team1}</span>
-                                            )}
                                           </div>
 
-                                          <div className="text-center text-xs font-semibold text-slate-400 px-1">VS</div>
+                                          <div className="flex flex-col items-center justify-center min-w-[2.5rem] px-2 py-1 bg-slate-100 rounded-lg shadow-inner">
+                                            {hasResult ? (
+                                              <div className="flex flex-col items-center font-bold text-sm leading-none gap-1">
+                                                <span className="text-blue-600">{match.score_team1}</span>
+                                                <span className="text-[9px] text-slate-400 font-semibold">VS</span>
+                                                <span className="text-red-600">{match.score_team2}</span>
+                                              </div>
+                                            ) : (
+                                              <span className="text-xs font-semibold text-slate-400">VS</span>
+                                            )}
+                                          </div>
                                           
                                           <div className={`rounded-lg p-2.5 flex items-center justify-between text-right flex-row-reverse ${
                                             hasResult && match.winner === 'team2' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
                                           }`}>
-                                            <div className="truncate text-right">
-                                              <div className="flex items-center gap-1 flex-wrap justify-end flex-row-reverse">
-                                                {match.team2.map((p, idx) => (
-                                                  <span key={p} className="inline-flex items-center flex-row-reverse">
-                                                    {idx > 0 && <span className="mx-1 text-slate-300">/</span>}
-                                                    <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
-                                                    {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
-                                                  </span>
-                                                ))}
-                                                {team2Score > 0 && (
-                                                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mr-1 shrink-0">
-                                                    {team2Score.toFixed(0)}점
-                                                  </span>
-                                                )}
-                                              </div>
+                                            <div className="flex flex-col items-end gap-1 w-full">
+                                              {match.team2.map(p => (
+                                                <div key={p} className="inline-flex items-center flex-row-reverse">
+                                                  <span className="text-sm font-semibold text-slate-900">{getPlayerName(p)}</span>
+                                                  {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
+                                                </div>
+                                              ))}
+                                              {team2Score > 0 && (
+                                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mt-0.5">
+                                                  합계 {team2Score.toFixed(0)}점
+                                                </span>
+                                              )}
                                             </div>
-                                            {hasResult && (
-                                              <span className="text-sm font-bold text-amber-700 mr-2">{match.score_team2}</span>
-                                            )}
                                           </div>
                                         </>
                                       );

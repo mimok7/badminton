@@ -2568,12 +2568,12 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                           {renderMatchSections.map((section) => (
                             <section key={section.groupName || 'all-matches'} className="space-y-2 sm:space-y-3">
                               {section.groupName && (
-                                <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-                                  <div>
-                                    <p className="text-sm font-semibold text-amber-900">
+                                <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-semibold text-amber-900">
                                       {viewMode === 'court' ? '' : getGroupIcon(section.groupName)} {section.groupName}
-                                    </p>
-                                    <p className="text-xs text-amber-700">{section.matches.length}경기</p>
+                                    </span>
+                                    <span className="text-xs text-amber-700 font-medium">({section.matches.length}경기)</span>
                                   </div>
                                 </div>
                               )}
@@ -2862,20 +2862,16 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                                 </div>
                                               </div>
                                             ) : (
-                                              <div className="flex items-start justify-between w-full">
-                                                <div>
-                                                  <p className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel || '(코트 미배정)'}</p>
-                                                  <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
-                                                    {pairGroupLabel && (
-                                                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
-                                                    )}
-                                                    {match.scheduled_time && (
-                                                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-800">
-                                                        ⏰ {formatScheduledTime(match.scheduled_time)}
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </div>
+                                              <div className="flex flex-wrap items-center gap-1.5">
+                                                <span className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel || '(코트 미배정)'}</span>
+                                                {match.scheduled_time && (
+                                                  <span className="text-[10px] sm:text-xs text-slate-500 font-medium">
+                                                    ({formatScheduledTime(match.scheduled_time)})
+                                                  </span>
+                                                )}
+                                                {pairGroupLabel && (
+                                                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] sm:text-xs font-medium text-amber-800">{pairGroupLabel}</span>
+                                                )}
                                                 <button
                                                   type="button"
                                                   onClick={() => {
@@ -2890,18 +2886,16 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                               </div>
                                             )
                                           ) : (
-                                            <div>
-                                              <p className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel || '(코트 미배정)'}</p>
-                                              <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
-                                                {pairGroupLabel && (
-                                                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
-                                                )}
-                                                {match.scheduled_time && (
-                                                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-800">
-                                                    ⏰ {formatScheduledTime(match.scheduled_time)}
-                                                  </span>
-                                                )}
-                                              </div>
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                              <span className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel || '(코트 미배정)'}</span>
+                                              {match.scheduled_time && (
+                                                <span className="text-[10px] sm:text-xs text-slate-500 font-medium">
+                                                  ({formatScheduledTime(match.scheduled_time)})
+                                                </span>
+                                              )}
+                                              {pairGroupLabel && (
+                                                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] sm:text-xs font-medium text-amber-800">{pairGroupLabel}</span>
+                                              )}
                                             </div>
                                           )}
                                         </div>
@@ -3511,11 +3505,13 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                         {renderMatchSections.map((section) => (
                           <section key={section.groupName || 'all-user-matches'} className="space-y-2 sm:space-y-3">
                             {section.groupName && (
-                              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-                                <p className="text-sm font-semibold text-amber-900">
-                                  {viewMode === 'court' ? '' : getGroupIcon(section.groupName)} {section.groupName}
-                                </p>
-                                <p className="text-xs text-amber-700">{section.matches.length}경기</p>
+                              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-amber-900">
+                                    {viewMode === 'court' ? '' : getGroupIcon(section.groupName)} {section.groupName}
+                                  </span>
+                                  <span className="text-xs text-amber-700 font-medium">({section.matches.length}경기)</span>
+                                </div>
                               </div>
                             )}
                             {layoutMode === 'table' ? (
@@ -3619,18 +3615,16 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                                   return (
                                     <article key={match.id || `match-view-${section.groupName || 'all'}-${index}`} className={`rounded-2xl sm:rounded-[24px] border p-2.5 sm:p-4 ${isCompleted ? 'border-emerald-200 bg-emerald-50/70' : isPending ? 'border-slate-200 bg-white' : 'border-amber-200 bg-amber-50/70'}`}>
                                       <div className="flex items-start justify-between gap-2 sm:gap-3">
-                                        <div>
-                                          <p className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel}</p>
-                                          <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
-                                            {pairGroupLabel && (
-                                              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">{pairGroupLabel}</span>
-                                            )}
-                                            {match.scheduled_time && (
-                                              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-medium text-slate-800">
-                                                ⏰ {formatScheduledTime(match.scheduled_time)}
-                                              </span>
-                                            )}
-                                          </div>
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          <span className="text-xs sm:text-sm font-bold text-slate-950">{cleanCourtLabel}</span>
+                                          {match.scheduled_time && (
+                                            <span className="text-[10px] sm:text-xs text-slate-500 font-medium">
+                                              ({formatScheduledTime(match.scheduled_time)})
+                                            </span>
+                                          )}
+                                          {pairGroupLabel && (
+                                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] sm:text-xs font-medium text-amber-800">{pairGroupLabel}</span>
+                                          )}
                                         </div>
                                         <span className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold ${isCompleted ? 'bg-emerald-100 text-emerald-800' : isPending ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
                                           {isCompleted ? '완료' : isPending ? '대기중' : '진행중'}

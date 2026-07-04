@@ -352,9 +352,6 @@ function MatchResultsPage() {
     const gm = match.generated_match;
     if (!gm) return null;
 
-    const team1Text = `${getPlayerName(gm.team1_player1)}, ${getPlayerName(gm.team1_player2)}`;
-    const team2Text = `${getPlayerName(gm.team2_player1)}, ${getPlayerName(gm.team2_player2)}`;
-
     return (
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
@@ -362,33 +359,50 @@ function MatchResultsPage() {
           {getStatusBadge(match.status)}
         </div>
         
-        <div className="space-y-2">
-          {/* 라켓팀 행 */}
-          <div className="flex items-center justify-between gap-3 bg-blue-50/50 border border-blue-100/60 rounded-lg px-2.5 py-1.5">
-            <div className="min-w-0 flex-1">
-              <span className="inline-block text-[9px] font-bold text-blue-600 bg-blue-100/80 px-1.5 py-0.5 rounded-sm mr-2 select-none">라켓팀</span>
-              <span className="text-xs font-semibold text-slate-800 truncate" title={team1Text}>{team1Text}</span>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          {/* 왼쪽: 라켓팀 (선수 위아래 배치) */}
+          <div className="flex flex-col items-center justify-center bg-blue-50/40 border border-blue-100/50 rounded-lg p-2 min-h-[72px] text-center min-w-0">
+            <div className="text-[9px] font-bold text-blue-600 mb-1 select-none">라켓팀</div>
+            <div className="flex flex-col gap-0.5 w-full min-w-0">
+              <div className="truncate text-xs font-semibold text-slate-800">{getPlayerName(gm.team1_player1)}</div>
+              <div className="truncate text-xs font-semibold text-slate-800">{getPlayerName(gm.team1_player2)}</div>
             </div>
-            <input
-              type="number"
-              value={team1Score}
-              onChange={(e) => setTeam1Score(Number(e.target.value))}
-              className="w-12 h-8 border border-slate-300 rounded-md text-center text-xs font-bold bg-white focus:ring-1 focus:ring-blue-500 outline-none shrink-0"
-            />
           </div>
           
-          {/* 셔틀팀 행 */}
-          <div className="flex items-center justify-between gap-3 bg-red-50/50 border border-red-100/60 rounded-lg px-2.5 py-1.5">
-            <div className="min-w-0 flex-1">
-              <span className="inline-block text-[9px] font-bold text-red-600 bg-red-100/80 px-1.5 py-0.5 rounded-sm mr-2 select-none">셔틀팀</span>
-              <span className="text-xs font-semibold text-slate-800 truncate" title={team2Text}>{team2Text}</span>
+          {/* 가운데: 점수 위아래 배치 (라켓팀 점수 위, 셔틀팀 점수 아래) */}
+          <div className="flex flex-col items-center justify-center gap-1 px-1 shrink-0">
+            {/* 라켓팀 점수 */}
+            <div className="flex flex-col items-center">
+              <span className="text-[8px] font-bold text-blue-500 uppercase select-none mb-0.5">라켓점수</span>
+              <input
+                type="number"
+                value={team1Score}
+                onChange={(e) => setTeam1Score(Number(e.target.value))}
+                className="w-10 h-7 border border-blue-300 bg-blue-50/30 rounded text-center text-xs font-bold text-blue-700 focus:ring-1 focus:ring-blue-500 outline-none"
+              />
             </div>
-            <input
-              type="number"
-              value={team2Score}
-              onChange={(e) => setTeam2Score(Number(e.target.value))}
-              className="w-12 h-8 border border-slate-300 rounded-md text-center text-xs font-bold bg-white focus:ring-1 focus:ring-blue-500 outline-none shrink-0"
-            />
+            
+            <div className="h-[1px] w-6 bg-slate-200 my-0.5" />
+            
+            {/* 셔틀팀 점수 */}
+            <div className="flex flex-col items-center">
+              <input
+                type="number"
+                value={team2Score}
+                onChange={(e) => setTeam2Score(Number(e.target.value))}
+                className="w-10 h-7 border border-red-300 bg-red-50/30 rounded text-center text-xs font-bold text-red-700 focus:ring-1 focus:ring-red-500 outline-none"
+              />
+              <span className="text-[8px] font-bold text-red-500 uppercase select-none mt-0.5">셔틀점수</span>
+            </div>
+          </div>
+          
+          {/* 오른쪽: 셔틀팀 (선수 위아래 배치) */}
+          <div className="flex flex-col items-center justify-center bg-red-50/40 border border-red-100/50 rounded-lg p-2 min-h-[72px] text-center min-w-0">
+            <div className="text-[9px] font-bold text-red-600 mb-1 select-none">셔틀팀</div>
+            <div className="flex flex-col gap-0.5 w-full min-w-0">
+              <div className="truncate text-xs font-semibold text-slate-800">{getPlayerName(gm.team2_player1)}</div>
+              <div className="truncate text-xs font-semibold text-slate-800">{getPlayerName(gm.team2_player2)}</div>
+            </div>
           </div>
         </div>
 

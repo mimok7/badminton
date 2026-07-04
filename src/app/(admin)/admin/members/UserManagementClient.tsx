@@ -623,8 +623,8 @@ export default function UserManagementClient({
         };
     }, [attendanceSummary, memberList]);
 
-    const tabButtonClass = (tab: TabKey) =>
-        `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+    const tabButtonClass = (tab: TabKey, displayClass = 'inline-flex') =>
+        `${displayClass} items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
             selectedTab === tab
                 ? 'bg-slate-900 text-white'
                 : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -1003,7 +1003,7 @@ export default function UserManagementClient({
                             <UserPlus className="size-4" />
                             회원 추가
                         </button>
-                        <button type="button" onClick={() => setSelectedTab('rating-period')} className={tabButtonClass('rating-period')}>
+                        <button type="button" onClick={() => setSelectedTab('rating-period')} className={tabButtonClass('rating-period', 'hidden md:inline-flex')}>
                             <Calendar className="size-4" />
                             평가 기간 설정
                         </button>

@@ -1235,37 +1235,39 @@ export default function UserManagementClient({
                                             });
                                         }
                                     }}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                                    className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
                                     disabled={isPending}
                                 >
                                     <Trash2 className="size-3.5" />
                                     전원 일괄 초기화
                                 </button>
                             )}
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('table')}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                                    viewMode === 'table'
-                                        ? 'bg-slate-900 text-white border-slate-900'
-                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                }`}
-                            >
-                                <List className="size-3.5" />
-                                표 보기
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('card')}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                                    viewMode === 'card'
-                                        ? 'bg-slate-900 text-white border-slate-900'
-                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                }`}
-                            >
-                                <LayoutGrid className="size-3.5" />
-                                카드 보기
-                            </button>
+                            <div className="hidden md:flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('table')}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                        viewMode === 'table'
+                                            ? 'bg-slate-900 text-white border-slate-900'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <List className="size-3.5" />
+                                    표 보기
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('card')}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                        viewMode === 'card'
+                                            ? 'bg-slate-900 text-white border-slate-900'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <LayoutGrid className="size-3.5" />
+                                    카드 보기
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -1350,37 +1352,39 @@ export default function UserManagementClient({
                                             });
                                         }
                                     }}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                                    className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
                                     disabled={isPending}
                                 >
                                     <Trash2 className="size-3.5" />
                                     전원 일괄 초기화
                                 </button>
                             )}
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('table')}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                                    viewMode === 'table'
-                                        ? 'bg-slate-900 text-white border-slate-900'
-                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                }`}
-                            >
-                                <List className="size-3.5" />
-                                표 보기
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('card')}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                                    viewMode === 'card'
-                                        ? 'bg-slate-900 text-white border-slate-900'
-                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                }`}
-                            >
-                                <LayoutGrid className="size-3.5" />
-                                카드 보기
-                            </button>
+                            <div className="hidden md:flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('table')}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                        viewMode === 'table'
+                                            ? 'bg-slate-900 text-white border-slate-900'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <List className="size-3.5" />
+                                    표 보기
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('card')}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                        viewMode === 'card'
+                                            ? 'bg-slate-900 text-white border-slate-900'
+                                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <LayoutGrid className="size-3.5" />
+                                    카드 보기
+                                </button>
+                            </div>
                         </div>
                     </div>
 

@@ -556,7 +556,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-2.5 pt-0 pb-3 sm:gap-5 sm:px-5 sm:pt-0 sm:pb-5">
-        <section className="rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5 sm:py-6">
+        <section className="relative rounded-[28px] bg-[#0f172a] px-4 py-5 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] sm:px-5 sm:py-6">
           <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6">
             {/* 프로필 이미지 업로더 (사각 모서리 타원 모양 - rounded-[32px]) */}
             <div className="relative shrink-0">
@@ -600,25 +600,24 @@ export default function ProfilePage() {
 
             {/* 회원 상세 정보 */}
             <div className="flex-1 w-full text-center sm:text-left px-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs text-slate-300">안녕하세요</p>
-                  <h1 className="mt-1 text-2xl font-semibold">{displayName}</h1>
-                  <div className="mt-3 flex flex-wrap justify-center sm:justify-start items-center gap-2 text-xs">
-                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">레벨 {levelLabel}</span>
-                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">{roleLabel}</span>
-                    <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-amber-100">코인 {profile?.coin_balance ?? 0}</span>
-                  </div>
+              <div className="space-y-1">
+                <p className="text-xs text-slate-300">안녕하세요</p>
+                <h1 className="text-2xl font-semibold leading-none">{displayName}</h1>
+                <div className="mt-3 flex flex-wrap justify-center sm:justify-start items-center gap-2 text-xs">
+                  <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">레벨 {levelLabel}</span>
+                  <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">{roleLabel}</span>
+                  <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-amber-100">코인 {profile?.coin_balance ?? 0}</span>
                 </div>
-                <Link href="/dashboard" className="self-center sm:self-start">
-                  <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    홈
-                  </Button>
-                </Link>
               </div>
             </div>
           </div>
+          
+          <Link href="/dashboard" className="absolute top-4 right-4">
+            <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              홈
+            </Button>
+          </Link>
         </section>
 
         <section className="rounded-[24px] bg-white px-3 py-3 sm:px-5 sm:py-5 shadow-sm">

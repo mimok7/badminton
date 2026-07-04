@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Trophy } from 'lucide-react';
+import { useUser } from '@/hooks/useUser';
 
 import { getKoreaDate } from '@/lib/date';
 import { getSupabaseClient } from '@/lib/supabase';
@@ -640,6 +641,7 @@ function getPairStats(
 export default function TournamentBracketView({ adminMode = false }: TournamentBracketViewProps) {
   const supabase = getSupabaseClient();
   const searchParams = useSearchParams();
+  const { profile } = useUser();
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
@@ -2171,9 +2173,33 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     : '경기 대진표와 경기결과 확인';
   const homeHref = adminMode ? '/admin' : '/dashboard';
   const homeLabel = '홈';
-  const selectedTournamentMetrics = selectedTournament
-    ? getTournamentMetrics(selectedTournament.id) || getTournamentMetricsFromMatches(matches)
-    : null;
+  const courtCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    matches.forEach((match) => {
+      const court = formatCourtLabel(match.court);
+      counts[court] = (counts[court] || 0) + 1;
+    });
+    return counts;
+  }, [matches]);
+
+  const courtStatsText = useMemo(() => {
+    const entries = Object.entries(courtCounts);
+    if (entries.length === 0) return '없음';
+    return entries.map(([court, count]) => `${court}(${count})`).join(', ');
+  }, [courtCounts]);
+
+  const myMatchesCount = useMemo(() => {
+    const searchNames = [profile?.full_name, profile?.username]
+      .filter((name): name is string => typeof name === 'string' && name.length > 0)
+      .map(name => name.trim().toLowerCase());
+    if (searchNames.length === 0) return 0;
+    return matches.filter(match => {
+      const team1 = match.team1 || [];
+      const team2 = match.team2 || [];
+      const allPlayers = [...team1, ...team2].map(name => name.trim().toLowerCase());
+      return searchNames.some(searchName => allPlayers.some(player => player === searchName || player.includes(searchName)));
+    }).length;
+  }, [matches, profile]);
 
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900">
@@ -2211,6 +2237,19 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
                   홈
                 </Button>
               </Link>
+            </div>
+
+            {/* 통계 부분 추가 */}
+            <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 text-[11px] text-slate-200">
+              <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1">
+                총게임: <span className="font-semibold text-white">{matches.length}경기</span>
+              </span>
+              <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1">
+                내게임: <span className="font-semibold text-white">{myMatchesCount}경기</span>
+              </span>
+              <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1">
+                코트별 게임: <span className="font-semibold text-white">{courtStatsText}</span>
+              </span>
             </div>
           </section>
         )}

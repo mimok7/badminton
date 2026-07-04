@@ -582,7 +582,7 @@ export default function MatchSessionStatus({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 border-b bg-slate-50 px-5 py-3">
+            <div className="hidden md:flex items-center gap-2 border-b bg-slate-50 px-5 py-3">
               <button
                 type="button"
                 onClick={() => setAssignedModalView('sequence')}

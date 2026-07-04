@@ -83,6 +83,14 @@ export default function AdminPage() {
             <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">대진표와 결과 현황을 확인하세요</p>
           </Link>
 
+          <Link
+            href="/admin/notifications"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-pink-400 hover:bg-pink-50 sm:p-4"
+          >
+            <h3 className="text-sm font-medium text-gray-900 sm:text-base">📢 공지사항</h3>
+            <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">클럽의 공지사항을 등록하고 관리하세요</p>
+          </Link>
+
           {profile?.role !== 'manager' && (
             <>
               <Link

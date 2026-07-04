@@ -163,10 +163,10 @@ export default function GeneratedMatchesList({
       </h3>
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-800">
-          평균 차이: <span className="font-bold">{averageScoreDiff.toFixed(1)}점</span>
+          평균 차이: <span className="font-bold">{averageScoreDiff.toFixed(0)}점</span>
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
-          최대 차이: <span className="font-bold">{maxScoreDiff.toFixed(1)}점</span>
+          최대 차이: <span className="font-bold">{maxScoreDiff.toFixed(0)}점</span>
         </div>
       </div>
       
@@ -191,7 +191,7 @@ export default function GeneratedMatchesList({
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                     isWorstMatch ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
                   }`}>
-                    점수차: {scoreDiffEntry.diff.toFixed(1)}점
+                    점수차: {scoreDiffEntry.diff.toFixed(0)}점
                   </span>
                   {isWorstMatch && (
                     <span className="text-[9px] font-bold text-rose-600 bg-rose-100/50 px-1.5 py-0.5 rounded">최대 편차</span>
@@ -207,7 +207,7 @@ export default function GeneratedMatchesList({
                       <span className="text-xs font-bold text-blue-600">🔵 팀 1</span>
                       {(match.team1?.player1 || match.team1?.player2) && (
                         <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 rounded">
-                          합계: {getAccurateTeamScore(match.team1).toFixed(1)}점
+                          합계: {getAccurateTeamScore(match.team1).toFixed(0)}점
                         </span>
                       )}
                     </div>
@@ -255,7 +255,7 @@ export default function GeneratedMatchesList({
                       <span className="text-xs font-bold text-red-600">🔴 팀 2</span>
                       {(match.team2?.player1 || match.team2?.player2) && (
                         <span className="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 rounded">
-                          합계: {getAccurateTeamScore(match.team2).toFixed(1)}점
+                          합계: {getAccurateTeamScore(match.team2).toFixed(0)}점
                         </span>
                       )}
                     </div>
@@ -301,7 +301,7 @@ export default function GeneratedMatchesList({
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   {/* 라켓팀 표시 */}
                   <div className="space-y-1 bg-blue-50/40 p-2.5 rounded-lg border border-blue-100/50">
-                    <div className="font-bold text-blue-600 mb-0.5">🔵 팀 1 ({getAccurateTeamScore(match.team1).toFixed(1)}점)</div>
+                    <div className="font-bold text-blue-600 mb-0.5">🔵 팀 1 ({getAccurateTeamScore(match.team1).toFixed(0)}점)</div>
                     <div className="text-slate-800 font-medium leading-relaxed truncate" title={getPlayerName(match.team1.player1)}>
                       {getPlayerName(match.team1.player1)}
                     </div>
@@ -312,7 +312,7 @@ export default function GeneratedMatchesList({
 
                   {/* 셔틀팀 표시 */}
                   <div className="space-y-1 bg-red-50/40 p-2.5 rounded-lg border border-red-100/50">
-                    <div className="font-bold text-red-600 mb-0.5">🔴 팀 2 ({getAccurateTeamScore(match.team2).toFixed(1)}점)</div>
+                    <div className="font-bold text-red-600 mb-0.5">🔴 팀 2 ({getAccurateTeamScore(match.team2).toFixed(0)}점)</div>
                     <div className="text-slate-800 font-medium leading-relaxed truncate" title={getPlayerName(match.team2.player1)}>
                       {getPlayerName(match.team2.player1)}
                     </div>
@@ -393,7 +393,7 @@ export default function GeneratedMatchesList({
                         </div>
                         {(match.team1?.player1 || match.team1?.player2) && (
                           <div className="text-xs font-bold text-blue-600 whitespace-nowrap px-2">
-                            ({getAccurateTeamScore(match.team1).toFixed(1)})
+                            ({getAccurateTeamScore(match.team1).toFixed(0)})
                           </div>
                         )}
                       </div>
@@ -438,13 +438,13 @@ export default function GeneratedMatchesList({
                         </div>
                         {(match.team2?.player1 || match.team2?.player2) && (
                           <div className="text-xs font-bold text-red-600 whitespace-nowrap px-2">
-                            ({getAccurateTeamScore(match.team2).toFixed(1)})
+                            ({getAccurateTeamScore(match.team2).toFixed(0)})
                           </div>
                         )}
                       </div>
                     </td>
                     <td className={`border border-gray-300 px-2 py-2 text-center text-xs font-semibold ${isWorstMatch ? 'text-rose-700' : 'text-gray-700'}`}>
-                      {scoreDiffEntry.diff.toFixed(1)}점
+                      {scoreDiffEntry.diff.toFixed(0)}점
                       {isWorstMatch && (
                         <div className="mt-1 text-[11px] font-medium text-rose-600">최대 편차</div>
                       )}
@@ -454,14 +454,14 @@ export default function GeneratedMatchesList({
                   <>
                     <td className="border border-gray-300 px-2 py-2 text-center text-blue-600 text-xs">
                       {getPlayerName(match.team1.player1)}, {getPlayerName(match.team1.player2)}
-                      <span className="text-xs text-gray-500 ml-2">({getAccurateTeamScore(match.team1).toFixed(1)})</span>
+                      <span className="text-xs text-gray-500 ml-2">({getAccurateTeamScore(match.team1).toFixed(0)})</span>
                     </td>
                     <td className="border border-gray-300 px-2 py-2 text-center text-red-600 text-xs">
                       {getPlayerName(match.team2.player1)}, {getPlayerName(match.team2.player2)}
-                      <span className="text-xs text-gray-500 ml-2">({getAccurateTeamScore(match.team2).toFixed(1)})</span>
+                      <span className="text-xs text-gray-500 ml-2">({getAccurateTeamScore(match.team2).toFixed(0)})</span>
                     </td>
                     <td className={`border border-gray-300 px-2 py-2 text-center text-xs font-semibold ${isWorstMatch ? 'bg-rose-100 text-rose-700' : 'text-gray-700'}`}>
-                      {scoreDiffEntry.diff.toFixed(1)}점
+                      {scoreDiffEntry.diff.toFixed(0)}점
                       {isWorstMatch && (
                         <div className="mt-1 text-[11px] font-medium text-rose-600">최대 편차</div>
                       )}

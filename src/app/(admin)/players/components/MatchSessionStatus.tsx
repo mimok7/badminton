@@ -440,10 +440,10 @@ export default function MatchSessionStatus({
                   </h5>
                     <div className="mt-3 flex flex-wrap gap-2 text-sm">
                       <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-800">
-                        평균 차이: <span className="font-bold">{averageScoreDiff.toFixed(1)}점</span>
+                        평균 차이: <span className="font-bold">{averageScoreDiff.toFixed(0)}점</span>
                       </div>
                       <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
-                        최대 차이: <span className="font-bold">{maxScoreDiff.toFixed(1)}점</span>
+                        최대 차이: <span className="font-bold">{maxScoreDiff.toFixed(0)}점</span>
                       </div>
                     </div>
                 </div>
@@ -478,7 +478,7 @@ export default function MatchSessionStatus({
                                 {renderPlayerLine(row.match.team1_player1.name, row.match.team1_player1.skill_level, row.team1Player1Score)}
                                 {renderPlayerLine(row.match.team1_player2.name, row.match.team1_player2.skill_level, row.team1Player2Score)}
                                 <div className="pt-1 text-sm font-semibold text-blue-700">
-                                  ({row.team1Score.toFixed(1)})
+                                  ({row.team1Score.toFixed(0)})
                                 </div>
                               </div>
                             </td>
@@ -487,12 +487,12 @@ export default function MatchSessionStatus({
                                 {renderPlayerLine(row.match.team2_player1.name, row.match.team2_player1.skill_level, row.team2Player1Score)}
                                 {renderPlayerLine(row.match.team2_player2.name, row.match.team2_player2.skill_level, row.team2Player2Score)}
                                 <div className="pt-1 text-sm font-semibold text-rose-700">
-                                  ({row.team2Score.toFixed(1)})
+                                  ({row.team2Score.toFixed(0)})
                                 </div>
                               </div>
                             </td>
                             <td className={`border border-gray-300 px-2 py-3 text-center text-sm font-semibold ${isWorstMatch ? 'text-rose-700' : 'text-gray-700'}`}>
-                              <div>{row.diff.toFixed(1)}점</div>
+                              <div>{row.diff.toFixed(0)}점</div>
                               {isWorstMatch && (
                                 <div className="mt-1 text-xs font-medium text-rose-600">최대 편차</div>
                               )}
@@ -631,7 +631,7 @@ export default function MatchSessionStatus({
                         <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
                           <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-3">
                             <div className="mb-1 text-xs font-semibold text-sky-700">
-                              팀 A · 합계 {match.team1_total_score.toFixed(1)}점
+                              팀 A · 합계 {match.team1_total_score.toFixed(0)}점
                             </div>
                             {renderAssignedPlayer(match.team1_player1_name, match.team1_player1_skill_level, match.team1_player1_score)}
                             {renderAssignedPlayer(match.team1_player2_name, match.team1_player2_skill_level, match.team1_player2_score)}
@@ -639,7 +639,7 @@ export default function MatchSessionStatus({
                           <div className="text-center text-sm font-semibold text-slate-400">VS</div>
                           <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-3">
                             <div className="mb-1 text-xs font-semibold text-rose-700">
-                              팀 B · 합계 {match.team2_total_score.toFixed(1)}점
+                              팀 B · 합계 {match.team2_total_score.toFixed(0)}점
                             </div>
                             {renderAssignedPlayer(match.team2_player1_name, match.team2_player1_skill_level, match.team2_player1_score)}
                             {renderAssignedPlayer(match.team2_player2_name, match.team2_player2_skill_level, match.team2_player2_score)}
@@ -679,14 +679,14 @@ export default function MatchSessionStatus({
                           <div className="grid gap-3 sm:grid-cols-2">
                             <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
                               <div className="mb-1 text-xs font-semibold text-sky-700">
-                                팀 A · 합계 {match.team1_total_score.toFixed(1)}점
+                                팀 A · 합계 {match.team1_total_score.toFixed(0)}점
                               </div>
                               {renderAssignedPlayer(match.team1_player1_name, match.team1_player1_skill_level, match.team1_player1_score)}
                               {renderAssignedPlayer(match.team1_player2_name, match.team1_player2_skill_level, match.team1_player2_score)}
                             </div>
                             <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
                               <div className="mb-1 text-xs font-semibold text-rose-700">
-                                팀 B · 합계 {match.team2_total_score.toFixed(1)}점
+                                팀 B · 합계 {match.team2_total_score.toFixed(0)}점
                               </div>
                               {renderAssignedPlayer(match.team2_player1_name, match.team2_player1_skill_level, match.team2_player1_score)}
                               {renderAssignedPlayer(match.team2_player2_name, match.team2_player2_skill_level, match.team2_player2_score)}

@@ -389,7 +389,6 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         <section className="rounded-[24px] bg-[#0f172a] px-4 py-3 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
           <div className="flex items-start justify-between gap-3 px-2">
             <div>
-              <p className="text-[11px] text-slate-300">안녕하세요</p>
               <div className="mt-0.5 flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-semibold leading-tight">{displayName}</h1>
                 <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-slate-100">

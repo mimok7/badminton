@@ -601,7 +601,6 @@ export default function ProfilePage() {
             {/* 회원 상세 정보 */}
             <div className="flex-1 w-full text-center sm:text-left px-2">
               <div className="space-y-1">
-                <p className="text-xs text-slate-300">안녕하세요</p>
                 <h1 className="text-2xl font-semibold leading-none">{displayName}</h1>
                 <div className="mt-3 flex flex-wrap justify-center sm:justify-start items-center gap-2 text-xs">
                   <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">레벨 {levelLabel}</span>

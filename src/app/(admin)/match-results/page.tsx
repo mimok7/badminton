@@ -309,14 +309,19 @@ function MatchResultsPage() {
 
   // 모바일 전용 결과 제출 카드 컴포넌트
   function MobileMatchResultCard({ match, onSaved }: { match: AssignedMatch, onSaved: () => void }) {
-    const [team1Score, setTeam1Score] = useState<number>(match.generated_match?.match_result?.team1_score || 0);
-    const [team2Score, setTeam2Score] = useState<number>(match.generated_match?.match_result?.team2_score || 0);
+    const [team1Score, setTeam1Score] = useState<number | ''>(match.generated_match?.match_result?.team1_score ?? '');
+    const [team2Score, setTeam2Score] = useState<number | ''>(match.generated_match?.match_result?.team2_score ?? '');
     const [submitting, setSubmitting] = useState(false);
 
     const submitResult = async () => {
       if (!match || !match.generated_match) return;
 
-      if (team1Score === team2Score) {
+      if (team1Score === '' || team2Score === '') {
+        alert('점수를 모두 입력해주세요.');
+        return;
+      }
+
+      if (Number(team1Score) === Number(team2Score)) {
         alert('무승부는 저장할 수 없습니다.');
         return;
       }
@@ -325,9 +330,9 @@ function MatchResultsPage() {
       try {
         const payload = {
           match_id: match.generated_match.id,
-          winner_team1: team1Score > team2Score,
-          team1_score: team1Score,
-          team2_score: team2Score
+          winner_team1: Number(team1Score) > Number(team2Score),
+          team1_score: Number(team1Score),
+          team2_score: Number(team2Score)
         };
 
         const res = await fetch('/api/match-results', {
@@ -360,8 +365,8 @@ function MatchResultsPage() {
         </div>
         
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
-          {/* 왼쪽: 라켓팀 (선수 위아래 배치, 여백 최소화) */}
-          <div className="flex flex-col items-center justify-center bg-blue-50/40 border border-blue-100/50 rounded-lg p-1.5 min-h-[64px] text-center min-w-0">
+          {/* 왼쪽: 라켓팀 (선수 위아래 배치, 크기 축소) */}
+          <div className="flex flex-col items-center justify-center bg-blue-50/40 border border-blue-100/50 rounded-lg py-1 px-1.5 min-h-[56px] text-center min-w-0">
             <div className="text-[8px] font-bold text-blue-600 mb-0.5 select-none">라켓팀</div>
             <div className="flex flex-col gap-0.5 w-full min-w-0">
               <div className="truncate text-xs font-semibold text-slate-800">{getPlayerName(gm.team1_player1)}</div>
@@ -369,28 +374,34 @@ function MatchResultsPage() {
             </div>
           </div>
           
-          {/* 가운데: 점수 좌우 배치 */}
-          <div className="flex flex-col items-center justify-center px-1.5 shrink-0">
-            <span className="text-[8px] font-bold text-slate-400 uppercase select-none mb-1">VS / SCORE</span>
+          {/* 가운데: 점수 좌우 배치 (크기 증가) */}
+          <div className="flex flex-col items-center justify-center px-1 shrink-0">
+            <span className="text-[8px] font-bold text-slate-400 uppercase select-none mb-1">VS</span>
             <div className="flex items-center gap-1">
               <input
                 type="number"
                 value={team1Score}
-                onChange={(e) => setTeam1Score(Number(e.target.value))}
-                className="w-9 h-7 border border-blue-300 bg-blue-50/20 rounded text-center text-xs font-bold text-blue-700 focus:ring-1 focus:ring-blue-500 outline-none"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTeam1Score(val === '' ? '' : Number(val));
+                }}
+                className="w-11 h-8 border border-blue-300 bg-blue-50/20 rounded text-center text-sm font-bold text-blue-700 focus:ring-1 focus:ring-blue-500 outline-none"
               />
               <span className="text-xs font-bold text-slate-400">:</span>
               <input
                 type="number"
                 value={team2Score}
-                onChange={(e) => setTeam2Score(Number(e.target.value))}
-                className="w-9 h-7 border border-red-300 bg-red-50/20 rounded text-center text-xs font-bold text-red-700 focus:ring-1 focus:ring-red-500 outline-none"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTeam2Score(val === '' ? '' : Number(val));
+                }}
+                className="w-11 h-8 border border-red-300 bg-red-50/20 rounded text-center text-sm font-bold text-red-700 focus:ring-1 focus:ring-red-500 outline-none"
               />
             </div>
           </div>
           
-          {/* 오른쪽: 셔틀팀 (선수 위아래 배치, 여백 최소화) */}
-          <div className="flex flex-col items-center justify-center bg-red-50/40 border border-red-100/50 rounded-lg p-1.5 min-h-[64px] text-center min-w-0">
+          {/* 오른쪽: 셔틀팀 (선수 위아래 배치, 크기 축소) */}
+          <div className="flex flex-col items-center justify-center bg-red-50/40 border border-red-100/50 rounded-lg py-1 px-1.5 min-h-[56px] text-center min-w-0">
             <div className="text-[8px] font-bold text-red-600 mb-0.5 select-none">셔틀팀</div>
             <div className="flex flex-col gap-0.5 w-full min-w-0">
               <div className="truncate text-xs font-semibold text-slate-800">{getPlayerName(gm.team2_player1)}</div>

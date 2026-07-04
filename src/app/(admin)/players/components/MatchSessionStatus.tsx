@@ -618,13 +618,12 @@ export default function MatchSessionStatus({
                     <div key={schedule.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                       <div className="mb-2 text-sm font-semibold text-slate-900">
                         {schedule.description || `자동 배정된 경기 #${match?.match_number ?? (schedule.generated_match_id ?? '-')}`}
-                      </div>
-                      <div className="text-sm font-medium text-slate-700">
-                        {schedule.scheduled_time || schedule.start_time || '시간 미정'}
-                        {schedule.end_time ? ` - ${schedule.end_time}` : ''}
-                      </div>
-                      <div className="mt-1 text-sm text-slate-500">
-                        {schedule.location || '장소 미정'}
+                        {(() => {
+                          const time = schedule.scheduled_time || schedule.start_time;
+                          if (!time) return '';
+                          const hm = time.match(/^(\d{2}):(\d{2})/);
+                          return `(${hm ? `${hm[1]}:${hm[2]}` : time})`;
+                        })()}
                       </div>
 
                       {match ? (
@@ -659,18 +658,17 @@ export default function MatchSessionStatus({
                     <div key={schedule.id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                       <div className="mb-2 text-sm font-semibold text-emerald-900">
                         {schedule.description || `자동 배정된 경기 #${match?.match_number ?? (schedule.generated_match_id ?? '-')}`}
+                        {(() => {
+                          const time = schedule.scheduled_time || schedule.start_time;
+                          if (!time) return '';
+                          const hm = time.match(/^(\d{2}):(\d{2})/);
+                          return `(${hm ? `${hm[1]}:${hm[2]}` : time})`;
+                        })()}
                       </div>
                       <div className="flex items-start justify-between gap-3">
-                        <div className="font-medium text-emerald-900">
-                          {schedule.location || '장소 미정'}
-                        </div>
                         <div className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700">
                           {getDisplaySequenceLabel(schedule, match)}
                         </div>
-                      </div>
-                      <div className="mt-2 text-sm text-gray-700">
-                        {schedule.scheduled_time || schedule.start_time || '시간 미정'}
-                        {schedule.end_time ? ` - ${schedule.end_time}` : ''}
                       </div>
                       <div className="text-sm text-gray-600">상태: {schedule.status}</div>
 

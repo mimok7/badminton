@@ -102,7 +102,7 @@ export default function AdminPage() {
               </Link>
 
               <Link
-                href="/manual"
+                href="/admin/manual"
                 className="rounded-lg border border-gray-200 bg-white px-3 py-3 transition-colors hover:border-sky-400 hover:bg-sky-50 sm:p-4"
               >
                 <h3 className="text-sm font-medium text-gray-900 sm:text-base">📖 사용설명서</h3>

@@ -245,11 +245,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#f5f7fb] p-4">
+      <div className="max-w-md w-full space-y-6">
         <div className="text-center">
           <div className="mb-5 flex justify-center">
-            <div className="rounded-[2rem] bg-white p-4 shadow-sm ring-1 ring-gray-100">
+            <div className="rounded-[2rem] bg-white p-4 shadow-sm ring-1 ring-slate-100/60">
               <Image
                 src="/badminton.png"
                 alt="라켓 뚱보단 로고"
@@ -259,24 +259,24 @@ export default function LoginPage() {
               />
             </div>
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+          <h2 className="text-3xl font-extrabold text-slate-900">
             로그인
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-slate-600">
             라켓 뚱보단에 오신 것을 환영합니다! 🏸
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <form className="space-y-6" onSubmit={handleLogin}>
+        <div className="bg-white rounded-[24px] border border-slate-200/80 p-6 shadow-sm">
+          <form className="space-y-4" onSubmit={handleLogin}>
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-xs">
                 {error}
               </div>
             )}
 
-            <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="space-y-1.5">
+              <label htmlFor="fullName" className="text-sm font-medium text-slate-700">
                 한글 이름
               </label>
               <div className="flex gap-2">
@@ -294,30 +294,30 @@ export default function LoginPage() {
                     setAutoFillMessage('');
                   }}
                   placeholder="예: 김진호"
-                  className="w-full"
+                  className="w-full h-12 rounded-xl"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleNameSearch}
                   disabled={lookupLoading}
-                  className="shrink-0"
+                  className="shrink-0 h-12 rounded-xl border-slate-200 bg-white hover:bg-slate-50 font-semibold px-4 text-xs"
                 >
                   {lookupLoading ? '검색 중...' : '검색'}
                 </Button>
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="text-[11px] text-slate-500">
                 이름 입력 후 검색 버튼을 누르면 등록된 계정을 확인합니다.
               </p>
               {autoFillMessage && (
-                <p className={`mt-1 text-xs ${autoFillMessage.startsWith('✓') ? 'text-green-600' : 'text-amber-600'}`}>
+                <p className={`text-[11px] font-semibold ${autoFillMessage.startsWith('✓') ? 'text-green-600' : 'text-amber-600'}`}>
                   {autoFillMessage}
                 </p>
               )}
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-sm font-medium text-slate-700">
                 비밀번호
               </label>
               <Input
@@ -329,29 +329,27 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="비밀번호를 입력하세요"
-                className="w-full"
+                className="w-full h-12 rounded-xl"
               />
             </div>
 
-            <div>
+            <div className="pt-2">
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full"
+                className="w-full h-12 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-semibold shadow-lg shadow-indigo-600/10"
               >
                 {loading ? '로그인 중...' : '로그인'}
               </Button>
             </div>
-
-
           </form>
         </div>
 
-        <div className="text-center flex flex-col gap-2">
+        <div className="text-center flex flex-col gap-2.5 pt-2">
           <div>
             <Link 
               href="/manual" 
-              className="text-sm text-blue-600 hover:text-blue-800 font-semibold"
+              className="text-sm text-indigo-600 hover:underline font-semibold"
             >
               📖 사용자 설명서 보기
             </Link>
@@ -359,7 +357,7 @@ export default function LoginPage() {
           <div>
             <Link 
               href="/"
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
             >
               ← 홈으로 돌아가기
             </Link>

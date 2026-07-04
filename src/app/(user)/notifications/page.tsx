@@ -12,7 +12,9 @@ import {
   Home,
   Filter,
   BellOff,
+  ArrowLeft,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type NotificationRow = {
   id: string;
@@ -270,22 +272,22 @@ export default function NotificationsPage() {
         <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
           <div className="relative z-10 flex flex-col gap-4">
+            
             {/* 상단 네비 */}
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5 px-2">
+            <div className="flex items-center justify-between px-1">
+              <div className="space-y-0.5">
                 <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
                   <Bell className="h-3.5 w-3.5" />
                   알림 센터
                 </span>
-                <h1 className="text-xl font-bold tracking-tight">
-                  공지사항 및 알림
-                </h1>
+                <h1 className="text-xl font-bold tracking-tight">공지사항 및 알림</h1>
+                <p className="text-xs text-slate-400 mt-0.5">새로운 클럽 공지사항과 내 알림을 확인합니다.</p>
               </div>
-              <Link
-                href="/dashboard"
-                className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15"
-              >
-                홈
+              <Link href="/dashboard">
+                <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  홈
+                </Button>
               </Link>
             </div>
 
@@ -323,6 +325,7 @@ export default function NotificationsPage() {
                 </button>
               </div>
             </div>
+
           </div>
         </section>
 

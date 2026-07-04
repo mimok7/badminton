@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
-import { Search, Camera, User, X } from 'lucide-react';
+import { Search, Camera, User, X, ArrowLeft } from 'lucide-react';
 import { AvatarCropModal } from '@/components/profile/AvatarCropModal';
 import {
   Form,
@@ -610,8 +610,11 @@ export default function ProfilePage() {
                     <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-amber-100">코인 {profile?.coin_balance ?? 0}</span>
                   </div>
                 </div>
-                <Link href="/dashboard" className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15 self-center sm:self-start">
-                  홈
+                <Link href="/dashboard" className="self-center sm:self-start">
+                  <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    홈
+                  </Button>
                 </Link>
               </div>
             </div>

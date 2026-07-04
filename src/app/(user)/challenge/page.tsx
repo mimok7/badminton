@@ -213,30 +213,28 @@ export default function ChallengePage() {
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         
         {/* Header Section with sleek gradient banner */}
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 px-3.5 py-4 sm:px-6 sm:py-6 text-white shadow-xl mb-5">
-          <div className="absolute right-0 top-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl"></div>
-          <div className="absolute left-1/3 bottom-0 -mb-20 h-64 w-64 rounded-full bg-violet-500/5 blur-3xl"></div>
+        <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] mb-5">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
           
-          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="pr-16 sm:pr-0">
-              <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
-                <Sparkles className="h-3.5 w-3.5" />
-                Challenge Mode
-              </div>
-              <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight">게임 제안</h1>
-              <p className="mt-1.5 text-xs sm:text-sm text-slate-400">마음에 드는 멤버를 골라 대결을 신청해 보세요.</p>
+          <div className="relative z-10 flex items-center justify-between px-1">
+            <div className="space-y-0.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
+                <Swords className="h-3.5 w-3.5" />
+                게임 제안
+              </span>
+              <h1 className="text-xl font-bold tracking-tight">게임 제안</h1>
+              <p className="text-xs text-slate-400 mt-0.5">마음에 드는 멤버를 골라 대결을 신청해 보세요.</p>
             </div>
             
-            <Link
-              href="/dashboard"
-              className="absolute top-0.5 right-0 sm:relative sm:top-auto sm:right-auto inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 active:scale-95 border border-white/5"
-            >
-              <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              홈
+            <Link href="/dashboard">
+              <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
+                <ArrowLeft className="h-3.5 w-3.5" />
+                홈
+              </Button>
             </Link>
           </div>
           
-          <div className="relative mt-3.5 flex flex-wrap items-center gap-2 pt-3.5 border-t border-white/10 text-[11px]">
+          <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 text-[11px]">
             <div className="flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-slate-200">
               <Award className="h-3 w-3 text-indigo-400" />
               <span className="font-semibold text-slate-100">

@@ -144,31 +144,31 @@ export default function ChangePasswordPage() {
 
   if (loading || !sessionChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500" />
+      <div className="min-h-screen flex items-center justify-center bg-[#f5f7fb]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-md">
+    <div className="min-h-screen flex items-center justify-center bg-[#f5f7fb] p-4">
+      <div className="w-full max-w-md rounded-[24px] border border-slate-200/80 bg-white p-6 shadow-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">비밀번호 변경</h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <h1 className="text-2xl font-bold text-slate-900">비밀번호 변경</h1>
+          <p className="mt-2 text-sm text-slate-600">
             첫 로그인입니다. 새 비밀번호로 변경해 주세요.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="password">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-slate-700" htmlFor="password">
               새 비밀번호
             </label>
             <Input
@@ -177,13 +177,13 @@ export default function ChangePasswordPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="영문, 숫자, 특수문자 포함 8자 이상"
-              className="w-full"
+              className="w-full h-12 rounded-xl"
               required
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="confirmPassword">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-slate-700" htmlFor="confirmPassword">
               새 비밀번호 확인
             </label>
             <Input
@@ -192,18 +192,18 @@ export default function ChangePasswordPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="새 비밀번호 다시 입력"
-              className="w-full"
+              className="w-full h-12 rounded-xl"
               required
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={saving}>
+          <Button type="submit" className="w-full h-12 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-semibold" disabled={saving}>
             {saving ? '변경 중...' : '비밀번호 변경'}
           </Button>
         </form>
 
-        <div className="mt-4 text-center text-sm text-gray-500">
-          <Link href="/login" className="text-blue-600 hover:text-blue-500">
+        <div className="mt-4 text-center text-sm">
+          <Link href="/login" className="text-indigo-600 hover:underline font-semibold">
             로그인 화면으로 돌아가기
           </Link>
         </div>

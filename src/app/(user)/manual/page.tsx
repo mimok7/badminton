@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -45,27 +46,27 @@ export default function ManualPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-tr from-slate-50 via-gray-50 to-blue-50/30 pb-16">
-      {/* 프리미엄 헤더 영역 */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white py-5 px-4 sm:py-8 sm:px-6 shadow-md select-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-black/10 rounded-full blur-2xl -ml-20 -mb-20"></div>
-        
-        <div className="relative max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="pr-16 md:pr-0">
-            <div className="flex items-center gap-2 mb-2 bg-white/20 w-fit px-3 py-0.5 rounded-full text-[10px] font-semibold tracking-wide backdrop-blur-sm">
-              <Sparkles className="size-3" /> SYSTEM GUIDE
+      {/* ── 다크 그라디언트 헤더 ── */}
+      <div className="max-w-6xl mx-auto px-4 mt-6">
+        <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
+          <div className="relative z-10 flex items-center justify-between px-1">
+            <div className="space-y-0.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
+                <BookOpen className="h-3.5 w-3.5" />
+                시스템 안내
+              </span>
+              <h1 className="text-xl font-bold tracking-tight">사용 설명서</h1>
+              <p className="text-xs text-slate-400 mt-0.5">시스템 기능 및 이용 안내 가이드를 확인합니다.</p>
             </div>
-            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-              🏸 사용 설명서
-            </h1>
+            <Link href="/dashboard">
+              <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
+                <ArrowLeft className="h-3.5 w-3.5" />
+                홈
+              </Button>
+            </Link>
           </div>
-          <Link 
-            href="/dashboard" 
-            className="absolute top-0.5 right-0 md:relative md:top-auto md:right-auto flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white rounded-full px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold tracking-wide border border-white/20 backdrop-blur-sm transition-all shadow-sm shrink-0 w-fit"
-          >
-            <ArrowLeft className="size-3.5" /> 홈
-          </Link>
-        </div>
+        </section>
       </div>
 
       {/* 모바일 전용 상단 메뉴 토글 바 */}

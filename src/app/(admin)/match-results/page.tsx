@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
 import { getFriendlyErrorMessage } from '@/lib/utils';
 import Link from 'next/link';
+import { ArrowLeft, Trophy } from 'lucide-react';
 import { getKoreaDate } from '@/lib/date';
 import { fetchAdminMatchResults, fetchAdminMatchSessions } from './actions';
 
@@ -737,13 +738,25 @@ function MatchResultsPage() {
           </div>
         ) : (
           <>
-            {/* 상단 제목 */}
-            <div className="mb-4 sm:mb-6">
-              <h1 className="text-xl font-semibold sm:text-2xl">📋 배정 현황 확인</h1>
-          <p className="mt-2 hidden text-sm text-gray-600 sm:block">
-            관리자 확인용 화면입니다. 기본 배팅은 {DEFAULT_MATCH_WAGER}코인이고, 사용자는 경기별로 최대 {MAX_MATCH_WAGER}코인까지 올릴 수 있습니다.
-          </p>
-        </div>
+            <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] mb-4 sm:mb-6">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
+              <div className="relative z-10 flex items-center justify-between px-1">
+                <div className="space-y-0.5 pl-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
+                    <Trophy className="h-3.5 w-3.5" />
+                    경기결과
+                  </span>
+                  <h1 className="text-xl font-bold tracking-tight">배정 현황 및 결과</h1>
+                  <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">배정된 경기 결과와 점수를 입력 및 확인하고 배팅 현황을 확인합니다.</p>
+                </div>
+                <Link href="/admin">
+                  <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    관리자 홈
+                  </Button>
+                </Link>
+              </div>
+            </section>
 
         {/* 필터 컨트롤 */}
         <div className="mb-4 rounded-lg bg-white p-3 shadow-sm sm:mb-6 sm:p-6">

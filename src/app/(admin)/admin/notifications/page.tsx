@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Bell } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useUser } from '@/hooks/useUser';
 
@@ -365,10 +368,25 @@ export default function AdminNotificationsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">📢 공지사항/알림 관리</h1>
-        <p className="text-gray-500 text-sm mt-1">사용자에게 보낼 알림을 생성하고, 읽음/삭제를 관리합니다.</p>
-      </div>
+      <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] mb-4 sm:mb-6">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
+        <div className="relative z-10 flex items-center justify-between px-1">
+          <div className="space-y-0.5 pl-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
+              <Bell className="h-3.5 w-3.5" />
+              공지사항
+            </span>
+            <h1 className="text-xl font-bold tracking-tight">공지사항/알림 관리</h1>
+            <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">사용자에게 보낼 알림을 생성하고, 읽음/삭제를 관리합니다.</p>
+          </div>
+          <Link href="/admin">
+            <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              관리자 홈
+            </Button>
+          </Link>
+        </div>
+      </section>
 
       {error && (
         <div className="p-3 rounded border border-red-200 bg-red-50 text-red-700">{error}</div>

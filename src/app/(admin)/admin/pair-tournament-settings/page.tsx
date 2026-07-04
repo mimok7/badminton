@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Users } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase';
 import { fetchLevelInfoMap, getLevelScoreFromCode, type LevelInfoMap } from '@/lib/level-info';
@@ -1065,12 +1067,25 @@ function PairTournamentSettingsContent() {
 
   return (
     <div className="w-full px-2 py-2 sm:p-6">
-      <div className="mb-4 sm:mb-6">
-        <h1 className="text-xl font-bold text-gray-900 sm:text-3xl">👥 페어 게임 관리</h1>
-        <p className="mt-1 text-sm text-gray-600 sm:text-base">
-          페어 구성별로 그룹 경기 방식을 따로 설정하고 페어 게임을 생성합니다.
-        </p>
-      </div>
+      <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] mb-4 sm:mb-6">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
+        <div className="relative z-10 flex items-center justify-between px-1">
+          <div className="space-y-0.5 pl-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
+              <Users className="h-3.5 w-3.5" />
+              페어대회
+            </span>
+            <h1 className="text-xl font-bold tracking-tight">페어 게임 관리</h1>
+            <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">페어 구성별로 그룹 경기 방식을 따로 설정하고 페어 게임을 생성합니다.</p>
+          </div>
+          <Link href="/admin">
+            <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              관리자 홈
+            </Button>
+          </Link>
+        </div>
+      </section>
 
       <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:mb-6">
         일반 팀전은{' '}

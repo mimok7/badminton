@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import type { AdminUser } from '@/types';
 import { createMember, deleteUser, updateUser, updateUsersBulk, updateRatingSettings, resetUserPassword, resetAttendanceAll, resetWinRateAll } from './actions';
 import type { UpdateUserPayload } from './actions';
 import { useRouter } from 'next/navigation';
-import { Activity, Calendar, Filter, Key, LayoutGrid, List, Save, Search, Shield, Trash2, UserPlus, Users, Trophy } from 'lucide-react';
+import { Activity, Calendar, Filter, Key, LayoutGrid, List, Save, Search, Shield, Trash2, UserPlus, Users, Trophy, ArrowLeft } from 'lucide-react';
 
 type LevelOption = {
     code: string;
@@ -968,37 +970,42 @@ export default function UserManagementClient({
 
     return (
         <div className="space-y-4 sm:space-y-6">
-            <section className="rounded-lg border border-slate-200 bg-white">
-                <div className="border-b border-slate-200 bg-[linear-gradient(135deg,#f7fafc_0%,#eef6ff_100%)] px-4 py-4 sm:px-6 sm:py-6">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-                        <div>
-                            <div className="text-xs font-medium text-slate-500 sm:text-sm">Member Console</div>
-                            <h1 className="mt-1 text-xl font-semibold text-slate-900 sm:text-3xl">👥 회원 운영 센터</h1>
-                            <p className="mt-2 hidden max-w-3xl text-sm text-slate-600 sm:block">
-                                회원 정보, 권한, 급수, 출석 흐름을 한 화면에서 정리하도록 묶었습니다.
-                            </p>
-                        </div>
-                        <div className="hidden md:grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-                            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
-                                <div className="text-xs uppercase tracking-wide text-slate-500">전체 회원</div>
-                                <div className="mt-1 text-lg font-semibold text-slate-900 sm:text-2xl">{memberList.length}</div>
-                            </div>
-                            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
-                                <div className="text-xs uppercase tracking-wide text-slate-500">관리자</div>
-                                <div className="mt-1 text-lg font-semibold text-slate-900 sm:text-2xl">{overview.adminCount}</div>
-                            </div>
-                            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
-                                <div className="text-xs uppercase tracking-wide text-slate-500">매니저</div>
-                                <div className="mt-1 text-lg font-semibold text-slate-900 sm:text-2xl">{overview.managerCount}</div>
-                            </div>
-                            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
-                                <div className="text-xs uppercase tracking-wide text-slate-500">연결 완료</div>
-                                <div className="mt-1 text-lg font-semibold text-slate-900 sm:text-2xl">{overview.linkedCount}</div>
-                            </div>
-                        </div>
+            <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] mb-4 sm:mb-6">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
+                <div className="relative z-10 flex items-center justify-between px-1">
+                    <div className="space-y-0.5 pl-2">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
+                            <Users className="h-3.5 w-3.5" />
+                            회원관리
+                        </span>
+                        <h1 className="text-xl font-bold tracking-tight">회원 운영 센터</h1>
+                        <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">회원 정보, 권한, 급수, 출석 흐름을 한 화면에서 관리합니다.</p>
                     </div>
+                    <Link href="/admin">
+                        <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
+                            <ArrowLeft className="h-3.5 w-3.5" />
+                            관리자 홈
+                        </Button>
+                    </Link>
                 </div>
-                <div className="border-b border-slate-200 px-4 py-3">
+                <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 text-[11px] text-slate-200">
+                    <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1">
+                        전체 회원: <span className="font-semibold text-white">{memberList.length}명</span>
+                    </span>
+                    <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1">
+                        관리자: <span className="font-semibold text-white">{overview.adminCount}명</span>
+                    </span>
+                    <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1">
+                        매니저: <span className="font-semibold text-white">{overview.managerCount}명</span>
+                    </span>
+                    <span className="rounded-full bg-white/5 border border-white/10 px-2.5 py-1">
+                        연결 완료: <span className="font-semibold text-white">{overview.linkedCount}명</span>
+                    </span>
+                </div>
+            </section>
+
+            <section className="rounded-[24px] border border-slate-200 bg-white overflow-hidden shadow-sm">
+                <div className="border-b border-slate-200 px-4 py-3 bg-slate-50/50">
                     <div className="flex flex-wrap items-center gap-2">
                         <button type="button" onClick={() => setSelectedTab('overview')} className={tabButtonClass('overview', 'hidden md:inline-flex')}>
                             <Users className="size-4" />

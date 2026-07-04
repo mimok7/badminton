@@ -3372,11 +3372,6 @@ export default function TournamentMatchesPage() {
                                           {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
                                         </div>
                                       ))}
-                                      {team1Score > 0 && (
-                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mt-0.5">
-                                          합계 {team1Score.toFixed(0)}점
-                                        </span>
-                                      )}
                                     </div>
                                   </div>
 
@@ -3388,7 +3383,11 @@ export default function TournamentMatchesPage() {
                                         <span className="text-red-600">{match.score_team2}</span>
                                       </div>
                                     ) : (
-                                      <span className="text-xs font-semibold text-slate-400">VS</span>
+                                      <div className="flex flex-col items-center font-bold text-sm leading-none gap-1">
+                                        <span className="text-blue-600">{team1Score.toFixed(0)}</span>
+                                        <span className="text-[9px] text-slate-400 font-semibold">VS</span>
+                                        <span className="text-red-600">{team2Score.toFixed(0)}</span>
+                                      </div>
                                     )}
                                   </div>
                                   
@@ -3402,11 +3401,6 @@ export default function TournamentMatchesPage() {
                                           {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
                                         </div>
                                       ))}
-                                      {team2Score > 0 && (
-                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mt-0.5">
-                                          합계 {team2Score.toFixed(0)}점
-                                        </span>
-                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -3465,11 +3459,6 @@ export default function TournamentMatchesPage() {
                                                   {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
                                                 </div>
                                               ))}
-                                              {team1Score > 0 && (
-                                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mt-0.5">
-                                                  합계 {team1Score.toFixed(0)}점
-                                                </span>
-                                              )}
                                             </div>
                                           </div>
 
@@ -3481,7 +3470,11 @@ export default function TournamentMatchesPage() {
                                                 <span className="text-red-600">{match.score_team2}</span>
                                               </div>
                                             ) : (
-                                              <span className="text-xs font-semibold text-slate-400">VS</span>
+                                              <div className="flex flex-col items-center font-bold text-sm leading-none gap-1">
+                                                <span className="text-blue-600">{team1Score.toFixed(0)}</span>
+                                                <span className="text-[9px] text-slate-400 font-semibold">VS</span>
+                                                <span className="text-red-600">{team2Score.toFixed(0)}</span>
+                                              </div>
                                             )}
                                           </div>
                                           
@@ -3495,11 +3488,6 @@ export default function TournamentMatchesPage() {
                                                   {renderTeamBadgeForAssignment(p, tournamentMatchesModal.selectedTeamAssignment)}
                                                 </div>
                                               ))}
-                                              {team2Score > 0 && (
-                                                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded mt-0.5">
-                                                  합계 {team2Score.toFixed(0)}점
-                                                </span>
-                                              )}
                                             </div>
                                           </div>
                                         </>

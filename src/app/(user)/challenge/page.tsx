@@ -281,7 +281,6 @@ export default function ChallengePage() {
           <section className="lg:col-span-5 rounded-3xl bg-white border border-slate-100 px-5 py-6 shadow-sm hover:shadow-md transition">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Create a Match</p>
                 <h2 className="text-lg font-bold text-slate-900">새 게임 제안</h2>
               </div>
               <div className="flex items-center gap-2">
@@ -441,7 +440,6 @@ export default function ChallengePage() {
             <section className="rounded-3xl bg-white border border-slate-100 px-5 py-6 shadow-sm hover:shadow-md transition">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Received Challenges</p>
                   <h2 className="text-lg font-bold text-slate-900">받은 게임 제안</h2>
                 </div>
                 <div className="rounded-full bg-indigo-50 p-2 text-indigo-600">
@@ -525,7 +523,6 @@ export default function ChallengePage() {
             <section className="rounded-3xl bg-white border border-slate-100 px-5 py-6 shadow-sm hover:shadow-md transition">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Sent Challenges</p>
                   <h2 className="text-lg font-bold text-slate-900">보낸 게임 제안</h2>
                 </div>
                 <div className="rounded-full bg-indigo-50 p-2 text-indigo-600">

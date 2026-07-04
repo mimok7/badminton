@@ -1,10 +1,21 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
 
 export default function AdminPage() {
-  const { profile } = useUser();
+  const { profile, loading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading) {
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'manager')) {
+        router.replace('/unauthorized');
+      }
+    }
+  }, [profile, loading, router]);
 
   return (
     <div className="px-1 py-2 sm:px-2">

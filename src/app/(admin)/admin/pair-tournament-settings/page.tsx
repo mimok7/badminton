@@ -282,7 +282,7 @@ function PairTournamentSettingsContent() {
   const [numberOfCourts, setNumberOfCourts] = useState(4);
   const [startTime, setStartTime] = useState('17:30');
   const [timeInterval, setTimeInterval] = useState(10);
-  const [viewType, setViewType] = useState<'card' | 'table'>('card');
+  const [viewType, setViewType] = useState<'card' | 'table'>('table');
   const [tournamentDate, setTournamentDate] = useState('');
   const [levelInfoMap, setLevelInfoMap] = useState<LevelInfoMap>({});
   const [teamParticipantsModal, setTeamParticipantsModal] = useState<TeamParticipantsModalState>(null);
@@ -771,7 +771,7 @@ function PairTournamentSettingsContent() {
 
         if (!tournamentsResponse.ok) {
           const payload = await tournamentsResponse.json().catch(() => ({}));
-          throw new Error(payload?.error || '대회 목록을 불러오지 못했습니다.');
+          throw new Error(payload?.error || '게임 목록을 불러오지 못했습니다.');
         }
 
         const assignmentsPayload = await assignmentsResponse.json();
@@ -875,7 +875,12 @@ function PairTournamentSettingsContent() {
   const handlePreviewMatches = (assignment: TeamAssignment) => {
     setSelectedAssignment(assignment);
     setTournamentDate(assignment.assignment_date || '');
-    setRoundNumber(1);
+    
+    // 이 페어 구성으로 이미 생성된 대회의 회차 중 가장 높은 회차 + 1로 자동 설정
+    const existingTournaments = tournaments.filter(t => t.team_assignment_id === assignment.id);
+    const maxRound = existingTournaments.reduce((max, t) => t.round_number > max ? t.round_number : max, 0);
+    setRoundNumber(maxRound + 1);
+
     setNumberOfCourts(4);
     setShowCreatePanel(true);
     initializePairGroupSettings(assignment);
@@ -957,7 +962,7 @@ function PairTournamentSettingsContent() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error || '페어 대회 생성에 실패했습니다.');
+        throw new Error(payload?.error || '페어 게임 생성에 실패했습니다.');
       }
 
       const tournamentsResponse = await fetch('/api/admin/tournaments');
@@ -985,15 +990,15 @@ function PairTournamentSettingsContent() {
       setShowCreatePanel(false);
       setSelectedAssignment(null);
       setGeneratedMatches([]);
-      alert(targetGroupName ? `${targetGroupName} 대회가 생성되었습니다.` : '페어 대회가 생성되었습니다.');
+      alert(targetGroupName ? `${targetGroupName} 게임이 생성되었습니다.` : '페어 게임이 생성되었습니다.');
     } catch (error) {
       console.error('페어 대회 생성 오류:', error);
-      alert(error instanceof Error ? error.message : '페어 대회 생성 중 오류가 발생했습니다.');
+      alert(error instanceof Error ? error.message : '페어 게임 생성 중 오류가 발생했습니다.');
     }
   };
 
   const deleteTournament = async (tournamentId: string) => {
-    if (!confirm('이 페어 대회를 삭제하시겠습니까? 모든 경기 정보가 함께 삭제됩니다.')) {
+    if (!confirm('이 페어 게임을 삭제하시겠습니까? 모든 경기 정보가 함께 삭제됩니다.')) {
       return;
     }
 
@@ -1061,16 +1066,16 @@ function PairTournamentSettingsContent() {
   return (
     <div className="w-full px-2 py-2 sm:p-6">
       <div className="mb-4 sm:mb-6">
-        <h1 className="text-xl font-bold text-gray-900 sm:text-3xl">👥 페어 대회 설정</h1>
+        <h1 className="text-xl font-bold text-gray-900 sm:text-3xl">👥 페어 게임 관리</h1>
         <p className="mt-1 text-sm text-gray-600 sm:text-base">
-          페어 구성별로 그룹 경기 방식을 따로 설정하고 페어 대회를 생성합니다.
+          페어 구성별로 그룹 경기 방식을 따로 설정하고 페어 게임을 생성합니다.
         </p>
       </div>
 
       <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:mb-6">
         일반 팀전은{' '}
         <Link href="/admin/tournament-matches" className="font-semibold underline">
-          대회 경기
+          게임 경기
         </Link>
         {' '}페이지에서 계속 관리하고, 페어전만 이 페이지에서 별도로 생성합니다.
       </div>
@@ -1079,7 +1084,7 @@ function PairTournamentSettingsContent() {
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">페어 구성 선택</h2>
-            <p className="mt-1 text-sm text-gray-500">team-management에서 만든 페어 구성을 기준으로 대회를 만듭니다.</p>
+            <p className="mt-1 text-sm text-gray-500">team-management에서 만든 페어 구성을 기준으로 게임을 만듭니다.</p>
           </div>
           <button
             type="button"
@@ -1131,7 +1136,7 @@ function PairTournamentSettingsContent() {
                       onClick={() => handlePreviewMatches(assignment)}
                       className="flex-1 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
                     >
-                      페어 대회 생성
+                      페어 게임 생성
                     </button>
                     <button
                       type="button"
@@ -1152,131 +1157,126 @@ function PairTournamentSettingsContent() {
       {showCreatePanel && selectedAssignment && (
         <div className="mb-6 rounded-lg border-2 border-amber-300 bg-white p-4 shadow-md sm:p-6">
           <div className="mb-5 border-b border-gray-200 pb-4">
-            <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">페어 대회 생성</h2>
+            <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">페어 게임 생성</h2>
             <p className="mt-1 text-sm text-gray-600">{selectedAssignment.title}</p>
           </div>
 
-          <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
-              <div className="text-sm text-blue-900">
-                그룹별로 경기 방식을 다르게 설정할 수 있습니다. 설정이 바뀌면 아래 미리보기를 다시 생성하세요.
+          <div className="grid grid-cols-1 gap-6 items-start lg:grid-cols-12">
+            {/* 좌측 설정창 영역 */}
+            <div className="space-y-4 lg:col-span-5">
+              {/* 게임 정보 */}
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 shadow-sm">
+                <h3 className="mb-3 text-base font-semibold text-blue-900">📋 게임 정보</h3>
+                <div className="flex flex-col gap-4">
+                  {/* 회차 표시 (자동 배정되므로 수정 불가) */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 w-20">회차</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-semibold text-slate-900 bg-slate-100 px-3 py-1 rounded border border-slate-200">
+                        {roundNumber}회차
+                      </span>
+                      <span className="text-xs text-gray-500">(자동 배정)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 w-20">코트</span>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((num) => (
+                        <button
+                          key={`pair-court-${num}`}
+                          type="button"
+                          onClick={() => setNumberOfCourts(num)}
+                          className={`h-8 w-8 rounded text-sm font-semibold transition-colors ${
+                            numberOfCourts === num ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 w-20">시작시간</span>
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="rounded border border-slate-300 px-2 py-1 text-sm font-semibold text-slate-700 bg-white"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 w-20">간격</span>
+                    <select
+                      value={timeInterval}
+                      onChange={(e) => setTimeInterval(Number(e.target.value))}
+                      className="rounded border border-slate-300 px-2 py-1 text-sm font-semibold text-slate-700 bg-white h-[32px]"
+                    >
+                      {[5, 10, 15, 20, 25, 30].map((min) => (
+                        <option key={min} value={min}>
+                          {min}분
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-3 border-t border-blue-200 pt-3 text-xs text-blue-800">
+                  게임명 예시: <strong>{(() => {
+                    const dateParts = (tournamentDate || '').split('-');
+                    const mmdd = dateParts.length === 3 ? `${dateParts[1]}-${dateParts[2]}` : (tournamentDate || '(미설정)');
+                    const allGNames = pairGroupSettings.map(x => x.groupName);
+                    const groupsLabel = pairGroupSettings.map(g => convertedGroupNameOnly(g.groupName, allGNames)).join(', ');
+                    const formatLabel = pairGroupSettings.map(g => {
+                      const fmt = getPairFormatTitleLabel ? getPairFormatTitleLabel(g.format) : getPairFormatLabel(g.format);
+                      if (g.format === 'round_robin' && g.roundRobinRepeats > 1) {
+                        return `${fmt} ${g.roundRobinRepeats}회`;
+                      }
+                      return fmt;
+                    }).join(', ');
+                    return `${mmdd} ${roundNumber}회차 ${groupsLabel} - 페어 - ${formatLabel}`;
+                  })()}</strong>
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-4 sm:gap-6 whitespace-nowrap">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">회차</span>
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((num) => (
-                      <button
-                        key={`pair-round-${num}`}
-                        type="button"
-                        onClick={() => setRoundNumber(num)}
-                        className={`h-8 w-8 rounded text-sm font-semibold ${
-                          roundNumber === num ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">코트</span>
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((num) => (
-                      <button
-                        key={`pair-court-${num}`}
-                        type="button"
-                        onClick={() => setNumberOfCourts(num)}
-                        className={`h-8 w-8 rounded text-sm font-semibold ${
-                          numberOfCourts === num ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">시작시간</span>
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="rounded border border-slate-300 px-2 py-1 text-sm font-semibold text-slate-700 bg-white"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">간격</span>
-                  <select
-                    value={timeInterval}
-                    onChange={(e) => setTimeInterval(Number(e.target.value))}
-                    className="rounded border border-slate-300 px-2 py-1 text-sm font-semibold text-slate-700 bg-white h-[32px]"
+
+              {/* 게임 생성 버튼 모음 */}
+              <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 text-sm font-semibold text-slate-700">게임 생성 일괄/개별 처리</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRegenerateMatches}
+                    className="py-2 rounded-lg font-semibold transition-colors bg-purple-600 hover:bg-purple-700 text-white text-sm shadow-sm flex items-center justify-center gap-1.5 text-center"
                   >
-                    {[5, 10, 15, 20, 25, 30].map((min) => (
-                      <option key={min} value={min}>
-                        {min}분
-                      </option>
-                    ))}
-                  </select>
+                    대진표 다시 생성
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void createTournament()}
+                    disabled={generatedMatches.length === 0}
+                    className="py-2 rounded-lg font-semibold transition-colors bg-amber-600 hover:bg-amber-700 text-white text-sm shadow-sm flex items-center justify-center gap-1.5 disabled:bg-amber-200 disabled:cursor-not-allowed text-center"
+                  >
+                    전체 게임 생성
+                  </button>
+                  {pairGroupSettings.map((group) => (
+                    <button
+                      key={`btn-gen-${group.groupName}`}
+                      type="button"
+                      onClick={() => void createTournament(group.groupName)}
+                      disabled={!generatedMatches.some((match) => extractGroupLabelFromCourt(match.court) === group.groupName)}
+                      className="py-1.5 text-xs font-semibold rounded-lg bg-amber-50 text-amber-800 border border-amber-200 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 text-center"
+                    >
+                      {convertedGroupNameOnly(group.groupName, pairGroupSettings.map((g) => g.groupName))} 생성
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
-            <div className="mt-3 text-sm text-blue-800">
-              대회명 예시: <strong>{(() => {
-                const dateParts = (tournamentDate || '').split('-');
-                const mmdd = dateParts.length === 3 ? `${dateParts[1]}-${dateParts[2]}` : (tournamentDate || '(미설정)');
-                const allGNames = pairGroupSettings.map(x => x.groupName);
-                const groupsLabel = pairGroupSettings.map(g => convertedGroupNameOnly(g.groupName, allGNames)).join(', ');
-                const formatLabel = pairGroupSettings.map(g => {
-                  const fmt = getPairFormatTitleLabel ? getPairFormatTitleLabel(g.format) : getPairFormatLabel(g.format);
-                  if (g.format === 'round_robin' && g.roundRobinRepeats > 1) {
-                    return `${fmt} ${g.roundRobinRepeats}회`;
-                  }
-                  return fmt;
-                }).join(', ');
-                return `${mmdd} ${roundNumber}회차 ${groupsLabel} - 페어 - ${formatLabel}`;
-              })()}</strong>
-            </div>
-          </div>
 
-          {/* 대회 생성 버튼 모음 */}
-          <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="mb-2 text-sm font-semibold text-slate-700">대회 생성 일괄/개별 처리</div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleRegenerateMatches}
-                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-700"
-              >
-                대진표 다시 생성
-              </button>
-              <button
-                type="button"
-                onClick={() => void createTournament()}
-                disabled={generatedMatches.length === 0}
-                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-700 disabled:bg-amber-200 disabled:cursor-not-allowed"
-              >
-                전체 생성
-              </button>
-              {pairGroupSettings.map((group) => (
-                <button
-                  key={`btn-gen-${group.groupName}`}
-                  type="button"
-                  onClick={() => void createTournament(group.groupName)}
-                  disabled={!generatedMatches.some((match) => extractGroupLabelFromCourt(match.court) === group.groupName)}
-                  className="rounded-lg bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                >
-                  {convertedGroupNameOnly(group.groupName, pairGroupSettings.map((g) => g.groupName))} 생성
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mb-5 space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-              토너먼트와 리그후 토너먼트는 현재 생성 시점 기준의 오프닝 라운드를 만듭니다.
-            </div>
-            {pairGroupSettings.map((group) => {
+            {/* 우측 미리보기 영역 */}
+            <div className="space-y-4 lg:col-span-7">
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                토너먼트와 리그후 토너먼트는 현재 생성 시점 기준의 오프닝 라운드를 만듭니다.
+              </div>
+              {pairGroupSettings.map((group) => {
               const groupMatches = generatedMatches.filter(
                 (match) => extractGroupLabelFromCourt(match.court) === group.groupName
               );
@@ -1576,22 +1576,23 @@ function PairTournamentSettingsContent() {
               </div>
             );
           })}
+            </div>
+          </div>
         </div>
-      </div>
       )}
 
       <div className="rounded-lg bg-white p-4 shadow-md sm:p-6">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900 sm:text-xl">생성된 페어 대회</h2>
+        <h2 className="mb-4 text-lg font-semibold text-gray-900 sm:text-xl">생성된 페어 게임</h2>
         {tournaments.length === 0 ? (
           <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-6 text-center text-yellow-900">
-            아직 생성된 페어 대회가 없습니다.
+            아직 생성된 페어 게임이 없습니다.
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {tournaments.map((tournament) => {
               const { main, sub } = formatTournamentTitle(tournament.title);
               return (
-                <div key={tournament.id} className="rounded-xl border border-gray-200 p-4 shadow-sm">
+                <div key={tournament.id} className="flex flex-col justify-between h-full rounded-xl border border-gray-200 p-4 shadow-sm">
                   <div className="mb-3">
                     <h3 className="text-base font-bold text-gray-900 leading-tight">
                       <div className="text-sm font-normal text-gray-500">{main}</div>
@@ -1606,32 +1607,32 @@ function PairTournamentSettingsContent() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openTournamentAssignmentModal(tournament)}
-                    className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200"
-                  >
-                    배정현황
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleManageMatches(tournament)}
-                    className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-                  >
-                    경기 관리
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void deleteTournament(tournament.id)}
-                    className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
-                  >
-                    삭제
-                  </button>
+                  <div className="mt-3 flex flex-wrap gap-1.5 pt-2 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => openTournamentAssignmentModal(tournament)}
+                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors text-center"
+                    >
+                      배정현황
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleManageMatches(tournament)}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white px-2 py-1.5 rounded-lg text-xs font-medium transition-colors text-center"
+                    >
+                      경기 관리
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void deleteTournament(tournament.id)}
+                      className="bg-red-600 hover:bg-red-700 text-white px-2 py-1.5 rounded-lg text-xs font-medium transition-colors text-center"
+                    >
+                      삭제
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         )}
       </div>

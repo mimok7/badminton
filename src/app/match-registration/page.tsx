@@ -225,7 +225,13 @@ export default function MatchRegistrationPage() {
           null;
         const allParticipantsForSchedule = participantsBySchedule[schedule.id] || [];
         
-        const registeredParticipants = allParticipantsForSchedule.filter(p => p.status === 'registered');
+        const registeredParticipants = allParticipantsForSchedule
+          .filter(p => p.status === 'registered')
+          .sort((a, b) => {
+            const nameA = a.full_name || a.username || '';
+            const nameB = b.full_name || b.username || '';
+            return nameA.localeCompare(nameB, 'ko');
+          });
         const waitlistedParticipants = allParticipantsForSchedule
           .filter(p => p.status === 'waitlisted')
           .sort((a, b) => new Date(a.registered_at).getTime() - new Date(b.registered_at).getTime());
@@ -376,17 +382,26 @@ export default function MatchRegistrationPage() {
               registered_at: new Date().toISOString(),
             },
             actualParticipantCount: isWaitlist ? matchInfo.actualParticipantCount : matchInfo.actualParticipantCount + 1,
-            participants: [
-              ...matchInfo.participants,
-              {
+            participants: (() => {
+              const newParticipant = {
                 id: tempParticipantId,
                 user_id: participantKeys[0],
                 username: profile?.username || '',
                 full_name: profile?.full_name || '',
                 skill_level: profile?.skill_level || null,
                 status: targetStatus,
-              },
-            ],
+              };
+              const updated = [...matchInfo.participants, newParticipant];
+              const registered = updated
+                .filter((p) => p.status === 'registered')
+                .sort((a, b) => {
+                  const nameA = a.full_name || a.username || '';
+                  const nameB = b.full_name || b.username || '';
+                  return nameA.localeCompare(nameB, 'ko');
+                });
+              const waitlisted = updated.filter((p) => p.status === 'waitlisted');
+              return [...registered, ...waitlisted];
+            })(),
           };
         })
       );

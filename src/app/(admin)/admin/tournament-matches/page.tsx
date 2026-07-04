@@ -427,7 +427,13 @@ export default function TournamentMatchesPage() {
           return Math.random() < 0.5 ? -1 : 1;
         }
 
-        return right.score - left.score;
+        const scoreDiff = right.score - left.score;
+        if (scoreDiff !== 0) {
+          return scoreDiff;
+        }
+
+        // Same score: add random tiebreaker for varied regeneration
+        return Math.random() < 0.5 ? -1 : 1;
       });
 
       const available = [...sortedPlayers];
@@ -439,19 +445,25 @@ export default function TournamentMatchesPage() {
 
         if (mode === 'mixed_doubles') {
           const anchorGender = normalizeGender(anchor.gender);
-          const mixedIndex = pool.findIndex((candidate) => {
+          // Collect all opposite-gender candidates and pick randomly for varied regeneration
+          const mixedCandidates: number[] = [];
+          pool.forEach((candidate, idx) => {
             const candidateGender = normalizeGender(candidate.gender);
-            return anchorGender && candidateGender && anchorGender !== candidateGender;
+            if (anchorGender && candidateGender && anchorGender !== candidateGender) {
+              mixedCandidates.push(idx);
+            }
           });
 
-          if (mixedIndex >= 0) {
-            return mixedIndex;
+          if (mixedCandidates.length > 0) {
+            return mixedCandidates[Math.floor(Math.random() * mixedCandidates.length)];
           }
         }
 
         let bestIndex = 0;
         let bestValue = Number.POSITIVE_INFINITY;
 
+        // Collect candidates with their values, then pick randomly among equally-good options
+        const candidateValues: { index: number; value: number }[] = [];
         pool.forEach((candidate, index) => {
           const nextPairScore = anchor.score + candidate.score;
           const pairKey = [anchor.name, candidate.name].sort((a, b) => a.localeCompare(b, 'ko')).join('::');
@@ -460,12 +472,16 @@ export default function TournamentMatchesPage() {
             ? Math.abs(anchor.score - candidate.score)
             : Math.abs(nextPairScore - anchor.score);
           const value = pairUsed * 1000 + scoreGap;
-
-          if (value < bestValue) {
-            bestValue = value;
-            bestIndex = index;
-          }
+          candidateValues.push({ index, value });
         });
+
+        // Find the minimum value
+        const minValue = Math.min(...candidateValues.map(c => c.value));
+        // Collect all candidates with the minimum value
+        const bestCandidates = candidateValues.filter(c => c.value === minValue);
+        // Pick randomly among the best candidates for varied regeneration
+        bestIndex = bestCandidates[Math.floor(Math.random() * bestCandidates.length)].index;
+        bestValue = minValue;
 
         return bestIndex;
       };
@@ -512,6 +528,8 @@ export default function TournamentMatchesPage() {
       let bestOpponentIndex = -1;
       let bestDiff = Number.POSITIVE_INFINITY;
 
+      // Collect all valid opponents, then pick randomly among equally-good ones
+      const opponentOptions: { opponentIndex: number; diff: number }[] = [];
       for (let opponentIndex = index + 1; opponentIndex < sortedPairs.length; opponentIndex += 1) {
         if (used.has(opponentIndex)) {
           continue;
@@ -523,10 +541,15 @@ export default function TournamentMatchesPage() {
         }
 
         const diff = Math.abs(current.totalScore - opponent.totalScore);
-        if (diff < bestDiff) {
-          bestDiff = diff;
-          bestOpponentIndex = opponentIndex;
-        }
+        opponentOptions.push({ opponentIndex, diff });
+      }
+
+      if (opponentOptions.length > 0) {
+        const minDiff = Math.min(...opponentOptions.map(o => o.diff));
+        const bestOptions = opponentOptions.filter(o => o.diff === minDiff);
+        const picked = bestOptions[Math.floor(Math.random() * bestOptions.length)];
+        bestOpponentIndex = picked.opponentIndex;
+        bestDiff = picked.diff;
       }
 
       if (bestOpponentIndex < 0) {
@@ -851,7 +874,7 @@ export default function TournamentMatchesPage() {
   const [matchesPerPlayer, setMatchesPerPlayer] = useState(1);
   const [startTime, setStartTime] = useState('17:30');
   const [timeInterval, setTimeInterval] = useState(10);
-  const [viewType, setViewType] = useState<'card' | 'table'>('card');
+  const [viewType, setViewType] = useState<'card' | 'table'>('table');
   const [tournamentDate, setTournamentDate] = useState('');
   const [roundNumber, setRoundNumber] = useState(1);
   const [matchType, setMatchType] = useState<'level_based' | 'random' | 'mixed_doubles'>('random');
@@ -1017,7 +1040,7 @@ export default function TournamentMatchesPage() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error || '대회 조회에 실패했습니다.');
+        throw new Error(payload?.error || '게임 조회에 실패했습니다.');
       }
 
       const payload = await response.json();
@@ -1432,7 +1455,7 @@ export default function TournamentMatchesPage() {
           }
           return fmt;
         }).join('/');
-        tournamentTitle = `${mmdd} 대회 ${roundNumber}회차 페어 (${groupsLabel} - ${formatLabel})`;
+        tournamentTitle = `${mmdd} 게임 ${roundNumber}회차 페어 (${groupsLabel} - ${formatLabel})`;
       } else {
         const typeLabel =
           matchType === 'level_based'
@@ -1440,7 +1463,7 @@ export default function TournamentMatchesPage() {
             : matchType === 'mixed_doubles'
             ? '혼복'
             : '랜덤';
-        tournamentTitle = `${mmdd} 대회 ${roundNumber}회차 ${typeLabel}`;
+        tournamentTitle = `${mmdd} 게임 ${roundNumber}회차 ${typeLabel}`;
       }
 
       const response = await fetch('/api/admin/tournaments', {
@@ -1465,10 +1488,10 @@ export default function TournamentMatchesPage() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error || '대회 생성에 실패했습니다.');
+        throw new Error(payload?.error || '게임 생성에 실패했습니다.');
       }
 
-      alert('대회가 생성되었습니다!');
+      alert('게임이 생성되었습니다!');
       setShowCreateModal(false);
       setSelectedAssignment(null);
       setIsManualEditing(false);
@@ -1478,7 +1501,7 @@ export default function TournamentMatchesPage() {
       if (error?.code === '42P01' || String(error?.message || '').includes('42P01')) {
         alert('tournaments 또는 tournament_matches 테이블이 없습니다. 데이터베이스 스키마를 확인해주세요.');
       } else {
-        alert('대회 생성 중 오류가 발생했습니다: ' + error.message);
+        alert('게임 생성 중 오류가 발생했습니다: ' + error.message);
       }
     }
   };
@@ -1489,7 +1512,12 @@ export default function TournamentMatchesPage() {
     // 팀 구성의 날짜를 자동으로 설정
     setTournamentDate(assignment.assignment_date || '');
     setMatchesPerPlayer(1);
-    setRoundNumber(1);
+    
+    // 이 팀 구성으로 이미 생성된 대회의 회차 중 가장 높은 회차 + 1로 자동 설정
+    const existingTournaments = tournaments.filter(t => t.team_assignment_id === assignment.id);
+    const maxRound = existingTournaments.reduce((max, t) => t.round_number > max ? t.round_number : max, 0);
+    setRoundNumber(maxRound + 1);
+
     setMatchType('random');
     setNumberOfCourts(4); // 기본 코트 개수
     setGeneratedMatches([]);
@@ -2232,7 +2260,7 @@ export default function TournamentMatchesPage() {
 
   // 경기 삭제
   const deleteTournament = async (tournamentId: string) => {
-    if (!confirm('이 대회를 삭제하시겠습니까? 모든 경기 정보가 함께 삭제됩니다.')) {
+    if (!confirm('이 게임을 삭제하시겠습니까? 모든 경기 정보가 함께 삭제됩니다.')) {
       return;
     }
 
@@ -2248,14 +2276,14 @@ export default function TournamentMatchesPage() {
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(payload?.message || payload?.error || '대회 삭제에 실패했습니다.');
+        throw new Error(payload?.message || payload?.error || '게임 삭제에 실패했습니다.');
       }
 
-      alert('대회가 삭제되었습니다.');
+      alert('게임이 삭제되었습니다.');
       fetchTournaments();
     } catch (error) {
       console.error('대회 삭제 오류:', error);
-      alert('대회 삭제 중 오류가 발생했습니다.');
+      alert('게임 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -2266,8 +2294,8 @@ export default function TournamentMatchesPage() {
   return (
     <div className="w-full px-2 py-2 sm:p-6">
       <div className="mb-4 sm:mb-8">
-        <h1 className="text-xl font-bold text-gray-900 sm:text-3xl">🏆 대회 경기 관리</h1>
-        <p className="mt-1 hidden text-gray-600 sm:mt-2 sm:block">팀 구성을 선택하여 대회 경기 일정을 생성하고 관리합니다</p>
+        <h1 className="text-xl font-bold text-gray-900 sm:text-3xl">🏆 게임 경기 관리</h1>
+        <p className="mt-1 hidden text-gray-600 sm:mt-2 sm:block">팀 구성을 선택하여 게임 경기 일정을 생성하고 관리합니다</p>
       </div>
 
       {/* 팀 구성 선택 섹션 */}
@@ -2298,7 +2326,7 @@ export default function TournamentMatchesPage() {
                 onClick={() => router.push('/admin/pair-tournament-settings')}
                 className="mb-4 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
               >
-                페어 대회 페이지로 이동
+                페어 게임 페이지로 이동
               </button>
             )}
             <details className="text-left inline-block text-sm text-gray-700 bg-white p-3 rounded border border-gray-300">
@@ -2347,7 +2375,7 @@ export default function TournamentMatchesPage() {
                       onClick={() => handlePreviewMatches(assignment)}
                       className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                     >
-                      대회 생성
+                      게임 생성
                     </button>
                     <button
                       onClick={() => handleDeleteAssignment(assignment)}
@@ -2370,7 +2398,7 @@ export default function TournamentMatchesPage() {
               onClick={() => router.push('/admin/pair-tournament-settings')}
               className="ml-3 rounded-lg bg-amber-600 px-3 py-2 font-medium text-white transition-colors hover:bg-amber-700"
             >
-              페어 대회 페이지
+              페어 게임 페이지
             </button>
           </div>
         )}
@@ -2401,35 +2429,25 @@ export default function TournamentMatchesPage() {
             <div className="lg:col-span-5 space-y-4">
               {/* 대회 정보 입력 */}
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 sm:p-4 shadow-sm">
-                <h3 className="mb-3 text-base font-semibold text-blue-900 sm:text-lg">📋 대회 정보</h3>
+                <h3 className="mb-3 text-base font-semibold text-blue-900 sm:text-lg">📋 게임 정보</h3>
                 
                 {/* 안내 메시지 */}
                 <div className="space-y-2 mb-3">
                   <div className="rounded border border-yellow-300 bg-yellow-50 p-2.5 text-xs text-yellow-800">
-                    ⚠️ 팀을 선택한 뒤 <strong>경기 방식만 바꾸면</strong> 대진표가 자동으로 다시 생성됩니다. 대회 날짜는 팀 구성 날짜를 자동 사용합니다.
+                    ⚠️ 팀을 선택한 뒤 <strong>경기 방식만 바꾸면</strong> 대진표가 자동으로 다시 생성됩니다. 게임 날짜는 팀 구성 날짜를 자동 사용합니다.
                   </div>
                 </div>
 
                 {/* 회차, 코트, 경기수 선택 */}
                 <div className="space-y-3">
-                  {/* 회차 선택 */}
+                  {/* 회차 표시 (자동 배정되므로 수정 불가) */}
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap w-24">회차:</span>
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map(num => (
-                        <button
-                          key={num}
-                          type="button"
-                          onClick={() => setRoundNumber(num)}
-                          className={`w-8 h-8 rounded text-sm font-medium transition-colors ${
-                            roundNumber === num
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          {num}
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-semibold text-slate-900 bg-slate-100 px-3 py-1 rounded border border-slate-200">
+                        {roundNumber}회차
+                      </span>
+                      <span className="text-xs text-gray-500">(자동 배정)</span>
                     </div>
                   </div>
 
@@ -2473,9 +2491,9 @@ export default function TournamentMatchesPage() {
                     const mmdd = dateParts.length === 3 ? `${dateParts[1]}-${dateParts[2]}` : (tournamentDate || '(미설정)');
                     const typeLabel = matchType === 'level_based' ? '레벨' : matchType === 'mixed_doubles' ? '혼복' : '랜덤';
                     const titleText = selectedAssignment.team_type === 'pairs'
-                      ? `${mmdd} 대회 ${roundNumber}회차 페어 (${getPairSettingsSummary() || '풀리그'})`
-                      : `${mmdd} 대회 ${roundNumber}회차 ${typeLabel}`;
-                    return <>💡 대회명: <strong>{titleText}</strong></>;
+                      ? `${mmdd} 게임 ${roundNumber}회차 페어 (${getPairSettingsSummary() || '풀리그'})`
+                      : `${mmdd} 게임 ${roundNumber}회차 ${typeLabel}`;
+                    return <>💡 게임명: <strong>{titleText}</strong></>;
                   })()}
                 </div>
               </div>
@@ -3146,50 +3164,48 @@ export default function TournamentMatchesPage() {
 
       {/* 생성된 대회 목록 */}
       <div className="rounded-lg bg-white p-3 shadow-md sm:p-6">
-        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-xl">📊 생성된 대회</h2>
+        <h2 className="mb-3 text-base font-semibold sm:mb-4 sm:text-xl">📊 생성된 게임</h2>
         
         {standardTournaments.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <div className="text-5xl mb-4">🏆</div>
-            <p>아직 생성된 대회가 없습니다.</p>
-            <p className="text-sm mt-2">위에서 팀 구성을 선택하여 대회를 생성하세요.</p>
+            <p>아직 생성된 게임이 없습니다.</p>
+            <p className="text-sm mt-2">위에서 팀 구성을 선택하여 게임을 생성하세요.</p>
           </div>
         ) : (
-          <div className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {standardTournaments.map((tournament) => (
               <div
                 key={tournament.id}
-                className="rounded-lg border border-gray-200 p-3 transition-shadow hover:shadow-md sm:p-4"
+                className="flex flex-col justify-between rounded-lg border border-gray-200 p-3 transition-shadow hover:shadow-md sm:p-4"
               >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900 sm:text-lg">{tournament.title}</h3>
-                    <div className="mt-1 space-y-1 text-xs text-gray-600 sm:text-sm">
-                      <div>📅 {new Date(tournament.created_at).toLocaleDateString('ko-KR')}</div>
-                      <div>👥 {tournament.total_teams}팀 참가</div>
-                      <div>🎯 {tournament.team_type}</div>
-                    </div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 sm:text-lg">{tournament.title}</h3>
+                  <div className="mt-1 space-y-1 text-xs text-gray-600 sm:text-sm">
+                    <div>📅 {new Date(tournament.created_at).toLocaleDateString('ko-KR')}</div>
+                    <div>👥 {tournament.total_teams}팀 참가</div>
+                    <div>🎯 {tournament.team_type}</div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openTournamentAssignmentModal(tournament)}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      배정현황
-                    </button>
-                    <button
-                      onClick={() => handleManageMatches(tournament)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      경기 관리
-                    </button>
-                    <button
-                      onClick={() => deleteTournament(tournament.id)}
-                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      삭제
-                    </button>
-                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5 pt-2 border-t border-gray-100">
+                  <button
+                    onClick={() => openTournamentAssignmentModal(tournament)}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors text-center"
+                  >
+                    배정현황
+                  </button>
+                  <button
+                    onClick={() => handleManageMatches(tournament)}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-2 py-1.5 rounded-lg text-xs font-medium transition-colors text-center"
+                  >
+                    경기 관리
+                  </button>
+                  <button
+                    onClick={() => deleteTournament(tournament.id)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-2 py-1.5 rounded-lg text-xs font-medium transition-colors text-center"
+                  >
+                    삭제
+                  </button>
                 </div>
               </div>
             ))}
@@ -3410,9 +3426,9 @@ export default function TournamentMatchesPage() {
         <h3 className="mb-2 text-sm font-semibold text-blue-900 sm:text-base">💡 사용 방법</h3>
         <ul className="space-y-1 text-xs text-blue-800 sm:text-sm">
           <li>1. 팀 관리 메뉴에서 팀을 구성합니다</li>
-          <li>2. 위 목록에서 원하는 팀 구성을 선택하고 "대회 생성" 버튼을 클릭합니다</li>
-          <li>3. 생성될 경기를 미리보기로 확인한 후 대회를 생성합니다</li>
-          <li>4. 생성된 대회의 "경기 관리" 버튼을 클릭하면 대진표 페이지로 이동합니다</li>
+          <li>2. 위 목록에서 원하는 팀 구성을 선택하고 "게임 생성" 버튼을 클릭합니다</li>
+          <li>3. 생성될 경기를 미리보기로 확인한 후 게임을 생성합니다</li>
+          <li>4. 생성된 게임의 "경기 관리" 버튼을 클릭하면 대진표 페이지로 이동합니다</li>
           <li>5. 대진표에서 경기 결과를 입력하고 관리할 수 있습니다</li>
         </ul>
       </div>

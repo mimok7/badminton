@@ -439,14 +439,14 @@ export default function MatchSessionStatus({
                   <h5 className="text-lg font-semibold text-gray-900">
                     ✋ 수동 배정 - 선수 선택 ({sessionMatches.length}경기)
                   </h5>
-                  <div className="mt-3 flex flex-wrap gap-2 text-sm">
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-800">
-                      평균 팀 점수 차이: <span className="font-bold">{averageScoreDiff.toFixed(1)}점</span>
+                    <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-800">
+                        평균 차이: <span className="font-bold">{averageScoreDiff.toFixed(1)}점</span>
+                      </div>
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+                        최대 차이: <span className="font-bold">{maxScoreDiff.toFixed(1)}점</span>
+                      </div>
                     </div>
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
-                      최대 팀 점수 차이: <span className="font-bold">{maxScoreDiff.toFixed(1)}점</span>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="overflow-x-auto">

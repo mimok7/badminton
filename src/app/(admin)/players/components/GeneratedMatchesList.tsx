@@ -163,10 +163,10 @@ export default function GeneratedMatchesList({
       </h3>
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-800">
-          평균 팀 점수 차이: <span className="font-bold">{averageScoreDiff.toFixed(1)}점</span>
+          평균 차이: <span className="font-bold">{averageScoreDiff.toFixed(1)}점</span>
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
-          최대 팀 점수 차이: <span className="font-bold">{maxScoreDiff.toFixed(1)}점</span>
+          최대 차이: <span className="font-bold">{maxScoreDiff.toFixed(1)}점</span>
         </div>
       </div>
       

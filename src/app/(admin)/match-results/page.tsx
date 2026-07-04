@@ -651,34 +651,67 @@ function MatchResultsPage() {
     });
   }, [assignedMatches, todayDateStr]);
 
-  const { myTodayWins, myTodayLosses, myTodayWinRate } = useMemo(() => {
+  const todayLeaderboard = useMemo(() => {
     const completedTodayMatches = todayMatches.filter(m => m.status === 'completed');
-    let wins = 0;
-    let losses = 0;
+    const playerStats: Record<string, { name: string; wins: number; matches: number }> = {};
+
+    const addStat = (player: any, isWin: boolean) => {
+      if (!player) return;
+      const key = player.username || player.full_name || '미정';
+      if (key === '미정') return;
+      
+      if (!playerStats[key]) {
+        playerStats[key] = {
+          name: player.full_name || player.username || '미정',
+          wins: 0,
+          matches: 0
+        };
+      }
+      playerStats[key].matches += 1;
+      if (isWin) {
+        playerStats[key].wins += 1;
+      }
+    };
 
     completedTodayMatches.forEach(m => {
       const gm = m.generated_match;
-      if (!gm) return;
+      if (!gm || !gm.match_result) return;
       
-      const onTeam1 = [gm.team1_player1, gm.team1_player2].some(p => isCurrentUser(p));
-      const onTeam2 = [gm.team2_player1, gm.team2_player2].some(p => isCurrentUser(p));
+      const winner = gm.match_result.winner;
+      const t1p1 = gm.team1_player1;
+      const t1p2 = gm.team1_player2;
+      const t2p1 = gm.team2_player1;
+      const t2p2 = gm.team2_player2;
       
-      if (onTeam1 || onTeam2) {
-        const winner = gm.match_result?.winner;
-        if (winner === 'team1') {
-          if (onTeam1) wins++;
-          else losses++;
-        } else if (winner === 'team2') {
-          if (onTeam2) wins++;
-          else losses++;
-        }
+      if (winner === 'team1') {
+        addStat(t1p1, true);
+        addStat(t1p2, true);
+        addStat(t2p1, false);
+        addStat(t2p2, false);
+      } else if (winner === 'team2') {
+        addStat(t1p1, false);
+        addStat(t1p2, false);
+        addStat(t2p1, true);
+        addStat(t2p2, true);
       }
     });
 
-    const total = wins + losses;
-    const rate = total > 0 ? Math.round((wins / total) * 100) : 0;
-    return { myTodayWins: wins, myTodayLosses: losses, myTodayWinRate: rate };
-  }, [todayMatches, currentUser]);
+    return Object.values(playerStats)
+      .map(stat => {
+        const winRate = stat.matches > 0 ? Math.round((stat.wins / stat.matches) * 100) : 0;
+        return { ...stat, winRate };
+      })
+      .sort((a, b) => {
+        if (b.winRate !== a.winRate) {
+          return b.winRate - a.winRate;
+        }
+        if (b.wins !== a.wins) {
+          return b.wins - a.wins;
+        }
+        return a.matches - b.matches;
+      })
+      .slice(0, 5);
+  }, [todayMatches]);
 
   if (loading) {
     return (
@@ -698,18 +731,35 @@ function MatchResultsPage() {
       <div className="w-full px-2 sm:px-6 lg:px-8">
         {isMobile ? (
           <div className="space-y-4">
-            {/* 상단 승률 카드 */}
+            {/* 상단 승률 카드 (오늘 참가자 승률 상위 5) */}
             <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl p-4 shadow-md">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] text-slate-100 font-medium">오늘 내 승률</p>
-                  <div className="flex items-baseline gap-1.5 mt-1">
-                    <span className="text-3xl font-black">{myTodayWinRate}%</span>
-                    <span className="text-xs text-slate-200">({myTodayWins}승 {myTodayLosses}패)</span>
-                  </div>
-                </div>
-                <div className="text-3xl opacity-80">🏸</div>
+              <div className="flex items-center justify-between border-b border-indigo-400/40 pb-2 mb-2">
+                <h3 className="text-sm font-bold">🔥 오늘 참가자 승률 TOP 5</h3>
+                <span className="text-[10px] text-indigo-200">정렬: 승률 &gt; 승리수</span>
               </div>
+              {todayLeaderboard.length === 0 ? (
+                <div className="text-center py-4 text-xs text-indigo-200">
+                  완료된 오늘 경기가 없습니다.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {todayLeaderboard.map((player, idx) => {
+                    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}위`;
+                    return (
+                      <div key={player.name} className="flex items-center justify-between text-xs py-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 text-center font-bold text-[11px] text-indigo-200">{medal}</span>
+                          <span className="font-semibold">{player.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-yellow-300">{player.winRate}%</span>
+                          <span className="text-[10px] text-indigo-100">({player.wins}승/{player.matches - player.wins}패)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* 하단 오늘 경기 결과 상세 */}

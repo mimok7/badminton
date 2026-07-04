@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { DEFAULT_MATCH_WAGER, MAX_MATCH_WAGER } from '@/lib/coins';
 import { getFriendlyErrorMessage } from '@/lib/utils';
 import Link from 'next/link';
+import { getKoreaDate } from '@/lib/date';
 import { fetchAdminMatchResults, fetchAdminMatchSessions } from './actions';
 
 interface AssignedMatch {
@@ -86,8 +87,18 @@ function MatchResultsPage() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [isMobile, setIsMobile] = useState(false);
   
   const supabase = getSupabaseClient();
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -295,6 +306,107 @@ function MatchResultsPage() {
     
     return Array.from(groupsMap.values());
   }, [assignedMatches]);
+
+  // 모바일 전용 결과 제출 카드 컴포넌트
+  function MobileMatchResultCard({ match, onSaved }: { match: AssignedMatch, onSaved: () => void }) {
+    const [team1Score, setTeam1Score] = useState<number>(match.generated_match?.match_result?.team1_score || 0);
+    const [team2Score, setTeam2Score] = useState<number>(match.generated_match?.match_result?.team2_score || 0);
+    const [submitting, setSubmitting] = useState(false);
+
+    const submitResult = async () => {
+      if (!match || !match.generated_match) return;
+
+      if (team1Score === team2Score) {
+        alert('무승부는 저장할 수 없습니다.');
+        return;
+      }
+
+      setSubmitting(true);
+      try {
+        const payload = {
+          match_id: match.generated_match.id,
+          winner_team1: team1Score > team2Score,
+          team1_score: team1Score,
+          team2_score: team2Score
+        };
+
+        const res = await fetch('/api/match-results', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || '결과 저장 중 오류');
+
+        alert(`결과 저장 완료`);
+        onSaved();
+      } catch (err) {
+        console.error('결과 저장 오류:', err);
+        alert(getFriendlyErrorMessage(err));
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    const gm = match.generated_match;
+    if (!gm) return null;
+
+    const team1Text = `${getPlayerName(gm.team1_player1)}, ${getPlayerName(gm.team1_player2)}`;
+    const team2Text = `${getPlayerName(gm.team2_player1)}, ${getPlayerName(gm.team2_player2)}`;
+
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-800">게임 {gm.match_number}</span>
+          {getStatusBadge(match.status)}
+        </div>
+        
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <div className="text-center min-w-0">
+            <div className="text-[10px] font-bold text-blue-600 mb-0.5">라켓팀</div>
+            <div className="truncate text-xs font-semibold text-slate-800" title={team1Text}>{team1Text}</div>
+          </div>
+          
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              value={team1Score}
+              onChange={(e) => setTeam1Score(Number(e.target.value))}
+              className="w-9 h-7 border border-slate-300 rounded text-center text-xs font-bold bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+            />
+            <span className="text-xs font-bold text-slate-400">:</span>
+            <input
+              type="number"
+              value={team2Score}
+              onChange={(e) => setTeam2Score(Number(e.target.value))}
+              className="w-9 h-7 border border-slate-300 rounded text-center text-xs font-bold bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+            />
+          </div>
+          
+          <div className="text-center min-w-0">
+            <div className="text-[10px] font-bold text-red-600 mb-0.5">셔틀팀</div>
+            <div className="truncate text-xs font-semibold text-slate-800" title={team2Text}>{team2Text}</div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-slate-200/60 pt-2 mt-1">
+          <div className="text-[10px] text-slate-500 truncate">
+            {gm.match_result ? (
+              <span className="font-semibold text-emerald-600">
+                결과: {gm.match_result.winner === 'team1' ? '라켓' : '셔틀'} 승 ({gm.match_result.team1_score}:{gm.match_result.team2_score})
+              </span>
+            ) : (
+              <span>결과 미입력</span>
+            )}
+          </div>
+          <Button onClick={submitResult} disabled={submitting} size="sm" className="h-6 px-2 text-[10px] font-semibold shrink-0">
+            {submitting ? '...' : gm.match_result ? '수정' : '저장'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // 결과 제출용 카드 컴포넌트
   function MatchResultGridCard({ match, onSaved }: { match: AssignedMatch, onSaved: () => void }) {
@@ -530,6 +642,43 @@ function MatchResultsPage() {
       </tr>
     );
   }
+  const todayDateStr = getKoreaDate();
+  
+  const todayMatches = useMemo(() => {
+    return assignedMatches.filter(m => {
+      const dateStr = m.match_date ? m.match_date.split('T')[0] : '';
+      return dateStr === todayDateStr;
+    });
+  }, [assignedMatches, todayDateStr]);
+
+  const { myTodayWins, myTodayLosses, myTodayWinRate } = useMemo(() => {
+    const completedTodayMatches = todayMatches.filter(m => m.status === 'completed');
+    let wins = 0;
+    let losses = 0;
+
+    completedTodayMatches.forEach(m => {
+      const gm = m.generated_match;
+      if (!gm) return;
+      
+      const onTeam1 = [gm.team1_player1, gm.team1_player2].some(p => isCurrentUser(p));
+      const onTeam2 = [gm.team2_player1, gm.team2_player2].some(p => isCurrentUser(p));
+      
+      if (onTeam1 || onTeam2) {
+        const winner = gm.match_result?.winner;
+        if (winner === 'team1') {
+          if (onTeam1) wins++;
+          else losses++;
+        } else if (winner === 'team2') {
+          if (onTeam2) wins++;
+          else losses++;
+        }
+      }
+    });
+
+    const total = wins + losses;
+    const rate = total > 0 ? Math.round((wins / total) * 100) : 0;
+    return { myTodayWins: wins, myTodayLosses: losses, myTodayWinRate: rate };
+  }, [todayMatches, currentUser]);
 
   if (loading) {
     return (
@@ -547,9 +696,53 @@ function MatchResultsPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-3 sm:py-6">
       <div className="w-full px-2 sm:px-6 lg:px-8">
-        {/* 상단 제목 */}
-        <div className="mb-4 sm:mb-6">
-          <h1 className="text-xl font-semibold sm:text-2xl">📋 배정 현황 확인</h1>
+        {isMobile ? (
+          <div className="space-y-4">
+            {/* 상단 승률 카드 */}
+            <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl p-4 shadow-md">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] text-slate-100 font-medium">오늘 내 승률</p>
+                  <div className="flex items-baseline gap-1.5 mt-1">
+                    <span className="text-3xl font-black">{myTodayWinRate}%</span>
+                    <span className="text-xs text-slate-200">({myTodayWins}승 {myTodayLosses}패)</span>
+                  </div>
+                </div>
+                <div className="text-3xl opacity-80">🏸</div>
+              </div>
+            </div>
+
+            {/* 하단 오늘 경기 결과 상세 */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/60">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <h3 className="text-sm font-bold text-slate-900">오늘 경기 결과</h3>
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                  총 {todayMatches.length}경기
+                </span>
+              </div>
+
+              {todayMatches.length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-500">
+                  오늘 배정된 경기가 없습니다.
+                </div>
+              ) : (
+                <div className="space-y-3.5">
+                  {todayMatches.map((match) => (
+                    <MobileMatchResultCard
+                      key={match.id}
+                      match={match}
+                      onSaved={() => fetchAssignedMatches()}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* 상단 제목 */}
+            <div className="mb-4 sm:mb-6">
+              <h1 className="text-xl font-semibold sm:text-2xl">📋 배정 현황 확인</h1>
           <p className="mt-2 hidden text-sm text-gray-600 sm:block">
             관리자 확인용 화면입니다. 기본 배팅은 {DEFAULT_MATCH_WAGER}코인이고, 사용자는 경기별로 최대 {MAX_MATCH_WAGER}코인까지 올릴 수 있습니다.
           </p>
@@ -826,9 +1019,11 @@ function MatchResultsPage() {
             </div>
           )}
         </div>
-      </div>
-    </div>
-  );
+      </>
+    )}
+  </div>
+</div>
+);
 }
 
 export default function ProtectedMatchResultsPage() {

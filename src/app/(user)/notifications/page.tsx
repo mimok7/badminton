@@ -276,10 +276,6 @@ export default function NotificationsPage() {
             {/* 상단 네비 */}
             <div className="flex items-center justify-between px-1">
               <div className="space-y-0.5 pl-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-3 py-0.5 text-[11px] font-semibold text-indigo-300">
-                  <Bell className="h-3.5 w-3.5" />
-                  알림 센터
-                </span>
                 <h1 className="text-xl font-bold tracking-tight">공지사항 및 알림</h1>
                 <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">새로운 클럽 공지사항과 내 알림을 확인합니다.</p>
               </div>

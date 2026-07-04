@@ -133,7 +133,7 @@ export default function ProfilePage() {
     }
   };
   const levelInfoMap = useLevelInfoMap();
-  const displayName = formatCurrentUserNameWithCoins(profile?.full_name || profile?.username || '회원', profile?.coin_balance);
+  const displayName = profile?.full_name || profile?.username || '회원';
   const levelLabel = profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정');
   const levelOptions = SKILL_LEVEL_GROUP_CODES.map((code) => ({
     code,

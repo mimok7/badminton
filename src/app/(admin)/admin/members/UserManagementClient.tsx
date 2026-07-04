@@ -215,6 +215,10 @@ export default function UserManagementClient({
     };
 
     const handleDelete = (user: AdminUser) => {
+        if (!isCurrentUserAdmin) {
+            alert("삭제 권한이 없습니다.");
+            return;
+        }
         if (user.id === myUserId) {
             alert("자기 자신은 삭제할 수 없습니다.");
             return;
@@ -784,7 +788,7 @@ export default function UserManagementClient({
                                             <button
                                                 type="button"
                                                 onClick={() => handleDelete(user)}
-                                                disabled={isPending || user.id === myUserId}
+                                                disabled={isPending || user.id === myUserId || !isCurrentUserAdmin}
                                                 className="inline-flex items-center gap-1 rounded-md border border-rose-200 px-3 py-2 text-xs font-medium text-rose-700 disabled:opacity-40"
                                             >
                                                 <Trash2 className="size-3.5" />
@@ -947,7 +951,7 @@ export default function UserManagementClient({
                             <button
                                 type="button"
                                 onClick={() => handleDelete(user)}
-                                disabled={isPending || user.id === myUserId}
+                                disabled={isPending || user.id === myUserId || !isCurrentUserAdmin}
                                 className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-40"
                             >
                                 <Trash2 className="size-3.5" />

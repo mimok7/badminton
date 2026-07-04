@@ -562,8 +562,8 @@ export default function AdminNotificationsPage() {
               <span>동일 알림 그룹화</span>
             </label>
 
-            {/* 뷰 모드 토글 */}
-            <div className="flex bg-slate-100 border border-slate-200/60 p-0.5 rounded-lg">
+            {/* 뷰 모드 토글 (모바일 숨김) */}
+            <div className="hidden md:flex bg-slate-100 border border-slate-200/60 p-0.5 rounded-lg">
               <button
                 onClick={() => setViewMode('card')}
                 className={`px-2.5 py-1 rounded-md transition ${

@@ -2827,13 +2827,13 @@ export default function TeamManagementPage() {
                 );
               })()
             ) : teamConfig.type === '3teams' ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-1.5 md:gap-4">
                 {/* 팀 1 */}
-                <div className="border rounded-lg p-4 bg-blue-50">
-                  <h3 className="text-lg font-semibold mb-3 text-blue-700">
-                    팀 1 ({Object.values(assignments).filter(t => t === 'team1').length}명)
-                    <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team1').toFixed(1)}</span>
-                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team1').male} · 여 {getTeamGenderSummary('team1').female}</span>
+                <div className="border rounded-lg p-1.5 sm:p-4 bg-blue-50">
+                  <h3 className="text-[10px] font-bold text-blue-700 mb-2 flex flex-col gap-0.5 sm:block sm:text-base md:text-lg">
+                    <span>팀 1 ({Object.values(assignments).filter(t => t === 'team1').length}명)</span>
+                    <span className="text-[9px] font-normal text-slate-700 sm:ml-2">점수: {getTeamScore('team1').toFixed(1)}</span>
+                    <span className="text-[8px] font-normal text-slate-500 sm:ml-2 block sm:inline-block">남/여: {getTeamGenderSummary('team1').male}/{getTeamGenderSummary('team1').female}</span>
                   </h3>
                   <div className={getTeamPlayerGridClassName('3teams')}>
                     {sortPlayers(playerPool).map(player => (
@@ -2854,11 +2854,11 @@ export default function TeamManagementPage() {
                 </div>
                 
                 {/* 팀 2 */}
-                <div className="border rounded-lg p-4 bg-green-50">
-                  <h3 className="text-lg font-semibold mb-3 text-green-700">
-                    팀 2 ({Object.values(assignments).filter(t => t === 'team2').length}명)
-                    <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team2').toFixed(1)}</span>
-                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team2').male} · 여 {getTeamGenderSummary('team2').female}</span>
+                <div className="border rounded-lg p-1.5 sm:p-4 bg-green-50">
+                  <h3 className="text-[10px] font-bold text-green-700 mb-2 flex flex-col gap-0.5 sm:block sm:text-base md:text-lg">
+                    <span>팀 2 ({Object.values(assignments).filter(t => t === 'team2').length}명)</span>
+                    <span className="text-[9px] font-normal text-slate-700 sm:ml-2">점수: {getTeamScore('team2').toFixed(1)}</span>
+                    <span className="text-[8px] font-normal text-slate-500 sm:ml-2 block sm:inline-block">남/여: {getTeamGenderSummary('team2').male}/{getTeamGenderSummary('team2').female}</span>
                   </h3>
                   <div className={getTeamPlayerGridClassName('3teams')}>
                     {sortPlayers(playerPool).map(player => (
@@ -2879,11 +2879,11 @@ export default function TeamManagementPage() {
                 </div>
                 
                 {/* 팀 3 */}
-                <div className="border rounded-lg p-4 bg-purple-50">
-                  <h3 className="text-lg font-semibold mb-3 text-purple-700">
-                    팀 3 ({Object.values(assignments).filter(t => t === 'team3').length}명)
-                    <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team3').toFixed(1)}</span>
-                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team3').male} · 여 {getTeamGenderSummary('team3').female}</span>
+                <div className="border rounded-lg p-1.5 sm:p-4 bg-purple-50">
+                  <h3 className="text-[10px] font-bold text-purple-700 mb-2 flex flex-col gap-0.5 sm:block sm:text-base md:text-lg">
+                    <span>팀 3 ({Object.values(assignments).filter(t => t === 'team3').length}명)</span>
+                    <span className="text-[9px] font-normal text-slate-700 sm:ml-2">점수: {getTeamScore('team3').toFixed(1)}</span>
+                    <span className="text-[8px] font-normal text-slate-500 sm:ml-2 block sm:inline-block">남/여: {getTeamGenderSummary('team3').male}/{getTeamGenderSummary('team3').female}</span>
                   </h3>
                   <div className={getTeamPlayerGridClassName('3teams')}>
                     {sortPlayers(playerPool).map(player => (
@@ -3157,13 +3157,13 @@ export default function TeamManagementPage() {
               </div>
             ) : teamConfig.type === '4teams' ? (
               /* 4팀 모드 */
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
                 {/* 팀 1 */}
-                <div className="border rounded-lg p-4 bg-blue-50">
-                  <h3 className="text-lg font-semibold mb-3 text-blue-700">
-                    팀 1 ({Object.values(assignments).filter(t => t === 'team1').length}명)
-                    <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team1').toFixed(1)}</span>
-                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team1').male} · 여 {getTeamGenderSummary('team1').female}</span>
+                <div className="border rounded-lg p-2 sm:p-4 bg-blue-50">
+                  <h3 className="text-xs font-bold text-blue-700 mb-2 flex flex-col gap-0.5 sm:block sm:text-base md:text-lg">
+                    <span>팀 1 ({Object.values(assignments).filter(t => t === 'team1').length}명)</span>
+                    <span className="text-[10px] font-normal text-slate-750 sm:ml-2">점수: {getTeamScore('team1').toFixed(1)}</span>
+                    <span className="text-[9px] font-normal text-slate-500 sm:ml-2 block sm:inline-block">남/여: {getTeamGenderSummary('team1').male}/{getTeamGenderSummary('team1').female}</span>
                   </h3>
                   <div className={getTeamPlayerGridClassName('4teams')}>
                     {sortPlayers(playerPool).map(player => (
@@ -3184,11 +3184,11 @@ export default function TeamManagementPage() {
                 </div>
                 
                 {/* 팀 2 */}
-                <div className="border rounded-lg p-4 bg-green-50">
-                  <h3 className="text-lg font-semibold mb-3 text-green-700">
-                    팀 2 ({Object.values(assignments).filter(t => t === 'team2').length}명)
-                    <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team2').toFixed(1)}</span>
-                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team2').male} · 여 {getTeamGenderSummary('team2').female}</span>
+                <div className="border rounded-lg p-2 sm:p-4 bg-green-50">
+                  <h3 className="text-xs font-bold text-green-700 mb-2 flex flex-col gap-0.5 sm:block sm:text-base md:text-lg">
+                    <span>팀 2 ({Object.values(assignments).filter(t => t === 'team2').length}명)</span>
+                    <span className="text-[10px] font-normal text-slate-755 sm:ml-2">점수: {getTeamScore('team2').toFixed(1)}</span>
+                    <span className="text-[9px] font-normal text-slate-500 sm:ml-2 block sm:inline-block">남/여: {getTeamGenderSummary('team2').male}/{getTeamGenderSummary('team2').female}</span>
                   </h3>
                   <div className={getTeamPlayerGridClassName('4teams')}>
                     {sortPlayers(playerPool).map(player => (
@@ -3209,11 +3209,11 @@ export default function TeamManagementPage() {
                 </div>
                 
                 {/* 팀 3 */}
-                <div className="border rounded-lg p-4 bg-purple-50">
-                  <h3 className="text-lg font-semibold mb-3 text-purple-700">
-                    팀 3 ({Object.values(assignments).filter(t => t === 'team3').length}명)
-                    <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team3').toFixed(1)}</span>
-                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team3').male} · 여 {getTeamGenderSummary('team3').female}</span>
+                <div className="border rounded-lg p-2 sm:p-4 bg-purple-50">
+                  <h3 className="text-xs font-bold text-purple-700 mb-2 flex flex-col gap-0.5 sm:block sm:text-base md:text-lg">
+                    <span>팀 3 ({Object.values(assignments).filter(t => t === 'team3').length}명)</span>
+                    <span className="text-[10px] font-normal text-slate-755 sm:ml-2">점수: {getTeamScore('team3').toFixed(1)}</span>
+                    <span className="text-[9px] font-normal text-slate-500 sm:ml-2 block sm:inline-block">남/여: {getTeamGenderSummary('team3').male}/{getTeamGenderSummary('team3').female}</span>
                   </h3>
                   <div className={getTeamPlayerGridClassName('4teams')}>
                     {sortPlayers(playerPool).map(player => (
@@ -3234,11 +3234,11 @@ export default function TeamManagementPage() {
                 </div>
                 
                 {/* 팀 4 */}
-                <div className="border rounded-lg p-4 bg-orange-50">
-                  <h3 className="text-lg font-semibold mb-3 text-orange-700">
-                    팀 4 ({Object.values(assignments).filter(t => t === 'team4').length}명)
-                    <span className="ml-2 text-sm font-normal">점수: {getTeamScore('team4').toFixed(1)}</span>
-                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('team4').male} · 여 {getTeamGenderSummary('team4').female}</span>
+                <div className="border rounded-lg p-2 sm:p-4 bg-orange-50">
+                  <h3 className="text-xs font-bold text-orange-700 mb-2 flex flex-col gap-0.5 sm:block sm:text-base md:text-lg">
+                    <span>팀 4 ({Object.values(assignments).filter(t => t === 'team4').length}명)</span>
+                    <span className="text-[10px] font-normal text-slate-755 sm:ml-2">점수: {getTeamScore('team4').toFixed(1)}</span>
+                    <span className="text-[9px] font-normal text-slate-500 sm:ml-2 block sm:inline-block">남/여: {getTeamGenderSummary('team4').male}/{getTeamGenderSummary('team4').female}</span>
                   </h3>
                   <div className={getTeamPlayerGridClassName('4teams')}>
                     {sortPlayers(playerPool).map(player => (

@@ -2327,7 +2327,78 @@ export default function TeamManagementPage() {
           {/* 오른쪽: 팀 구성 방식 선택 */}
           <div>
             <label className="block text-sm font-semibold mb-2 text-gray-700">🎯 팀 구성 방식</label>
-            <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-none sm:grid sm:grid-cols-5 sm:overflow-x-visible sm:pb-0">
+            {/* 모바일용 4열 컴팩트 버튼 */}
+            <div className="grid grid-cols-4 gap-1.5 sm:hidden">
+              <button
+                onClick={() => {
+                  setTeamConfig({ type: '2teams' });
+                  setPairGroups([]);
+                  setShowCustomEditor(false);
+                }}
+                className={`rounded-lg border p-1 text-center transition-all ${
+                  teamConfig.type === '2teams'
+                    ? 'border-blue-500 bg-blue-50/80 font-semibold text-blue-600 shadow-sm'
+                    : 'border-blue-200 bg-white text-gray-700'
+                }`}
+              >
+                <div className="text-xs">🏸⚡</div>
+                <div className="text-[10px] font-bold mt-0.5">2팀</div>
+                <div className="text-[8px] text-gray-400 mt-0.5 truncate">라켓/셔틀</div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setTeamConfig({ type: '3teams' });
+                  setPairGroups([]);
+                  setShowCustomEditor(false);
+                }}
+                className={`rounded-lg border p-1 text-center transition-all ${
+                  teamConfig.type === '3teams'
+                    ? 'border-teal-500 bg-teal-50/80 font-semibold text-teal-600 shadow-sm'
+                    : 'border-blue-200 bg-white text-gray-700'
+                }`}
+              >
+                <div className="text-xs">🏸🏸⚡</div>
+                <div className="text-[10px] font-bold mt-0.5">3팀</div>
+                <div className="text-[8px] text-gray-400 mt-0.5 truncate">3개 팀</div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setTeamConfig({ type: '4teams' });
+                  setPairGroups([]);
+                  setShowCustomEditor(false);
+                }}
+                className={`rounded-lg border p-1 text-center transition-all ${
+                  teamConfig.type === '4teams'
+                    ? 'border-purple-500 bg-purple-50/80 font-semibold text-purple-600 shadow-sm'
+                    : 'border-blue-200 bg-white text-gray-700'
+                }`}
+              >
+                <div className="text-xs">🏸🏸⚡⚡</div>
+                <div className="text-[10px] font-bold mt-0.5">4팀</div>
+                <div className="text-[8px] text-gray-400 mt-0.5 truncate">4개 팀</div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setTeamConfig({ type: 'pairs', numLevelGroups: 2 });
+                  setShowCustomEditor(false);
+                }}
+                className={`rounded-lg border p-1 text-center transition-all ${
+                  teamConfig.type === 'pairs'
+                    ? 'border-green-500 bg-green-50/80 font-semibold text-green-600 shadow-sm'
+                    : 'border-blue-200 bg-white text-gray-700'
+                }`}
+              >
+                <div className="text-xs">👥</div>
+                <div className="text-[10px] font-bold mt-0.5">2명 팀</div>
+                <div className="text-[8px] text-gray-400 mt-0.5 truncate">레벨별</div>
+              </button>
+            </div>
+
+            {/* 데스크톱용 기존 5열 그리드 */}
+            <div className="hidden sm:grid sm:grid-cols-5 gap-3">
               <button
                 onClick={() => {
                   setTeamConfig({ type: '2teams' });
@@ -2550,40 +2621,57 @@ export default function TeamManagementPage() {
         </h2>
         
         {selectedScheduleId && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 sm:p-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <div>
-                <h3 className="text-sm font-semibold text-amber-900 sm:text-base">관리자 수동 배정용 회원 추가</h3>
-                <p className="hidden text-sm text-amber-800 sm:block">
-                  선택한 대회 일정 신청자 외에 전체 회원 중 원하는 선수를 팀 배정 대상에 직접 추가할 수 있습니다.
-                </p>
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-2.5 sm:p-4">
+            {/* 모바일용 컴팩트 일렬 바 */}
+            <div className="flex items-center justify-between gap-2 sm:hidden">
+              <div className="text-xs font-semibold text-amber-900">
+                수동 배정용 추가 <span className="font-bold text-amber-600">({manualIncludedPlayers.length}명)</span>
               </div>
-              <div className="text-xs text-amber-900 sm:text-sm">추가됨 {manualIncludedPlayers.length}명</div>
-            </div>
-
-            <div className="mt-2 flex flex-col gap-2 sm:mt-3 sm:gap-3 md:flex-row md:items-center">
               <button
                 type="button"
                 onClick={() => setShowMemberModal(true)}
-                className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 sm:px-4"
+                className="rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-amber-600"
               >
-                회원추가
+                + 회원추가
               </button>
-              <span className="hidden text-sm text-amber-800 sm:block">모든 회원을 풀네임으로 보고 여러 명을 한 번에 추가할 수 있습니다.</span>
+            </div>
+
+            {/* 데스크톱용 레이아웃 */}
+            <div className="hidden sm:block">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-amber-900 sm:text-base">관리자 수동 배정용 회원 추가</h3>
+                  <p className="text-sm text-amber-800">
+                    선택한 대회 일정 신청자 외에 전체 회원 중 원하는 선수를 팀 배정 대상에 직접 추가할 수 있습니다.
+                  </p>
+                </div>
+                <div className="text-xs text-amber-900 sm:text-sm">추가됨 {manualIncludedPlayers.length}명</div>
+              </div>
+
+              <div className="mt-2 flex flex-col gap-2 sm:mt-3 sm:gap-3 md:flex-row md:items-center">
+                <button
+                  type="button"
+                  onClick={() => setShowMemberModal(true)}
+                  className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 sm:px-4"
+                >
+                  회원추가
+                </button>
+                <span className="text-sm text-amber-800">모든 회원을 풀네임으로 보고 여러 명을 한 번에 추가할 수 있습니다.</span>
+              </div>
             </div>
 
             {availableMembersToAdd.length === 0 && (
-              <p className="mt-3 text-sm text-amber-700">추가 가능한 회원이 없습니다.</p>
+              <p className="mt-2 text-xs text-amber-700 sm:mt-3 sm:text-sm">추가 가능한 회원이 없습니다.</p>
             )}
 
             {manualIncludedPlayers.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3 sm:gap-2">
+              <div className="mt-2 flex flex-wrap gap-1 sm:mt-3 sm:gap-2">
                 {manualIncludedPlayers.map((player) => (
                   <button
                     key={player}
                     type="button"
                     onClick={() => toggleManualPlayer(player)}
-                    className="rounded-full border border-amber-500 bg-amber-500 px-2.5 py-1 text-xs text-white transition-colors hover:bg-amber-600 sm:px-3 sm:text-sm"
+                    className="rounded-full border border-amber-500 bg-amber-500 px-2 py-0.5 text-[11px] text-white transition-colors hover:bg-amber-600 sm:px-3 sm:py-1 sm:text-sm"
                   >
                     제거 · {player}
                   </button>
@@ -2597,12 +2685,12 @@ export default function TeamManagementPage() {
           <p className="text-gray-500">선택된 일정에 참가자가 없습니다. 위에서 회원을 추가해 배정을 시작할 수 있습니다.</p>
         ) : (
           <>
-
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:gap-4">
+            {/* 모바일 2열 그리드 및 데스크톱 flex 레이아웃 */}
+            <div className="mb-4 grid grid-cols-2 gap-1.5 sm:flex sm:flex-row sm:gap-4">
               {teamConfig.type !== 'custom' && (
                 <button
                   onClick={autoAssignTeams}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <span>🎲</span>
                   <span>자동 배정</span>
@@ -2621,7 +2709,7 @@ export default function TeamManagementPage() {
                       return next;
                     });
                   }}
-                  className={`${showCustomEditor ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-500 hover:bg-orange-600'} text-white px-4 py-2 rounded flex items-center gap-2`}
+                  className={`${showCustomEditor ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-500 hover:bg-orange-600'} text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm`}
                 >
                   <span>✏️</span>
                   <span>{showCustomEditor ? '수동배정 닫기' : '수동배정'}</span>
@@ -2629,7 +2717,7 @@ export default function TeamManagementPage() {
               )}
               <button
                 onClick={saveTeamAssignments}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
+                className="bg-green-500 hover:bg-green-600 text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60"
                 disabled={Object.keys(assignments).length === 0}
               >
                 <span>💾</span>
@@ -2639,7 +2727,7 @@ export default function TeamManagementPage() {
                 <button
                   onClick={resetCurrentAssignments}
                   title="현재 화면의 팀 배정 결과와 수동배정 선택 상태를 초기화합니다."
-                  className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded flex items-center gap-2"
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <span>🔄</span>
                   <span>초기화</span>

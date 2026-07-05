@@ -2746,10 +2746,12 @@ export default function TeamManagementPage() {
 
                 return (
                   <div className="space-y-4">
-                    <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900">
-                      사용자 정의 수동 배정 모드입니다. 배정 대상 회원 전체가 미배정 상태로 시작하며, 아래 `미배정 선수`에서 원하는 팀으로 직접 넣어 처음부터 팀을 구성할 수 있습니다. 이미 배정된 선수는 카드에서 선택 후 다른 팀 선수와 맞교환할 수 있습니다.
-                      {selectedManualPlayer && <span className="ml-2 font-semibold">선택 선수: {selectedManualPlayer}</span>}
-                    </div>
+                    {selectedManualPlayer && (
+                      <div className="rounded-lg border border-orange-200 bg-orange-50 p-2 text-xs text-orange-950 font-semibold shadow-sm flex items-center gap-1.5">
+                        <span>📍 맞교환 선택 선수:</span>
+                        <span className="bg-orange-200 px-1.5 py-0.5 rounded text-orange-900">{selectedManualPlayer}</span>
+                      </div>
+                    )}
 
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                       <h3 className="mb-3 text-lg font-semibold text-gray-700">미배정 선수 ({unassignedPlayers.length}명)</h3>

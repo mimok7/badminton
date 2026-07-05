@@ -24,7 +24,7 @@ type AttendanceStatus = 'present' | 'lesson' | 'absent' | null;
 const quickLinks = [
   {
     href: '/notifications',
-    title: '📢 공지사항/알림',
+    title: '공지사항/알림',
     description: '새로운 공지와 내 알림을 확인합니다.',
     icon: Bell,
     hoverClass: 'hover:border-pink-400 hover:bg-pink-50/50',
@@ -32,7 +32,7 @@ const quickLinks = [
   },
   {
     href: '/challenge',
-    title: '⚡ 게임 제안',
+    title: '게임 제안',
     description: '완료된 선수들과 다음 게임을 제안합니다.',
     icon: Zap,
     hoverClass: 'hover:border-indigo-400 hover:bg-indigo-50/50',
@@ -40,7 +40,7 @@ const quickLinks = [
   },
   {
     href: '/today-matches',
-    title: '⚔️ 오늘 게임',
+    title: '오늘 게임',
     description: '배정된 게임과 코트를 확인합니다.',
     icon: Swords,
     hoverClass: 'hover:border-blue-400 hover:bg-blue-50/50',
@@ -48,7 +48,7 @@ const quickLinks = [
   },
   {
     href: '/match-registration',
-    title: '🎯 참가 신청',
+    title: '참가 신청',
     description: '예정 경기 참가 여부를 등록합니다.',
     icon: Target,
     hoverClass: 'hover:border-green-400 hover:bg-green-50/50',
@@ -56,7 +56,7 @@ const quickLinks = [
   },
   {
     href: '/my-schedule',
-    title: '📅 내 게임',
+    title: '내 게임',
     description: '내 일정과 게임 기록을 한 번에 봅니다.',
     icon: CalendarDays,
     hoverClass: 'hover:border-orange-400 hover:bg-orange-50/50',
@@ -64,7 +64,7 @@ const quickLinks = [
   },
   {
     href: '/profile',
-    title: '👥 회원 목록',
+    title: '회원 목록',
     description: '회원 목록과 내 정보를 관리합니다.',
     icon: UserCircle2,
     hoverClass: 'hover:border-purple-400 hover:bg-purple-50/50',
@@ -72,7 +72,7 @@ const quickLinks = [
   },
   {
     href: '/tournament-bracket',
-    title: '🏆 대회 대진표',
+    title: '대회 대진표',
     description: '대회 대진표를 확인합니다.',
     icon: Trophy,
     hoverClass: 'hover:border-amber-400 hover:bg-amber-50/50',
@@ -80,7 +80,7 @@ const quickLinks = [
   },
   {
     href: '/products/exchange',
-    title: '🎁 상품 교환',
+    title: '상품 교환',
     description: '코인을 사용하여 상품으로 교환합니다.',
     icon: Gift,
     hoverClass: 'hover:border-rose-400 hover:bg-rose-50/50',
@@ -88,7 +88,7 @@ const quickLinks = [
   },
   {
     href: '/manual',
-    title: '📖 사용자 설명서',
+    title: '사용자 설명서',
     description: '시스템 기능 및 이용 안내 가이드를 확인합니다.',
     icon: BookOpen,
     hoverClass: 'hover:border-sky-400 hover:bg-sky-50/50',
@@ -96,7 +96,7 @@ const quickLinks = [
   },
   {
     href: '/app-request',
-    title: '✍️ 앱 수정 요청',
+    title: '앱 수정 요청',
     description: '기능 건의 및 버그 제보를 작성하여 전달합니다.',
     icon: MessageSquarePlus,
     hoverClass: 'hover:border-yellow-400 hover:bg-yellow-50/50',

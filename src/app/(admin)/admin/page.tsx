@@ -19,18 +19,26 @@ export default function AdminPage() {
 
   return (
     <div className="px-1 py-2 sm:px-2">
-      <div className="mb-4 flex items-start justify-between gap-3 sm:mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">⚙️ 관리자 대시보드</h1>
-          <p className="mt-1 text-sm text-gray-600">안녕하세요, {profile?.full_name || profile?.username || '관리자'}님</p>
+      <section className="rounded-[24px] bg-[#0f172a] px-4 py-3 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] mb-4 sm:mb-6">
+        <div className="flex items-start justify-between gap-3 px-2">
+          <div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold leading-tight">⚙️ 관리자 대시보드</h1>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="rounded-full bg-white/10 px-2 py-0.5 text-slate-100">
+                안녕하세요, {profile?.full_name || profile?.username || '관리자'}님
+              </span>
+            </div>
+          </div>
+          <Link href="/dashboard">
+            <button className="shrink-0 rounded-full bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20 border-0 flex items-center gap-1.5">
+              <span>🏠</span>
+              <span>사용자 홈</span>
+            </button>
+          </Link>
         </div>
-        <Link
-          href="/dashboard"
-          className="shrink-0 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-        >
-          홈
-        </Link>
-      </div>
+      </section>
 
       <div>
         <h2 className="mb-3 text-base font-medium text-gray-900 sm:mb-4 sm:text-lg">빠른 액션</h2>

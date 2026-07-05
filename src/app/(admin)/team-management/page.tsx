@@ -2931,7 +2931,13 @@ export default function TeamManagementPage() {
                       <span className="text-sm text-gray-500">항상 표시됨</span>
                     </div>
                     
-                    <div className={`grid grid-cols-1 ${pairGroups.length === 2 ? 'md:grid-cols-2' : pairGroups.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-4`}>
+                    <div className={`grid gap-2 sm:gap-4 ${
+                      pairGroups.length === 2 
+                        ? 'grid-cols-2 md:grid-cols-2' 
+                        : pairGroups.length === 3 
+                        ? 'grid-cols-3' 
+                        : 'grid-cols-2 md:grid-cols-4'
+                    }`}>
                       {pairGroups.map((group, idx) => {
                         const colorSchemes = [
                           { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700', badge: 'bg-red-100', button: 'bg-red-200 hover:bg-red-300' },
@@ -2942,25 +2948,25 @@ export default function TeamManagementPage() {
                         const colors = colorSchemes[idx % colorSchemes.length];
                         
                         return (
-                          <div key={group.groupName} className={`border-2 ${colors.border} rounded-lg p-4 ${colors.bg}`}>
-                            <h4 className={`font-semibold mb-3 ${colors.text} text-base flex items-center justify-between`}>
+                          <div key={group.groupName} className={`border-2 ${colors.border} rounded-lg p-1.5 sm:p-4 ${colors.bg}`}>
+                            <h4 className={`font-bold mb-1.5 sm:mb-3 ${colors.text} text-xs sm:text-base flex items-center justify-between`}>
                               <span>{group.groupName}</span>
-                              <span className="text-xs font-normal">{group.players.length}명</span>
+                              <span className="text-[10px] sm:text-xs font-normal">{group.players.length}명</span>
                             </h4>
                             <div className="space-y-2">
                               {group.players.length === 0 ? (
-                                <div className="rounded border border-dashed border-gray-300 bg-white/70 p-3 text-center text-sm text-gray-500">
+                                <div className="rounded border border-dashed border-gray-300 bg-white/70 p-2 text-center text-xs text-gray-500">
                                   참가자 없음
                                 </div>
                               ) : (
                                 sortPlayers(group.players).map((player, playerIdx) => (
-                                  <div key={player} className={`rounded-lg border ${colors.border} ${colors.badge} p-2`}>
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="text-sm font-medium text-gray-900">
+                                  <div key={player} className={`rounded-lg border ${colors.border} ${colors.badge} p-1 sm:p-2`}>
+                                    <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                                      <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">
                                         {playerIdx + 1}. {player}
                                       </div>
                                     </div>
-                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                    <div className="mt-1.5 flex flex-wrap gap-1">
                                       {pairGroups
                                         .map((targetGroup, targetIdx) => ({ targetGroup, targetIdx }))
                                         .filter(({ targetIdx }) => targetIdx !== idx)
@@ -2969,9 +2975,9 @@ export default function TeamManagementPage() {
                                             key={targetGroup.groupName}
                                             type="button"
                                             onClick={() => movePairPlayerToGroup(player, targetIdx)}
-                                            className={`rounded-full px-2.5 py-1 text-[11px] font-medium text-gray-800 transition-colors ${colors.button}`}
+                                            className={`rounded-full px-1.5 py-0.5 text-[9px] sm:px-2.5 sm:py-1 sm:text-[11px] font-medium text-gray-800 transition-colors ${colors.button}`}
                                           >
-                                            {targetGroup.groupName}로 이동
+                                            {targetGroup.groupName.replace(' 그룹', '')} 이동
                                           </button>
                                         ))}
                                     </div>

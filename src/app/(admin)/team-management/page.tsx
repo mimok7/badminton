@@ -2335,14 +2335,13 @@ export default function TeamManagementPage() {
                   setPairGroups([]);
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border p-1 text-center transition-all ${
+                className={`rounded-lg border py-2 text-center transition-all ${
                   teamConfig.type === '2teams'
-                    ? 'border-blue-500 bg-blue-50/80 font-semibold text-blue-600 shadow-sm'
+                    ? 'border-blue-500 bg-blue-50/80 font-bold text-blue-600 shadow-sm'
                     : 'border-blue-200 bg-white text-gray-700'
                 }`}
               >
-                <div className="text-xs">🏸⚡</div>
-                <div className="text-[10px] font-bold mt-0.5">2팀</div>
+                <div className="text-xs font-bold">2팀</div>
                 <div className="text-[8px] text-gray-400 mt-0.5 truncate">라켓/셔틀</div>
               </button>
 
@@ -2352,14 +2351,13 @@ export default function TeamManagementPage() {
                   setPairGroups([]);
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border p-1 text-center transition-all ${
+                className={`rounded-lg border py-2 text-center transition-all ${
                   teamConfig.type === '3teams'
-                    ? 'border-teal-500 bg-teal-50/80 font-semibold text-teal-600 shadow-sm'
+                    ? 'border-teal-500 bg-teal-50/80 font-bold text-teal-600 shadow-sm'
                     : 'border-blue-200 bg-white text-gray-700'
                 }`}
               >
-                <div className="text-xs">🏸🏸⚡</div>
-                <div className="text-[10px] font-bold mt-0.5">3팀</div>
+                <div className="text-xs font-bold">3팀</div>
                 <div className="text-[8px] text-gray-400 mt-0.5 truncate">3개 팀</div>
               </button>
 
@@ -2369,14 +2367,13 @@ export default function TeamManagementPage() {
                   setPairGroups([]);
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border p-1 text-center transition-all ${
+                className={`rounded-lg border py-2 text-center transition-all ${
                   teamConfig.type === '4teams'
-                    ? 'border-purple-500 bg-purple-50/80 font-semibold text-purple-600 shadow-sm'
+                    ? 'border-purple-500 bg-purple-50/80 font-bold text-purple-600 shadow-sm'
                     : 'border-blue-200 bg-white text-gray-700'
                 }`}
               >
-                <div className="text-xs">🏸🏸⚡⚡</div>
-                <div className="text-[10px] font-bold mt-0.5">4팀</div>
+                <div className="text-xs font-bold">4팀</div>
                 <div className="text-[8px] text-gray-400 mt-0.5 truncate">4개 팀</div>
               </button>
 
@@ -2385,14 +2382,13 @@ export default function TeamManagementPage() {
                   setTeamConfig({ type: 'pairs', numLevelGroups: 2 });
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border p-1 text-center transition-all ${
+                className={`rounded-lg border py-2 text-center transition-all ${
                   teamConfig.type === 'pairs'
-                    ? 'border-green-500 bg-green-50/80 font-semibold text-green-600 shadow-sm'
+                    ? 'border-green-500 bg-green-50/80 font-bold text-green-600 shadow-sm'
                     : 'border-blue-200 bg-white text-gray-700'
                 }`}
               >
-                <div className="text-xs">👥</div>
-                <div className="text-[10px] font-bold mt-0.5">2명 팀</div>
+                <div className="text-xs font-bold">2명 팀</div>
                 <div className="text-[8px] text-gray-400 mt-0.5 truncate">레벨별</div>
               </button>
             </div>
@@ -2685,8 +2681,8 @@ export default function TeamManagementPage() {
           <p className="text-gray-500">선택된 일정에 참가자가 없습니다. 위에서 회원을 추가해 배정을 시작할 수 있습니다.</p>
         ) : (
           <>
-            {/* 모바일 2열 그리드 및 데스크톱 flex 레이아웃 */}
-            <div className="mb-4 grid grid-cols-2 gap-1.5 sm:flex sm:flex-row sm:gap-4">
+            {/* 모바일 3열 그리드 및 데스크톱 flex 레이아웃 */}
+            <div className="mb-4 grid grid-cols-3 gap-1.5 sm:flex sm:flex-row sm:gap-4">
               {teamConfig.type !== 'custom' && (
                 <button
                   onClick={autoAssignTeams}
@@ -2727,7 +2723,7 @@ export default function TeamManagementPage() {
                 <button
                   onClick={resetCurrentAssignments}
                   title="현재 화면의 팀 배정 결과와 수동배정 선택 상태를 초기화합니다."
-                  className="bg-gray-500 hover:bg-gray-600 text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
+                  className="col-span-3 bg-gray-500 hover:bg-gray-600 text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <span>🔄</span>
                   <span>초기화</span>
@@ -3264,13 +3260,13 @@ export default function TeamManagementPage() {
               </div>
             ) : (
               /* 2팀 모드 (기본) */
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-2 md:gap-6">
                 {/* 라켓팀 */}
-                <div className="border rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-3 text-blue-600">
-                    🏸 라켓팀 ({Object.values(assignments).filter(t => t === 'racket').length}명)
-                    <span className="ml-2 text-sm font-normal">점수: {getTeamScore('racket').toFixed(1)}</span>
-                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('racket').male} · 여 {getTeamGenderSummary('racket').female}</span>
+                <div className="border rounded-lg p-2 sm:p-4">
+                  <h3 className="text-sm font-bold text-blue-600 mb-2 flex flex-col gap-0.5 sm:block sm:text-lg">
+                    <span className="flex items-center gap-1">🏸 라켓팀 ({Object.values(assignments).filter(t => t === 'racket').length}명)</span>
+                    <span className="text-xs font-normal text-slate-750 sm:ml-2">점수: {getTeamScore('racket').toFixed(1)}</span>
+                    <span className="text-[10px] font-normal text-slate-500 sm:ml-2 block sm:inline-block">남 {getTeamGenderSummary('racket').male} · 여 {getTeamGenderSummary('racket').female}</span>
                   </h3>
                   <div className={getTeamPlayerGridClassName('2teams')}>
                     {sortPlayers(playerPool).map(player => (
@@ -3291,11 +3287,11 @@ export default function TeamManagementPage() {
                 </div>
                 
                 {/* 셔틀팀 */}
-                <div className="border rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-3 text-purple-600">
-                    🏃‍♂️ 셔틀팀 ({Object.values(assignments).filter(t => t === 'shuttle').length}명)
-                    <span className="ml-2 text-sm font-normal">점수: {getTeamScore('shuttle').toFixed(1)}</span>
-                    <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary('shuttle').male} · 여 {getTeamGenderSummary('shuttle').female}</span>
+                <div className="border rounded-lg p-2 sm:p-4">
+                  <h3 className="text-sm font-bold text-purple-600 mb-2 flex flex-col gap-0.5 sm:block sm:text-lg">
+                    <span className="flex items-center gap-1">🏃‍♂️ 셔틀팀 ({Object.values(assignments).filter(t => t === 'shuttle').length}명)</span>
+                    <span className="text-xs font-normal text-slate-750 sm:ml-2">점수: {getTeamScore('shuttle').toFixed(1)}</span>
+                    <span className="text-[10px] font-normal text-slate-500 sm:ml-2 block sm:inline-block">남 {getTeamGenderSummary('shuttle').male} · 여 {getTeamGenderSummary('shuttle').female}</span>
                   </h3>
                   <div className={getTeamPlayerGridClassName('2teams')}>
                     {sortPlayers(playerPool).map(player => (

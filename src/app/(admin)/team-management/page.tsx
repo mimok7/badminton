@@ -3324,11 +3324,11 @@ export default function TeamManagementPage() {
       
       {/* 회차별 히스토리 */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="px-6 py-4 border-b bg-gray-50 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">회차별 팀 구성 현황</h2>
+        <div className="px-3 py-2.5 sm:px-6 sm:py-4 border-b bg-gray-50 flex items-center justify-between">
+          <h2 className="text-sm sm:text-xl font-semibold">회차별 팀 구성 현황</h2>
           <button
             onClick={() => fetchRoundsData()}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded-md text-xs sm:px-3 sm:py-1.5 sm:rounded-lg sm:text-sm font-medium transition-colors flex items-center gap-1 sm:gap-2"
           >
             <span>🔄</span>
             <span>새로고침</span>
@@ -3336,9 +3336,9 @@ export default function TeamManagementPage() {
         </div>
         
         {rounds.length === 0 ? (
-          <div className="p-6 text-center text-gray-500 bg-yellow-50 border border-yellow-200 m-6 rounded-lg">
-            <p className="font-semibold text-yellow-900 mb-2">⚠️ 아직 저장된 회차가 없습니다</p>
-            <p className="text-sm text-yellow-800">위의 "자동 배정" → "배정 저장" 버튼으로 회차를 생성하세요.</p>
+          <div className="p-3 sm:p-6 text-center text-gray-500 bg-yellow-50 border border-yellow-200 m-3 sm:m-6 rounded-lg">
+            <p className="text-xs sm:text-base font-semibold text-yellow-900 mb-1 sm:mb-2">⚠️ 아직 저장된 회차가 없습니다</p>
+            <p className="text-[11px] sm:text-sm text-yellow-800">위의 "자동 배정" → "배정 저장" 버튼으로 회차를 생성하세요.</p>
           </div>
         ) : (
           <div className="p-6 space-y-6">

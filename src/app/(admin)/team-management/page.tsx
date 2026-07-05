@@ -2335,7 +2335,7 @@ export default function TeamManagementPage() {
                   setPairGroups([]);
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border py-2 text-center transition-all ${
+                className={`rounded-lg border py-1.5 text-center transition-all ${
                   teamConfig.type === '2teams'
                     ? 'border-blue-500 bg-blue-50/80 font-bold text-blue-600 shadow-sm'
                     : 'border-blue-200 bg-white text-gray-700'
@@ -2351,7 +2351,7 @@ export default function TeamManagementPage() {
                   setPairGroups([]);
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border py-2 text-center transition-all ${
+                className={`rounded-lg border py-1.5 text-center transition-all ${
                   teamConfig.type === '3teams'
                     ? 'border-teal-500 bg-teal-50/80 font-bold text-teal-600 shadow-sm'
                     : 'border-blue-200 bg-white text-gray-700'
@@ -2367,7 +2367,7 @@ export default function TeamManagementPage() {
                   setPairGroups([]);
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border py-2 text-center transition-all ${
+                className={`rounded-lg border py-1.5 text-center transition-all ${
                   teamConfig.type === '4teams'
                     ? 'border-purple-500 bg-purple-50/80 font-bold text-purple-600 shadow-sm'
                     : 'border-blue-200 bg-white text-gray-700'
@@ -2382,7 +2382,7 @@ export default function TeamManagementPage() {
                   setTeamConfig({ type: 'pairs', numLevelGroups: 2 });
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border py-2 text-center transition-all ${
+                className={`rounded-lg border py-1.5 text-center transition-all ${
                   teamConfig.type === 'pairs'
                     ? 'border-green-500 bg-green-50/80 font-bold text-green-600 shadow-sm'
                     : 'border-blue-200 bg-white text-gray-700'
@@ -3050,15 +3050,15 @@ export default function TeamManagementPage() {
                         const minScore = pairScores.length > 0 ? Math.min(...pairScores) : 0;
 
                         return (
-                          <div key={groupIdx} className={`border-2 ${colors.border} rounded-lg p-4 ${colors.bg}`}>
-                            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-dashed border-slate-200 pb-3">
+                          <div key={groupIdx} className={`border-2 ${colors.border} rounded-lg p-2 sm:p-4 ${colors.bg}`}>
+                            <div className="mb-2 sm:mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-dashed border-slate-200 pb-2 sm:pb-3">
                               <div>
-                                <h4 className={`font-bold ${colors.text} text-base ${colors.title} p-2 rounded inline-block`}>
+                                <h4 className={`font-bold ${colors.text} text-xs sm:text-base ${colors.title} p-1 sm:p-2 rounded inline-block`}>
                                   {pairGroups[groupIdx].groupName} - {groupPairs.length}개 페어
                                 </h4>
                                 
                                 {pairScores.length > 0 && (
-                                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-700 bg-white/70 px-2 py-1.5 rounded-md border border-slate-100 shadow-sm">
+                                  <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-3 text-[10px] sm:text-xs text-slate-700 bg-white/70 px-1.5 py-1 sm:px-2 sm:py-1.5 rounded-md border border-slate-100 shadow-sm">
                                     <span>📊 페어 점수:</span>
                                     <span>평균 <strong>{avgScore.toFixed(1)}점</strong></span>
                                     <span>최대 <strong>{maxScore.toFixed(1)}점</strong></span>
@@ -3068,11 +3068,11 @@ export default function TeamManagementPage() {
                                 )}
                               </div>
 
-                              <div className="flex gap-2">
+                              <div className="flex gap-1.5 sm:gap-2">
                                 <button
                                   type="button"
                                   onClick={() => reassignPairGroup(groupIdx)}
-                                  className="rounded-lg bg-teal-600 hover:bg-teal-700 px-3 py-2 text-xs font-semibold text-white transition-colors"
+                                  className="rounded bg-teal-600 hover:bg-teal-700 px-1.5 py-1 text-[10px] sm:rounded-lg sm:px-3 sm:py-2 sm:text-xs font-bold text-white transition-colors"
                                 >
                                   🔄 그룹별 재배정
                                 </button>
@@ -3086,7 +3086,7 @@ export default function TeamManagementPage() {
                                       return shouldOpen;
                                     });
                                   }}
-                                  className={`rounded-lg px-3 py-2 text-xs font-semibold text-white transition-colors ${
+                                  className={`rounded px-1.5 py-1 text-[10px] sm:rounded-lg sm:px-3 sm:py-2 sm:text-xs font-bold text-white transition-colors ${
                                     showCustomEditor && activePairGroupIndex === groupIdx
                                       ? 'bg-orange-700 hover:bg-orange-800'
                                       : 'bg-orange-500 hover:bg-orange-600'

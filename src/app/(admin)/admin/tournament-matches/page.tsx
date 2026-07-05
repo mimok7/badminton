@@ -3273,43 +3273,51 @@ export default function TournamentMatchesPage() {
       </div>
 
       {teamParticipantsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[24px] bg-white shadow-xl">
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-2 sm:p-4">
+          <div className="max-h-[95vh] w-full max-w-3xl overflow-hidden rounded-[16px] sm:rounded-[24px] bg-white shadow-xl">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 sm:px-5 sm:py-4">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">{teamParticipantsModal.title}</h3>
+                <h3 className="text-sm sm:text-lg font-bold text-slate-900">{teamParticipantsModal.title}</h3>
                 {teamParticipantsModal.subtitle && (
-                  <p className="mt-1 text-sm text-slate-500">{teamParticipantsModal.subtitle}</p>
+                  <p className="mt-0.5 text-xs sm:text-sm text-slate-500">{teamParticipantsModal.subtitle}</p>
                 )}
               </div>
               <button
                 onClick={() => setTeamParticipantsModal(null)}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                className="rounded-md border border-slate-300 px-2 py-1 text-xs sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 shrink-0"
               >
                 닫기
               </button>
             </div>
 
-            <div className="max-h-[calc(90vh-88px)] overflow-y-auto p-5">
+            <div className="max-h-[calc(95vh-70px)] overflow-y-auto p-3 sm:p-5">
               {teamParticipantsModal.teams.length === 0 ? (
                 <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-5 text-sm text-yellow-800">
                   표시할 배정 팀 정보가 없습니다.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className={`grid gap-1.5 sm:gap-4 ${
+                  teamParticipantsModal.teams.length === 2 
+                    ? 'grid-cols-2' 
+                    : teamParticipantsModal.teams.length === 3 
+                    ? 'grid-cols-3' 
+                    : teamParticipantsModal.teams.length === 4 
+                    ? 'grid-cols-2 md:grid-cols-4' 
+                    : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+                }`}>
                   {teamParticipantsModal.teams.map((team) => (
-                    <div key={team.name} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="mb-3 flex items-center justify-between gap-2">
-                        <div className="text-base font-semibold text-slate-900">{team.name}</div>
-                        <div className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-500">
+                    <div key={team.name} className="rounded-xl border border-slate-200 bg-slate-50 p-1.5 sm:p-4">
+                      <div className="mb-1.5 sm:mb-3 flex items-center justify-between gap-1">
+                        <div className="text-xs sm:text-base font-bold text-slate-900 truncate">{team.name}</div>
+                        <div className="rounded bg-white px-1 py-0.5 text-[9px] sm:px-2.5 sm:py-1 sm:text-xs font-medium text-slate-500 shrink-0">
                           {team.players.length}명
                         </div>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-1 sm:space-y-2">
                         {team.players.map((player) => (
                           <div
                             key={`${team.name}-${player}`}
-                            className="rounded-xl bg-white px-3 py-2 text-sm text-slate-800 shadow-sm"
+                            className="rounded-lg bg-white px-1.5 py-1 text-xs sm:px-3 sm:py-2 sm:text-sm text-slate-800 shadow-sm text-center font-medium truncate"
                           >
                             {player}
                           </div>

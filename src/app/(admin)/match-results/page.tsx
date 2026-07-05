@@ -685,8 +685,8 @@ function MatchResultsPage() {
                 <Trophy className="h-3.5 w-3.5" />
                 경기결과
               </span>
-              <h1 className="text-xl font-bold tracking-tight">배정 현황 및 결과</h1>
-              <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">배정된 경기 결과와 점수를 입력 및 확인하고 배팅 현황을 확인합니다.</p>
+              <h1 className="text-xl font-bold tracking-tight">오늘 참가자 승률 TOP 5</h1>
+              <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">오늘 참가한 선수들의 승률 순위와 경기 결과를 확인합니다.</p>
             </div>
             <Link href="/admin">
               <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
@@ -699,37 +699,6 @@ function MatchResultsPage() {
 
         {isMobile ? (
           <div className="space-y-4">
-            {/* 상단 승률 카드 (오늘 참가자 승률 상위 5) */}
-            <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-2xl p-4 shadow-md">
-              <div className="flex items-center justify-between border-b border-indigo-400/40 pb-2 mb-2">
-                <h3 className="text-sm font-bold">🔥 오늘 참가자 승률 TOP 5</h3>
-                <span className="text-[10px] text-indigo-200">정렬: 승률 &gt; 승리수</span>
-              </div>
-              {todayLeaderboard.length === 0 ? (
-                <div className="text-center py-4 text-xs text-indigo-200">
-                  완료된 오늘 경기가 없습니다.
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  {todayLeaderboard.map((player, idx) => {
-                    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}위`;
-                    return (
-                      <div key={player.name} className="flex items-center justify-between text-xs py-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="w-6 text-center font-bold text-[11px] text-indigo-200">{medal}</span>
-                          <span className="font-semibold">{player.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-yellow-300">{player.winRate}%</span>
-                          <span className="text-[10px] text-indigo-100">({player.wins}승/{player.matches - player.wins}패)</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
             {/* 하단 오늘 경기 결과 상세 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/60">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">

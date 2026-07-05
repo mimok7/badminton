@@ -2327,22 +2327,22 @@ export default function TeamManagementPage() {
           {/* 오른쪽: 팀 구성 방식 선택 */}
           <div>
             <label className="block text-sm font-semibold mb-2 text-gray-700">🎯 팀 구성 방식</label>
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-5">
+            <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-none sm:grid sm:grid-cols-5 sm:overflow-x-visible sm:pb-0">
               <button
                 onClick={() => {
                   setTeamConfig({ type: '2teams' });
                   setPairGroups([]);
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border-2 p-2.5 transition-all sm:p-3 ${
+                className={`rounded-lg border-2 p-2 transition-all shrink-0 w-[105px] sm:w-auto text-center sm:p-3 ${
                   teamConfig.type === '2teams'
-                    ? 'border-blue-500 bg-blue-50 shadow-md'
-                    : 'border-gray-300 hover:border-blue-300'
+                    ? 'border-blue-500 bg-blue-50 shadow-sm'
+                    : 'border-gray-200 bg-white hover:border-blue-300'
                 }`}
               >
-                <div className="text-2xl mb-1">🏸⚡</div>
-                <div className="font-semibold text-sm">2팀</div>
-                <div className="text-xs text-gray-600">라켓 vs 셔틀</div>
+                <div className="text-xl mb-0.5 sm:text-2xl sm:mb-1">🏸⚡</div>
+                <div className="font-semibold text-xs sm:text-sm">2팀</div>
+                <div className="text-[10px] text-gray-500 sm:text-xs">라켓 vs 셔틀</div>
               </button>
               
               <button
@@ -2351,15 +2351,15 @@ export default function TeamManagementPage() {
                   setPairGroups([]);
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border-2 p-2.5 transition-all sm:p-3 ${
+                className={`rounded-lg border-2 p-2 transition-all shrink-0 w-[105px] sm:w-auto text-center sm:p-3 ${
                   teamConfig.type === '3teams'
-                    ? 'border-teal-500 bg-teal-50 shadow-md'
-                    : 'border-gray-300 hover:border-teal-300'
+                    ? 'border-teal-500 bg-teal-50 shadow-sm'
+                    : 'border-gray-200 bg-white hover:border-teal-300'
                 }`}
               >
-                <div className="text-2xl mb-1">🏸🏸⚡</div>
-                <div className="font-semibold text-sm">3팀</div>
-                <div className="text-xs text-gray-600">3개 팀</div>
+                <div className="text-xl mb-0.5 sm:text-2xl sm:mb-1">🏸🏸⚡</div>
+                <div className="font-semibold text-xs sm:text-sm">3팀</div>
+                <div className="text-[10px] text-gray-500 sm:text-xs">3개 팀</div>
               </button>
               
               <button
@@ -2368,15 +2368,15 @@ export default function TeamManagementPage() {
                   setPairGroups([]);
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border-2 p-2.5 transition-all sm:p-3 ${
+                className={`rounded-lg border-2 p-2 transition-all shrink-0 w-[105px] sm:w-auto text-center sm:p-3 ${
                   teamConfig.type === '4teams'
-                    ? 'border-purple-500 bg-purple-50 shadow-md'
-                    : 'border-gray-300 hover:border-purple-300'
+                    ? 'border-purple-500 bg-purple-50 shadow-sm'
+                    : 'border-gray-200 bg-white hover:border-purple-300'
                 }`}
               >
-                <div className="text-2xl mb-1">🏸🏸⚡⚡</div>
-                <div className="font-semibold text-sm">4팀</div>
-                <div className="text-xs text-gray-600">4개 팀</div>
+                <div className="text-xl mb-0.5 sm:text-2xl sm:mb-1">🏸🏸⚡⚡</div>
+                <div className="font-semibold text-xs sm:text-sm">4팀</div>
+                <div className="text-[10px] text-gray-500 sm:text-xs">4개 팀</div>
               </button>
               
               <button
@@ -2384,30 +2384,30 @@ export default function TeamManagementPage() {
                   setTeamConfig({ type: 'pairs', numLevelGroups: 2 });
                   setShowCustomEditor(false);
                 }}
-                className={`rounded-lg border-2 p-2.5 transition-all sm:p-3 ${
+                className={`rounded-lg border-2 p-2 transition-all shrink-0 w-[105px] sm:w-auto text-center sm:p-3 ${
                   teamConfig.type === 'pairs'
-                    ? 'border-green-500 bg-green-50 shadow-md'
-                    : 'border-gray-300 hover:border-green-300'
+                    ? 'border-green-500 bg-green-50 shadow-sm'
+                    : 'border-gray-200 bg-white hover:border-green-300'
                 }`}
               >
-                <div className="text-2xl mb-1">👥</div>
-                <div className="font-semibold text-sm">2명 팀</div>
-                <div className="text-xs text-gray-600">레벨별 페어</div>
+                <div className="text-xl mb-0.5 sm:text-2xl sm:mb-1">👥</div>
+                <div className="font-semibold text-xs sm:text-sm">2명 팀</div>
+                <div className="text-[10px] text-gray-500 sm:text-xs">레벨별 페어</div>
               </button>
               
               <button
                 onClick={() => {
                   startCustomManualAssignment(2);
                 }}
-                className={`rounded-lg border-2 p-2.5 transition-all sm:p-3 ${
+                className={`rounded-lg border-2 p-2 transition-all shrink-0 w-[105px] sm:w-auto text-center sm:p-3 ${
                   teamConfig.type === 'custom'
-                    ? 'border-orange-500 bg-orange-50 shadow-md'
-                    : 'border-gray-300 hover:border-orange-300'
+                    ? 'border-orange-500 bg-orange-50 shadow-sm'
+                    : 'border-gray-200 bg-white hover:border-orange-300'
                 }`}
               >
-                <div className="text-2xl mb-1">✏️</div>
-                <div className="font-semibold text-sm">사용자 정의</div>
-                <div className="text-xs text-gray-600">직접 구성</div>
+                <div className="text-xl mb-0.5 sm:text-2xl sm:mb-1">✏️</div>
+                <div className="font-semibold text-xs sm:text-sm">사용자 정의</div>
+                <div className="text-[10px] text-gray-500 sm:text-xs">직접 구성</div>
               </button>
             </div>
           </div>

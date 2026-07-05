@@ -2692,6 +2692,24 @@ export default function TeamManagementPage() {
                   <span>자동 배정</span>
                 </button>
               )}
+              <button
+                onClick={saveTeamAssignments}
+                className="bg-green-500 hover:bg-green-600 text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60"
+                disabled={Object.keys(assignments).length === 0}
+              >
+                <span>💾</span>
+                <span>배정 저장</span>
+              </button>
+              {Object.keys(assignments).length > 0 && (
+                <button
+                  onClick={resetCurrentAssignments}
+                  title="현재 화면의 팀 배정 결과와 수동배정 선택 상태를 초기화합니다."
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <span>🔄</span>
+                  <span>초기화</span>
+                </button>
+              )}
               {teamConfig.type !== 'pairs' && (
                 <button
                   onClick={() => {
@@ -2705,28 +2723,10 @@ export default function TeamManagementPage() {
                       return next;
                     });
                   }}
-                  className={`${showCustomEditor ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-500 hover:bg-orange-600'} text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm`}
+                  className={`${showCustomEditor ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-500 hover:bg-orange-600'} text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm col-span-3 sm:col-span-1`}
                 >
                   <span>✏️</span>
                   <span>{showCustomEditor ? '수동배정 닫기' : '수동배정'}</span>
-                </button>
-              )}
-              <button
-                onClick={saveTeamAssignments}
-                className="bg-green-500 hover:bg-green-600 text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60"
-                disabled={Object.keys(assignments).length === 0}
-              >
-                <span>💾</span>
-                <span>배정 저장</span>
-              </button>
-              {Object.keys(assignments).length > 0 && (
-                <button
-                  onClick={resetCurrentAssignments}
-                  title="현재 화면의 팀 배정 결과와 수동배정 선택 상태를 초기화합니다."
-                  className="col-span-3 bg-gray-500 hover:bg-gray-600 text-white px-2.5 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <span>🔄</span>
-                  <span>초기화</span>
                 </button>
               )}
             </div>

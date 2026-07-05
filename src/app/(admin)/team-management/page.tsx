@@ -2483,7 +2483,7 @@ export default function TeamManagementPage() {
         {/* 2명 팀 모드일 때 그룹 수 선택 */}
         {teamConfig.type === 'pairs' && (
           <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3 sm:mt-4 sm:p-4">
-            <h3 className="font-semibold text-green-900 mb-3">📊 레벨 그룹 분할 선택</h3>
+            <h3 className="text-sm sm:text-base font-semibold text-green-900 mb-2 sm:mb-3">📊 레벨 그룹 분할 선택</h3>
             <div className="grid grid-cols-3 gap-1.5 sm:flex sm:gap-3">
               {[2, 3, 4].map(num => {
                 const isSelected = teamConfig.numLevelGroups === num;
@@ -2578,7 +2578,7 @@ export default function TeamManagementPage() {
           <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3 sm:mt-4 sm:p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className="font-semibold text-orange-900">✏️ 수동 배정 설정</h3>
+                <h3 className="text-sm sm:text-base font-semibold text-orange-900">✏️ 수동 배정 설정</h3>
                 <p className="mt-1 text-sm text-orange-800">
                   배정 대상 회원 전체를 미배정 상태로 표시한 뒤, 처음부터 원하는 팀으로 직접 배정할 수 있습니다.
                 </p>
@@ -2609,9 +2609,9 @@ export default function TeamManagementPage() {
 
       {/* 현재 출석자 및 팀 배정 섹션 */}
       <div className="mb-6 rounded-lg bg-white p-3 shadow-md sm:mb-8 sm:p-6">
-        <h2 className="text-xl font-semibold mb-4">
+        <h2 className="text-base sm:text-xl font-semibold mb-3 sm:mb-4">
           {currentRound}회차 팀 배정 
-          <span className="text-sm text-gray-600 ml-2">
+          <span className="text-xs sm:text-sm text-gray-600 ml-1.5 sm:ml-2">
             (배정 대상: {playerPool.length}명)
           </span>
         </h2>
@@ -2927,8 +2927,8 @@ export default function TeamManagementPage() {
                 {pairGroups.length > 0 && (
                   <div className="space-y-4 mb-6">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-gray-800">📊 그룹별 참가자</h3>
-                      <span className="text-sm text-gray-500">항상 표시됨</span>
+                      <h3 className="text-sm sm:text-lg font-semibold text-gray-800">📊 그룹별 참가자</h3>
+                      <span className="text-xs sm:text-sm text-gray-500">항상 표시됨</span>
                     </div>
                     
                     <div className={`grid gap-2 sm:gap-4 ${
@@ -3028,7 +3028,7 @@ export default function TeamManagementPage() {
                   
                   return (
                     <div className="space-y-6">
-                      <h3 className="text-lg font-semibold text-gray-800">🤝 그룹별 페어 구성</h3>
+                      <h3 className="text-sm sm:text-lg font-semibold text-gray-800">🤝 그룹별 페어 구성</h3>
                       {Object.entries(pairsByGroup).map(([groupIdxStr, groupPairs]) => {
                         const groupIdx = parseInt(groupIdxStr);
                         if (groupIdx < 0 || !pairGroups[groupIdx]) return null;

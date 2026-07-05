@@ -2484,7 +2484,7 @@ export default function TeamManagementPage() {
         {teamConfig.type === 'pairs' && (
           <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3 sm:mt-4 sm:p-4">
             <h3 className="font-semibold text-green-900 mb-3">📊 레벨 그룹 분할 선택</h3>
-            <div className="grid grid-cols-1 gap-2 sm:flex sm:gap-3">
+            <div className="grid grid-cols-3 gap-1.5 sm:flex sm:gap-3">
               {[2, 3, 4].map(num => {
                 const isSelected = teamConfig.numLevelGroups === num;
                 return (
@@ -2555,17 +2555,17 @@ export default function TeamManagementPage() {
                         setPairGroups(newPairGroups);
                       }
                     }}
-                    className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${
+                    className={`flex-1 py-1.5 px-1 rounded-lg font-semibold transition-all sm:py-3 sm:px-4 text-center ${
                       isSelected
-                        ? 'bg-green-600 text-white shadow-md'
-                        : 'bg-white text-green-700 border-2 border-green-300 hover:bg-green-100'
+                        ? 'bg-green-600 text-white shadow-sm'
+                        : 'bg-white text-green-700 border border-green-300 hover:bg-green-50'
                     }`}
                   >
-                    <div className="text-xl mb-1">{num}개 그룹</div>
-                    <div className="text-xs opacity-80">
+                    <div className="text-xs sm:text-lg">{num}개 그룹</div>
+                    <div className="text-[8px] opacity-90 mt-0.5 sm:text-xs">
                       {num === 2 && '상위 / 하위'}
-                      {num === 3 && '상위 / 중위 / 하위'}
-                      {num === 4 && '상 / 중상 / 중하 / 하'}
+                      {num === 3 && '상위/중위/하위'}
+                      {num === 4 && '상/중상/중하/하'}
                     </div>
                   </button>
                 );

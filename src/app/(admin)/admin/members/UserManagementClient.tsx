@@ -984,7 +984,7 @@ export default function UserManagementClient({
                     <Link href="/admin">
                         <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
                             <ArrowLeft className="h-3.5 w-3.5" />
-                            관리자 홈
+                            홈
                         </Button>
                     </Link>
                 </div>

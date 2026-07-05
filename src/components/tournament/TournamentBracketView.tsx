@@ -2214,7 +2214,7 @@ export default function TournamentBracketView({ adminMode = false }: TournamentB
     <div className="min-h-screen bg-gray-50 text-slate-900">
       <div className={containerClassName}>
         {adminMode ? (
-          <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-4 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] mb-4 sm:mb-6">
+          <section className="relative overflow-hidden rounded-[24px] bg-[#0f172a] px-4 py-3 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)] mb-4 sm:mb-6">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.15),transparent_50%)] pointer-events-none" />
             <div className="relative z-10 flex items-center justify-between px-1">
               <div className="space-y-0.5 pl-2">

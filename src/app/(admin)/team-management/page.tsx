@@ -2780,7 +2780,13 @@ export default function TeamManagementPage() {
                       )}
                     </div>
 
-                    <div className={`grid grid-cols-1 gap-4 ${manualTeamOptions.length === 2 ? 'lg:grid-cols-2' : manualTeamOptions.length === 3 ? 'xl:grid-cols-3' : 'md:grid-cols-2 xl:grid-cols-4'}`}>
+                    <div className={`grid gap-2 sm:gap-4 ${
+                      manualTeamOptions.length === 2 
+                        ? 'grid-cols-2 lg:grid-cols-2' 
+                        : manualTeamOptions.length === 3 
+                        ? 'grid-cols-3 xl:grid-cols-3' 
+                        : 'grid-cols-2 md:grid-cols-2 xl:grid-cols-4'
+                    }`}>
                       {manualTeamOptions.map((teamOption) => {
                         const teamPlayers = sortPlayers(
                           Object.entries(assignments)
@@ -2789,31 +2795,31 @@ export default function TeamManagementPage() {
                         );
 
                         return (
-                          <div key={String(teamOption.key)} className={`rounded-lg border p-4 ${teamOption.box}`}>
-                            <h3 className={`mb-3 text-lg font-semibold ${teamOption.text}`}>
-                              {teamOption.label} ({teamPlayers.length}명)
-                              <span className="ml-2 text-sm font-normal">점수: {getTeamScore(teamOption.key).toFixed(1)}</span>
-                              <span className="ml-2 text-sm font-normal text-slate-600">남 {getTeamGenderSummary(teamOption.key).male} · 여 {getTeamGenderSummary(teamOption.key).female}</span>
+                          <div key={String(teamOption.key)} className={`rounded-lg border p-1.5 sm:p-4 ${teamOption.box}`}>
+                            <h3 className={`mb-1.5 sm:mb-3 text-[10px] sm:text-base md:text-lg font-bold flex flex-col gap-0.5 sm:block ${teamOption.text}`}>
+                              <span>{teamOption.label} ({teamPlayers.length}명)</span>
+                              <span className="text-[9px] font-normal sm:ml-2">점수: {getTeamScore(teamOption.key).toFixed(1)}</span>
+                              <span className="text-[8px] font-normal text-slate-500 sm:ml-2 block sm:inline-block">남/여: {getTeamGenderSummary(teamOption.key).male}/{getTeamGenderSummary(teamOption.key).female}</span>
                             </h3>
                             {teamPlayers.length === 0 ? (
-                              <div className="rounded border border-dashed border-gray-300 bg-white/80 p-3 text-center text-sm text-gray-500">
-                                아직 배정된 선수가 없습니다.
+                              <div className="rounded border border-dashed border-gray-300 bg-white/85 p-2 text-center text-xs text-gray-500">
+                                배정 없음
                               </div>
                             ) : (
                               <div className={getTeamPlayerGridClassName(teamLayoutType)}>
                                 {teamPlayers.map((player) => (
                                   <div
                                     key={player}
-                                    className={`rounded border px-2 py-2 text-center text-sm font-medium cursor-pointer transition-colors ${
+                                    className={`rounded border px-1 py-1 sm:px-2 sm:py-2 text-center text-xs sm:text-sm font-medium cursor-pointer transition-colors ${
                                       selectedManualPlayer === player
                                         ? 'border-orange-500 bg-orange-100 ring-1 ring-orange-300'
                                         : teamOption.active
                                     }`}
                                     onClick={() => handleTeamManualAdjustment(player)}
                                   >
-                                    <div>{player}</div>
-                                    <div className="mt-1 text-[10px] text-slate-600">
-                                      {selectedManualPlayer === player ? '선택됨' : selectedManualPlayer ? '눌러서 맞교환' : '눌러서 선택'}
+                                    <div className="truncate">{player}</div>
+                                    <div className="mt-0.5 text-[8px] sm:text-[10px] text-slate-600 truncate">
+                                      {selectedManualPlayer === player ? '선택됨' : selectedManualPlayer ? '교환' : '선택'}
                                     </div>
                                   </div>
                                 ))}

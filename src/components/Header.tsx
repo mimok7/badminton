@@ -61,6 +61,7 @@ export default function Header() {
               height={28}
               sizes="28px"
               priority
+              suppressHydrationWarning
             />
             <span className="ml-2 text-sm font-semibold leading-none w-max">라켓 뚱보단</span>
           </Link>

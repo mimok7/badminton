@@ -252,7 +252,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
       const today = getKoreaDate();
 
       if (isRegisteredToday && todayRegistration) {
-        const hasConfirmed = window.confirm('오늘 경기 참가신청이 취소됩니다. 정말 취소하시겠습니까?');
+        const hasConfirmed = await window.confirm('오늘 경기 참가신청이 취소됩니다. 정말 취소하시겠습니까?');
         if (!hasConfirmed) {
           setStatusSaving(false);
           return;

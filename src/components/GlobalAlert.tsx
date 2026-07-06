@@ -3,27 +3,54 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 
+type DialogState = {
+  type: 'alert' | 'confirm';
+  message: string;
+  onResolve: (value: boolean) => void;
+};
+
 export default function GlobalAlert() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [message, setMessage] = useState('');
+  const [dialog, setDialog] = useState<DialogState | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const originalAlert = window.alert;
+    const originalConfirm = window.confirm;
 
-    // window.alert 재정의
     window.alert = (msg: any) => {
-      setMessage(String(msg || ''));
-      setIsOpen(true);
+      return new Promise<void>((resolve) => {
+        setDialog({
+          type: 'alert',
+          message: String(msg || ''),
+          onResolve: () => {
+            setDialog(null);
+            resolve();
+          }
+        });
+      }) as any;
+    };
+
+    window.confirm = (msg: any) => {
+      return new Promise<boolean>((resolve) => {
+        setDialog({
+          type: 'confirm',
+          message: String(msg || ''),
+          onResolve: (val) => {
+            setDialog(null);
+            resolve(val);
+          }
+        });
+      }) as any;
     };
 
     return () => {
       window.alert = originalAlert;
+      window.confirm = originalConfirm;
     };
   }, []);
 
-  if (!isOpen) return null;
+  if (!dialog) return null;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm transition-all duration-300">
@@ -37,18 +64,37 @@ export default function GlobalAlert() {
         
         {/* Content */}
         <div className="text-[14px] text-slate-600 whitespace-pre-wrap leading-relaxed px-1">
-          {message}
+          {dialog.message}
         </div>
         
-        {/* Action Button */}
-        <div className="flex justify-end pt-1">
-          <Button
-            type="button"
-            onClick={() => setIsOpen(false)}
-            className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold px-5 py-2 text-xs transition active:scale-95 border-0 focus:outline-none"
-          >
-            확인
-          </Button>
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-2 pt-1">
+          {dialog.type === 'confirm' ? (
+            <>
+              <Button
+                type="button"
+                onClick={() => dialog.onResolve(false)}
+                className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-semibold px-4 py-2 text-xs transition active:scale-95"
+              >
+                취소
+              </Button>
+              <Button
+                type="button"
+                onClick={() => dialog.onResolve(true)}
+                className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-2 text-xs transition active:scale-95 border-0 focus:outline-none"
+              >
+                확인
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              onClick={() => dialog.onResolve(true)}
+              className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold px-5 py-2 text-xs transition active:scale-95 border-0 focus:outline-none"
+            >
+              확인
+            </Button>
+          )}
         </div>
       </div>
     </div>

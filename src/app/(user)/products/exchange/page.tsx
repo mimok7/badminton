@@ -77,7 +77,7 @@ export default function UserProductsExchangePage() {
       return;
     }
 
-    if (!confirm(`🎁 "${product.name}" 상품을 교환하시겠습니까?\n[${product.coin_price} 코인이 차감됩니다]`)) {
+    if (!await confirm(`🎁 "${product.name}" 상품을 교환하시겠습니까?\n[${product.coin_price} 코인이 차감됩니다]`)) {
       return;
     }
 

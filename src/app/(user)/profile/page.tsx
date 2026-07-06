@@ -307,7 +307,7 @@ export default function ProfilePage() {
       return;
     }
 
-    const confirmSave = window.confirm(
+    const confirmSave = await window.confirm(
       '평가를 저장하시겠습니까? 저장 후에는 이번 기간 동안 평가를 수정하거나 추가로 제출할 수 없습니다.'
     );
     if (!confirmSave) return;

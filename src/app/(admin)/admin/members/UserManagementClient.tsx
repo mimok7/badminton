@@ -218,7 +218,7 @@ export default function UserManagementClient({
         });
     };
 
-    const handleDelete = (user: AdminUser) => {
+    const handleDelete = async (user: AdminUser) => {
         if (!isCurrentUserAdmin) {
             alert("삭제 권한이 없습니다.");
             return;
@@ -227,7 +227,7 @@ export default function UserManagementClient({
             alert("자기 자신은 삭제할 수 없습니다.");
             return;
         }
-        if (window.confirm(`정말로 '${user.username || user.email}'님을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+        if (await window.confirm(`정말로 '${user.username || user.email}'님을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
             startTransition(async () => {
                 const result = await deleteUser(user.id);
                 if (result?.error) {
@@ -245,13 +245,13 @@ export default function UserManagementClient({
         }
     };
 
-    const handleResetPassword = (user: AdminUser) => {
+    const handleResetPassword = async (user: AdminUser) => {
         if (!user.email) {
             alert('이메일 정보가 없는 회원은 비밀번호를 초기화할 수 없습니다.');
             return;
         }
 
-        if (window.confirm(`'${user.username || user.full_name}' 회원의 비밀번호를 초기 비밀번호('bad123!')로 초기화하시겠습니까?`)) {
+        if (await window.confirm(`'${user.username || user.full_name}' 회원의 비밀번호를 초기 비밀번호('bad123!')로 초기화하시겠습니까?`)) {
             startTransition(async () => {
                 const result = await resetUserPassword(user.id, 'bad123!');
                 if (result?.error) {
@@ -263,9 +263,9 @@ export default function UserManagementClient({
         }
     };
 
-    const handleResetMember = (user: AdminUser) => {
+    const handleResetMember = async (user: AdminUser) => {
         const displayName = user.full_name || user.username || user.email;
-        if (window.confirm(`'${displayName}' 회원의 모든 데이터(출석 기록 및 코인 전적)를 초기화하시겠습니까?`)) {
+        if (await window.confirm(`'${displayName}' 회원의 모든 데이터(출석 기록 및 코인 전적)를 초기화하시겠습니까?`)) {
             startTransition(async () => {
                 const result = await resetMemberData(user.id);
                 if (result?.error) {
@@ -1265,8 +1265,8 @@ export default function UserManagementClient({
                             {isSuperAdmin && (
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        if (confirm('모든 회원의 출석 기록을 완전히 삭제하고 초기화하시겠습니까?\n이 작업은 취소할 수 없습니다.')) {
+                                    onClick={async () => {
+                                        if (await confirm('모든 회원의 출석 기록을 완전히 삭제하고 초기화하시겠습니까?\n이 작업은 취소할 수 없습니다.')) {
                                             startTransition(async () => {
                                                 const res = await resetAttendanceAll();
                                                 if (res?.error) alert(`출석 초기화 실패: ${res.error}`);
@@ -1405,8 +1405,8 @@ export default function UserManagementClient({
                             {isSuperAdmin && (
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        if (confirm('모든 회원의 승률(승/패 전적) 기록을 0으로 초기화하시겠습니까?\n이 작업은 취소할 수 없습니다.')) {
+                                    onClick={async () => {
+                                        if (await confirm('모든 회원의 승률(승/패 전적) 기록을 0으로 초기화하시겠습니까?\n이 작업은 취소할 수 없습니다.')) {
                                             startTransition(async () => {
                                                 const res = await resetWinRateAll();
                                                 if (res?.error) alert(`승률 초기화 실패: ${res.error}`);

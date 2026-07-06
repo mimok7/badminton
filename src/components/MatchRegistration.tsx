@@ -240,7 +240,7 @@ export default function MatchRegistration({
   const handleCancel = async () => {
     if (!userRegistration) return;
 
-    if (!confirm('참가 신청을 취소하시겠습니까?')) return;
+    if (!await confirm('참가 신청을 취소하시겠습니까?')) return;
 
     try {
       setLoading(true);

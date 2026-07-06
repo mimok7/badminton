@@ -81,7 +81,7 @@ export default function ChallengePage() {
   const [resetting, setResetting] = useState(false);
 
   const handleResetEligibility = async () => {
-    if (!confirm('현재 대기/수락 상태인 모든 게임 제안을 보류 상태로 변경하여 배정되지 않은 선수들을 대기 상태로 초기화하시겠습니까?')) {
+    if (!await confirm('현재 대기/수락 상태인 모든 게임 제안을 보류 상태로 변경하여 배정되지 않은 선수들을 대기 상태로 초기화하시겠습니까?')) {
       return;
     }
     

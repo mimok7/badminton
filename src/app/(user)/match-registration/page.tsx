@@ -417,7 +417,7 @@ export default function MatchRegistrationPage() {
   };
 
   const cancelRegistration = async (scheduleId: string) => {
-    if (!user || participantKeys.length === 0 || !confirm('참가를 취소하시겠습니까?')) {
+    if (!user || participantKeys.length === 0 || !await confirm('참가를 취소하시겠습니까?')) {
       return;
     }
 

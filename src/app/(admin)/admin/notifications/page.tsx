@@ -25,6 +25,8 @@ export default function AdminNotificationsPage() {
   const [rows, setRows] = useState<NotificationRow[]>([]);
   const [users, setUsers] = useState<{ id: string; label: string; gender: string }[]>([]);
   const [form, setForm] = useState<{ user_id: string; title: string; message: string; type: string }>({ user_id: '', title: '', message: '', type: 'general' });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [surveyTitle, setSurveyTitle] = useState('');
   const [surveyOptions, setSurveyOptions] = useState<string[]>(['참석', '불참', '미정']);
   const [surveyLimits, setSurveyLimits] = useState<(number | null)[]>([null, null, null]);
@@ -173,6 +175,30 @@ export default function AdminNotificationsPage() {
     }
     startTransition(async () => {
       try {
+        let fileUrl = null;
+        let fileName = null;
+
+        if (selectedFile) {
+          setUploadingFile(true);
+          const fileFormData = new FormData();
+          fileFormData.append('file', selectedFile);
+
+          const uploadRes = await fetch('/api/upload-file', {
+            method: 'POST',
+            body: fileFormData,
+          });
+
+          const uploadData = await uploadRes.json().catch(() => null);
+          setUploadingFile(false);
+
+          if (!uploadRes.ok || !uploadData?.success) {
+            throw new Error(uploadData?.error || '파일 업로드에 실패했습니다.');
+          }
+
+          fileUrl = uploadData.publicUrl;
+          fileName = uploadData.fileName;
+        }
+
         let targetUserIds: string[] = [];
         if (form.user_id === 'ALL') {
           targetUserIds = users.map(u => u.id);
@@ -234,6 +260,8 @@ export default function AdminNotificationsPage() {
           message: form.message,
           type: form.type || 'general',
           survey_id: surveyId,
+          file_url: fileUrl,
+          file_name: fileName,
         }));
 
         const res = await fetch('/api/admin/notifications', {
@@ -249,6 +277,7 @@ export default function AdminNotificationsPage() {
         
         alert(`총 ${data.count || targetUserIds.length}명에게 알림이 발송되었습니다.`);
         setForm({ user_id: '', title: '', message: '', type: 'general' });
+        setSelectedFile(null);
         setSurveyTitle('');
         setSurveyOptions(['참석', '불참', '미정']);
         setSurveyLimits([null, null, null]);
@@ -429,17 +458,39 @@ export default function AdminNotificationsPage() {
               { value: 'schedule_change', label: '일정 변경' },
               { value: 'system', label: '시스템 알림' },
               { value: 'survey', label: '설문조사 알림' },
+              { value: 'notice', label: '공지사항' },
             ].map(t => (
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
           <button
             onClick={createNotification}
-            disabled={isPending}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded px-3 py-2"
+            disabled={isPending || uploadingFile}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded px-3 py-2 disabled:opacity-50"
           >
-            발송하기
+            {uploadingFile ? '파일 업로드 중...' : '발송하기'}
           </button>
+        </div>
+        
+        {/* 파일 첨부 입력창 */}
+        <div className="mt-3 p-3 rounded-lg border border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex-1">
+            <label className="block text-xs font-semibold text-slate-500 mb-1">파일 첨부 (선택사항)</label>
+            <input
+              type="file"
+              onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+              className="block w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+            />
+          </div>
+          {selectedFile && (
+            <button
+              type="button"
+              onClick={() => setSelectedFile(null)}
+              className="text-xs text-rose-600 hover:text-rose-800 font-semibold self-end sm:self-auto"
+            >
+              첨부 취소
+            </button>
+          )}
         </div>
         {form.type === 'survey' && (
           <div className="mt-3 p-3 rounded-lg border border-indigo-100 bg-indigo-50/30 space-y-3">
@@ -552,6 +603,7 @@ export default function AdminNotificationsPage() {
               { value: 'schedule_change', label: '일정 변경' },
               { value: 'system', label: '시스템' },
               { value: 'survey', label: '설문조사' },
+              { value: 'notice', label: '공지사항' },
             ].map((f) => (
               <button
                 key={f.value}
@@ -624,6 +676,7 @@ export default function AdminNotificationsPage() {
                 case 'schedule_change': typeLabel = '일정 변경'; break;
                 case 'system': typeLabel = '시스템 알림'; break;
                 case 'survey': typeLabel = '설문조사'; break;
+                case 'notice': typeLabel = '공지사항'; break;
               }
 
               let readStatusNode = null;
@@ -662,6 +715,19 @@ export default function AdminNotificationsPage() {
                     <div className="text-[9px] text-slate-400 shrink-0">{new Date(n.created_at).toLocaleDateString()}</div>
                   </div>
                   <div className="mt-2.5 text-xs text-slate-600 whitespace-pre-line leading-relaxed line-clamp-4" title={n.message}>{n.message}</div>
+                  {n.file_url && (
+                    <div className="mt-2.5 p-2 rounded bg-slate-100 border border-slate-200/50 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-700 truncate font-medium">📎 {n.file_name || '첨부파일'}</span>
+                      <a
+                        href={n.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-2 py-1 rounded shrink-0 transition"
+                      >
+                        다운로드
+                      </a>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-2 text-xs">
                   <div className="text-slate-500 truncate" title={n.recipientLabels?.join(', ') || n.recipientLabel}>
@@ -701,6 +767,7 @@ export default function AdminNotificationsPage() {
                     case 'schedule_change': typeLabel = '일정 변경'; break;
                     case 'system': typeLabel = '시스템 알림'; break;
                     case 'survey': typeLabel = '설문조사'; break;
+                    case 'notice': typeLabel = '공지사항'; break;
                   }
 
                   let readStatusNode = null;
@@ -732,8 +799,20 @@ export default function AdminNotificationsPage() {
                       <td className="p-3 font-semibold text-slate-800 max-w-[150px] truncate" title={n.title}>
                         {n.title}
                       </td>
-                      <td className="p-3 text-slate-500 max-w-[200px] truncate" title={n.message}>
-                        {n.message}
+                      <td className="p-3 text-slate-500 max-w-[200px]" title={n.message}>
+                        <div className="truncate">{n.message}</div>
+                        {n.file_url && (
+                          <div className="mt-1">
+                            <a
+                              href={n.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-indigo-600 hover:underline font-semibold"
+                            >
+                              📎 {n.file_name || '첨부파일'}
+                            </a>
+                          </div>
+                        )}
                       </td>
                       <td className="p-3 text-slate-600 max-w-[150px] truncate" title={n.recipientLabels?.join(', ') || n.recipientLabel}>
                         {n.recipientLabel}

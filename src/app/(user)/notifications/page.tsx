@@ -13,6 +13,8 @@ import {
   Filter,
   BellOff,
   ArrowLeft,
+  FileText,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -23,6 +25,8 @@ type NotificationRow = {
   type: string;
   is_read: boolean;
   created_at: string;
+  file_url?: string | null;
+  file_name?: string | null;
   survey_id?: string | null;
   surveys?: {
     id: string;
@@ -48,6 +52,7 @@ const TYPE_LABELS: Record<string, string> = {
   system: "시스템 알림",
   challenge: "도전 알림",
   survey: "설문조사",
+  notice: "공지사항",
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -58,6 +63,7 @@ const TYPE_COLORS: Record<string, string> = {
   system: "bg-purple-100 text-purple-700",
   challenge: "bg-rose-100 text-rose-700",
   survey: "bg-rose-100 text-rose-700",
+  notice: "bg-indigo-100 text-indigo-700",
 };
 
 function formatMessageWithBreaks(message: string): React.ReactNode {
@@ -117,6 +123,7 @@ export default function NotificationsPage() {
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("unread");
+  const [activeTab, setActiveTab] = useState<'notice' | 'notification'>('notice');
   const [submittingSurveyId, setSubmittingSurveyId] = useState<string | null>(null);
 
   const fetchNotifications = async () => {
@@ -259,11 +266,15 @@ export default function NotificationsPage() {
     );
   }
 
+  const filteredByType = notifications.filter((n) =>
+    activeTab === "notice" ? n.type === "notice" : n.type !== "notice"
+  );
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const tabUnreadCount = filteredByType.filter((n) => !n.is_read).length;
   const displayed =
     filter === "unread"
-      ? notifications.filter((n) => !n.is_read)
-      : notifications;
+      ? filteredByType.filter((n) => !n.is_read)
+      : filteredByType;
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900 pb-16">
@@ -334,6 +345,40 @@ export default function NotificationsPage() {
           </div>
         )}
 
+        {/* 대분류 공지사항 / 알림 탭 */}
+        <div className="grid grid-cols-2 gap-2 p-1 bg-slate-200/60 rounded-[20px] border border-slate-200/30">
+          <button
+            onClick={() => setActiveTab('notice')}
+            className={`py-3 text-sm font-extrabold rounded-2xl transition duration-200 flex items-center justify-center gap-1.5 ${
+              activeTab === 'notice'
+                ? 'bg-white text-indigo-950 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <span>📢 공지사항</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+              activeTab === 'notice' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-300/60 text-slate-600'
+            }`}>
+              {notifications.filter(n => n.type === 'notice').length}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('notification')}
+            className={`py-3 text-sm font-extrabold rounded-2xl transition duration-200 flex items-center justify-center gap-1.5 ${
+              activeTab === 'notification'
+                ? 'bg-white text-indigo-950 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <span>🔔 일반 알림</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+              activeTab === 'notification' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-300/60 text-slate-600'
+            }`}>
+              {notifications.filter(n => n.type !== 'notice').length}
+            </span>
+          </button>
+        </div>
+
         {/* 필터 및 목록 영역 */}
         <section className="rounded-[24px] bg-white px-3 py-3 sm:px-4 sm:py-4 shadow-sm flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -351,7 +396,7 @@ export default function NotificationsPage() {
                 }`}
               >
                 읽지 않음
-                {unreadCount > 0 && (
+                {tabUnreadCount > 0 && (
                   <span
                     className={`ml-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
                       filter === "unread"
@@ -359,7 +404,7 @@ export default function NotificationsPage() {
                         : "bg-rose-100 text-rose-600"
                     }`}
                   >
-                    {unreadCount}
+                    {tabUnreadCount}
                   </span>
                 )}
               </button>
@@ -379,7 +424,7 @@ export default function NotificationsPage() {
                       : "bg-slate-200 text-slate-600"
                   }`}
                 >
-                  {notifications.length}
+                  {filteredByType.length}
                 </span>
               </button>
             </div>
@@ -456,6 +501,26 @@ export default function NotificationsPage() {
                     <div className="text-xs text-slate-600 space-y-0.5">
                       {formatMessageWithBreaks(n.message)}
                     </div>
+
+                    {/* 파일 첨부 영역 */}
+                    {n.file_url && (
+                      <div className="mt-3 p-2.5 rounded-2xl bg-slate-50 border border-slate-200/50 flex items-center justify-between gap-3 hover:bg-slate-100/75 transition duration-150">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-4 w-4 text-indigo-500 shrink-0" />
+                          <span className="text-[11px] font-bold text-slate-700 truncate">{n.file_name || '첨부파일'}</span>
+                        </div>
+                        <a
+                          href={n.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={n.file_name || '첨부파일'}
+                          className="inline-flex items-center gap-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 text-xs font-bold transition shrink-0"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          다운로드
+                        </a>
+                      </div>
+                    )}
 
                     {survey && (() => {
                       const isSurveyFull = survey.max_responses !== null && 

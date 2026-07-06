@@ -312,7 +312,9 @@ CREATE TABLE IF NOT EXISTS notifications (
     related_match_id UUID NULL,
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    read_at TIMESTAMP WITH TIME ZONE NULL
+    read_at TIMESTAMP WITH TIME ZONE NULL,
+    file_url TEXT NULL,
+    file_name VARCHAR(255) NULL
 );
 
 -- notifications 인덱스

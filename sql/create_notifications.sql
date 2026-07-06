@@ -10,7 +10,9 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     related_match_id UUID NULL,
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    read_at TIMESTAMP WITH TIME ZONE NULL
+    read_at TIMESTAMP WITH TIME ZONE NULL,
+    file_url TEXT NULL,
+    file_name VARCHAR(255) NULL
 );
 
 -- 인덱스 생성
@@ -44,7 +46,7 @@ CREATE POLICY "Admins can insert notifications" ON notifications
 -- 알림 타입별 분류를 위한 ENUM 또는 CHECK 제약조건 (선택사항)
 ALTER TABLE notifications 
 ADD CONSTRAINT check_notification_type 
-CHECK (type IN ('general', 'match_preparation', 'match_result', 'schedule_change', 'system'));
+CHECK (type IN ('general', 'match_preparation', 'match_result', 'schedule_change', 'system', 'survey', 'notice'));
 
 -- 알림 통계 뷰 생성 (선택사항)
 -- 참고: VIEW는 기본 테이블의 RLS 정책을 상속받으므로 별도 RLS 설정이 불필요함

@@ -6,6 +6,7 @@ import PWARegister from "@/components/PWARegister";
 import AppInstallPrompt from "@/components/AppInstallPrompt";
 import NotificationInitializer from "@/components/NotificationInitializer";
 import RealtimeNotifications from "@/components/RealtimeNotifications";
+import GlobalAlert from "@/components/GlobalAlert";
 import { AppDataProvider } from "@/contexts/AppDataContext";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -62,6 +63,7 @@ export default function RootLayout({
           <AppInstallPrompt />
           <NotificationInitializer />
           <RealtimeNotifications />
+          <GlobalAlert />
           {children}
         </AppDataProvider>
       </body>

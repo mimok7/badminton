@@ -556,10 +556,19 @@ export default function AdminNotificationsPage() {
         {/* 파일 첨부 입력창 */}
         <div className="mt-3 p-3 rounded-lg border border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex-1">
-            <label className="block text-xs font-semibold text-slate-500 mb-1">파일 첨부 (선택사항)</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">파일 첨부 (5MB 이하, 선택사항)</label>
             <input
               type="file"
-              onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                if (file && file.size > 5 * 1024 * 1024) {
+                  alert('파일 크기는 5MB를 초과할 수 없습니다.');
+                  e.target.value = '';
+                  setSelectedFile(null);
+                  return;
+                }
+                setSelectedFile(file);
+              }}
               className="block w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
             />
           </div>

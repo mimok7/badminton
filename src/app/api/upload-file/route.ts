@@ -40,9 +40,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '파일이 없습니다.' }, { status: 400 });
     }
 
-    // 파일 크기 검증 (10MB 제한)
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: '파일 크기는 10MB를 초과할 수 없습니다.' }, { status: 400 });
+    // 파일 크기 검증 (5MB 제한)
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: '파일 크기는 5MB를 초과할 수 없습니다.' }, { status: 400 });
     }
 
     // notices 버킷이 없으면 자동 생성 시도
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     if (!noticesBucket) {
       const { error: bucketError } = await adminClient.storage.createBucket('notices', {
         public: true,
-        fileSizeLimit: 10485760, // 10MB
+        fileSizeLimit: 5242880, // 5MB
       });
       if (bucketError) {
         console.error('Failed to create notices bucket:', bucketError);

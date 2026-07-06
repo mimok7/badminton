@@ -25,9 +25,22 @@ export default function AdminNotificationsPage() {
   const [rows, setRows] = useState<NotificationRow[]>([]);
   const [users, setUsers] = useState<{ id: string; label: string; gender: string }[]>([]);
   const [form, setForm] = useState<{ user_id: string; title: string; message: string; type: string }>({ user_id: '', title: '', message: '', type: 'general' });
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [surveyTitle, setSurveyTitle] = useState('');
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.user-select-dropdown')) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
   const [surveyOptions, setSurveyOptions] = useState<string[]>(['참석', '불참', '미정']);
   const [surveyLimits, setSurveyLimits] = useState<(number | null)[]>([null, null, null]);
   const [maxResponses, setMaxResponses] = useState<number | ''>('');
@@ -169,8 +182,8 @@ export default function AdminNotificationsPage() {
   }, [user, isAdmin]);
 
   const createNotification = async () => {
-    if (!form.user_id || !form.title || !form.message) {
-      alert('대상 사용자, 제목, 내용을 입력하세요.');
+    if (selectedUserIds.length === 0 || !form.title || !form.message) {
+      alert('대상 사용자(최소 1명), 제목, 내용을 입력하세요.');
       return;
     }
     startTransition(async () => {
@@ -199,16 +212,7 @@ export default function AdminNotificationsPage() {
           fileName = uploadData.fileName;
         }
 
-        let targetUserIds: string[] = [];
-        if (form.user_id === 'ALL') {
-          targetUserIds = users.map(u => u.id);
-        } else if (form.user_id === 'MALE') {
-          targetUserIds = users.filter(u => ['m', 'male', 'man', '남', '남성'].includes(u.gender)).map(u => u.id);
-        } else if (form.user_id === 'FEMALE') {
-          targetUserIds = users.filter(u => ['f', 'female', 'woman', 'w', '여', '여성'].includes(u.gender)).map(u => u.id);
-        } else {
-          targetUserIds = [form.user_id];
-        }
+        let targetUserIds = selectedUserIds;
 
         if (targetUserIds.length === 0) {
           alert('발송 대상자가 없습니다.');
@@ -277,6 +281,7 @@ export default function AdminNotificationsPage() {
         
         alert(`총 ${data.count || targetUserIds.length}명에게 알림이 발송되었습니다.`);
         setForm({ user_id: '', title: '', message: '', type: 'general' });
+        setSelectedUserIds([]);
         setSelectedFile(null);
         setSurveyTitle('');
         setSurveyOptions(['참석', '불참', '미정']);
@@ -432,9 +437,11 @@ export default function AdminNotificationsPage() {
               const newType = e.target.value;
               setForm(prev => ({
                 ...prev,
-                type: newType,
-                user_id: newType === 'notice' ? 'ALL' : prev.user_id
+                type: newType
               }));
+              if (newType === 'notice') {
+                setSelectedUserIds(users.map(u => u.id));
+              }
             }}
           >
             {[
@@ -449,21 +456,88 @@ export default function AdminNotificationsPage() {
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
-          <select
-            className="border rounded px-2 py-2"
-            value={form.user_id}
-            onChange={(e) => setForm({ ...form, user_id: e.target.value })}
-          >
-            <option value="">대상 사용자 선택</option>
-            <option value="ALL">전체 회원 발송</option>
-            <option value="MALE">남성 회원 전체 발송</option>
-            <option value="FEMALE">여성 회원 전체 발송</option>
-            <optgroup label="개별 회원">
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.label}</option>
-              ))}
-            </optgroup>
-          </select>
+          <div className="relative user-select-dropdown">
+            <button
+              type="button"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="w-full border rounded px-3 py-2 text-left bg-white text-sm flex items-center justify-between min-h-[38px] cursor-pointer"
+            >
+              <span className="truncate">
+                {selectedUserIds.length === 0
+                  ? '대상 사용자 선택'
+                  : selectedUserIds.length === users.length
+                  ? '전체 회원 선택됨'
+                  : `${users.find(u => u.id === selectedUserIds[0])?.label || ''}${
+                      selectedUserIds.length > 1 ? ` 외 ${selectedUserIds.length - 1}명` : ''
+                    }`}
+              </span>
+              <span className="text-slate-400 text-xs">▼</span>
+            </button>
+
+            {isDropdownOpen && (
+              <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-lg p-3 max-h-60 overflow-y-auto space-y-2">
+                <div className="flex flex-wrap gap-1 pb-2 border-b border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUserIds(users.map(u => u.id))}
+                    className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded font-semibold"
+                  >
+                    전체
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const maleIds = users.filter(u => ['m', 'male', 'man', '남', '남성'].includes(u.gender)).map(u => u.id);
+                      setSelectedUserIds(maleIds);
+                    }}
+                    className="text-[10px] bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold"
+                  >
+                    남성 전체
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const femaleIds = users.filter(u => ['f', 'female', 'woman', 'w', '여', '여성'].includes(u.gender)).map(u => u.id);
+                      setSelectedUserIds(femaleIds);
+                    }}
+                    className="text-[10px] bg-rose-50 hover:bg-rose-100 text-rose-700 px-2 py-1 rounded font-semibold"
+                  >
+                    여성 전체
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUserIds([])}
+                    className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-500 px-2 py-1 rounded font-semibold ml-auto"
+                  >
+                    해제
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 pt-1">
+                  {users.map((u) => {
+                    const isChecked = selectedUserIds.includes(u.id);
+                    return (
+                      <label key={u.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedUserIds(selectedUserIds.filter(id => id !== u.id));
+                            } else {
+                              setSelectedUserIds([...selectedUserIds, u.id]);
+                            }
+                          }}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>{u.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
           <input
             className="border rounded px-2 py-2"
             placeholder="알림 제목"

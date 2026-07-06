@@ -160,16 +160,26 @@ export default function ManualPage() {
                     <span className="text-xl shrink-0">✅</span>
                     <div>
                       <h4 className="font-bold text-slate-800">나의 출석 등록</h4>
-                      <p className="text-sm text-slate-600 mt-1">오늘 모임에 대해 본인의 상태를 세 가지 중 하나로 선택할 수 있습니다.</p>
-                      <div className="space-y-2 mt-3.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 shrink-0">참가</span>
-                          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">출석 (경기 참여)</span>
-                          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">레슨 (코치 지도)</span>
+                      <p className="text-sm text-slate-600 mt-1 leading-relaxed">
+                        오늘 모임의 <strong>참가 여부(참가 / 미참가)</strong>를 신속하게 선택할 수 있으며, 참가자는 세부 활동 유형(출석, 레슨)을, 도중 귀가 시에는 퇴근을 설정할 수 있습니다.
+                      </p>
+                      <div className="space-y-3 mt-3.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-100/70">
+                        <div className="flex items-start gap-2 flex-col sm:flex-row sm:items-center">
+                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 shrink-0">참가 (경기 배정 대상)</span>
+                          <div className="flex gap-2 flex-wrap items-center">
+                            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">출석 (경기 참여)</span>
+                            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">레슨 (코치 지도)</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 shrink-0">미참가</span>
-                          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">퇴근/불참</span>
+                        <div className="flex items-start gap-2 flex-col sm:flex-row sm:items-center">
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 shrink-0">미참가 (배정 제외)</span>
+                          <div className="flex gap-2 flex-wrap items-center">
+                            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">퇴근/불참</span>
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-slate-500 border-t border-slate-200/50 pt-2.5 leading-relaxed space-y-1">
+                          <div>• <strong>출석 / 레슨:</strong> 오늘 경기에 참가하는 상태로, 시스템에 의해 자동으로 대진표가 짜이고 코트 경기에 배정됩니다.</div>
+                          <div>• <strong>퇴근/불참:</strong> 모임 도중 먼저 퇴근해야 하거나 오늘 모임에 불참할 때 선택하며, 이 경우 경기 배정 대기열에서 즉시 제외됩니다.</div>
                         </div>
                       </div>
                     </div>

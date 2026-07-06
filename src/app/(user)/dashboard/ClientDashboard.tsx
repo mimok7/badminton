@@ -288,6 +288,12 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
         }
 
         const scheduleId = todaySchedules[0].id;
+        const max = todaySchedules[0].max_participants ?? 20;
+        const current = todaySchedules[0].current_participants ?? 0;
+        if (current >= max) {
+          alert(`이미 정원(${max}명)이 가득 찬 경기 일정입니다. 참가 신청을 할 수 없습니다.`);
+          return;
+        }
 
         const { data: existing } = await supabase
           .from('match_participants')
@@ -437,9 +443,16 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                 오늘 내 상태: <span className="font-medium text-white">{loadingAttendance ? '조회 중...' : activeStateLabel}</span>
                 {!loadingAttendance && (
                   todaySchedules[0] ? (
-                    <span className="ml-1.5 font-semibold text-yellow-400">
-                      ({Math.max(0, (todaySchedules[0].max_participants ?? 20) - (todaySchedules[0].current_participants ?? 0))}/{todaySchedules[0].max_participants ?? 20}명 신청 가능)
-                    </span>
+                    (() => {
+                      const max = todaySchedules[0].max_participants ?? 20;
+                      const current = todaySchedules[0].current_participants ?? 0;
+                      const remaining = Math.max(0, max - current);
+                      return (
+                        <span className="ml-1.5 font-semibold text-yellow-400">
+                          {remaining <= 0 ? '(신청 마감)' : `(${remaining}/${max}명 신청 가능)`}
+                        </span>
+                      );
+                    })()
                   ) : (
                     <span className="ml-1.5 font-semibold text-yellow-400">
                       (오늘 경기 일정 없음)

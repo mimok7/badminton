@@ -810,6 +810,101 @@ export default function MatchSchedulePage() {
     }
   };
 
+  // 참가자 초기화/선택제거 모달 상태
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetModalScheduleId, setResetModalScheduleId] = useState<string | null>(null);
+  const [selectedResetUserIds, setSelectedResetUserIds] = useState<string[]>([]);
+
+  const currentResetSchedule = schedules.find((s) => s.id === resetModalScheduleId);
+  const resetModalParticipants = currentResetSchedule?.participants || [];
+
+  const openResetModal = (scheduleId: string) => {
+    setResetModalScheduleId(scheduleId);
+    setSelectedResetUserIds([]);
+    setShowResetModal(true);
+  };
+
+  const closeResetModal = () => {
+    setShowResetModal(false);
+    setResetModalScheduleId(null);
+    setSelectedResetUserIds([]);
+  };
+
+  const toggleResetParticipantSelection = (userId: string) => {
+    setSelectedResetUserIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const toggleSelectAllResetParticipants = () => {
+    if (selectedResetUserIds.length === resetModalParticipants.length) {
+      setSelectedResetUserIds([]);
+    } else {
+      setSelectedResetUserIds(resetModalParticipants.map((p) => p.user_id));
+    }
+  };
+
+  const deleteSelectedParticipants = async () => {
+    if (!resetModalScheduleId || selectedResetUserIds.length === 0) return;
+
+    if (!await confirm(`선택한 ${selectedResetUserIds.length}명의 참가 신청을 취소하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      setParticipantActionLoading((prev) => ({ ...prev, [resetModalScheduleId]: true }));
+      
+      const { error: deleteErr } = await supabase
+        .from('match_participants')
+        .delete()
+        .eq('match_schedule_id', resetModalScheduleId)
+        .in('user_id', selectedResetUserIds);
+
+      if (deleteErr) {
+        console.error('선택 참가자 제거 오류:', deleteErr);
+        alert('참가자 제거 중 오류가 발생했습니다.');
+        return;
+      }
+
+      const currentSchedule = schedules.find((s) => s.id === resetModalScheduleId);
+      const remainingCount = Math.max(0, (currentSchedule?.current_participants || 0) - selectedResetUserIds.length);
+
+      const { error: updateErr } = await supabase
+        .from('match_schedules')
+        .update({ current_participants: remainingCount })
+        .eq('id', resetModalScheduleId);
+
+      if (updateErr) {
+        console.error('스케줄 참가자 수 업데이트 오류:', updateErr);
+      }
+
+      setSchedules((prev) =>
+        prev.map((schedule) => {
+          if (schedule.id !== resetModalScheduleId) return schedule;
+          const updatedParticipants = schedule.participants.filter(
+            (p) => !selectedResetUserIds.includes(p.user_id)
+          );
+          return {
+            ...schedule,
+            participants: updatedParticipants,
+            current_participants: remainingCount,
+          };
+        })
+      );
+
+      alert('선택한 참가자가 제거되었습니다.');
+      closeResetModal();
+      fetchSchedules();
+    } catch (error) {
+      console.error('참가자 제거 중 오류:', error);
+      alert('참가자 제거 중 오류가 발생했습니다.');
+    } finally {
+      setParticipantActionLoading((prev) => ({ ...prev, [resetModalScheduleId]: false }));
+    }
+  };
+
   const resetParticipantsForSchedule = async (scheduleId: string) => {
     const confirm1 = await confirm('정말로 이 일정의 모든 참가 신청을 초기화하시겠습니까?');
     if (!confirm1) return;
@@ -852,6 +947,7 @@ export default function MatchSchedulePage() {
       );
 
       alert('참가자가 모두 초기화되었습니다.');
+      closeResetModal();
       fetchSchedules();
     } catch (error) {
       console.error('참가자 초기화 중 오류:', error);
@@ -1416,7 +1512,7 @@ export default function MatchSchedulePage() {
                                       type="button"
                                       variant="destructive"
                                       size="sm"
-                                      onClick={() => resetParticipantsForSchedule(schedule.id)}
+                                      onClick={() => openResetModal(schedule.id)}
                                       disabled={participantActionLoading[schedule.id] || participantModalSubmitting}
                                     >
                                       참가자 초기화
@@ -1809,6 +1905,108 @@ export default function MatchSchedulePage() {
               >
                 {participantModalSubmitting ? '추가 중...' : participantModalTab === 'manual' ? '선택한 회원 추가' : '일괄 추가'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 참가자 초기화 및 선택 삭제 모달 */}
+      {showResetModal && resetModalScheduleId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-3 border-b px-4 py-3 sm:px-6 sm:py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">경기 참가자 초기화 및 선택 제거</h2>
+                <p className="hidden text-sm text-gray-500 sm:block">제거할 참가자를 선택하여 삭제하거나, 전체 초기화를 진행하세요.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeResetModal}
+                className="rounded-md px-3 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between border-b bg-gray-50 px-4 py-2 text-xs sm:px-6 sm:py-3 sm:text-sm">
+              <span className="text-gray-600">현재 등록된 참가자 {resetModalParticipants.length}명</span>
+              {resetModalParticipants.length > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleSelectAllResetParticipants}
+                  className="rounded-md border px-3 py-1 text-xs font-medium text-gray-700 hover:bg-white"
+                >
+                  {selectedResetUserIds.length === resetModalParticipants.length ? '전체 선택 해제' : '전체 선택'}
+                </button>
+              )}
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto px-4 py-4 sm:px-6">
+              {resetModalParticipants.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-500">
+                  현재 등록된 참가자가 없습니다.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 sm:gap-3">
+                  {resetModalParticipants.map((participant) => {
+                    const checked = selectedResetUserIds.includes(participant.user_id);
+                    const displayName =
+                      participant.profiles?.full_name ||
+                      participant.profiles?.username ||
+                      '이름 없음';
+
+                    return (
+                      <label
+                        key={participant.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                          checked ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white hover:border-red-200'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleResetParticipantSelection(participant.user_id)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-red-500 focus:ring-red-500"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium text-gray-900">{displayName}</div>
+                          {participant.profiles?.username && participant.profiles?.full_name && participant.profiles.username !== participant.profiles.full_name && (
+                            <div className="mt-0.5 text-xs text-gray-500">{participant.profiles.username}</div>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between border-t px-4 py-3 sm:px-6 sm:py-4">
+              <button
+                type="button"
+                onClick={() => resetParticipantsForSchedule(resetModalScheduleId)}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+              >
+                전체 초기화
+              </button>
+
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={closeResetModal}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteSelectedParticipants}
+                  disabled={selectedResetUserIds.length === 0}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  선택 제거 ({selectedResetUserIds.length}명)
+                </button>
+              </div>
             </div>
           </div>
         </div>

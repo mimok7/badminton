@@ -1515,7 +1515,7 @@ export default function MatchSchedulePage() {
                                       onClick={() => openResetModal(schedule.id)}
                                       disabled={participantActionLoading[schedule.id] || participantModalSubmitting}
                                     >
-                                      참가자 초기화
+                                      참가자 삭제
                                     </Button>
                                   )}
                                   <Button

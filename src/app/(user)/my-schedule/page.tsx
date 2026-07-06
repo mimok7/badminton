@@ -98,11 +98,25 @@ function MatchResultDisplay({ selectedMatch, user, supabase }: {
           {new Date(matchResult.completed_at).toLocaleString('ko-KR')}
         </span>
       </div>
-      {matchResult.recorded_by && (
-        <div className="text-xs text-gray-500 mt-2 text-center">
-          결과 기록자: {matchResult.recorded_by === user.id ? '나' : '다른 참가자'}
-        </div>
-      )}
+      <div className="mt-2.5 pt-2.5 border-t border-slate-100 space-y-1.5">
+        {matchResult.created_by_name && (
+          <div className="flex justify-between items-center text-xs text-slate-500">
+            <span>최초 입력자:</span>
+            <span className="font-medium text-slate-700">{matchResult.created_by_name}</span>
+          </div>
+        )}
+        {matchResult.updated_by_name && matchResult.updated_by_name !== matchResult.created_by_name && (
+          <div className="flex justify-between items-center text-xs text-slate-500">
+            <span>최종 수정자:</span>
+            <span className="font-medium text-slate-700">{matchResult.updated_by_name}</span>
+          </div>
+        )}
+        {!matchResult.created_by_name && matchResult.recorded_by && (
+          <div className="text-xs text-slate-500 text-center">
+            결과 기록자: {matchResult.recorded_by === user.id ? '나' : '다른 참가자'}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -121,6 +135,7 @@ interface MatchSchedule {
     session_id?: string | null;
     match_number: number;
     session_name: string;
+    match_result?: any;
     team1_player1: {
       id?: string;
       user_id?: string;
@@ -691,6 +706,19 @@ export default function MySchedulePage() {
     winner: '' as 'team1' | 'team2' | '',
     score: ''
   });
+
+  const isParticipantOfSelected = selectedMatch?.generated_match ? [
+    selectedMatch.generated_match.team1_player1?.id,
+    selectedMatch.generated_match.team1_player1?.user_id,
+    selectedMatch.generated_match.team1_player2?.id,
+    selectedMatch.generated_match.team1_player2?.user_id,
+    selectedMatch.generated_match.team2_player1?.id,
+    selectedMatch.generated_match.team2_player1?.user_id,
+    selectedMatch.generated_match.team2_player2?.id,
+    selectedMatch.generated_match.team2_player2?.user_id,
+  ].filter(Boolean).includes(profile?.id || user?.id) : false;
+
+  const canManageSelected = profile?.role === 'admin' || profile?.role === 'manager';
   
   // 각 경기의 결과 입력 상태를 추적하는 state
   const [matchResultStates, setMatchResultStates] = useState<Record<string, boolean | null>>({});
@@ -1489,6 +1517,25 @@ export default function MySchedulePage() {
     setModalMode('complete'); // 완료 입력 모드
     setShowDetailsModal(true);
     setMatchResult({ winner: '', score: '' });
+  };
+
+  // 결과 수정 핸들러 (완료된 경기 수정용)
+  const handleEditResult = (match: MatchSchedule) => {
+    setSelectedMatch(match);
+    setMatchStatus(match.status);
+    setModalMode('complete'); // 수정도 동일한 완료 입력 폼 사용
+    setShowDetailsModal(true);
+    
+    if (match.generated_match?.match_result) {
+      const rawScore = (match.generated_match.match_result as any).score || '';
+      const formattedScore = rawScore.replace(/:/g, '-');
+      setMatchResult({
+        winner: (match.generated_match.match_result as any).winner || '',
+        score: formattedScore
+      });
+    } else {
+      setMatchResult({ winner: '', score: '' });
+    }
   };
 
   // 다음 경기 참가자들에게 준비 알림 발송
@@ -2374,9 +2421,21 @@ export default function MySchedulePage() {
                         </div>
 
                         {matchStatus === 'completed' && (
-                          <div className="rounded-[20px] border border-green-200 bg-green-50/80 p-4">
-                            <h4 className="mb-3 font-semibold text-green-800">🏆 게임 결과</h4>
-                            <MatchResultDisplay selectedMatch={selectedMatch} user={user} supabase={supabase} />
+                          <div className="space-y-3">
+                            <div className="rounded-[20px] border border-green-200 bg-green-50/80 p-4">
+                              <h4 className="mb-3 font-semibold text-green-800">🏆 게임 결과</h4>
+                              <MatchResultDisplay selectedMatch={selectedMatch} user={user} supabase={supabase} />
+                            </div>
+                            {(isParticipantOfSelected || canManageSelected) && (
+                              <div className="flex justify-end">
+                                <button
+                                  onClick={() => handleEditResult(selectedMatch)}
+                                  className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-600 shadow-sm"
+                                >
+                                  ✏️ 결과 수정
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

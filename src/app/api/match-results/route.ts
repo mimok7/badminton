@@ -135,24 +135,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '승리 팀과 점수가 일치하지 않습니다.' }, { status: 400 });
   }
 
-  const currentProfile = await getProfileByUserId(serverSupabase, user.id);
-  const coinSettings = await readCoinSettings();
+  // 1. 프로필 정보 및 코인 세팅 병렬 조회
+  const [currentProfile, coinSettings] = await Promise.all([
+    getProfileByUserId(serverSupabase, user.id),
+    readCoinSettings(),
+  ]);
 
   if (!currentProfile) {
     return NextResponse.json({ error: '프로필을 찾을 수 없습니다.' }, { status: 404 });
   }
 
-  const { data: matchRow, error: matchError } = await adminSupabase
-    .from('generated_matches')
-    .select('id, session_id, match_number, team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id, match_result')
-    .eq('id', normalizedMatchId)
-    .single<MatchParticipantRow>();
+  const canManage = isAdminOrManagerRole(currentProfile.role);
+
+  // 2. 매치 데이터 및 기존 결과 테이블(최초 입력자 확인용) 병렬 조회
+  const [matchRowResult, existingMatchResultResult] = await Promise.all([
+    adminSupabase
+      .from('generated_matches')
+      .select('id, session_id, match_number, team1_player1_id, team1_player2_id, team2_player1_id, team2_player2_id, match_result, status')
+      .eq('id', normalizedMatchId)
+      .single<MatchParticipantRow & { status: string; match_result: any }>(),
+    (adminSupabase
+      .from('match_results') as any)
+      .select('created_by')
+      .eq('match_id', normalizedMatchId)
+      .maybeSingle()
+  ]);
+
+  const matchRow = matchRowResult.data;
+  const matchError = matchRowResult.error;
+  const existingMatchResult = existingMatchResultResult.data as any;
 
   if (matchError || !matchRow) {
     return NextResponse.json({ error: '경기 정보를 찾을 수 없습니다.' }, { status: 404 });
   }
 
-  const canManage = isAdminOrManagerRole(currentProfile.role);
   const isParticipant = [
     matchRow.team1_player1_id,
     matchRow.team1_player2_id,
@@ -164,14 +180,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '점수 저장은 경기 참여자 또는 관리자만 가능합니다.' }, { status: 403 });
   }
 
-  const { data: betRows, error: betError } = await adminSupabase
-    .from('match_coin_bets')
-    .select('profile_id, wager_amount')
-    .eq('match_id', normalizedMatchId);
+  const team1Ids = [matchRow.team1_player1_id, matchRow.team1_player2_id].filter((value): value is string => Boolean(value));
+  const team2Ids = [matchRow.team2_player1_id, matchRow.team2_player2_id].filter((value): value is string => Boolean(value));
+  const allParticipantIds = [...team1Ids, ...team2Ids];
 
-  if (betError) {
-    return NextResponse.json({ error: betError.message }, { status: 500 });
+  // 3. 매치 배팅 정보, 기존 코인 트랜잭션 정보, 선수 프로필 정보를 병렬 조회
+  const [betsResult, transactionsResult, profilesResult] = await Promise.all([
+    adminSupabase
+      .from('match_coin_bets')
+      .select('profile_id, wager_amount')
+      .eq('match_id', normalizedMatchId),
+    adminSupabase
+      .from('profile_coin_transactions')
+      .select('profile_id, delta, transaction_type, wager_amount')
+      .eq('match_id', normalizedMatchId),
+    adminSupabase
+      .from('profiles')
+      .select('id, coin_balance, coin_wins, coin_losses, full_name, username')
+      .in('id', allParticipantIds),
+  ]);
+
+  if (betsResult.error) {
+    return NextResponse.json({ error: betsResult.error.message }, { status: 500 });
   }
+
+  if (profilesResult.error || !profilesResult.data) {
+    return NextResponse.json({ error: '참여 선수의 코인 정보를 조회할 수 없습니다.' }, { status: 500 });
+  }
+
+  const betRows = betsResult.data;
+  const participantProfiles = profilesResult.data;
 
   const team1Bets = [matchRow.team1_player1_id, matchRow.team1_player2_id]
     .filter((value): value is string => Boolean(value))
@@ -195,13 +233,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const team1Ids = [matchRow.team1_player1_id, matchRow.team1_player2_id].filter((value): value is string => Boolean(value));
-  const team2Ids = [matchRow.team2_player1_id, matchRow.team2_player2_id].filter((value): value is string => Boolean(value));
   const existingTransactions = new Map<string, CoinTransactionRow>(
-    ((await adminSupabase
-      .from('profile_coin_transactions')
-      .select('profile_id, delta, transaction_type, wager_amount')
-      .eq('match_id', normalizedMatchId)).data || []).map((row) => [row.profile_id, row as CoinTransactionRow])
+    (transactionsResult.data || []).map((row) => [row.profile_id, row as CoinTransactionRow])
   );
 
   const deltas = buildCoinDeltas({
@@ -211,17 +244,6 @@ export async function POST(request: Request) {
     team2Wagers: team2Bets,
     fixedWinnerReward: coinSettings.fixedWinnerReward,
   });
-
-  // 4명의 선수 프로필 정보 일괄 쿼리
-  const allParticipantIds = [...team1Ids, ...team2Ids];
-  const { data: participantProfiles, error: participantProfilesError } = await adminSupabase
-    .from('profiles')
-    .select('id, coin_balance, coin_wins, coin_losses')
-    .in('id', allParticipantIds);
-
-  if (participantProfilesError || !participantProfiles) {
-    return NextResponse.json({ error: '참여 선수의 코인 정보를 조회할 수 없습니다.' }, { status: 500 });
-  }
 
   const profileRowMap = new Map(
     participantProfiles.map((row: any) => [row.id, row])
@@ -247,6 +269,20 @@ export async function POST(request: Request) {
     }
   }
 
+  const createdBy = existingMatchResult?.created_by || (matchRow.match_result as any)?.created_by || currentProfile.id;
+  const updatedBy = currentProfile.id;
+
+  const getProfileName = (id: string, allProfiles: any[], curProfile: any) => {
+    if (id === curProfile.id) {
+      return curProfile.full_name || curProfile.username || '선수';
+    }
+    const found = allProfiles.find(p => p.id === id);
+    return found ? (found.full_name || found.username) : '선수';
+  };
+
+  const createdByName = getProfileName(createdBy, participantProfiles, currentProfile);
+  const updatedByName = currentProfile.full_name || currentProfile.username || '선수';
+
   const matchResultPayload = {
     winner: winnerTeam1 ? 'team1' : 'team2',
     score: `${normalizedTeam1Score}:${normalizedTeam2Score}`,
@@ -258,21 +294,12 @@ export async function POST(request: Request) {
     settlement_mode: coinSettings.settlementMode,
     fixed_winner_reward: coinSettings.fixedWinnerReward,
     completed_at: new Date().toISOString(),
-    recorded_by: currentProfile.id,
+    created_by: createdBy,
+    created_by_name: createdByName,
+    recorded_by: updatedBy,
+    updated_by: updatedBy,
+    updated_by_name: updatedByName,
   };
-
-  const { error: matchResultError } = await adminSupabase
-    .from('match_results')
-    .upsert({
-      match_id: normalizedMatchId,
-      winner_team1: winnerTeam1,
-      team1_score: normalizedTeam1Score,
-      team2_score: normalizedTeam2Score,
-    }, { onConflict: 'match_id' });
-
-  if (matchResultError) {
-    return NextResponse.json({ error: getFriendlyErrorMessage(matchResultError.message) }, { status: 500 });
-  }
 
   const teamUpdates = [
     { ids: team1Ids, wagers: team1Bets, deltas: deltas.team1, teamSide: 'team1' as const },
@@ -331,44 +358,73 @@ export async function POST(request: Request) {
     }
   }
 
-  // 프로필 정보 업데이트 병렬 실행
-  const updateResults = await Promise.all(updateProfilePromises);
-  const failedUpdate = updateResults.find((r) => r.error);
-  if (failedUpdate) {
-    return NextResponse.json({ error: failedUpdate.error?.message || '프로필 업데이트 실패' }, { status: 500 });
+  // --- DB WRITE 쿼리 병렬 일괄 실행 (성능 극대화) ---
+  const writePromises = [
+    // 1. match_results upsert 시도 (created_by, updated_by, updated_at 컬럼 포함)
+    adminSupabase
+      .from('match_results')
+      .upsert({
+        match_id: normalizedMatchId,
+        winner_team1: winnerTeam1,
+        team1_score: normalizedTeam1Score,
+        team2_score: normalizedTeam2Score,
+        created_by: createdBy,
+        updated_by: updatedBy,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'match_id' })
+      .then(async (res) => {
+        // 만약 컬럼이 없어서 에러가 발생한 경우 (PGRST204 등), 기존 컬럼만으로 재시도 (fallback)
+        if (res.error && (res.error.message.includes('column') || res.error.code === '42703')) {
+          console.warn('⚠️ match_results 테이블에 created_by/updated_by 컬럼이 없음. 기존 컬럼으로 fallback 진행...');
+          return adminSupabase
+            .from('match_results')
+            .upsert({
+              match_id: normalizedMatchId,
+              winner_team1: winnerTeam1,
+              team1_score: normalizedTeam1Score,
+              team2_score: normalizedTeam2Score,
+            }, { onConflict: 'match_id' });
+        }
+        return res;
+      }),
+
+    // 2. profile_coin_transactions 일괄 upsert
+    adminSupabase
+      .from('profile_coin_transactions')
+      .upsert(transactionsToInsert, { onConflict: 'match_id,profile_id' }),
+
+    // 3. generated_matches 업데이트
+    adminSupabase
+      .from('generated_matches')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        match_result: matchResultPayload,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', normalizedMatchId),
+
+    // 4. match_schedules 업데이트
+    adminSupabase
+      .from('match_schedules')
+      .update({
+        status: 'completed',
+        match_result: matchResultPayload,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('generated_match_id', normalizedMatchId),
+
+    // 5. 선수들의 코인/승패 프로필 업데이트
+    ...updateProfilePromises
+  ];
+
+  const writeResults = await Promise.all(writePromises);
+  
+  // 에러 발생 여부 검사
+  const failedWrite = writeResults.find((r) => r.error);
+  if (failedWrite) {
+    return NextResponse.json({ error: getFriendlyErrorMessage(failedWrite.error?.message || 'DB 저장 실패') }, { status: 500 });
   }
-
-  // 트랜잭션 기록 배치 처리로 일괄 삽입
-  const { error: transactionError } = await adminSupabase
-    .from('profile_coin_transactions')
-    .upsert(transactionsToInsert, { onConflict: 'match_id,profile_id' });
-
-  if (transactionError) {
-    return NextResponse.json({ error: getFriendlyErrorMessage(transactionError.message) }, { status: 500 });
-  }
-
-  const { error: updateGeneratedMatchError } = await adminSupabase
-    .from('generated_matches')
-    .update({
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      match_result: matchResultPayload,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', normalizedMatchId);
-
-  if (updateGeneratedMatchError) {
-    return NextResponse.json({ error: getFriendlyErrorMessage(updateGeneratedMatchError.message) }, { status: 500 });
-  }
-
-  await adminSupabase
-    .from('match_schedules')
-    .update({
-      status: 'completed',
-      match_result: matchResultPayload,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('generated_match_id', normalizedMatchId);
 
   let autoStartedMatchIds: number[] = [];
   let waitingMatchIds: number[] = [];

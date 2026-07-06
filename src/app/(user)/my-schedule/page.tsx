@@ -873,15 +873,17 @@ export default function MySchedulePage() {
 
       let fetchedAssignedMatches = todayAssignedMatches;
 
-      // Only fetch scheduled matches and coin settings if we need to update upcoming matches
+       // Only fetch scheduled matches and coin settings if we need to update upcoming matches
       if (tabToRefresh === 'all' || tabToRefresh === 'upcoming') {
-        const [aMatches, coinSettingsResponse] = await Promise.all([
+        const [aMatches, allMatches, coinSettingsResponse] = await Promise.all([
           fetchScheduledMatchesForDate(supabase, todayLocal, user.id),
+          fetchScheduledMatchesForDate(supabase, todayLocal),
           fetch('/api/coin-settings', { credentials: 'include' })
         ]);
 
         fetchedAssignedMatches = aMatches;
         setTodayAssignedMatches(aMatches);
+        setTodayAllMatches(allMatches);
 
         if (coinSettingsResponse.ok) {
           const payload = await coinSettingsResponse.json().catch(() => null);

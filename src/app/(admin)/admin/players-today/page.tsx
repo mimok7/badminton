@@ -1130,6 +1130,25 @@ export default function PlayersTodayPage() {
     } finally { setLoading(false); }
   };
 
+  const handleRefreshAll = async () => {
+    try {
+      setAttendanceLoading(true);
+      await Promise.all([
+        fetchMemberPlayers(),
+        fetchActiveCourts(),
+        refreshAttendanceData(),
+        fetchMatchSessions(),
+        fetchTodaySchedules(),
+      ]);
+      alert('참가자 및 세션 데이터가 새로고침되었습니다.');
+    } catch (err) {
+      console.error(err);
+      alert('새로고침 중 오류가 발생했습니다.');
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
   return (
     <RequireAdmin>
       <div className="p-1 md:p-6">
@@ -1144,12 +1163,22 @@ export default function PlayersTodayPage() {
               <h1 className="text-xl font-bold tracking-tight">오늘 게임 생성/배정</h1>
               <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">오늘 출석 선수를 확인하고 실시간 게임 배정을 진행합니다.</p>
             </div>
-            <Link href="/admin">
-              <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
-                <ArrowLeft className="h-3.5 w-3.5" />
-                홈
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handleRefreshAll}
+                disabled={attendanceLoading}
+                className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                새로고침
               </Button>
-            </Link>
+              <Link href="/admin">
+                <Button variant="outline" className="rounded-full bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-white/15 border-0 flex items-center gap-1.5">
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  홈
+                </Button>
+              </Link>
+            </div>
           </div>
         </section>
         

@@ -994,6 +994,20 @@ export default function MatchSchedulePage() {
       return;
     }
 
+    const currentSchedule = schedules.find((s) => s.id === participantModalScheduleId);
+    if (!currentSchedule) return;
+
+    const maxParticipants = currentSchedule.max_participants || 20;
+    const currentCount = currentSchedule.participants.filter(
+      (p) => p.status === 'registered' || p.status === 'attended'
+    ).length;
+    const availableSpots = Math.max(0, maxParticipants - currentCount);
+
+    if (availableSpots <= 0) {
+      alert(`이미 정원(${maxParticipants}명)이 가득 찬 경기 일정입니다.`);
+      return;
+    }
+
     const selectedProfiles = participantModalProfiles.filter(
       (profile) => selectedModalParticipantIds.includes(profile.id) && profile.user_id
     );
@@ -1003,7 +1017,18 @@ export default function MatchSchedulePage() {
       return;
     }
 
-    const targetUserIds = selectedProfiles.map((p) => p.user_id).filter(Boolean) as string[];
+    let targetUserIds = selectedProfiles.map((p) => p.user_id).filter(Boolean) as string[];
+
+    if (targetUserIds.length > availableSpots) {
+      if (
+        !await confirm(
+          `이 일정의 정원은 ${maxParticipants}명이며, 현재 ${currentCount}명이 등록되어 있어 추가로 ${availableSpots}명만 신청 가능합니다.\n선택한 회원 중 선착순 ${availableSpots}명만 추가하시겠습니까?`
+        )
+      ) {
+        return;
+      }
+      targetUserIds = targetUserIds.slice(0, availableSpots);
+    }
 
     try {
       setParticipantModalSubmitting(true);
@@ -1119,18 +1144,44 @@ export default function MatchSchedulePage() {
 
       // 4. 현재 일정의 등록된 유저 ID 확인 (중복 등록 방지)
       const currentSchedule = schedules.find(s => s.id === participantModalScheduleId);
+      if (!currentSchedule) return;
+
+      const maxParticipants = currentSchedule.max_participants || 20;
+      const currentCount = currentSchedule.participants.filter(
+        (p) => p.status === 'registered' || p.status === 'attended'
+      ).length;
+      const availableSpots = Math.max(0, maxParticipants - currentCount);
+
+      if (availableSpots <= 0) {
+        alert(`이미 정원(${maxParticipants}명)이 가득 찬 경기 일정입니다.`);
+        setParticipantModalSubmitting(false);
+        return;
+      }
+
       const registeredUserIds = new Set(
         (currentSchedule?.participants || [])
           .filter((p) => p.status === 'registered' || p.status === 'attended')
           .map((p) => p.user_id)
       );
 
-      const targetUserIds = matchedUserIds.filter(id => !registeredUserIds.has(id));
+      let targetUserIds = matchedUserIds.filter(id => !registeredUserIds.has(id));
 
       if (targetUserIds.length === 0) {
         alert('입력된 회원이 이미 모두 이 경기에 등록되어 있습니다.');
         setParticipantModalSubmitting(false);
         return;
+      }
+
+      if (targetUserIds.length > availableSpots) {
+        if (
+          !await confirm(
+            `이 일정의 정원은 ${maxParticipants}명이며, 현재 ${currentCount}명이 등록되어 있어 추가로 ${availableSpots}명만 신청 가능합니다.\n입력한 회원 중 선착순 ${availableSpots}명만 추가하시겠습니까?`
+          )
+        ) {
+          setParticipantModalSubmitting(false);
+          return;
+        }
+        targetUserIds = targetUserIds.slice(0, availableSpots);
       }
 
       // 5. API 호출하여 참가자 추가

@@ -225,6 +225,27 @@ export default function PlayersTodayPage() {
     console.log('출석 데이터 갱신 시작 - 날짜:', today);
 
     try {
+      // 0. 오늘 일정 조회하여 일정이 없으면 오늘 출석 데이터 모두 삭제(초기화)
+      const { data: schedulesData, error: schedErr } = await supabase
+        .from('match_schedules')
+        .select('id')
+        .eq('match_date', today);
+
+      if (schedErr) {
+        console.error('일정 조회 오류:', schedErr);
+      }
+
+      if (!schedErr && (!schedulesData || schedulesData.length === 0)) {
+        console.log('오늘 경기 일정이 없으므로 출석 데이터를 모두 초기화(삭제)합니다.');
+        const { error: delErr } = await supabase
+          .from('attendances')
+          .delete()
+          .eq('attended_at', today);
+        if (delErr) {
+          console.error('출석 데이터 초기화 오류:', delErr);
+        }
+      }
+
       const [currentLevelInfoMap, participants, { data: attendanceRows, error: attErr }] = await Promise.all([
         ensureLevelInfoMap(),
         fetchRegisteredPlayersForDate(today),

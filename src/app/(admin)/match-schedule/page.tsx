@@ -58,7 +58,7 @@ interface ScheduleGroup {
 export default function MatchSchedulePage() {
   // 전체 경기 일괄 삭제
   const deleteAllSchedules = async () => {
-    if (!confirm('정말로 모든 경기를 삭제하시겠습니까? 관련된 모든 참가 신청도 함께 삭제됩니다.')) {
+    if (!await confirm('정말로 모든 경기를 삭제하시겠습니까? 관련된 모든 참가 신청도 함께 삭제됩니다.')) {
       return;
     }
     try {
@@ -255,7 +255,7 @@ export default function MatchSchedulePage() {
       return;
     }
 
-    if (!confirm('오늘 기준으로 주말(토, 일)을 제외한 5일 치 경기를 자동 생성하시겠습니까?\n(기존에 일정이 있는 날은 건너뜁니다.)')) {
+    if (!await confirm('오늘 기준으로 주말(토, 일)을 제외한 5일 치 경기를 자동 생성하시겠습니까?\n(기존에 일정이 있는 날은 건너뜁니다.)')) {
       return;
     }
 
@@ -630,7 +630,7 @@ export default function MatchSchedulePage() {
 
   // 경기 삭제
   const deleteSchedule = async (scheduleId: string) => {
-    if (!confirm('정말로 이 경기를 삭제하시겠습니까? 관련된 모든 참가 신청도 함께 삭제됩니다.')) {
+    if (!await confirm('정말로 이 경기를 삭제하시겠습니까? 관련된 모든 참가 신청도 함께 삭제됩니다.')) {
       return;
     }
 
@@ -761,7 +761,7 @@ export default function MatchSchedulePage() {
   };
 
   const removeParticipantFromSchedule = async (scheduleId: string, targetUserId: string) => {
-    if (!confirm('이 참가자를 경기에서 제거하시겠습니까?')) {
+    if (!await confirm('이 참가자를 경기에서 제거하시겠습니까?')) {
       return;
     }
 
@@ -811,9 +811,11 @@ export default function MatchSchedulePage() {
   };
 
   const resetParticipantsForSchedule = async (scheduleId: string) => {
-    if (!confirm('정말로 이 일정의 모든 참가 신청을 초기화하시겠습니까?')) {
-      return;
-    }
+    const confirm1 = await confirm('정말로 이 일정의 모든 참가 신청을 초기화하시겠습니까?');
+    if (!confirm1) return;
+
+    const confirm2 = await confirm('초기화 시 참가자 명단이 전부 삭제됩니다. 정말로 진행하시겠습니까?');
+    if (!confirm2) return;
 
     try {
       setParticipantActionLoading((prev) => ({ ...prev, [scheduleId]: true }));

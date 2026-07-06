@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { AdminUser } from '@/types';
-import { createMember, deleteUser, updateUser, updateUsersBulk, updateRatingSettings, resetUserPassword, resetAttendanceAll, resetWinRateAll } from './actions';
+import { createMember, deleteUser, updateUser, updateUsersBulk, updateRatingSettings, resetUserPassword, resetAttendanceAll, resetWinRateAll, resetMemberData } from './actions';
 import type { UpdateUserPayload } from './actions';
 import { useRouter } from 'next/navigation';
-import { Activity, Calendar, Filter, Key, LayoutGrid, List, Save, Search, Shield, Trash2, UserPlus, Users, Trophy, ArrowLeft } from 'lucide-react';
+import { Activity, Calendar, Filter, Key, LayoutGrid, List, Save, Search, Shield, Trash2, UserPlus, Users, Trophy, ArrowLeft, RotateCcw } from 'lucide-react';
 
 type LevelOption = {
     code: string;
@@ -258,6 +258,21 @@ export default function UserManagementClient({
                     alert(`비밀번호 초기화 실패: ${result.error}`);
                 } else {
                     alert('비밀번호가 초기 비밀번호(bad123!)로 성공적으로 변경되었습니다.');
+                }
+            });
+        }
+    };
+
+    const handleResetMember = (user: AdminUser) => {
+        const displayName = user.full_name || user.username || user.email;
+        if (window.confirm(`'${displayName}' 회원의 모든 데이터(출석 기록 및 코인 전적)를 초기화하시겠습니까?`)) {
+            startTransition(async () => {
+                const result = await resetMemberData(user.id);
+                if (result?.error) {
+                    alert(`초기화 실패: ${result.error}`);
+                } else {
+                    alert('회원의 모든 데이터가 성공적으로 초기화되었습니다.');
+                    router.refresh();
                 }
             });
         }
@@ -791,6 +806,15 @@ export default function UserManagementClient({
                                             </button>
                                             <button
                                                 type="button"
+                                                onClick={() => handleResetMember(user)}
+                                                disabled={isPending}
+                                                className="inline-flex items-center gap-1 rounded-md border border-blue-200 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                                            >
+                                                <RotateCcw className="size-3.5" />
+                                                초기화
+                                            </button>
+                                            <button
+                                                type="button"
                                                 onClick={() => handleDelete(user)}
                                                 disabled={isPending || user.id === myUserId || !isCurrentUserAdmin}
                                                 className="inline-flex items-center gap-1 rounded-md border border-rose-200 px-3 py-2 text-xs font-medium text-rose-700 disabled:opacity-40"
@@ -951,6 +975,15 @@ export default function UserManagementClient({
                             >
                                 <Key className="size-3.5" />
                                 비밀번호
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleResetMember(user)}
+                                disabled={isPending}
+                                className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-40"
+                            >
+                                <RotateCcw className="size-3.5" />
+                                초기화
                             </button>
                             <button
                                 type="button"
@@ -1290,6 +1323,7 @@ export default function UserManagementClient({
                                             <th className="px-4 py-3 text-right font-semibold">누적 출석</th>
                                             <th className="px-4 py-3 text-right font-semibold">최근 30일</th>
                                             <th className="px-4 py-3 text-left font-semibold">마지막 출석</th>
+                                            <th className="px-4 py-3 text-right font-semibold">작업</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200">
@@ -1302,6 +1336,17 @@ export default function UserManagementClient({
                                                 <td className="px-4 py-3 text-right font-semibold text-slate-900">{user.attendance.total}</td>
                                                 <td className="px-4 py-3 text-right font-semibold text-slate-700">{user.attendance.last30}</td>
                                                 <td className="px-4 py-3 text-slate-500">{user.attendance.lastAttended || '-'}</td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleResetMember(user)}
+                                                        disabled={isPending}
+                                                        className="inline-flex items-center gap-1 rounded-md border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                                                    >
+                                                        <RotateCcw className="size-3" />
+                                                        초기화
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -1333,6 +1378,17 @@ export default function UserManagementClient({
                                                 {user.attendance.lastAttended || '-'}
                                             </span>
                                         </div>
+                                    </div>
+                                    <div className="mt-2.5 pt-2 border-t border-slate-100 flex justify-end">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleResetMember(user)}
+                                            disabled={isPending}
+                                            className="w-full inline-flex items-center justify-center gap-1 rounded border border-blue-200 bg-blue-50/30 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                                        >
+                                            <RotateCcw className="size-3" />
+                                            데이터 초기화
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -1409,12 +1465,13 @@ export default function UserManagementClient({
                                             <th className="px-4 py-3 text-right font-semibold">승</th>
                                             <th className="px-4 py-3 text-right font-semibold">패</th>
                                             <th className="px-4 py-3 text-right font-semibold">총 경기수</th>
+                                            <th className="px-4 py-3 text-right font-semibold">작업</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200">
                                         {winRateRows.length === 0 ? (
                                             <tr>
-                                                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                                                <td colSpan={7} className="px-4 py-6 text-center text-slate-500">
                                                     해당 조건의 회원이 없습니다.
                                                 </td>
                                             </tr>
@@ -1433,6 +1490,17 @@ export default function UserManagementClient({
                                                         <td className="px-4 py-3 text-right font-semibold text-emerald-600">{user.coin_wins || 0}</td>
                                                         <td className="px-4 py-3 text-right font-semibold text-rose-600">{user.coin_losses || 0}</td>
                                                         <td className="px-4 py-3 text-right font-medium text-slate-700">{total}</td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleResetMember(user)}
+                                                                disabled={isPending}
+                                                                className="inline-flex items-center gap-1 rounded-md border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                                                            >
+                                                                <RotateCcw className="size-3" />
+                                                                초기화
+                                                            </button>
+                                                        </td>
                                                     </tr>
                                                 );
                                             })
@@ -1474,10 +1542,21 @@ export default function UserManagementClient({
                                                         <span className="text-rose-600">{user.coin_losses || 0}패</span>
                                                     </span>
                                                 </div>
-                                                <div className="flex justify-between text-slate-400 text-[11px]">
+                                                <div className="flex justify-between text-slate-450 text-[11px]">
                                                     <span>총 경기수</span>
                                                     <span className="font-medium text-slate-600">{total}경기</span>
                                                 </div>
+                                            </div>
+                                            <div className="mt-2.5 pt-2 border-t border-slate-100 flex justify-end">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleResetMember(user)}
+                                                    disabled={isPending}
+                                                    className="w-full inline-flex items-center justify-center gap-1 rounded border border-blue-200 bg-blue-50/30 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                                                >
+                                                    <RotateCcw className="size-3" />
+                                                    데이터 초기화
+                                                </button>
                                             </div>
                                         </div>
                                     );

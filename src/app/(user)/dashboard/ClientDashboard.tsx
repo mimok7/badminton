@@ -193,7 +193,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
       // 2. Fetch today's match schedules
       const { data: schedulesData } = await supabase
         .from('match_schedules')
-        .select('id, match_date')
+        .select('id, match_date, max_participants, current_participants')
         .eq('match_date', today)
         .eq('status', 'scheduled')
         .is('generated_match_id', null);
@@ -435,6 +435,17 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
               </div>
               <div className="mt-2 text-[12px] text-slate-300">
                 오늘 내 상태: <span className="font-medium text-white">{loadingAttendance ? '조회 중...' : activeStateLabel}</span>
+                {!loadingAttendance && (
+                  todaySchedules[0] ? (
+                    <span className="ml-1.5 font-semibold text-yellow-400">
+                      ({Math.max(0, (todaySchedules[0].max_participants ?? 20) - (todaySchedules[0].current_participants ?? 0))}/{todaySchedules[0].max_participants ?? 20}명 신청 가능)
+                    </span>
+                  ) : (
+                    <span className="ml-1.5 font-semibold text-yellow-400">
+                      (오늘 경기 일정 없음)
+                    </span>
+                  )
+                )}
               </div>
             </div>
             <button
@@ -466,7 +477,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
               {/* 2. 출석 버튼 */}
               <button
                 type="button"
-                disabled={statusSaving || loadingAttendance}
+                disabled={statusSaving || loadingAttendance || !isRegisteredToday}
                 onClick={() => handleAttendanceStatusChange('present')}
                 className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
                   myAttendanceStatus === 'present'
@@ -480,7 +491,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
               {/* 3. 레슨 버튼 */}
               <button
                 type="button"
-                disabled={statusSaving || loadingAttendance}
+                disabled={statusSaving || loadingAttendance || !isRegisteredToday}
                 onClick={() => handleAttendanceStatusChange('lesson')}
                 className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
                   myAttendanceStatus === 'lesson'
@@ -494,7 +505,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
               {/* 4. 퇴근 버튼 */}
               <button
                 type="button"
-                disabled={statusSaving || loadingAttendance}
+                disabled={statusSaving || loadingAttendance || !isRegisteredToday}
                 onClick={() => handleAttendanceStatusChange('absent')}
                 className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
                   myAttendanceStatus === 'absent'

@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { isUserAdmin } from '@/lib/auth';
+import { readCoinSettings } from '@/lib/coin-settings';
+import { DEFAULT_COIN_SETTINGS } from '@/lib/coins';
 
 // 사용자를 삭제하려면 서비스 키를 사용하는 별도의 관리자 클라이언트가 필요합니다.
 // 이 키는 절대로 노출되어서는 안 됩니다.
@@ -431,6 +433,63 @@ export async function resetUserPassword(userId: string, newPassword: string) {
         return { success: true };
     } catch (error) {
         const message = error instanceof Error ? error.message : '비밀번호 초기화 중 알 수 없는 오류가 발생했습니다.';
+        return { error: message };
+    }
+}
+
+export async function resetMemberData(userId: string) {
+    try {
+        if (!(await isAdmin())) {
+            return { error: '초기화 권한이 없습니다.' };
+        }
+
+        // 1. 프로필 찾기
+        const { data: profile, error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .select('id, user_id')
+            .or(`user_id.eq.${userId},id.eq.${userId}`)
+            .maybeSingle();
+
+        if (profileError) {
+            return { error: profileError.message };
+        }
+
+        if (!profile) {
+            return { error: '대상 사용자를 찾을 수 없습니다.' };
+        }
+
+        // 2. 출석 데이터 삭제
+        const { error: attendanceError } = await supabaseAdmin
+            .from('attendances')
+            .delete()
+            .eq('user_id', profile.id);
+
+        if (attendanceError) {
+            return { error: `출석 초기화 실패: ${attendanceError.message}` };
+        }
+
+        // 3. 코인 설정 읽어서 초기 코인 잔액 가져오기
+        const coinSettings = await readCoinSettings().catch(() => DEFAULT_COIN_SETTINGS);
+        const initialBalance = coinSettings.initialCoinBalance;
+
+        // 4. 프로필 코인 정보 및 전적 초기화
+        const { error: updateError } = await supabaseAdmin
+            .from('profiles')
+            .update({
+                coin_wins: 0,
+                coin_losses: 0,
+                coin_balance: initialBalance,
+            })
+            .eq('id', profile.id);
+
+        if (updateError) {
+            return { error: `전적/코인 초기화 실패: ${updateError.message}` };
+        }
+
+        revalidatePath('/admin/members');
+        return { success: true };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : '사용자 초기화 중 알 수 없는 오류가 발생했습니다.';
         return { error: message };
     }
 }

@@ -56,6 +56,7 @@ export default function AppRequestPage() {
   const [customMenuName, setCustomMenuName] = useState('');
   const [content, setContent] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [customMessages, setCustomMessages] = useState<Record<string, string>>({});
 
   const handleCopyContent = async (id: string, text: string) => {
     try {
@@ -125,19 +126,24 @@ export default function AppRequestPage() {
     }
   };
 
-  const handleUpdateStatus = async (requestId: string, nextStatus: string) => {
+  const handleUpdateStatus = async (requestId: string, nextStatus: string, customMessage?: string) => {
     try {
       setUpdatingId(requestId);
       const res = await fetch('/api/app-requests', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ request_id: requestId, status: nextStatus }),
+        body: JSON.stringify({ 
+          request_id: requestId, 
+          status: nextStatus,
+          notification_message: customMessage || ''
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         throw new Error(data?.error || '상태 변경에 실패했습니다.');
       }
+      setCustomMessages(prev => ({ ...prev, [requestId]: '' }));
       await loadRequests();
     } catch (err) {
       alert(err instanceof Error ? err.message : '오류가 발생했습니다.');
@@ -360,32 +366,77 @@ export default function AppRequestPage() {
 
                       {/* Admin controls for updating request status */}
                       {isAdmin && (
-                        <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-200/50">
-                          <Button
-                            size="sm"
-                            onClick={() => void handleUpdateStatus(item.id, 'in_progress')}
-                            disabled={updatingId === item.id || item.status === 'in_progress'}
-                            className="bg-sky-600 hover:bg-sky-700 text-white h-7 text-xs px-2.5 rounded-lg"
-                          >
-                            진행 중
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => void handleUpdateStatus(item.id, 'completed')}
-                            disabled={updatingId === item.id || item.status === 'completed'}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs px-2.5 rounded-lg"
-                          >
-                            완료 처리
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void handleUpdateStatus(item.id, 'rejected')}
-                            disabled={updatingId === item.id || item.status === 'rejected'}
-                            className="border-rose-200 text-rose-600 hover:bg-rose-50 h-7 text-xs px-2.5 rounded-lg bg-white"
-                          >
-                            반려
-                          </Button>
+                        <div className="mt-3 pt-3 border-t border-slate-200/50 space-y-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={customMessages[item.id] ?? ''}
+                              onChange={(e) => setCustomMessages({
+                                ...customMessages,
+                                [item.id]: e.target.value
+                              })}
+                              placeholder="신청자에게 보낼 알림 메시지 입력 (선택)..."
+                              className="block w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 placeholder-slate-400"
+                            />
+                            {customMessages[item.id] && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  try {
+                                    setUpdatingId(item.id);
+                                    const res = await fetch('/api/app-requests', {
+                                      method: 'PUT',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      credentials: 'include',
+                                      body: JSON.stringify({ 
+                                        request_id: item.id, 
+                                        status: item.status, 
+                                        notification_message: customMessages[item.id] 
+                                      }),
+                                    });
+                                    if (!res.ok) throw new Error('메시지 전송에 실패했습니다.');
+                                    setCustomMessages({ ...customMessages, [item.id]: '' });
+                                    alert('신청자에게 알림 메시지를 보냈습니다.');
+                                  } catch (err) {
+                                    alert(err instanceof Error ? err.message : '오류 발생');
+                                  } finally {
+                                    setUpdatingId(null);
+                                  }
+                                }}
+                                className="h-8 text-xs px-2.5 rounded-lg border-indigo-200 text-indigo-600 bg-indigo-50/50 hover:bg-indigo-50 shrink-0"
+                              >
+                                메시지만 전송
+                              </Button>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <Button
+                              size="sm"
+                              onClick={() => void handleUpdateStatus(item.id, 'in_progress', customMessages[item.id])}
+                              disabled={updatingId === item.id || item.status === 'in_progress'}
+                              className="bg-sky-600 hover:bg-sky-700 text-white h-7 text-xs px-2.5 rounded-lg"
+                            >
+                              진행 중
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => void handleUpdateStatus(item.id, 'completed', customMessages[item.id])}
+                              disabled={updatingId === item.id || item.status === 'completed'}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs px-2.5 rounded-lg"
+                            >
+                              완료 처리
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void handleUpdateStatus(item.id, 'rejected', customMessages[item.id])}
+                              disabled={updatingId === item.id || item.status === 'rejected'}
+                              className="border-rose-200 text-rose-600 hover:bg-rose-50 h-7 text-xs px-2.5 rounded-lg bg-white"
+                            >
+                              반려
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </article>

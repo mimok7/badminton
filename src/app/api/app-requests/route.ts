@@ -145,6 +145,7 @@ export async function PUT(request: Request) {
   const body = await request.json().catch(() => null);
   const requestId = String(body?.request_id || '').trim();
   const nextStatus = String(body?.status || '').trim();
+  const notificationMessage = String(body?.notification_message || '').trim();
 
   if (!requestId || !['pending', 'in_progress', 'completed', 'rejected'].includes(nextStatus)) {
     return NextResponse.json({ error: '잘못된 요청 값입니다.' }, { status: 400 });
@@ -162,15 +163,39 @@ export async function PUT(request: Request) {
       updateData.completed_at = null;
     }
 
-    const { data: updatedRequest, error: updateError } = await adminSupabase
+    const { data: updatedRequest, error: updateError } = (await adminSupabase
       .from('app_modification_requests' as any)
       .update(updateData)
       .eq('id', requestId)
       .select('*')
-      .single();
+      .single()) as any;
 
     if (updateError) {
       throw new Error(updateError.message);
+    }
+
+    if (updatedRequest) {
+      const statusLabels: Record<string, string> = {
+        pending: '대기 중',
+        in_progress: '진행 중',
+        completed: '완료',
+        rejected: '반려',
+      };
+
+      const statusLabel = statusLabels[nextStatus] || nextStatus;
+      const title = `[앱 수정 요청] ${statusLabel} 안내`;
+      
+      const defaultMessage = `보내신 앱 수정 요청이 [${statusLabel}] 상태로 변경되었습니다. (분류: ${updatedRequest.category})`;
+      const finalMessage = notificationMessage || defaultMessage;
+
+      // Send notification to requester
+      await adminSupabase.from('notifications').insert({
+        user_id: updatedRequest.requester_id,
+        title,
+        message: finalMessage,
+        type: 'general',
+        is_read: false,
+      });
     }
 
     return NextResponse.json({ request: updatedRequest });

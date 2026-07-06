@@ -161,10 +161,16 @@ export default function ManualPage() {
                     <div>
                       <h4 className="font-bold text-slate-800">나의 출석 등록</h4>
                       <p className="text-sm text-slate-600 mt-1">오늘 모임에 대해 본인의 상태를 세 가지 중 하나로 선택할 수 있습니다.</p>
-                      <div className="flex gap-2 mt-3.5">
-                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">출석 (경기 참여)</span>
-                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">레슨 (코치 지도)</span>
-                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">퇴근/불참</span>
+                      <div className="space-y-2 mt-3.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 shrink-0">참가</span>
+                          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">출석 (경기 참여)</span>
+                          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">레슨 (코치 지도)</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 shrink-0">미참가</span>
+                          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">퇴근/불참</span>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -341,6 +341,10 @@ export default function ManualPage() {
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-amber-500 font-extrabold shrink-0">•</span>
+                      <span><strong>코인 배팅 규칙:</strong> 본인이 보유한 코인 범위 내에서 <strong>최대 3개</strong>까지 배팅이 가능하며, 해당 경기에 배정된 <strong>선수 4명 전원이 배팅(동의)에 참여해야 최종 성립</strong>됩니다.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-500 font-extrabold shrink-0">•</span>
                       <span><strong>기타 활동 보상:</strong> 승자 예측 퀴즈 참여 및 기타 클럽 공식 이벤트를 통해 추가 코인을 획득할 수 있습니다.</span>
                     </li>
                   </ul>

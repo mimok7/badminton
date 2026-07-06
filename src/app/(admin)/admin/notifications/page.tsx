@@ -427,6 +427,30 @@ export default function AdminNotificationsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <select
             className="border rounded px-2 py-2"
+            value={form.type}
+            onChange={(e) => {
+              const newType = e.target.value;
+              setForm(prev => ({
+                ...prev,
+                type: newType,
+                user_id: newType === 'notice' ? 'ALL' : prev.user_id
+              }));
+            }}
+          >
+            {[
+              { value: 'general', label: '일반 알림' },
+              { value: 'match_preparation', label: '경기 준비' },
+              { value: 'match_result', label: '경기 결과' },
+              { value: 'schedule_change', label: '일정 변경' },
+              { value: 'system', label: '시스템 알림' },
+              { value: 'survey', label: '설문조사 알림' },
+              { value: 'notice', label: '공지사항' },
+            ].map(t => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+          <select
+            className="border rounded px-2 py-2"
             value={form.user_id}
             onChange={(e) => setForm({ ...form, user_id: e.target.value })}
           >
@@ -446,23 +470,6 @@ export default function AdminNotificationsPage() {
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
           />
-          <select
-            className="border rounded px-2 py-2"
-            value={form.type}
-            onChange={(e) => setForm({ ...form, type: e.target.value })}
-          >
-            {[
-              { value: 'general', label: '일반 알림' },
-              { value: 'match_preparation', label: '경기 준비' },
-              { value: 'match_result', label: '경기 결과' },
-              { value: 'schedule_change', label: '일정 변경' },
-              { value: 'system', label: '시스템 알림' },
-              { value: 'survey', label: '설문조사 알림' },
-              { value: 'notice', label: '공지사항' },
-            ].map(t => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
           <button
             onClick={createNotification}
             disabled={isPending || uploadingFile}

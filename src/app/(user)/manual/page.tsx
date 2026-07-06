@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -318,6 +318,32 @@ export default function ManualPage() {
                       메뉴에서 <strong>[상품 교환]</strong>으로 이동한 뒤, 원하는 상품 카드의 <strong>[교환 신청]</strong>을 누르면 코인이 차감됩니다. 수령 시 관리자에게 <strong>구매 이력</strong>을 보여주시면 됩니다.
                     </p>
                   </div>
+                </div>
+
+                {/* 코인 배정 규칙 상세 안내 */}
+                <div className="p-5 border border-amber-100 rounded-2xl bg-amber-50/30 mb-6">
+                  <h4 className="font-bold text-slate-850 mb-3 flex items-center gap-2">
+                    <span className="text-lg">📋</span>
+                    코인 획득 및 사용 규칙 안내
+                  </h4>
+                  <ul className="space-y-2.5 text-sm text-slate-600">
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-500 font-extrabold shrink-0">•</span>
+                      <span><strong>정기 모임 출석 기본 지급:</strong> 정기 모임 출석 완료 시 관리자가 설정한 기본 코인(예: N개)이 자동으로 즉시 지급됩니다.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-500 font-extrabold shrink-0">•</span>
+                      <span><strong>경기 참여 기본 적용:</strong> 한 게임에 출전하여 플레이할 때마다 1개의 코인이 기본 적용되어 경기 진행에 연동됩니다.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-500 font-extrabold shrink-0">•</span>
+                      <span><strong>경기 승패에 따른 변동:</strong> 경기 스코어 기록 저장 완료 시, 승리한 팀의 선수는 <strong>코인 1개 증가(+1)</strong>, 패배한 팀의 선수는 <strong>코인 1개 감소(-1)</strong> 처리됩니다.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-500 font-extrabold shrink-0">•</span>
+                      <span><strong>기타 활동 보상:</strong> 승자 예측 퀴즈 참여 및 기타 클럽 공식 이벤트를 통해 추가 코인을 획득할 수 있습니다.</span>
+                    </li>
+                  </ul>
                 </div>
               </div>
             )}

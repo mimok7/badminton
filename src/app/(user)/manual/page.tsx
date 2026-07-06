@@ -329,7 +329,7 @@ export default function ManualPage() {
                   <ul className="space-y-2.5 text-sm text-slate-600">
                     <li className="flex items-start gap-2">
                       <span className="text-amber-500 font-extrabold shrink-0">•</span>
-                      <span><strong>정기 모임 출석 기본 지급:</strong> 정기 모임 출석 완료 시 관리자가 설정한 기본 코인(예: N개)이 자동으로 즉시 지급됩니다.</span>
+                      <span><strong>정기 모임 출석 기본 지급:</strong> 정기 모임 출석 완료 시 <strong>기본 코인 5개</strong>가 자동으로 즉시 지급됩니다.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-amber-500 font-extrabold shrink-0">•</span>
@@ -451,6 +451,11 @@ export default function ManualPage() {
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <h4 className="font-bold text-slate-800">🔥 오늘 내 게임 현황 & 배팅</h4>
                     <p className="text-sm text-slate-600 mt-1">오늘 예정된 내 게임 일정을 실시간 확인하고, 직접 스코어 점수를 기입하거나 게임 코인 배팅을 걸어 매치를 더욱 흥미진진하게 즐길 수 있습니다.</p>
+                    <div className="mt-2.5 p-3 rounded-xl bg-teal-50/50 border border-teal-100/50 text-xs text-slate-600 leading-relaxed space-y-1">
+                      <div><strong>⚠️ 코인 배팅 상세 규칙:</strong></div>
+                      <div>• 배팅액 한도: 본인이 보유하고 있는 코인 범위 내에서 <strong>최대 3개</strong>까지 배팅이 가능합니다.</div>
+                      <div>• 배팅 성립 조건: 해당 경기에 출전하는 <strong>선수 4명 전원(100%)이 배팅(동의)에 참여해야 배팅이 최종적으로 성립</strong>되며, 한 명이라도 동의하지 않으면 배팅은 성립되지 않고 초기화됩니다.</div>
+                    </div>
                   </div>
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <h4 className="font-bold text-slate-800">📈 개인 통계 요약</h4>

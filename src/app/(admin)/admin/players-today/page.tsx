@@ -468,36 +468,54 @@ export default function PlayersTodayPage() {
         console.error('오늘 출석 인원 수 조회 오류:', attendanceCountError);
       }
 
+      const scheduleIds = (data || []).map((s) => s.id);
+      const participantCounts: Record<string, number> = {};
+      if (scheduleIds.length > 0) {
+        const { data: partData, error: partErr } = await supabase
+          .from('match_participants')
+          .select('match_schedule_id')
+          .in('match_schedule_id', scheduleIds)
+          .in('status', ['registered', 'attended']);
+        if (!partErr && partData) {
+          partData.forEach((row) => {
+            participantCounts[row.match_schedule_id] = (participantCounts[row.match_schedule_id] || 0) + 1;
+          });
+        }
+      }
+
       const originalSchedules = (data || []).filter((schedule) => schedule.generated_match_id == null);
       const shouldApplyAttendanceFallback = originalSchedules.length === 1;
       const originalScheduleId = shouldApplyAttendanceFallback ? originalSchedules[0]?.id : null;
       const activeCourtNameByNumber = new Map(
         activeCourts.map((court, index) => [index + 1, court.name || null] as const)
       );
-      setTodaySchedules((data || []).map((schedule) => ({
-        id: schedule.id,
-        generated_match_id: schedule.generated_match_id,
-        schedule_source: schedule.schedule_source,
-        match_date: schedule.match_date,
-        start_time: schedule.start_time,
-        end_time: schedule.end_time,
-        scheduled_time: schedule.scheduled_time,
-        court_number: schedule.court_number,
-        description: schedule.description,
-        location: schedule.location,
-        court_name:
-          typeof schedule.court_number === 'number'
-            ? activeCourtNameByNumber.get(schedule.court_number) ?? null
-            : null,
-        status: schedule.status,
-        current_participants:
-          shouldApplyAttendanceFallback &&
-          schedule.id === originalScheduleId &&
-          (schedule.current_participants || 0) < (activeAttendanceCount || 0)
-            ? activeAttendanceCount || 0
-            : schedule.current_participants,
-        max_participants: schedule.max_participants,
-      })));
+      setTodaySchedules((data || []).map((schedule) => {
+        const dbParticipantsCount = participantCounts[schedule.id] ?? schedule.current_participants ?? 0;
+        return {
+          id: schedule.id,
+          generated_match_id: schedule.generated_match_id,
+          schedule_source: schedule.schedule_source,
+          match_date: schedule.match_date,
+          start_time: schedule.start_time,
+          end_time: schedule.end_time,
+          scheduled_time: schedule.scheduled_time,
+          court_number: schedule.court_number,
+          description: schedule.description,
+          location: schedule.location,
+          court_name:
+            typeof schedule.court_number === 'number'
+              ? activeCourtNameByNumber.get(schedule.court_number) ?? null
+              : null,
+          status: schedule.status,
+          current_participants:
+            shouldApplyAttendanceFallback &&
+            schedule.id === originalScheduleId &&
+            dbParticipantsCount < (activeAttendanceCount || 0)
+              ? activeAttendanceCount || 0
+              : dbParticipantsCount,
+          max_participants: schedule.max_participants,
+        };
+      }));
 
       const hasGeneratedSchedules = (data || []).some((schedule) => typeof schedule.generated_match_id === 'number');
 
@@ -835,6 +853,21 @@ export default function PlayersTodayPage() {
       return;
     }
 
+    if (status === 'present' || status === 'lesson') {
+      const maxParticipants = todaySchedules[0]?.max_participants ?? 20;
+      const unchangedActiveCount = (effectiveTodayPlayers || []).filter(
+        (p) => (p.status === 'present' || p.status === 'lesson') && !memberIds.includes(p.id)
+      ).length;
+
+      if (unchangedActiveCount + memberIds.length > maxParticipants) {
+        alert(
+          `오늘 경기 일정의 정원(${maxParticipants}명)을 초과하여 출석 처리할 수 없습니다.\n` +
+          `현재 출석/레슨 인원: ${unchangedActiveCount}명 (추가 가능 인원: ${Math.max(0, maxParticipants - unchangedActiveCount)}명)`
+        );
+        return;
+      }
+    }
+
     applyAttendanceStatusLocally(memberIds, status);
 
     const attendedAt = getTodayLocal();
@@ -879,6 +912,7 @@ export default function PlayersTodayPage() {
     }
 
     await refreshAttendanceData();
+    await fetchTodaySchedules(); // Also refresh schedules count dynamically!
   };
 
   const handleAttendanceStatusChange = async (memberId: string, status: ExtendedPlayer['status']) => {

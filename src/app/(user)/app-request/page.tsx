@@ -50,6 +50,7 @@ export default function AppRequestPage() {
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [requests, setRequests] = useState<AppRequestItem[]>([]);
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   
   const [category, setCategory] = useState('');
   const [menuName, setMenuName] = useState('');
@@ -153,6 +154,10 @@ export default function AppRequestPage() {
   };
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'manager';
+
+  const filteredRequests = requests.filter(item => 
+    activeTab === 'active' ? item.status !== 'completed' : item.status === 'completed'
+  );
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-12">
@@ -282,34 +287,60 @@ export default function AppRequestPage() {
           {/* RIGHT: Request History List */}
           <div className="lg:col-span-7 space-y-6">
             <section className="rounded-3xl bg-white border border-slate-100 px-5 py-6 shadow-sm hover:shadow-md transition">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 mb-5 gap-3">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Request History</p>
                   <h2 className="text-lg font-bold text-slate-900">
                     {isAdmin ? '전체 수정 요청 목록' : '내 수정 요청 기록'}
                   </h2>
                 </div>
-                <button
-                  onClick={() => {
-                    void loadRequests();
-                  }}
-                  disabled={loading}
-                  className="rounded-full p-2 border border-slate-100 hover:bg-slate-50 text-slate-500 transition-colors disabled:opacity-50"
-                  title="새로고침"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-                </button>
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <div className="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('active')}
+                      className={`rounded-lg px-3 py-1.5 transition-all duration-200 ${
+                        activeTab === 'active'
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      진행 중 ({requests.filter(r => r.status !== 'completed').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('completed')}
+                      className={`rounded-lg px-3 py-1.5 transition-all duration-200 ${
+                        activeTab === 'completed'
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      완료 목록 ({requests.filter(r => r.status === 'completed').length})
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => {
+                      void loadRequests();
+                    }}
+                    disabled={loading}
+                    className="rounded-full p-2 border border-slate-100 hover:bg-slate-50 text-slate-500 transition-colors disabled:opacity-50"
+                    title="새로고침"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-4">
                 {loading && requests.length === 0 ? (
                   <div className="text-center py-8 text-sm text-slate-500">불러오는 중...</div>
-                ) : requests.length === 0 ? (
+                ) : filteredRequests.length === 0 ? (
                   <div className="rounded-2xl bg-slate-50/50 border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-                    기록된 수정 요청이 현재 없습니다.
+                    {activeTab === 'active' ? '진행 중인 수정 요청이 없습니다.' : '완료된 수정 요청이 없습니다.'}
                   </div>
                 ) : (
-                  requests.map((item) => (
+                  filteredRequests.map((item) => (
                     <article key={item.id} className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all hover:border-slate-200">
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/50 pb-2.5 mb-2.5">
                         <div className="flex flex-wrap items-center gap-2">

@@ -91,6 +91,7 @@ export default function TodayMatches() {
   const [optimizing, setOptimizing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'schedule' | 'ranking'>('schedule');
+  const [watchModalUrl, setWatchModalUrl] = useState<string | null>(null);
   const router = useRouter();
   const supabase = getSupabaseClient();
 
@@ -440,9 +441,20 @@ export default function TodayMatches() {
               {statusMeta.label}
             </span>
             <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const url = `${window.location.origin}/today-scoreboard/${match.id}`;
+                  setWatchModalUrl(url);
+                }}
+                className="flex items-center justify-center rounded-full bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700"
+                title="워치에서 열기 안내"
+              >
+                ⌚
+              </button>
               <Link
                 href={`/today-scoreboard/${match.id}`}
-                className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700"
+                className="flex items-center justify-center rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700"
               >
                 판
               </Link>
@@ -698,6 +710,43 @@ export default function TodayMatches() {
           )}
         </div>
       </div>
+
+      {/* Watch Instruction Modal */}
+      {watchModalUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl relative animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+              <span>⌚</span> 워치에서 점수판 열기
+            </h3>
+            <div className="text-sm text-slate-600 space-y-3 mb-6">
+              <p>1. 스마트폰에서 <strong>삼성 인터넷 브라우저</strong>를 엽니다.</p>
+              <p>2. 우측 하단의 <strong>메뉴(≡)</strong>를 누릅니다.</p>
+              <p>3. <strong>[워치에서 열기]</strong>를 선택하면 워치 화면이 켜지며 점수판이 나타납니다.</p>
+              <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-100 text-xs text-slate-500 leading-relaxed">
+                * 만약 메뉴에 보이지 않으면 삼성 인터넷 설정에서 추가할 수 있습니다.<br/>
+                * 타사 브라우저나 워치를 사용 중이시라면 아래 버튼으로 링크를 복사하여 전송해 주세요.
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(watchModalUrl);
+                  alert('점수판 링크가 복사되었습니다.');
+                }}
+                className="flex-1 rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+              >
+                링크 복사
+              </button>
+              <button
+                onClick={() => setWatchModalUrl(null)}
+                className="flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -343,15 +343,15 @@ export default function ScoreboardPage() {
       style={{ touchAction: 'manipulation' }}
     >
       {/* 상단 정보 바 */}
-      <div className="relative z-10 flex items-center justify-between bg-black/60 px-3 py-2 text-white backdrop-blur-md">
+      <div className="relative z-10 flex flex-wrap items-center justify-between bg-black/60 px-3 py-2 max-[400px]:px-2 max-[400px]:py-1 text-white backdrop-blur-md gap-1">
         <button
           onClick={handleGoBack}
-          className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium transition hover:bg-white/20"
+          className="rounded-lg bg-white/10 px-3 py-1.5 max-[400px]:px-2 max-[400px]:py-1 text-xs max-[400px]:text-[10px] font-medium transition hover:bg-white/20"
         >
           ← 돌아가기
         </button>
 
-        <div className="text-center">
+        <div className="text-center max-[400px]:hidden">
           <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
             {match.court?.replace(/Court\s*/i, '코트 ') || '코트'}
             {' · '}
@@ -369,11 +369,11 @@ export default function ScoreboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 max-[400px]:gap-1">
           {!isCompleted && (
             <button
               onClick={() => setIsLive((prev) => !prev)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+              className={`rounded-lg px-3 py-1.5 max-[400px]:px-2 max-[400px]:py-1 text-xs max-[400px]:text-[10px] font-bold transition-all ${
                 isLive
                   ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30'
                   : 'bg-white/10 text-slate-400 hover:bg-white/20'
@@ -385,21 +385,23 @@ export default function ScoreboardPage() {
           )}
           <button
             onClick={fetchMatch}
-            className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium transition hover:bg-white/20"
+            className="rounded-lg bg-white/10 px-3 py-1.5 max-[400px]:px-2 max-[400px]:py-1 text-xs max-[400px]:text-[10px] font-medium transition hover:bg-white/20"
             title="새로고침"
           >
-            🔁 새로고침
+            <span className="max-[400px]:hidden">🔁 새로고침</span>
+            <span className="hidden max-[400px]:inline">🔁</span>
           </button>
           <button
             onClick={() => setIsFlipped((prev) => !prev)}
-            className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium transition hover:bg-white/20"
+            className="rounded-lg bg-white/10 px-3 py-1.5 max-[400px]:px-2 max-[400px]:py-1 text-xs max-[400px]:text-[10px] font-medium transition hover:bg-white/20"
             title="좌우 반전"
           >
-            🔄 반전
+            <span className="max-[400px]:hidden">🔄 반전</span>
+            <span className="hidden max-[400px]:inline">🔄</span>
           </button>
           <button
             onClick={toggleFullscreen}
-            className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium transition hover:bg-white/20"
+            className="rounded-lg bg-white/10 px-3 py-1.5 max-[400px]:px-2 max-[400px]:py-1 text-xs max-[400px]:text-[10px] font-medium transition hover:bg-white/20"
           >
             {isFullscreen ? '축소' : '확대'}
           </button>
@@ -438,11 +440,11 @@ export default function ScoreboardPage() {
           }}
         >
           {/* 좌측 선수 이름 */}
-          <div className="absolute top-4 left-0 right-0 flex flex-col items-center gap-0.5 px-3">
+          <div className="absolute top-4 left-0 right-0 flex flex-col items-center gap-0.5 px-3 max-[400px]:top-2 max-[400px]:px-1 max-[400px]:gap-0">
             {leftNames.map((name, i) => (
               <span
                 key={i}
-                className="text-sm font-semibold text-white/80 drop-shadow-md sm:text-base"
+                className="text-sm font-semibold text-white/80 drop-shadow-md sm:text-base max-[400px]:text-[11px] max-[400px]:leading-tight max-[400px]:truncate max-[400px]:w-full max-[400px]:text-center"
               >
                 {name}
               </span>
@@ -452,7 +454,7 @@ export default function ScoreboardPage() {
           {/* 점수 */}
           <div className="relative">
             <span
-              className="text-[120px] font-black leading-none text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] sm:text-[160px]"
+              className="text-[120px] font-black leading-none text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] sm:text-[160px] max-[400px]:text-[30vw]"
               style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
             >
               {leftScore}
@@ -467,7 +469,7 @@ export default function ScoreboardPage() {
                 e.stopPropagation();
                 handleScoreChange(leftTeamKey, -1);
               }}
-              className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-black/30 px-5 py-2 text-sm font-bold text-white/80 backdrop-blur-sm transition hover:bg-black/50 active:scale-95"
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-black/30 px-5 py-2 text-sm font-bold text-white/80 backdrop-blur-sm transition hover:bg-black/50 active:scale-95 max-[400px]:bottom-3 max-[400px]:px-4 max-[400px]:py-1.5 max-[400px]:text-xs"
             >
               −1
             </button>
@@ -482,7 +484,7 @@ export default function ScoreboardPage() {
         </div>
 
         {/* 중앙 구분선 */}
-        <div className="absolute inset-y-0 left-1/2 z-10 flex w-0 -translate-x-1/2 items-center justify-center">
+        <div className="absolute inset-y-0 left-1/2 z-10 flex w-0 -translate-x-1/2 items-center justify-center max-[400px]:hidden">
           <div className="h-full w-px bg-white/20" />
           <div className="absolute rounded-full bg-slate-900 px-2.5 py-3 text-xs font-black text-white shadow-xl ring-2 ring-white/20">
             VS
@@ -507,11 +509,11 @@ export default function ScoreboardPage() {
           }}
         >
           {/* 우측 선수 이름 */}
-          <div className="absolute top-4 left-0 right-0 flex flex-col items-center gap-0.5 px-3">
+          <div className="absolute top-4 left-0 right-0 flex flex-col items-center gap-0.5 px-3 max-[400px]:top-2 max-[400px]:px-1 max-[400px]:gap-0">
             {rightNames.map((name, i) => (
               <span
                 key={i}
-                className="text-sm font-semibold text-white/80 drop-shadow-md sm:text-base"
+                className="text-sm font-semibold text-white/80 drop-shadow-md sm:text-base max-[400px]:text-[11px] max-[400px]:leading-tight max-[400px]:truncate max-[400px]:w-full max-[400px]:text-center"
               >
                 {name}
               </span>
@@ -521,7 +523,7 @@ export default function ScoreboardPage() {
           {/* 점수 */}
           <div className="relative">
             <span
-              className="text-[120px] font-black leading-none text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] sm:text-[160px]"
+              className="text-[120px] font-black leading-none text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.5)] sm:text-[160px] max-[400px]:text-[30vw]"
               style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
             >
               {rightScore}
@@ -536,7 +538,7 @@ export default function ScoreboardPage() {
                 e.stopPropagation();
                 handleScoreChange(rightTeamKey, -1);
               }}
-              className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-black/30 px-5 py-2 text-sm font-bold text-white/80 backdrop-blur-sm transition hover:bg-black/50 active:scale-95"
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-black/30 px-5 py-2 text-sm font-bold text-white/80 backdrop-blur-sm transition hover:bg-black/50 active:scale-95 max-[400px]:bottom-3 max-[400px]:px-4 max-[400px]:py-1.5 max-[400px]:text-xs"
             >
               −1
             </button>
@@ -553,32 +555,32 @@ export default function ScoreboardPage() {
 
       {/* 하단 컨트롤 바 */}
       {canEdit && !isCompleted && (
-        <div className="relative z-10 flex items-center justify-center gap-3 bg-black/70 px-4 py-3 backdrop-blur-md">
+        <div className="relative z-10 flex flex-wrap items-center justify-center gap-3 bg-black/70 px-4 py-3 max-[400px]:px-2 max-[400px]:py-2 backdrop-blur-md">
           {!showConfirmComplete ? (
             <button
               type="button"
               onClick={() => setShowConfirmComplete(true)}
-              className="rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-8 py-3 text-sm font-bold text-white shadow-lg transition hover:from-emerald-500 hover:to-emerald-400 active:scale-95"
+              className="rounded-2xl max-[400px]:rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-8 py-3 max-[400px]:px-4 max-[400px]:py-2 text-sm max-[400px]:text-xs font-bold text-white shadow-lg transition hover:from-emerald-500 hover:to-emerald-400 active:scale-95"
             >
               경기 완료
             </button>
           ) : (
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-white">
+            <div className="flex flex-wrap items-center justify-center gap-2 max-[400px]:gap-1">
+              <span className="text-sm max-[400px]:text-xs text-white max-[400px]:w-full max-[400px]:text-center">
                 {score1} : {score2} 로 확정하시겠습니까?
               </span>
               <button
                 type="button"
                 onClick={handleCompleteMatch}
                 disabled={completing}
-                className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 active:scale-95 disabled:opacity-50"
+                className="rounded-xl max-[400px]:rounded-lg bg-emerald-600 px-5 py-2 max-[400px]:px-3 max-[400px]:py-1.5 text-sm max-[400px]:text-[11px] font-bold text-white transition hover:bg-emerald-500 active:scale-95 disabled:opacity-50"
               >
                 {completing ? '처리중...' : '확인'}
               </button>
               <button
                 type="button"
                 onClick={() => setShowConfirmComplete(false)}
-                className="rounded-xl bg-white/10 px-5 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+                className="rounded-xl max-[400px]:rounded-lg bg-white/10 px-5 py-2 max-[400px]:px-3 max-[400px]:py-1.5 text-sm max-[400px]:text-[11px] font-medium text-white transition hover:bg-white/20"
               >
                 취소
               </button>

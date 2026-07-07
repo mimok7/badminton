@@ -96,22 +96,31 @@ export async function GET() {
     // 3. 오늘 출석/등록된 선수들의 프로필 조회 (현재 사용자 제외, 게스트 포함)
     let availablePartners: Array<{ id: string; name: string; skill_level: string; gender: string }> = [];
     if (activeUserIds.size > 0) {
-      const { data: profilesRows, error: profilesError } = await resolved.adminSupabase
-        .from('profiles')
-        .select('id, username, full_name, skill_level, gender, is_guest')
-        .in('id', Array.from(activeUserIds))
-        .order('full_name', { ascending: true });
+      const idList = Array.from(activeUserIds);
+      const [profilesById, profilesByUserId] = await Promise.all([
+        resolved.adminSupabase
+          .from('profiles')
+          .select('id, username, full_name, skill_level, gender, is_guest, user_id')
+          .in('id', idList),
+        resolved.adminSupabase
+          .from('profiles')
+          .select('id, username, full_name, skill_level, gender, is_guest, user_id')
+          .in('user_id', idList),
+      ]);
 
-      if (!profilesError && profilesRows) {
-        availablePartners = profilesRows
-          .filter(p => p.id !== resolved.profileId)
-          .map(p => ({
-            id: p.id,
-            name: p.full_name || p.username || '선수',
-            skill_level: p.skill_level || 'E2',
-            gender: p.gender || '',
-          }));
-      }
+      const allFetched = [...(profilesById.data || []), ...(profilesByUserId.data || [])];
+      // Deduplicate by profile id
+      const uniqueProfiles = Array.from(new Map(allFetched.map(p => [p.id, p])).values());
+
+      availablePartners = uniqueProfiles
+        .filter(p => p.id !== resolved.profileId && p.user_id !== resolved.authUserId)
+        .map(p => ({
+          id: p.id,
+          name: p.full_name || p.username || '선수',
+          skill_level: p.skill_level || 'E2',
+          gender: p.gender || '',
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
     }
 
     const partnerId = matchParticipant?.partner_user_id || myAttendance?.partner_user_id || null;

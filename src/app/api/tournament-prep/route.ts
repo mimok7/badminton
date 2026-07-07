@@ -43,33 +43,29 @@ export async function GET() {
 
     const today = getKoreaDate();
 
-    // 1. 전체 회원 조회 (현재 사용자 제외, 게스트 제외)
-    const { data: profilesRows, error: profilesError } = await resolved.adminSupabase
-      .from('profiles')
-      .select('id, username, full_name, skill_level, gender, is_guest')
-      .neq('id', resolved.profileId)
-      .order('full_name', { ascending: true });
+    // 1. 오늘 출석부 조회 (status가 present, lesson인 사용자 수집)
+    const { data: attendancesData } = await resolved.adminSupabase
+      .from('attendances')
+      .select('user_id, status, partner_user_id')
+      .eq('attended_at', today);
 
-    if (profilesError) {
-      return NextResponse.json({ error: '회원 목록을 불러오지 못했습니다.' }, { status: 500 });
+    const activeUserIds = new Set<string>();
+    let myAttendance = null;
+
+    if (attendancesData) {
+      for (const att of attendancesData) {
+        if (att.user_id === resolved.profileId) {
+          myAttendance = att;
+        }
+        if (att.status === 'present' || att.status === 'lesson') {
+          if (att.user_id !== resolved.profileId) {
+            activeUserIds.add(att.user_id);
+          }
+        }
+      }
     }
 
-    const availablePartners = (profilesRows || []).map(p => ({
-      id: p.id,
-      name: p.full_name || p.username || '선수',
-      skill_level: p.skill_level || 'E2',
-      gender: p.gender || '',
-    }));
-
-    // 2. 오늘 출석부 조회
-    const { data: attendance } = await resolved.adminSupabase
-      .from('attendances')
-      .select('status, partner_user_id')
-      .eq('user_id', resolved.profileId)
-      .eq('attended_at', today)
-      .maybeSingle();
-
-    // 3. 오늘 경기 일정 및 참가자 조회
+    // 2. 오늘 경기 일정 및 참가자(registered) 조회
     const { data: schedules } = await resolved.adminSupabase
       .from('match_schedules')
       .select('id')
@@ -78,20 +74,51 @@ export async function GET() {
     let matchParticipant = null;
     if (schedules && schedules.length > 0) {
       const scheduleIds = schedules.map(s => s.id);
-      const { data: p } = await resolved.adminSupabase
+      const { data: participantsData } = await resolved.adminSupabase
         .from('match_participants')
-        .select('status, partner_user_id')
-        .in('match_schedule_id', scheduleIds)
-        .eq('user_id', resolved.profileId)
-        .maybeSingle();
-      matchParticipant = p;
+        .select('user_id, status, partner_user_id')
+        .in('match_schedule_id', scheduleIds);
+
+      if (participantsData) {
+        for (const p of participantsData) {
+          if (p.user_id === resolved.profileId) {
+            matchParticipant = p;
+          }
+          if (p.status === 'registered') {
+            if (p.user_id !== resolved.profileId) {
+              activeUserIds.add(p.user_id);
+            }
+          }
+        }
+      }
     }
 
-    const partnerId = matchParticipant?.partner_user_id || attendance?.partner_user_id || null;
+    // 3. 오늘 출석/등록된 선수들의 프로필 조회 (현재 사용자 및 게스트 제외)
+    let availablePartners: Array<{ id: string; name: string; skill_level: string; gender: string }> = [];
+    if (activeUserIds.size > 0) {
+      const { data: profilesRows, error: profilesError } = await resolved.adminSupabase
+        .from('profiles')
+        .select('id, username, full_name, skill_level, gender, is_guest')
+        .in('id', Array.from(activeUserIds))
+        .order('full_name', { ascending: true });
+
+      if (!profilesError && profilesRows) {
+        availablePartners = profilesRows
+          .filter(p => !p.is_guest && p.id !== resolved.profileId)
+          .map(p => ({
+            id: p.id,
+            name: p.full_name || p.username || '선수',
+            skill_level: p.skill_level || 'E2',
+            gender: p.gender || '',
+          }));
+      }
+    }
+
+    const partnerId = matchParticipant?.partner_user_id || myAttendance?.partner_user_id || null;
     const isRegistered =
       matchParticipant?.status === 'registered' ||
-      attendance?.status === 'present' ||
-      attendance?.status === 'lesson';
+      myAttendance?.status === 'present' ||
+      myAttendance?.status === 'lesson';
 
     let partnerProfile = null;
     if (partnerId) {
@@ -109,6 +136,9 @@ export async function GET() {
             skill_level: pData.skill_level || 'E2',
             gender: pData.gender || '',
           };
+          if (!availablePartners.some(p => p.id === partnerProfile!.id)) {
+            availablePartners.push(partnerProfile);
+          }
         }
       }
     }

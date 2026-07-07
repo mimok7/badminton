@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, CalendarDays, Gift, LogOut, Shield, Swords, Target, Trophy, UserCircle2, Zap, Bell, BookOpen, MessageSquarePlus } from 'lucide-react';
+import { ArrowRight, CalendarDays, Gift, LogOut, Shield, Swords, Target, Trophy, UserCircle2, Zap, Bell, BookOpen, MessageSquarePlus, Award } from 'lucide-react';
 
 import MatchNotifications from '@/components/MatchNotifications';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,14 @@ const quickLinks = [
     icon: Zap,
     hoverClass: 'hover:border-indigo-400 hover:bg-indigo-50/50',
     iconColor: 'text-indigo-500',
+  },
+  {
+    href: '/challenge?tab=tournament',
+    title: '대회 준비',
+    description: '외부 대회 출전을 위해 연습 파트너를 지정합니다.',
+    icon: Award,
+    hoverClass: 'hover:border-amber-400 hover:bg-amber-50/50',
+    iconColor: 'text-amber-500',
   },
   {
     href: '/today-matches',

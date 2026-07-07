@@ -9,6 +9,7 @@ export interface ExtendedPlayer {
   gender: string;
   skill_code: string;
   status: AttendanceStatus;
+  partner_user_id?: string | null;
 }
 
 export interface MatchSession {

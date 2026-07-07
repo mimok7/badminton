@@ -16,11 +16,61 @@ export function createBalancedDoublesMatches(playersInput: Player[], minGamesPer
   console.log(`  - 목표 최소 경기: ${minGamesPerPlayer}회/인`);
   console.log(`  - 레벨 순서: ${sortedBySkill.slice(0, 5).map(p => `${p.name}(${p.skill_level})`).join(', ')}...`);
 
-  const buildPossibleTeams = (pool: Player[]): { team: Team; score: number; fairness: number }[] => {
+  // 파트너 매핑 구성 (서로 지정했거나, 한쪽이 지정하고 상대가 참석 중인 경우)
+  const partnerMap = new Map<string, string>();
+  const designated = new Map<string, string>();
+  normalized.forEach(p => {
+    if (p.partner_user_id) {
+      designated.set(p.id, p.partner_user_id);
+    }
+  });
+
+  // 1순위: 상호 지정 (A -> B 및 B -> A)
+  designated.forEach((partnerId, playerId) => {
+    if (designated.get(partnerId) === playerId) {
+      partnerMap.set(playerId, partnerId);
+      partnerMap.set(partnerId, playerId);
+    }
+  });
+
+  // 2순위: 일방 지정이되, 상대방이 이미 다른 파트너와 매핑되지 않은 경우
+  designated.forEach((partnerId, playerId) => {
+    if (!partnerMap.has(playerId) && !partnerMap.has(partnerId)) {
+      const partnerExists = normalized.some(p => p.id === partnerId);
+      if (partnerExists) {
+        partnerMap.set(playerId, partnerId);
+        partnerMap.set(partnerId, playerId);
+      }
+    }
+  });
+
+  if (partnerMap.size > 0) {
+    const loggedPairs = new Set<string>();
+    console.log('🏆 대회 준비 지정 파트너 감지:');
+    partnerMap.forEach((partnerId, playerId) => {
+      const pairKey = [playerId, partnerId].sort().join('-');
+      if (!loggedPairs.has(pairKey)) {
+        loggedPairs.add(pairKey);
+        const p1Name = normalized.find(p => p.id === playerId)?.name || playerId;
+        const p2Name = normalized.find(p => p.id === partnerId)?.name || partnerId;
+        console.log(`  - 파트너 쌍 고정: ${p1Name} & ${p2Name}`);
+      }
+    });
+  }
+
+  const buildPossibleTeams = (pool: Player[], pMap?: Map<string, string>): { team: Team; score: number; fairness: number }[] => {
     const teams: { team: Team; score: number; fairness: number }[] = [];
     for (let i = 0; i < pool.length; i++) {
       for (let j = i + 1; j < pool.length; j++) {
-        const team: Team = { player1: pool[i], player2: pool[j] };
+        const p1 = pool[i];
+        const p2 = pool[j];
+        if (pMap) {
+          const p1Partner = pMap.get(p1.id);
+          const p2Partner = pMap.get(p2.id);
+          if (p1Partner && p1Partner !== p2.id) continue;
+          if (p2Partner && p2Partner !== p1.id) continue;
+        }
+        const team: Team = { player1: p1, player2: p2 };
         teams.push({ team, score: getTeamScore(team), fairness: getTeamFairnessScore(team) });
       }
     }
@@ -35,13 +85,13 @@ export function createBalancedDoublesMatches(playersInput: Player[], minGamesPer
     return teams;
   };
 
-  const createRound = (pool: Player[]): { matches: Match[]; used: Set<string> } => {
+  const createRound = (pool: Player[], pMap?: Map<string, string>): { matches: Match[]; used: Set<string> } => {
     const used = new Set<string>();
     const matches: Match[] = [];
     
     // 레벨(점수) 높은 순서로 정렬된 풀 사용
     const sortedPool = [...pool].sort((a, b) => getPlayerScore(b) - getPlayerScore(a));
-    const possible = buildPossibleTeams(sortedPool);
+    const possible = buildPossibleTeams(sortedPool, pMap);
 
     for (let i = 0; i < possible.length; i++) {
       const t1 = possible[i];
@@ -82,7 +132,7 @@ export function createBalancedDoublesMatches(playersInput: Player[], minGamesPer
   normalized.forEach(p => { counts[p.id] = 0; });
 
   // helper to pick the best pairing among 4 players such that team score diff is minimized
-  const bestBalancedPairs = (four: Player[]): { t1: Team; t2: Team } | null => {
+  const bestBalancedPairs = (four: Player[], pMap?: Map<string, string>): { t1: Team; t2: Team } | null => {
     if (four.length !== 4) return null;
     const combos: [Team, Team][] = [
       [ { player1: four[0], player2: four[1] }, { player1: four[2], player2: four[3] } ],
@@ -90,9 +140,19 @@ export function createBalancedDoublesMatches(playersInput: Player[], minGamesPer
       [ { player1: four[0], player2: four[3] }, { player1: four[1], player2: four[2] } ],
     ];
 
+    const isValidTeam = (t: Team) => {
+      if (!pMap) return true;
+      const p1Partner = pMap.get(t.player1.id);
+      const p2Partner = pMap.get(t.player2.id);
+      if (p1Partner && p1Partner !== t.player2.id) return false;
+      if (p2Partner && p2Partner !== t.player1.id) return false;
+      return true;
+    };
+
     let best: { t1: Team; t2: Team } | null = null;
     let bestDiff = Number.POSITIVE_INFINITY;
     for (const [a, b] of combos) {
+      if (!isValidTeam(a) || !isValidTeam(b)) continue;
       const diff = Math.abs(getTeamScore(a) - getTeamScore(b));
       if (diff < bestDiff) { bestDiff = diff; best = { t1: a, t2: b }; }
     }
@@ -111,6 +171,63 @@ export function createBalancedDoublesMatches(playersInput: Player[], minGamesPer
 
   console.log(`  - 목표 경기수: 최소 ${targetMatches}개 (${totalPlayers}명 × ${minGamesPerPlayer}회 ÷ 4)`);
 
+  const groupIntoFours = (pool: Player[], pMap: Map<string, string>): Player[][] => {
+    const visited = new Set<string>();
+    const units: Player[][] = [];
+    for (const p of pool) {
+      if (visited.has(p.id)) continue;
+      visited.add(p.id);
+      const partnerId = pMap.get(p.id);
+      if (partnerId && !visited.has(partnerId)) {
+        const partner = pool.find(x => x.id === partnerId);
+        if (partner) {
+          visited.add(partner.id);
+          units.push([p, partner]);
+          continue;
+        }
+      }
+      units.push([p]);
+    }
+
+    const groups: Player[][] = [];
+    const rem = [...units];
+
+    while (rem.length > 0) {
+      let foundIndices: number[] | null = null;
+      
+      const findCombo = (startIdx: number, currentIndices: number[], currentCount: number): boolean => {
+        if (currentCount === 4) {
+          foundIndices = [...currentIndices];
+          return true;
+        }
+        for (let j = startIdx; j < rem.length; j++) {
+          if (currentCount + rem[j].length <= 4) {
+            currentIndices.push(j);
+            if (findCombo(j + 1, currentIndices, currentCount + rem[j].length)) return true;
+            currentIndices.pop();
+          }
+        }
+        return false;
+      };
+
+      findCombo(0, [], 0);
+
+      if (foundIndices) {
+        const group: Player[] = [];
+        const sortedIndices = (foundIndices as number[]).sort((a, b) => b - a);
+        for (const idx of sortedIndices) {
+          group.push(...rem[idx]);
+          rem.splice(idx, 1);
+        }
+        groups.push(group);
+      } else {
+        break;
+      }
+    }
+
+    return groups;
+  };
+
   let attempts = 0;
   const maxAttempts = targetMatches * 5;
   
@@ -128,6 +245,7 @@ export function createBalancedDoublesMatches(playersInput: Player[], minGamesPer
     const minCountPlayers = pool.filter(p => counts[p.id] === minCount);
 
     const numMatchesToGenerate = Math.floor(minCountPlayers.length / 4);
+    let generatedThisTurn = false;
 
     if (numMatchesToGenerate > 0) {
       let bestSchedule: Match[] = [];
@@ -142,19 +260,22 @@ export function createBalancedDoublesMatches(playersInput: Player[], minGamesPer
            return scoreB - scoreA;
         });
 
+        const fourGroups = groupIntoFours(shuffled, partnerMap);
+        const limit = Math.min(numMatchesToGenerate, fourGroups.length);
+
         let maxDiff = 0;
         const currentSchedule: Match[] = [];
         
-        for (let i = 0; i < numMatchesToGenerate; i++) {
-          const four = shuffled.slice(i * 4, i * 4 + 4);
-          const { matches: round } = createRound(four);
+        for (let i = 0; i < limit; i++) {
+          const four = fourGroups[i];
+          const { matches: round } = createRound(four, partnerMap);
           if (round && round.length > 0) {
             const m = round[0];
             const diff = Math.abs(getTeamScore(m.team1) - getTeamScore(m.team2));
             if (diff > maxDiff) maxDiff = diff;
             currentSchedule.push(m);
           } else {
-            const pairing = bestBalancedPairs(four);
+            const pairing = bestBalancedPairs(four, partnerMap);
             if (pairing) {
               const diff = Math.abs(getTeamScore(pairing.t1) - getTeamScore(pairing.t2));
               if (diff > maxDiff) maxDiff = diff;
@@ -167,41 +288,73 @@ export function createBalancedDoublesMatches(playersInput: Player[], minGamesPer
           }
         }
         
-        if (currentSchedule.length === numMatchesToGenerate && maxDiff < bestMaxDiff) {
+        if (currentSchedule.length > 0 && currentSchedule.length === limit && maxDiff < bestMaxDiff) {
           bestMaxDiff = maxDiff;
           bestSchedule = currentSchedule;
         }
       }
       
-      for (const m of bestSchedule) {
-        result.push(m);
-        counts[m.team1.player1.id]++;
-        counts[m.team1.player2.id]++;
-        counts[m.team2.player1.id]++;
-        counts[m.team2.player2.id]++;
+      if (bestSchedule.length > 0) {
+        for (const m of bestSchedule) {
+          result.push(m);
+          counts[m.team1.player1.id]++;
+          counts[m.team1.player2.id]++;
+          counts[m.team2.player1.id]++;
+          counts[m.team2.player2.id]++;
+        }
+        generatedThisTurn = true;
       }
-    } else {
-      const candidates = pool.slice(0, 4);
-      const { matches: round } = createRound(candidates);
-      if (round && round.length > 0) {
-        const m = round[0];
-        result.push(m);
-        counts[m.team1.player1.id]++;
-        counts[m.team1.player2.id]++;
-        counts[m.team2.player1.id]++;
-        counts[m.team2.player2.id]++;
+    }
+    
+    if (!generatedThisTurn) {
+      const fourGroups = groupIntoFours(pool, partnerMap);
+      if (fourGroups.length > 0) {
+        const candidates = fourGroups[0];
+        const { matches: round } = createRound(candidates, partnerMap);
+        if (round && round.length > 0) {
+          const m = round[0];
+          result.push(m);
+          counts[m.team1.player1.id]++;
+          counts[m.team1.player2.id]++;
+          counts[m.team2.player1.id]++;
+          counts[m.team2.player2.id]++;
+        } else {
+          const pairing = bestBalancedPairs(candidates, partnerMap);
+          if (pairing) {
+            result.push({
+              id: `match-forced-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
+              team1: pairing.t1,
+              team2: pairing.t2
+            });
+            counts[pairing.t1.player1.id]++;
+            counts[pairing.t1.player2.id]++;
+            counts[pairing.t2.player1.id]++;
+            counts[pairing.t2.player2.id]++;
+          }
+        }
       } else {
-        const pairing = bestBalancedPairs(candidates);
-        if (pairing) {
-          result.push({
-            id: `match-forced-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
-            team1: pairing.t1,
-            team2: pairing.t2
-          });
-          counts[pairing.t1.player1.id]++;
-          counts[pairing.t1.player2.id]++;
-          counts[pairing.t2.player1.id]++;
-          counts[pairing.t2.player2.id]++;
+        const candidates = pool.slice(0, 4);
+        const { matches: round } = createRound(candidates, partnerMap);
+        if (round && round.length > 0) {
+          const m = round[0];
+          result.push(m);
+          counts[m.team1.player1.id]++;
+          counts[m.team1.player2.id]++;
+          counts[m.team2.player1.id]++;
+          counts[m.team2.player2.id]++;
+        } else {
+          const pairing = bestBalancedPairs(candidates, partnerMap);
+          if (pairing) {
+            result.push({
+              id: `match-forced-${Date.now()}-${attempts}-${Math.random().toString(36).slice(2, 6)}`,
+              team1: pairing.t1,
+              team2: pairing.t2
+            });
+            counts[pairing.t1.player1.id]++;
+            counts[pairing.t1.player2.id]++;
+            counts[pairing.t2.player1.id]++;
+            counts[pairing.t2.player2.id]++;
+          }
         }
       }
     }

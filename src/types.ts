@@ -9,6 +9,7 @@ export interface Player {
   score?: number;
   gender?: 'M' | 'F' | 'O' | string;
   skill_code: string;
+  partner_user_id?: string | null;
 }
 
 // Player에 출석 상태를 추가한 확장 인터페이스

@@ -1,11 +1,24 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Swords, Users, RefreshCw, Sparkles, MessageSquare, ShieldAlert, Award } from 'lucide-react';
+import { ArrowLeft, Swords, Users, RefreshCw, Sparkles, MessageSquare, ShieldAlert, Award, Zap } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
 import { formatCurrentUserNameWithCoins, formatNameWithCoins } from '@/lib/player-display';
+
+type PrepPartner = {
+  id: string;
+  name: string;
+  skill_level: string;
+  gender: string;
+};
+
+type PrepPayload = {
+  isRegistered: boolean;
+  partner: PrepPartner | null;
+  availablePartners: PrepPartner[];
+};
 
 type EligiblePlayer = {
   id: string;
@@ -80,6 +93,62 @@ export default function ChallengePage() {
   const [note, setNote] = useState('');
   const [resetting, setResetting] = useState(false);
 
+  const [tab, setTab] = useState<'challenge' | 'tournament'>('challenge');
+  const [prepLoading, setPrepLoading] = useState(false);
+  const [prepPayload, setPrepPayload] = useState<PrepPayload | null>(null);
+  const [selectedPrepPartnerId, setSelectedPrepPartnerId] = useState('');
+  const [prepSaving, setPrepSaving] = useState(false);
+
+  const loadTournamentPrep = async () => {
+    try {
+      setPrepLoading(true);
+      const res = await fetch('/api/tournament-prep', { credentials: 'include' });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data) {
+        setPrepPayload(data);
+        if (data.partner) {
+          setSelectedPrepPartnerId(data.partner.id);
+        } else {
+          setSelectedPrepPartnerId('');
+        }
+      }
+    } catch (err) {
+      console.error('loadTournamentPrep error', err);
+    } finally {
+      setPrepLoading(false);
+    }
+  };
+
+  const handleSaveTournamentPrep = async (targetPartnerId: string | null) => {
+    if (targetPartnerId && !await confirm('선택한 선수를 대회 준비 파트너로 지정하고 오늘 경기에 신청하시겠습니까? (서로 지정할 경우 1순위로 조가 편성됩니다.)')) {
+      return;
+    }
+    if (!targetPartnerId && !await confirm('지정된 파트너를 취소하시겠습니까? (일반 랜덤 배정으로 전환됩니다.)')) {
+      return;
+    }
+
+    try {
+      setPrepSaving(true);
+      const res = await fetch('/api/tournament-prep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partnerId: targetPartnerId }),
+        credentials: 'include'
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || '설정 저장에 실패했습니다.');
+      }
+      alert(targetPartnerId ? '🏆 파트너가 지정되었습니다!' : '파트너 지정이 취소되었습니다.');
+      await loadTournamentPrep();
+    } catch (err) {
+      console.error('handleSaveTournamentPrep error', err);
+      alert(err instanceof Error ? err.message : '오류가 발생했습니다.');
+    } finally {
+      setPrepSaving(false);
+    }
+  };
+
   const handleResetEligibility = async () => {
     if (!await confirm('현재 대기/수락 상태인 모든 게임 제안을 보류 상태로 변경하여 배정되지 않은 선수들을 대기 상태로 초기화하시겠습니까?')) {
       return;
@@ -126,6 +195,13 @@ export default function ChallengePage() {
 
   useEffect(() => {
     void loadChallenges();
+    void loadTournamentPrep();
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'tournament') {
+        setTab('tournament');
+      }
+    }
   }, []);
 
   const eligiblePlayers = payload?.eligiblePlayers || [];
@@ -270,13 +346,189 @@ export default function ChallengePage() {
           </div>
         </section>
 
-        {/* 2-Column Responsive Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* LEFT: Choose Partner & Opponents Form */}
-          <section className="lg:col-span-5 rounded-3xl bg-white border border-slate-100 px-5 py-6 shadow-sm hover:shadow-md transition">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
-              <div>
+        {/* Tab Selector */}
+        <div className="flex items-center gap-2 mb-6 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 max-w-md mx-auto sm:mx-0">
+          <button
+            type="button"
+            onClick={() => setTab('challenge')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm transition cursor-pointer ${
+              tab === 'challenge'
+                ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/60'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Zap className="w-4 h-4" />
+            일반 게임 제안
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTab('tournament');
+              void loadTournamentPrep();
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm transition cursor-pointer ${
+              tab === 'tournament'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Award className="w-4 h-4" />
+            🏆 대회 준비
+          </button>
+        </div>
+
+        {tab === 'tournament' ? (
+          <div className="max-w-3xl mx-auto space-y-6">
+            <div className="rounded-3xl bg-white border border-slate-100 p-6 sm:p-8 shadow-sm hover:shadow-md transition relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
+              
+              <div className="flex items-center justify-between border-b border-slate-100 pb-5 mb-6 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
+                    <Award className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                      대회 준비 (지정 파트너 연습 신청)
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      외부 대회 출전을 위해 지정한 파트너와 우선적으로 같은 조로 배정됩니다.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void loadTournamentPrep()}
+                  disabled={prepLoading}
+                  className="rounded-full p-2.5 border border-slate-100 hover:bg-slate-50 text-slate-500 transition-colors disabled:opacity-50"
+                  title="새로고침"
+                >
+                  <RefreshCw className={`h-4 w-4 ${prepLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
+              <div className="space-y-6 relative z-10">
+                <div className="rounded-2xl bg-amber-50/70 border border-amber-200/60 p-4 text-xs text-amber-900 leading-relaxed space-y-1.5">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                    <Sparkles className="w-4 h-4 text-amber-600" />
+                    대회 준비 조 배정 규칙 안내
+                  </div>
+                  <ul className="list-disc list-inside space-y-1 pl-1 text-slate-700">
+                    <li>선택하신 파트너와 오늘 경기에 함께 출석 및 참가 신청이 이루어집니다.</li>
+                    <li>두 선수가 서로를 지정(상호 지정)한 경우, <strong>1순위 고정 조</strong>로 편성됩니다.</li>
+                    <li>한 명만 지정한 경우에도 파트너가 출석 중이면 2순위로 조가 편성됩니다.</li>
+                    <li>상대편 조는 두 사람의 합산 레벨에 맞춰 가장 균형 잡힌 호적수가 자동 선정됩니다.</li>
+                  </ul>
+                </div>
+
+                {prepLoading && !prepPayload ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                    <RefreshCw className="h-8 w-8 animate-spin mb-4 text-slate-300" />
+                    <p className="text-sm font-medium">대회 준비 정보를 불러오는 중입니다...</p>
+                  </div>
+                ) : prepPayload ? (
+                  <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200/80 gap-3">
+                      <div>
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">현재 상태</div>
+                        <div className="flex items-center gap-2">
+                          {prepPayload.isRegistered ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 border border-emerald-500/20">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                              오늘 경기 출석 / 등록 완료
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-500/10 px-3 py-1 text-xs font-bold text-slate-600 border border-slate-500/20">
+                              <span className="h-2 w-2 rounded-full bg-slate-400"></span>
+                              미참가 상태 (아래에서 신청 시 출석 등록됨)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="sm:text-right">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">지정된 파트너</div>
+                        {prepPayload.partner ? (
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500/15 px-3 py-1.5 text-sm font-extrabold text-amber-700 border border-amber-500/30">
+                              <Award className="w-4 h-4 text-amber-600" />
+                              {prepPayload.partner.name} ({prepPayload.partner.skill_level})
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void handleSaveTournamentPrep(null)}
+                              disabled={prepSaving}
+                              className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 h-8 px-2.5 rounded-xl"
+                            >
+                              지정 취소
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-sm font-semibold text-slate-500">지정된 파트너 없음 (일반 랜덤)</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 pt-2 border-t border-slate-100">
+                      <label className="block text-sm font-bold text-slate-800">
+                        연습 파트너 선택 <span className="text-rose-500">*</span>
+                      </label>
+                      <p className="text-xs text-slate-500 -mt-2">
+                        목록에서 대회 준비를 함께할 파트너를 선택해주세요.
+                      </p>
+
+                      <div className="relative">
+                        <select
+                          value={selectedPrepPartnerId}
+                          onChange={(e) => setSelectedPrepPartnerId(e.target.value)}
+                          disabled={prepSaving}
+                          className="w-full h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-50 appearance-none pr-10 cursor-pointer transition"
+                        >
+                          <option value="">-- 파트너 선택 안함 (지정 취소) --</option>
+                          {prepPayload.availablePartners.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({p.skill_level}){p.gender ? ` - ${p.gender === 'M' || p.gender === '남' || p.gender === 'male' || p.gender === 'MAN' ? '남' : '여'}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                          <Users className="h-4 w-4" />
+                        </div>
+                      </div>
+
+                      <div className="pt-4 flex items-center justify-end gap-3">
+                        <Button
+                          type="button"
+                          onClick={() => void handleSaveTournamentPrep(selectedPrepPartnerId || null)}
+                          disabled={prepSaving}
+                          className="w-full sm:w-auto h-12 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold px-6 shadow-lg shadow-orange-500/25 transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          {prepSaving ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                              저장 및 신청 중...
+                            </>
+                          ) : (
+                            <>
+                              <Award className="h-4 w-4" />
+                              대회 준비 파트너 지정 및 신청하기
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* LEFT: Choose Partner & Opponents Form */}
+            <section className="lg:col-span-5 rounded-3xl bg-white border border-slate-100 px-5 py-6 shadow-sm hover:shadow-md transition">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                <div>
                 <h2 className="text-lg font-bold text-slate-900">새 게임 제안</h2>
               </div>
               <div className="flex items-center gap-2">
@@ -583,6 +835,7 @@ export default function ChallengePage() {
 
           </div>
         </div>
+        )}
 
       </div>
     </div>

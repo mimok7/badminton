@@ -66,6 +66,7 @@ export type Database = {
   status: string;
   match_schedule_id: string | null;
   notes: string | null;
+  partner_user_id: string | null;
   created_at: string;
   updated_at: string;
   };
@@ -76,6 +77,7 @@ export type Database = {
   status?: string;
   match_schedule_id?: string | null;
   notes?: string | null;
+  partner_user_id?: string | null;
   created_at?: string;
   updated_at?: string;
   };
@@ -86,6 +88,7 @@ export type Database = {
   status?: string | null;
   match_schedule_id?: string | null;
   notes?: string | null;
+  partner_user_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   };
@@ -306,6 +309,7 @@ export type Database = {
   registered_at: string;
   status: string;
   notes: string | null;
+  partner_user_id: string | null;
   };
   Insert: {
     id?: string;
@@ -314,6 +318,7 @@ export type Database = {
   registered_at?: string;
   status?: string;
   notes?: string | null;
+  partner_user_id?: string | null;
   };
   Update: {
     id?: string | null;
@@ -322,6 +327,7 @@ export type Database = {
   registered_at?: string | null;
   status?: string | null;
   notes?: string | null;
+  partner_user_id?: string | null;
   };
   Relationships: [];
 };

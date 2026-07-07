@@ -210,21 +210,16 @@ export const calculatePlayerGameCounts = (matches: any[]) => {
     // Player 객체에서 이름과 레벨 추출
     const extractPlayerInfo = (player: any) => {
       // player가 객체인 경우 name과 skill_level 속성 사용
-      if (typeof player === 'object' && player.name) {
-        const level = player.skill_level || 'E2';
-        return `${player.name}(${level.toUpperCase()})`;
+      if (typeof player === 'object' && player !== null && player.name) {
+        return `${player.name} (${player.skill_level || 'E2'})`;
       }
-      if (typeof player === 'string') {
-        // 이미 형식화된 문자열인 경우 그대로 사용
-        return player;
-      }
-      return String(player);
+      return String(player || '선수');
     };
     
-    const player1 = extractPlayerInfo(match.team1.player1);
-    const player2 = extractPlayerInfo(match.team1.player2);
-    const player3 = extractPlayerInfo(match.team2.player1);
-    const player4 = extractPlayerInfo(match.team2.player2);
+    const player1 = extractPlayerInfo(match.team1?.player1 || match.team1_player1);
+    const player2 = extractPlayerInfo(match.team1?.player2 || match.team1_player2);
+    const player3 = extractPlayerInfo(match.team2?.player1 || match.team2_player1);
+    const player4 = extractPlayerInfo(match.team2?.player2 || match.team2_player2);
     
     counts[player1] = (counts[player1] || 0) + 1;
     counts[player2] = (counts[player2] || 0) + 1;
@@ -243,7 +238,7 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
     // 출석 데이터 조회
     const { data: attendanceData, error } = await supabase
       .from('attendances')
-      .select('id, user_id, status, attended_at')
+      .select('id, user_id, status, attended_at, partner_user_id')
       .eq('attended_at', today);
       
     if (error) {
@@ -301,6 +296,7 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
             gender: profile.gender || '',
             skill_code: '',
             status,
+            partner_user_id: attendance?.partner_user_id || null,
           };
         })
         .filter((p: any) => p.id);
@@ -321,6 +317,7 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
           gender: '',
           skill_code: '',
           status,
+          partner_user_id: attendance?.partner_user_id || null,
         };
       });
       
@@ -337,6 +334,7 @@ export const fetchTodayPlayers = async (): Promise<ExtendedPlayer[]> => {
           gender: '',
           skill_code: '',
           status: attendance_status,
+          partner_user_id: attendance.partner_user_id || null,
         };
       });
       
@@ -376,7 +374,7 @@ export const fetchRegisteredPlayersForDate = async (date: string): Promise<Exten
     // 2) 해당 스케줄들의 참가자 중 registered 상태만
     const { data: participants, error: participantsError } = await supabase
       .from('match_participants')
-      .select('user_id, status')
+      .select('user_id, status, partner_user_id')
       .in('match_schedule_id', scheduleIds)
       .eq('status', 'registered');
 
@@ -403,6 +401,8 @@ export const fetchRegisteredPlayersForDate = async (date: string): Promise<Exten
       return [];
     }
 
+    const partnerMap = new Map((participants || []).map((p: any) => [p.user_id, p.partner_user_id]));
+
     // 5) ExtendedPlayer 배열로 변환 (status는 absent로 초기화 - 실제 출석 데이터로 업데이트됨)
     const players: ExtendedPlayer[] = (profiles || []).map((profile: any) => {
       const raw = (profile.skill_level || '').toString().toLowerCase();
@@ -417,6 +417,7 @@ export const fetchRegisteredPlayersForDate = async (date: string): Promise<Exten
         gender: profile.gender || '',
         skill_code: '',
         status: 'absent', // 초기 상태는 absent, 실제 출석 데이터로 업데이트됨
+        partner_user_id: partnerMap.get(profile.user_id || profile.id) || null,
       } as ExtendedPlayer;
     });
 

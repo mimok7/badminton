@@ -6,6 +6,7 @@ export interface Player {
   skill_code?: string;
   score?: number;
   gender?: 'M' | 'F' | string;
+  partner_user_id?: string | null;
 }
 
 export interface Team {

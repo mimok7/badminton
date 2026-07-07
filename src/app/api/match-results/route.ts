@@ -321,7 +321,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: '사용자 코인 정보를 찾을 수 없습니다.' }, { status: 500 });
       }
 
-      const nextCoinBalance = Math.max(0, (profileRow.coin_balance ?? 0) + nextDelta - (previousTransaction?.delta ?? 0));
+      const nextCoinBalance = coinSettings.isCoinEnabled
+        ? Math.max(0, (profileRow.coin_balance ?? 0) + nextDelta - (previousTransaction?.delta ?? 0))
+        : (profileRow.coin_balance ?? 0);
       const nextWins =
         (profileRow.coin_wins ?? 0)
         + (transactionType === 'win' ? 1 : 0)
@@ -343,18 +345,20 @@ export async function POST(request: Request) {
           .eq('id', profileId)
       );
 
-      transactionsToInsert.push({
-        profile_id: profileId,
-        match_id: normalizedMatchId,
-        transaction_type: transactionType,
-        delta: nextDelta,
-        wager_amount: team.wagers[index] ?? DEFAULT_MATCH_WAGER,
-        team_side: team.teamSide,
-        team1_score: normalizedTeam1Score,
-        team2_score: normalizedTeam2Score,
-        recorded_by: currentProfile.id,
-        updated_at: new Date().toISOString(),
-      });
+      if (coinSettings.isCoinEnabled) {
+        transactionsToInsert.push({
+          profile_id: profileId,
+          match_id: normalizedMatchId,
+          transaction_type: transactionType,
+          delta: nextDelta,
+          wager_amount: team.wagers[index] ?? DEFAULT_MATCH_WAGER,
+          team_side: team.teamSide,
+          team1_score: normalizedTeam1Score,
+          team2_score: normalizedTeam2Score,
+          recorded_by: currentProfile.id,
+          updated_at: new Date().toISOString(),
+        });
+      }
     }
   }
 
@@ -388,10 +392,14 @@ export async function POST(request: Request) {
         return res;
       }),
 
-    // 2. profile_coin_transactions 일괄 upsert
-    adminSupabase
-      .from('profile_coin_transactions')
-      .upsert(transactionsToInsert, { onConflict: 'match_id,profile_id' }),
+    // 2. profile_coin_transactions 일괄 upsert (코인 기능 활성화 시에만 실행)
+    ...(coinSettings.isCoinEnabled
+      ? [
+          adminSupabase
+            .from('profile_coin_transactions')
+            .upsert(transactionsToInsert, { onConflict: 'match_id,profile_id' })
+        ]
+      : []),
 
     // 3. generated_matches 업데이트
     adminSupabase

@@ -128,7 +128,7 @@ export async function POST(request: Request) {
       const coinSettings = await readCoinSettings();
       const reward = coinSettings.attendanceReward ?? 10;
 
-      if (reward > 0) {
+      if (coinSettings.isCoinEnabled && reward > 0) {
         // 프로필 잔액 조회 및 증감
         const { data: profile } = await resolved.adminSupabase
           .from('profiles')

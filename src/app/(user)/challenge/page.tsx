@@ -98,6 +98,19 @@ export default function ChallengePage() {
   const [prepPayload, setPrepPayload] = useState<PrepPayload | null>(null);
   const [selectedPrepPartnerId, setSelectedPrepPartnerId] = useState('');
   const [prepSaving, setPrepSaving] = useState(false);
+  const [isCoinEnabled, setIsCoinEnabled] = useState(true);
+
+  const fetchCoinStatus = async () => {
+    try {
+      const res = await fetch('/api/coins/settings');
+      const data = await res.json();
+      if (res.ok) {
+        setIsCoinEnabled(data.isCoinEnabled !== false);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const loadTournamentPrep = async () => {
     try {
@@ -194,6 +207,7 @@ export default function ChallengePage() {
   };
 
   useEffect(() => {
+    void fetchCoinStatus();
     void loadChallenges();
     void loadTournamentPrep();
     if (typeof window !== 'undefined') {
@@ -326,7 +340,7 @@ export default function ChallengePage() {
               <span className="font-semibold text-slate-100">
                 {formatCurrentUserNameWithCoins(
                   payload?.currentProfile.name || profile?.full_name || profile?.username || '회원', 
-                  payload?.currentProfile.coin_balance ?? profile?.coin_balance
+                  isCoinEnabled ? (payload?.currentProfile.coin_balance ?? profile?.coin_balance) : null
                 )}
               </span>
             </div>
@@ -591,7 +605,7 @@ export default function ChallengePage() {
                         <option value="">파트너 선택</option>
                         {partnerOptions.map((player) => (
                           <option key={player.id} value={player.id}>
-                            {formatNameWithCoins(player.name, player.coin_balance)}
+                            {formatNameWithCoins(player.name, isCoinEnabled ? player.coin_balance : null)}
                           </option>
                         ))}
                       </select>
@@ -614,7 +628,7 @@ export default function ChallengePage() {
                         <option value="">첫 번째 상대 선택</option>
                         {opponent1Options.map((player) => (
                           <option key={player.id} value={player.id}>
-                            {formatNameWithCoins(player.name, player.coin_balance)}
+                            {formatNameWithCoins(player.name, isCoinEnabled ? player.coin_balance : null)}
                           </option>
                         ))}
                       </select>
@@ -637,7 +651,7 @@ export default function ChallengePage() {
                         <option value="">두 번째 상대 선택</option>
                         {opponent2Options.map((player) => (
                           <option key={player.id} value={player.id}>
-                            {formatNameWithCoins(player.name, player.coin_balance)}
+                            {formatNameWithCoins(player.name, isCoinEnabled ? player.coin_balance : null)}
                           </option>
                         ))}
                       </select>
@@ -738,13 +752,13 @@ export default function ChallengePage() {
                         <div className="flex items-center justify-between gap-2 bg-white rounded-xl border border-slate-100 px-3 py-2">
                           <span className="text-slate-400 text-xs">우리 팀</span>
                           <span className="font-semibold text-slate-700">
-                            {formatNameWithCoins(challenge.challenger?.name || '선수', challenge.challenger?.coin_balance)} & {formatNameWithCoins(challenge.partner?.name || '선수', challenge.partner?.coin_balance)}
+                            {formatNameWithCoins(challenge.challenger?.name || '선수', isCoinEnabled ? challenge.challenger?.coin_balance : null)} & {formatNameWithCoins(challenge.partner?.name || '선수', isCoinEnabled ? challenge.partner?.coin_balance : null)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-2 bg-white rounded-xl border border-slate-100 px-3 py-2">
                           <span className="text-slate-400 text-xs">상대 팀</span>
                           <span className="font-semibold text-slate-700">
-                            {challenge.opponents.map((player) => formatNameWithCoins(player.name, player.coin_balance)).join(' & ')}
+                            {challenge.opponents.map((player) => formatNameWithCoins(player.name, isCoinEnabled ? player.coin_balance : null)).join(' & ')}
                           </span>
                         </div>
                         
@@ -819,7 +833,7 @@ export default function ChallengePage() {
                           <div className="text-slate-400 mb-1.5">파트너</div>
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className="font-bold text-slate-800 text-[13px]">
-                              {formatNameWithCoins(challenge.partner?.name || '선수', challenge.partner?.coin_balance)}
+                              {formatNameWithCoins(challenge.partner?.name || '선수', isCoinEnabled ? challenge.partner?.coin_balance : null)}
                             </span>
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-extrabold border ${getResponseBadgeClass(challenge.partner?.response)}`}>
                               {getResponseLabel(challenge.partner?.response)}
@@ -832,7 +846,7 @@ export default function ChallengePage() {
                             <div className="text-slate-400 mb-1.5">상대 {idx + 1}</div>
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span className="font-bold text-slate-800 text-[13px]">
-                                {formatNameWithCoins(opponent.name, opponent.coin_balance)}
+                                {formatNameWithCoins(opponent.name, isCoinEnabled ? opponent.coin_balance : null)}
                               </span>
                               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-extrabold border ${getResponseBadgeClass(opponent.response)}`}>
                                 {getResponseLabel(opponent.response)}

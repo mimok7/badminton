@@ -5,6 +5,8 @@ import { DEFAULT_COIN_SETTINGS, type CoinSettings, type CoinSettlementMode } fro
 const SETTINGS_DIR = path.join(process.cwd(), 'data');
 const SETTINGS_PATH = path.join(SETTINGS_DIR, 'coin-settings.json');
 
+let memorySettingsCache: CoinSettings | null = null;
+
 function normalizeInteger(value: unknown, fallback: number) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
@@ -35,9 +37,14 @@ function normalizeSettings(value: unknown): CoinSettings {
 }
 
 export async function readCoinSettings(): Promise<CoinSettings> {
+  if (memorySettingsCache !== null) {
+    return memorySettingsCache;
+  }
   try {
     const content = await readFile(SETTINGS_PATH, 'utf8');
-    return normalizeSettings(JSON.parse(content));
+    const settings = normalizeSettings(JSON.parse(content));
+    memorySettingsCache = settings;
+    return settings;
   } catch {
     return DEFAULT_COIN_SETTINGS;
   }
@@ -45,7 +52,12 @@ export async function readCoinSettings(): Promise<CoinSettings> {
 
 export async function writeCoinSettings(nextSettings: CoinSettings): Promise<CoinSettings> {
   const normalized = normalizeSettings(nextSettings);
-  await mkdir(SETTINGS_DIR, { recursive: true });
-  await writeFile(SETTINGS_PATH, `${JSON.stringify(normalized, null, 2)}\n`, 'utf8');
+  memorySettingsCache = normalized;
+  try {
+    await mkdir(SETTINGS_DIR, { recursive: true });
+    await writeFile(SETTINGS_PATH, `${JSON.stringify(normalized, null, 2)}\n`, 'utf8');
+  } catch (err) {
+    console.warn('⚠️ Failed to write coin-settings.json to disk. Using memory cache fallback.', err);
+  }
   return normalized;
 }

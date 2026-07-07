@@ -84,7 +84,7 @@ export async function GET() {
           if (p.user_id === resolved.profileId) {
             matchParticipant = p;
           }
-          if (p.status === 'registered') {
+          if (p.status === 'registered' || p.status === 'waitlisted') {
             if (p.user_id !== resolved.profileId) {
               activeUserIds.add(p.user_id);
             }
@@ -93,7 +93,7 @@ export async function GET() {
       }
     }
 
-    // 3. 오늘 출석/등록된 선수들의 프로필 조회 (현재 사용자 및 게스트 제외)
+    // 3. 오늘 출석/등록된 선수들의 프로필 조회 (현재 사용자 제외, 게스트 포함)
     let availablePartners: Array<{ id: string; name: string; skill_level: string; gender: string }> = [];
     if (activeUserIds.size > 0) {
       const { data: profilesRows, error: profilesError } = await resolved.adminSupabase
@@ -104,7 +104,7 @@ export async function GET() {
 
       if (!profilesError && profilesRows) {
         availablePartners = profilesRows
-          .filter(p => !p.is_guest && p.id !== resolved.profileId)
+          .filter(p => p.id !== resolved.profileId)
           .map(p => ({
             id: p.id,
             name: p.full_name || p.username || '선수',

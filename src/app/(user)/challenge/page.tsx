@@ -206,6 +206,20 @@ export default function ChallengePage() {
 
   const eligiblePlayers = payload?.eligiblePlayers || [];
 
+  const tournamentPartners = useMemo(() => {
+    const list = [...eligiblePlayers];
+    if (prepPayload?.partner && !list.some(p => p.id === prepPayload.partner?.id)) {
+      list.push({
+        id: prepPayload.partner.id,
+        name: prepPayload.partner.name,
+        skill_level: prepPayload.partner.skill_level,
+        coin_balance: null,
+        today_match_count: 0
+      });
+    }
+    return list.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  }, [eligiblePlayers, prepPayload?.partner]);
+
   const partnerOptions = useMemo(
     () => eligiblePlayers.filter((player) => player.id !== opponent1Id && player.id !== opponent2Id),
     [eligiblePlayers, opponent1Id, opponent2Id],
@@ -486,9 +500,9 @@ export default function ChallengePage() {
                           className="w-full h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-50 appearance-none pr-10 cursor-pointer transition"
                         >
                           <option value="">-- 파트너 선택 안함 (지정 취소) --</option>
-                          {prepPayload.availablePartners.map((p) => (
+                          {tournamentPartners.map((p) => (
                             <option key={p.id} value={p.id}>
-                              {p.name} ({p.skill_level}){p.gender ? ` - ${p.gender === 'M' || p.gender === '남' || p.gender === 'male' || p.gender === 'MAN' ? '남' : '여'}` : ''}
+                              {p.name} ({p.skill_level})
                             </option>
                           ))}
                         </select>

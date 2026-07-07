@@ -39,14 +39,6 @@ const quickLinks = [
     iconColor: 'text-indigo-500',
   },
   {
-    href: '/challenge?tab=tournament',
-    title: '대회 준비',
-    description: '외부 대회 출전을 위해 연습 파트너를 지정합니다.',
-    icon: Award,
-    hoverClass: 'hover:border-amber-400 hover:bg-amber-50/50',
-    iconColor: 'text-amber-500',
-  },
-  {
     href: '/today-matches',
     title: '오늘 게임',
     description: '배정된 게임과 코트를 확인합니다.',

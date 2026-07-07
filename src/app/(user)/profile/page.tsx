@@ -60,6 +60,7 @@ export default function ProfilePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [allLevels, setAllLevels] = useState<any[]>([]);
   const [isSavingRatings, setIsSavingRatings] = useState(false);
+  const [isCoinEnabled, setIsCoinEnabled] = useState(true);
   const supabase = getSupabaseClient();
 
   // 프로필 사진 업로드 관련 상태
@@ -247,9 +248,22 @@ export default function ProfilePage() {
     }
   };
 
+  const fetchCoinStatus = async () => {
+    try {
+      const res = await fetch('/api/coins/settings');
+      const data = await res.json();
+      if (res.ok) {
+        setIsCoinEnabled(data.isCoinEnabled !== false);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       loadRatingData(user.id);
+      void fetchCoinStatus();
     }
   }, [user]);
 
@@ -607,7 +621,9 @@ export default function ProfilePage() {
                 <div className="flex flex-wrap justify-center sm:justify-start items-center gap-2 text-xs">
                   <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">레벨 {levelLabel}</span>
                   <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-100">{roleLabel}</span>
-                  <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-amber-100">코인 {profile?.coin_balance ?? 0}</span>
+                  {isCoinEnabled && (
+                    <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-amber-100">코인 {profile?.coin_balance ?? 0}</span>
+                  )}
                 </div>
               </div>
             </div>

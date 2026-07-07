@@ -238,20 +238,23 @@ export async function POST(request: Request) {
       if (rewardUserIds.length > 0) {
         const { data: rewardProfiles } = await adminContext.adminSupabase
           .from('profiles')
-          .select('id, coin_balance')
+          .select('id, coin_balance, is_guest')
           .in('id', rewardUserIds);
 
         if (rewardProfiles) {
           await Promise.all(
-            rewardProfiles.map((profile) =>
-              adminContext.adminSupabase
+            rewardProfiles.map((profile) => {
+              const profileReward = profile.is_guest 
+                ? (coinSettings.guestAttendanceReward ?? 5) 
+                : reward;
+              return adminContext.adminSupabase
                 .from('profiles')
                 .update({
-                  coin_balance: (profile.coin_balance ?? 0) + reward,
+                  coin_balance: (profile.coin_balance ?? 0) + profileReward,
                   coin_updated_at: new Date().toISOString(),
                 })
-                .eq('id', profile.id)
-            )
+                .eq('id', profile.id);
+            })
           );
         }
       }
@@ -259,20 +262,23 @@ export async function POST(request: Request) {
       if (penaltyUserIds.length > 0) {
         const { data: penaltyProfiles } = await adminContext.adminSupabase
           .from('profiles')
-          .select('id, coin_balance')
+          .select('id, coin_balance, is_guest')
           .in('id', penaltyUserIds);
 
         if (penaltyProfiles) {
           await Promise.all(
-            penaltyProfiles.map((profile) =>
-              adminContext.adminSupabase
+            penaltyProfiles.map((profile) => {
+              const profilePenalty = profile.is_guest 
+                ? (coinSettings.guestAttendanceReward ?? 5) 
+                : reward;
+              return adminContext.adminSupabase
                 .from('profiles')
                 .update({
-                  coin_balance: Math.max(0, (profile.coin_balance ?? 0) - reward),
+                  coin_balance: Math.max(0, (profile.coin_balance ?? 0) - profilePenalty),
                   coin_updated_at: new Date().toISOString(),
                 })
-                .eq('id', profile.id)
-            )
+                .eq('id', profile.id);
+            })
           );
         }
       }

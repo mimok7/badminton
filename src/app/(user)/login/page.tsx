@@ -27,6 +27,11 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [autoFillMessage, setAutoFillMessage] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestLoading, setGuestLoading] = useState(false);
+  const [guestError, setGuestError] = useState('');
+  const [skillLevel, setSkillLevel] = useState('A3');
   const debugEnabled = process.env.NEXT_PUBLIC_ENABLE_DEBUG_LOGS === 'true';
   const shouldRequirePasswordChange = (value: unknown) => value === true || value === 'true';
 
@@ -240,6 +245,53 @@ export default function LoginPage() {
     }
   };
 
+  const handleGuestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (guestLoading) return;
+    setGuestLoading(true);
+    setGuestError('');
+
+    try {
+      const response = await fetch('/api/auth/register-guest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fullName: guestName, skillLevel }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setGuestError(data.error || '게스트 등록에 실패했습니다.');
+        setGuestLoading(false);
+        return;
+      }
+
+      // 게스트 등록 성공 -> 받은 임시 정보로 로그인 시도
+      const { email: guestEmail, password: guestPassword, matchDescription } = data;
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: guestEmail,
+        password: guestPassword,
+      });
+
+      if (loginError) {
+        setGuestError('로그인 처리 중 문제가 발생했습니다: ' + loginError.message);
+        setGuestLoading(false);
+        return;
+      }
+
+      alert(`게스트 등록 및 참가 신청이 완료되었습니다!\n신청된 경기: ${matchDescription}`);
+      setShowGuestModal(false);
+      window.location.replace(DEFAULT_USER_REDIRECT);
+    } catch (err) {
+      console.error(err);
+      setGuestError('게스트 신청 처리 중 오류가 발생했습니다.');
+    } finally {
+      setGuestLoading(false);
+    }
+  };
+
   if (loading && !password) {
     // 로그인 중 - 폼이 여전히 표시되어야 함
   }
@@ -333,13 +385,25 @@ export default function LoginPage() {
               />
             </div>
 
-            <div className="pt-2">
+            <div className="pt-2 flex flex-col gap-2">
               <Button
                 type="submit"
                 disabled={loading}
                 className="w-full h-12 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-semibold shadow-lg shadow-indigo-600/10"
               >
                 {loading ? '로그인 중...' : '로그인'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowGuestModal(true);
+                  setGuestName('');
+                  setGuestError('');
+                }}
+                className="w-full h-12 rounded-xl border-dashed border-indigo-200 text-indigo-600 hover:bg-indigo-50/50 font-semibold"
+              >
+                👤 일일 게스트 신청 (비회원)
               </Button>
             </div>
           </form>
@@ -364,6 +428,97 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {showGuestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[24px] border border-slate-200/80 p-6 shadow-2xl max-w-sm w-full space-y-4 relative animate-in fade-in zoom-in duration-200">
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-slate-900">🏸 일일 게스트 신청</h3>
+              <p className="text-xs text-slate-500 mt-1">오늘 경기 참가를 위한 임시 게스트 등록</p>
+            </div>
+            
+            {guestError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-3.5 py-2.5 rounded-xl text-xs">
+                {guestError}
+              </div>
+            )}
+
+            <form onSubmit={handleGuestSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="guestName" className="text-xs font-semibold text-slate-600">
+                  게스트 한글 이름
+                </label>
+                <Input
+                  id="guestName"
+                  type="text"
+                  required
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="예: 홍길동"
+                  className="w-full h-11 rounded-xl text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="skillLevel" className="text-xs font-semibold text-slate-600">
+                  실력 수준 (등급)
+                </label>
+                <select
+                  id="skillLevel"
+                  value={skillLevel}
+                  onChange={(e) => setSkillLevel(e.target.value)}
+                  className="w-full h-11 rounded-xl border border-slate-200 px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-indigo-500 cursor-pointer text-slate-900"
+                >
+                  <option value="A3">캐비어 3단계 (상급)</option>
+                  <option value="A2">캐비어 2단계</option>
+                  <option value="A1">캐비어 1단계</option>
+                  <option value="B3">랍스터 3단계</option>
+                  <option value="B2">랍스터 2단계</option>
+                  <option value="B1">랍스터 1단계</option>
+                  <option value="C3">소갈비 3단계</option>
+                  <option value="C2">소갈비 2단계</option>
+                  <option value="C1">소갈비 1단계</option>
+                  <option value="D3">양갈비 3단계</option>
+                  <option value="D2">양갈비 2단계</option>
+                  <option value="D1">양갈비 1단계</option>
+                  <option value="E3">돼지갈비 3단계</option>
+                  <option value="E2">돼지갈비 2단계</option>
+                  <option value="E1">돼지갈비 1단계</option>
+                  <option value="N3">닭갈비 3단계</option>
+                  <option value="N2">닭갈비 2단계</option>
+                  <option value="N1">닭갈비 1단계 (초급)</option>
+                </select>
+                <p className="text-[10px] text-slate-400">
+                  ※ 게임 배정을 위해 정확한 본인의 실력 수준을 선택해 주세요.
+                </p>
+                <div className="text-[10px] text-slate-400 space-y-1 mt-2">
+                  <p>※ 오늘 경기에 정원이 미달한 경우에만 신청이 가능합니다. 경기가 끝난 후 계정은 삭제됩니다.</p>
+                  <p>초기비밀번호는 : bad123! 입니다.</p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowGuestModal(false)}
+                  disabled={guestLoading}
+                  className="w-1/2 h-11 rounded-xl border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-sm"
+                >
+                  취소
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={guestLoading}
+                  className="w-1/2 h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-md shadow-indigo-600/10"
+                >
+                  {guestLoading ? '신청 중...' : '신청하기'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

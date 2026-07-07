@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, CalendarDays, Gift, LogOut, Shield, Swords, Target, Trophy, UserCircle2, Zap, Bell, BookOpen, MessageSquarePlus } from 'lucide-react';
@@ -174,6 +174,19 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const [todayRegistration, setTodayRegistration] = useState<any>(null);
   const [todaySchedules, setTodaySchedules] = useState<any[]>([]);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [isCoinEnabled, setIsCoinEnabled] = useState(true);
+ 
+  const fetchCoinStatus = async () => {
+    try {
+      const res = await fetch('/api/coins/settings');
+      const data = await res.json();
+      if (res.ok) {
+        setIsCoinEnabled(data.isCoinEnabled !== false);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchAttendanceAndRegistration = async () => {
     if (!userId) return;
@@ -233,6 +246,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   useEffect(() => {
     if (userId && profile) {
       void fetchAttendanceAndRegistration();
+      void fetchCoinStatus();
     }
   }, [userId, profile]);
 
@@ -395,6 +409,19 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
   const rawDisplayName = profile?.full_name || profile?.username || email.split('@')[0];
   const displayName = rawDisplayName;
   const levelLabel = profile?.skill_level_name || getLevelNameFromCode(levelInfoMap, profile?.skill_level, profile?.skill_level || '미지정');
+ 
+  const visibleQuickLinks = useMemo(() => {
+    let filtered = quickLinks;
+    if (!isCoinEnabled) {
+      filtered = filtered.filter((link) => link.href !== '/products/exchange');
+    }
+    if (profile?.is_guest) {
+      filtered = filtered.filter((link) => 
+        ['/challenge', '/today-matches', '/my-schedule'].includes(link.href)
+      );
+    }
+    return filtered;
+  }, [isCoinEnabled, profile?.is_guest]);
 
   let activeStateLabel = '미참가';
   if (myAttendanceStatus === 'present') {
@@ -417,6 +444,11 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
             <div>
               <div className="mt-0.5 flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-semibold leading-tight">{displayName}</h1>
+                {profile?.is_guest && (
+                  <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                    게스트
+                  </span>
+                )}
                 <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-slate-100">
                   승 {profile?.coin_wins ?? 0}
                 </span>
@@ -426,9 +458,11 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
                 <span className="rounded-full bg-white/10 px-2 py-0.5 text-slate-100">레벨 {levelLabel}</span>
-                <span className="rounded-full bg-white/10 px-2 py-0.5 text-slate-100">
-                  코인 {profile?.coin_balance ?? 0}
-                </span>
+                {isCoinEnabled && (
+                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-slate-100">
+                    코인 {profile?.coin_balance ?? 0}
+                  </span>
+                )}
                 {userIsAdmin && (
                   <Link
                     href="/admin"
@@ -534,7 +568,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
 
         <section className="rounded-[24px] bg-white px-3 py-3 sm:px-4 sm:py-4 shadow-sm">
           <div className="grid grid-cols-2 gap-3">
-            {quickLinks.map((item) => {
+            {visibleQuickLinks.map((item: any) => {
               const Icon = item.icon;
 
               return (

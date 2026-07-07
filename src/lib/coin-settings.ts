@@ -28,6 +28,9 @@ function normalizeSettings(value: unknown): CoinSettings {
     settlementMode: normalizeMode(raw.settlementMode),
     fixedWinnerReward: normalizeInteger(raw.fixedWinnerReward, DEFAULT_COIN_SETTINGS.fixedWinnerReward),
     attendanceReward: normalizeInteger(raw.attendanceReward, DEFAULT_COIN_SETTINGS.attendanceReward),
+    guestInitialCoin: normalizeInteger(raw.guestInitialCoin, DEFAULT_COIN_SETTINGS.guestInitialCoin),
+    guestAttendanceReward: normalizeInteger(raw.guestAttendanceReward, DEFAULT_COIN_SETTINGS.guestAttendanceReward),
+    isCoinEnabled: typeof raw.isCoinEnabled === 'boolean' ? raw.isCoinEnabled : DEFAULT_COIN_SETTINGS.isCoinEnabled,
   };
 }
 

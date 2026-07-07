@@ -153,7 +153,10 @@ export async function POST(request: Request) {
     const initialCoinBalance = Number(body?.initialCoinBalance ?? DEFAULT_COIN_SETTINGS.initialCoinBalance);
     const fixedWinnerReward = Number(body?.fixedWinnerReward ?? DEFAULT_COIN_SETTINGS.fixedWinnerReward);
     const attendanceReward = Number(body?.attendanceReward ?? DEFAULT_COIN_SETTINGS.attendanceReward);
+    const guestInitialCoin = Number(body?.guestInitialCoin ?? DEFAULT_COIN_SETTINGS.guestInitialCoin);
+    const guestAttendanceReward = Number(body?.guestAttendanceReward ?? DEFAULT_COIN_SETTINGS.guestAttendanceReward);
     const settlementModeValue = String(body?.settlementMode || DEFAULT_COIN_SETTINGS.settlementMode);
+    const isCoinEnabled = typeof body?.isCoinEnabled === 'boolean' ? body.isCoinEnabled : DEFAULT_COIN_SETTINGS.isCoinEnabled;
 
     if (!Number.isFinite(initialCoinBalance) || !Number.isInteger(initialCoinBalance) || initialCoinBalance < 0) {
       return NextResponse.json({ error: '시작 코인은 0 이상의 정수여야 합니다.' }, { status: 400 });
@@ -167,6 +170,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '출석 보상 코인은 0 이상의 정수여야 합니다.' }, { status: 400 });
     }
 
+    if (!Number.isFinite(guestInitialCoin) || !Number.isInteger(guestInitialCoin) || guestInitialCoin < 0) {
+      return NextResponse.json({ error: '게스트 시작 코인은 0 이상의 정수여야 합니다.' }, { status: 400 });
+    }
+
+    if (!Number.isFinite(guestAttendanceReward) || !Number.isInteger(guestAttendanceReward) || guestAttendanceReward < 0) {
+      return NextResponse.json({ error: '게스트 출석 보상 코인은 0 이상의 정수여야 합니다.' }, { status: 400 });
+    }
+
     if (!['zero_sum', 'winner_only_pool', 'winner_only_fixed'].includes(settlementModeValue)) {
       return NextResponse.json({ error: '지원하지 않는 코인 정산 모드입니다.' }, { status: 400 });
     }
@@ -178,6 +189,9 @@ export async function POST(request: Request) {
       settlementMode,
       fixedWinnerReward,
       attendanceReward,
+      guestInitialCoin,
+      guestAttendanceReward,
+      isCoinEnabled,
     });
 
     return NextResponse.json({ coinSettings });

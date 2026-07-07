@@ -132,18 +132,21 @@ export async function POST(request: Request) {
         // 프로필 잔액 조회 및 증감
         const { data: profile } = await resolved.adminSupabase
           .from('profiles')
-          .select('coin_balance')
+          .select('coin_balance, is_guest')
           .eq('id', resolved.profileId)
           .single();
 
         if (profile) {
           const currentBalance = profile.coin_balance ?? 0;
           let nextBalance = currentBalance;
+          const profileReward = profile.is_guest 
+            ? (coinSettings.guestAttendanceReward ?? 5) 
+            : reward;
 
           if (isNowPresent) {
-            nextBalance += reward;
+            nextBalance += profileReward;
           } else {
-            nextBalance = Math.max(0, nextBalance - reward);
+            nextBalance = Math.max(0, nextBalance - profileReward);
           }
 
           await resolved.adminSupabase

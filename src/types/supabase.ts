@@ -604,6 +604,7 @@ export type Database = {
   coin_wins: number;
   coin_losses: number;
   coin_updated_at: string;
+  is_guest: boolean;
   created_at: string;
   updated_at: string;
   };
@@ -621,6 +622,7 @@ export type Database = {
   coin_wins?: number;
   coin_losses?: number;
   coin_updated_at?: string;
+  is_guest?: boolean;
   created_at?: string;
   updated_at?: string;
   };
@@ -638,6 +640,7 @@ export type Database = {
   coin_wins?: number | null;
   coin_losses?: number | null;
   coin_updated_at?: string | null;
+  is_guest?: boolean | null;
   created_at?: string | null;
   updated_at?: string | null;
   };
@@ -995,6 +998,10 @@ export type Database = {
     last30_count: number;
     last_attended_at: string | null;
   }[];
+};
+      "delete_expired_guests": {
+  Args: Record<string, never>;
+  Returns: void;
 };
       "get_available_profiles": {
   Args: Record<string, never>;

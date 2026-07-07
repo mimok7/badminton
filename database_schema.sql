@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   full_name TEXT,
   role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user')),
   skill_level TEXT DEFAULT 'N' CHECK (skill_level IN ('A', 'B', 'C', 'D', 'N')),
+  is_guest BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

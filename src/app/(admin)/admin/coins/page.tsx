@@ -159,6 +159,9 @@ export default function AdminCoinsPage() {
         settlementMode: targetSettings.settlementMode,
         fixedWinnerReward: targetSettings.fixedWinnerReward,
         attendanceReward: targetSettings.attendanceReward,
+        guestInitialCoin: targetSettings.guestInitialCoin,
+        guestAttendanceReward: targetSettings.guestAttendanceReward,
+        isCoinEnabled: targetSettings.isCoinEnabled,
       });
       setCoinSettings(targetSettings);
       await fetchData();
@@ -220,6 +223,9 @@ export default function AdminCoinsPage() {
       settlementMode: 'winner_only_fixed',
       fixedWinnerReward: 1,
       attendanceReward: coinSettings.attendanceReward || 10,
+      guestInitialCoin: coinSettings.guestInitialCoin ?? 5,
+      guestAttendanceReward: coinSettings.guestAttendanceReward ?? 5,
+      isCoinEnabled: coinSettings.isCoinEnabled ?? true,
     });
   };
 
@@ -239,7 +245,28 @@ export default function AdminCoinsPage() {
               기본 배팅은 1코인이고, 사용자는 경기별로 최대 3코인까지 설정할 수 있습니다.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <Button
+              variant={coinSettings.isCoinEnabled ? 'default' : 'destructive'}
+              onClick={async () => {
+                const nextEnabled = !coinSettings.isCoinEnabled;
+                const message = nextEnabled 
+                  ? '코인 기능을 ON(활성화) 상태로 변경하시겠습니까?' 
+                  : '코인 기능을 OFF(비활성화) 상태로 변경하시겠습니까?\n프로젝트 전체에서 코인 표시가 숨김 처리됩니다.';
+                if (!confirm(message)) {
+                  return;
+                }
+                setCoinSettings((prev) => ({ ...prev, isCoinEnabled: nextEnabled }));
+                await saveCoinSettings({
+                  ...coinSettings,
+                  isCoinEnabled: nextEnabled
+                });
+              }}
+              disabled={savingSettings || loading}
+              className="px-4 py-2 rounded-xl text-xs font-bold"
+            >
+              {coinSettings.isCoinEnabled ? '🟢 코인 기능: 온 중' : '🔴 코인 기능: 오프 중'}
+            </Button>
             <Button variant="outline" onClick={fetchData} disabled={loading}>
               새로고침
             </Button>
@@ -275,6 +302,8 @@ export default function AdminCoinsPage() {
             현재 모드: <span className="font-semibold text-slate-900">{settlementModeLabel[coinSettings.settlementMode]}</span>
           </div>
         </div>
+
+
 
         <div className="mt-5">
           <div className="mb-2 text-sm font-medium text-slate-700">정산 방식</div>
@@ -400,6 +429,72 @@ export default function AdminCoinsPage() {
                 재설정
               </Button>
             </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2 border-t border-slate-100 pt-4">
+          <div className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">게스트 시작 코인</span>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={0}
+                value={coinSettings.guestInitialCoin ?? 5}
+                onChange={(event) =>
+                  setCoinSettings((prev) => ({
+                    ...prev,
+                    guestInitialCoin: Math.max(0, Number(event.target.value) || 0),
+                  }))
+                }
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() =>
+                  setCoinSettings((prev) => ({
+                    ...prev,
+                    guestInitialCoin: DEFAULT_COIN_SETTINGS.guestInitialCoin,
+                  }))
+                }
+                className="px-3 text-xs"
+              >
+                기본값(5)
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500">신규 게스트 등록 시 기본 지급되는 코인입니다.</p>
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">게스트 출석 보상 코인</span>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={0}
+                value={coinSettings.guestAttendanceReward ?? 5}
+                onChange={(event) =>
+                  setCoinSettings((prev) => ({
+                    ...prev,
+                    guestAttendanceReward: Math.max(0, Number(event.target.value) || 0),
+                  }))
+                }
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() =>
+                  setCoinSettings((prev) => ({
+                    ...prev,
+                    guestAttendanceReward: DEFAULT_COIN_SETTINGS.guestAttendanceReward,
+                  }))
+                }
+                className="px-3 text-xs"
+              >
+                기본값(5)
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500">게스트가 하루 출석 체크할 때 추가 지급되는 코인입니다.</p>
           </div>
         </div>
 

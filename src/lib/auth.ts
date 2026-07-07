@@ -18,6 +18,7 @@ export type AppProfile = Pick<
   | 'coin_wins'
   | 'coin_losses'
   | 'coin_updated_at'
+  | 'is_guest'
 > & {
   skill_level_name?: string | null;
 };
@@ -98,6 +99,7 @@ export async function getProfileByUserId(
       coin_wins,
       coin_losses,
       coin_updated_at,
+      is_guest,
       level_info:level_info!skill_level(name)
     `)
     .eq('user_id', userId)
@@ -130,6 +132,7 @@ export async function getProfileByUserId(
       coin_wins,
       coin_losses,
       coin_updated_at,
+      is_guest,
       level_info:level_info!skill_level(name)
     `)
     .eq('id', userId)

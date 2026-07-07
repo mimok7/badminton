@@ -9,6 +9,9 @@ export type CoinSettings = {
   settlementMode: CoinSettlementMode;
   fixedWinnerReward: number;
   attendanceReward: number;
+  guestInitialCoin: number;
+  guestAttendanceReward: number;
+  isCoinEnabled: boolean;
 };
 
 export const DEFAULT_COIN_SETTINGS: CoinSettings = {
@@ -16,6 +19,9 @@ export const DEFAULT_COIN_SETTINGS: CoinSettings = {
   settlementMode: 'zero_sum',
   fixedWinnerReward: 1,
   attendanceReward: 10,
+  guestInitialCoin: 5,
+  guestAttendanceReward: 5,
+  isCoinEnabled: true,
 };
 
 export function formatCoinDelta(value: number): string {

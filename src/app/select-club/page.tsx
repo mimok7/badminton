@@ -9,10 +9,11 @@ import { setActiveClubAction as setServerActiveClub } from '@/app/actions/club';
 export default async function SelectClubPage({
   searchParams,
 }: {
-  searchParams: { redirectTo?: string };
+  searchParams: Promise<{ redirectTo?: string }>;
 }) {
   const clubs = await getUserClubs() as any[];
-  const redirectTo = searchParams?.redirectTo || '/';
+  const resolvedSearchParams = await searchParams;
+  const redirectTo = resolvedSearchParams?.redirectTo || '/';
 
   // 가입된 클럽이 1개뿐이라면 자동으로 선택하고 리다이렉트
   if (clubs.length === 1) {

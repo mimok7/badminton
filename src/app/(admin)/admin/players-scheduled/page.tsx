@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { RequireAdmin } from '@/components/AuthGuard';
-import GeneratedMatchesList from '@/app/(admin)/players/components/GeneratedMatchesList';
-import MatchSessionStatus from '@/app/(admin)/players/components/MatchSessionStatus';
-import { ExtendedPlayer, MatchSession, AvailableDate } from '@/app/(admin)/players/types';
-import { supabase, fetchRegisteredPlayersForDate, calculatePlayerGameCounts, normalizeLevel } from '@/app/(admin)/players/utils';
+import GeneratedMatchesList from '@/app/(manager)/players/components/GeneratedMatchesList';
+import MatchSessionStatus from '@/app/(manager)/players/components/MatchSessionStatus';
+import { ExtendedPlayer, MatchSession, AvailableDate } from '@/app/(manager)/players/types';
+import { supabase, fetchRegisteredPlayersForDate, calculatePlayerGameCounts, normalizeLevel } from '@/app/(manager)/players/utils';
 import { Match } from '@/types';
 import { getKoreaDate } from '@/lib/date';
 

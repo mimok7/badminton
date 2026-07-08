@@ -15,7 +15,7 @@ export const MANAGER_ROUTE_PREFIXES = [
 ] as const;
 
 export const DEFAULT_USER_REDIRECT = '/dashboard';
-export const DEFAULT_ADMIN_REDIRECT = '/dashboard';
+export const DEFAULT_ADMIN_REDIRECT = '/admin';
 
 export function matchesRoutePrefix(
   pathname: string,

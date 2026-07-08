@@ -7,7 +7,7 @@ const supabaseAdmin = getSupabaseAdminClient();
 
 export async function getClubsWithMemberCount() {
     try {
-        const { data: clubs, error: clubsError } = await (supabaseAdmin as any)
+        let { data: clubs, error: clubsError } = await (supabaseAdmin as any)
             .from('clubs')
             .select(`
                 id,
@@ -20,6 +20,22 @@ export async function getClubsWithMemberCount() {
                 created_at
             `)
             .order('created_at', { ascending: false });
+
+        if (clubsError?.code === '42703') {
+            const fallback = await (supabaseAdmin as any)
+                .from('clubs')
+                .select(`
+                    id,
+                    name,
+                    code,
+                    description,
+                    created_at
+                `)
+                .order('created_at', { ascending: false });
+            
+            clubs = fallback.data;
+            clubsError = fallback.error;
+        }
 
         if (clubsError) throw clubsError;
 
@@ -41,8 +57,8 @@ export async function getClubsWithMemberCount() {
                 member_count: countMap.get(c.id) || 0,
             })),
         };
-    } catch (error) {
-        return { error: String(error) };
+    } catch (error: any) {
+        return { error: error?.message || JSON.stringify(error) };
     }
 }
 
@@ -91,8 +107,8 @@ export async function createClub(payload: { name: string; code: string; descript
 
         revalidatePath('/admin');
         return { success: true, club: data };
-    } catch (error) {
-        return { error: String(error) };
+    } catch (error: any) {
+        return { error: error?.message || JSON.stringify(error) };
     }
 }
 
@@ -106,8 +122,8 @@ export async function deleteClub(clubId: string) {
         if (error) throw error;
         revalidatePath('/admin');
         return { success: true };
-    } catch (error) {
-        return { error: String(error) };
+    } catch (error: any) {
+        return { error: error?.message || JSON.stringify(error) };
     }
 }
 
@@ -120,8 +136,8 @@ export async function getClubLevelAliases(clubId: string) {
 
         if (error) throw error;
         return { aliases: data || [] };
-    } catch (error) {
-        return { error: String(error) };
+    } catch (error: any) {
+        return { error: error?.message || JSON.stringify(error) };
     }
 }
 
@@ -139,7 +155,7 @@ export async function updateClubLevelAliases(clubId: string, aliases: Record<str
 
         if (error) throw error;
         return { success: true };
-    } catch (error) {
-        return { error: String(error) };
+    } catch (error: any) {
+        return { error: error?.message || JSON.stringify(error) };
     }
 }

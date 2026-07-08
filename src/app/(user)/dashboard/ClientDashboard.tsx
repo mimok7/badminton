@@ -465,11 +465,11 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                 )}
                 {userIsAdmin && (
                   <Link
-                    href="/admin"
+                    href={profile?.role === 'admin' ? '/admin' : '/members'}
                     className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-slate-100 transition hover:bg-white/20"
                   >
                     <Shield className="size-3.5" />
-                    관리자 홈
+                    {profile?.role === 'admin' ? '관리자 홈' : '매니저 홈'}
                   </Link>
                 )}
               </div>

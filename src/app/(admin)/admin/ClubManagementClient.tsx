@@ -176,7 +176,15 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
                                 <input
                                     type="text"
                                     value={newClub.name}
-                                    onChange={(e) => setNewClub({ ...newClub, name: e.target.value })}
+                                    onChange={(e) => {
+                                        const name = e.target.value;
+                                        const prevAutoCode = newClub.name.replace(/\s+/g, '').toUpperCase();
+                                        if (newClub.code === prevAutoCode || newClub.code === '') {
+                                            setNewClub({ ...newClub, name, code: name.replace(/\s+/g, '').toUpperCase() });
+                                        } else {
+                                            setNewClub({ ...newClub, name });
+                                        }
+                                    }}
                                     className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                     placeholder="예: 강남 배드민턴 클럽"
                                 />

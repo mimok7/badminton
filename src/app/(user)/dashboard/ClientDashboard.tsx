@@ -465,7 +465,7 @@ export default function ClientDashboard({ userId, email }: { userId: string; ema
                 )}
                 {userIsAdmin && (
                   <Link
-                    href={profile?.role === 'admin' ? '/admin' : '/members'}
+                    href={profile?.role === 'admin' ? '/admin' : '/manager'}
                     className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-slate-100 transition hover:bg-white/20"
                   >
                     <Shield className="size-3.5" />

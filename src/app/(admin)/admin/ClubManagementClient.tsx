@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, Settings, Users, Calendar, X, Save } from 'lucide-react';
+import { Plus, Settings, Users, Calendar, X, Save, ArrowRight } from 'lucide-react';
 import { createClub, getClubLevelAliases, updateClubLevelAliases } from './actions';
+import { setActiveClubAction } from '@/app/actions/club';
 import { SKILL_LEVEL_CODES } from '@/lib/skill-levels';
 import { useRouter } from 'next/navigation';
 
@@ -95,7 +96,10 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
                     <p className="text-sm text-slate-500">배드민턴 매치 메이커 서비스에 등록된 모든 클럽을 관리합니다.</p>
                 </div>
                 <button
-                    onClick={() => setIsCreateModalOpen(true)}
+                    onClick={() => {
+                        setNewClub({ name: '', code: Math.random().toString(36).substring(2, 8).toUpperCase(), description: '' });
+                        setIsCreateModalOpen(true);
+                    }}
                     className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition"
                 >
                     <Plus className="size-4" />
@@ -143,13 +147,25 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <button
-                                        onClick={() => handleOpenAliases(club)}
-                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
-                                    >
-                                        <Settings className="size-3.5 text-slate-400" />
-                                        등급 별칭 설정
-                                    </button>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <button
+                                            onClick={async () => {
+                                                await setActiveClubAction(club.id);
+                                                window.location.href = '/manager';
+                                            }}
+                                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition"
+                                        >
+                                            <ArrowRight className="size-3.5" />
+                                            매니저 화면
+                                        </button>
+                                        <button
+                                            onClick={() => handleOpenAliases(club)}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+                                        >
+                                            <Settings className="size-3.5 text-slate-400" />
+                                            등급 설정
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -176,15 +192,7 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
                                 <input
                                     type="text"
                                     value={newClub.name}
-                                    onChange={(e) => {
-                                        const name = e.target.value;
-                                        const prevAutoCode = newClub.name.replace(/\s+/g, '').toUpperCase();
-                                        if (newClub.code === prevAutoCode || newClub.code === '') {
-                                            setNewClub({ ...newClub, name, code: name.replace(/\s+/g, '').toUpperCase() });
-                                        } else {
-                                            setNewClub({ ...newClub, name });
-                                        }
-                                    }}
+                                    onChange={(e) => setNewClub({ ...newClub, name: e.target.value })}
                                     className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                     placeholder="예: 강남 배드민턴 클럽"
                                 />

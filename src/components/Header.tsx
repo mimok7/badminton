@@ -11,12 +11,27 @@ export default function Header() {
   const { user } = useUser();
   const supabase = getSupabaseClient();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [activeClub, setActiveClub] = useState<{name: string} | null>(null);
 
   useEffect(() => {
     if (!user) {
       setUnreadCount(0);
+      setActiveClub(null);
       return;
     }
+
+    const fetchActiveClub = async () => {
+      try {
+        const res = await fetch('/api/user/active-club');
+        if (res.ok) {
+          const { club } = await res.json();
+          setActiveClub(club);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    fetchActiveClub();
 
     const fetchUnread = async () => {
       try {
@@ -68,14 +83,23 @@ export default function Header() {
         </div>
 
         {user && (
-          <Link href="/notifications" className="relative flex items-center justify-center w-9 h-9 rounded-full hover:bg-slate-100 transition-colors text-slate-600">
-            <Bell className="size-5" />
-            {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm ring-2 ring-white">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
+          <div className="flex items-center gap-3">
+            {activeClub && (
+              <Link href="/select-club" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-full text-xs font-semibold text-slate-700 transition-colors">
+                <span className="truncate max-w-[100px]">{activeClub.name}</span>
+                <span className="text-[10px] text-slate-500 bg-white px-1.5 py-0.5 rounded-full shadow-sm">변경</span>
+              </Link>
             )}
-          </Link>
+            
+            <Link href="/notifications" className="relative flex items-center justify-center w-9 h-9 rounded-full hover:bg-slate-100 transition-colors text-slate-600">
+              <Bell className="size-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm ring-2 ring-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </Link>
+          </div>
         )}
       </nav>
     </header>

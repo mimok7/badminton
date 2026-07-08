@@ -3,6 +3,9 @@ export const AUTH_ROUTE_PREFIXES = ['/login', '/signup'] as const;
 export const ADMIN_ROUTE_PREFIXES = [
   '/admin',
   '/admin-setup',
+] as const;
+
+export const MANAGER_ROUTE_PREFIXES = [
   '/match-assignment',
   '/match-results',
   '/match-schedule',

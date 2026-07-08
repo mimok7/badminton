@@ -26,9 +26,21 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from('profiles')
-      .select('full_name, email, username, user_id')
-      .eq('full_name', fullName)
-      .limit(2);
+      .select(`
+        id,
+        full_name,
+        email,
+        username,
+        user_id,
+        club_members (
+          club_id,
+          clubs (
+            id,
+            name
+          )
+        )
+      `)
+      .eq('full_name', fullName);
 
     if (error) {
       return NextResponse.json(
@@ -44,30 +56,32 @@ export async function GET(request: Request) {
       );
     }
 
-    if (data.length > 1) {
-      return NextResponse.json(
-        { error: 'Multiple profiles found for the provided full name' },
-        { status: 409 }
-      );
-    }
+    const profiles = await Promise.all(data.map(async (profile: any) => {
+      let resolvedEmail = profile.email ?? '';
 
-    const profile = data[0];
-    let resolvedEmail = profile.email ?? '';
-
-    if (!resolvedEmail && profile.user_id) {
-      const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(profile.user_id);
-
-      if (!authUserError) {
-        resolvedEmail = authUserData.user?.email ?? '';
+      if (!resolvedEmail && profile.user_id) {
+        const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(profile.user_id);
+        if (!authUserError) {
+          resolvedEmail = authUserData.user?.email ?? '';
+        }
       }
-    }
 
-    return NextResponse.json({
-      fullName: profile.full_name,
-      email: resolvedEmail,
-      username: profile.username ?? '',
-      hasLinkedUser: Boolean(profile.user_id),
-    });
+      // Format clubs
+      const clubs = profile.club_members
+        ?.map((cm: any) => cm.clubs)
+        .filter(Boolean) || [];
+
+      return {
+        id: profile.id,
+        fullName: profile.full_name,
+        email: resolvedEmail,
+        username: profile.username ?? '',
+        hasLinkedUser: Boolean(profile.user_id),
+        clubs: clubs
+      };
+    }));
+
+    return NextResponse.json({ profiles });
   } catch (error) {
     return NextResponse.json(
       { error: 'Unexpected profile lookup error' },

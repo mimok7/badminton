@@ -24,7 +24,7 @@ export const getSupabaseClient = (): BrowserSupabaseClient => {
     // Ignore localStorage access errors in restricted browsers.
   }
 
-  supabaseInstance = createBrowserClient<Database, 'public'>(
+  const client = createBrowserClient<Database, 'public'>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -36,6 +36,62 @@ export const getSupabaseClient = (): BrowserSupabaseClient => {
     }
   ) as unknown as BrowserSupabaseClient;
 
+  // active_club_id 쿠키 읽기
+  let activeClubId = null;
+  const match = document.cookie.match(/(?:^|;\s*)active_club_id=([^;]*)/);
+  if (match) {
+    activeClubId = decodeURIComponent(match[1]);
+  }
+
+  const TABLES_WITH_CLUB_ID = [
+    'match_schedules', 
+    'generated_matches', 
+    'attendances', 
+    'team_assignments', 
+    'match_coin_bets',
+    'club_members'
+  ];
+
+  if (activeClubId) {
+    const originalFrom = client.from.bind(client);
+    (client as any).from = (table: string) => {
+      const qb = originalFrom(table);
+
+      if (TABLES_WITH_CLUB_ID.includes(table)) {
+        // select, update, delete 체이닝 인터셉트
+        const methodsToIntercept = ['select', 'update', 'delete'];
+        methodsToIntercept.forEach(method => {
+          if (typeof (qb as any)[method] === 'function') {
+            const originalMethod = (qb as any)[method].bind(qb);
+            (qb as any)[method] = (...args: any[]) => {
+              const filterBuilder = originalMethod(...args);
+              return filterBuilder.eq('club_id', activeClubId);
+            };
+          }
+        });
+
+        // insert, upsert 페이로드 인터셉트
+        ['insert', 'upsert'].forEach(method => {
+          if (typeof (qb as any)[method] === 'function') {
+            const originalMethod = (qb as any)[method].bind(qb);
+            (qb as any)[method] = (data: any, ...args: any[]) => {
+              let modifiedData = data;
+              if (Array.isArray(data)) {
+                modifiedData = data.map(d => ({ ...d, club_id: d.club_id || activeClubId }));
+              } else if (data && typeof data === 'object') {
+                modifiedData = { ...data, club_id: data.club_id || activeClubId };
+              }
+              return originalMethod(modifiedData, ...args);
+            };
+          }
+        });
+      }
+
+      return qb;
+    };
+  }
+
+  supabaseInstance = client;
   return supabaseInstance;
 };
 

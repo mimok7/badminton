@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import {
   ADMIN_ROUTE_PREFIXES,
+  MANAGER_ROUTE_PREFIXES,
   AUTH_ROUTE_PREFIXES,
   DEFAULT_ADMIN_REDIRECT,
   DEFAULT_USER_REDIRECT,
   matchesRoutePrefix,
 } from '@/lib/route-access';
 import { getUserRole, isAdminOrManagerRole, getRoleFromUser } from '@/lib/auth';
+import { getClubRole } from '@/lib/club-auth';
 
 import type { NextRequest } from 'next/server';
 
@@ -47,6 +49,8 @@ export async function middleware(req: NextRequest) {
 
   const pathname = req.nextUrl.pathname;
   const isAdminRoute = matchesRoutePrefix(pathname, ADMIN_ROUTE_PREFIXES);
+  const isManagerRoute = matchesRoutePrefix(pathname, MANAGER_ROUTE_PREFIXES);
+  const isProtectedPath = isAdminRoute || isManagerRoute;
   const isAuthRoute = matchesRoutePrefix(pathname, AUTH_ROUTE_PREFIXES);
 
   // 세션 쿠키 존재 여부 검사 (보통 sb-[project-ref]-auth-token 형식)
@@ -55,12 +59,12 @@ export async function middleware(req: NextRequest) {
   );
 
   // 세션 쿠키가 없고 관리자 경로가 아닌 경우, 인증 조회(getUser)를 스킵하고 바로 통과시킵니다.
-  if (!hasSessionCookie && !isAdminRoute) {
+  if (!hasSessionCookie && !isProtectedPath) {
     return res;
   }
 
-  // 만약 세션 쿠키가 없고 관리자 경로라면, 바로 로그인으로 리다이렉트합니다.
-  if (!hasSessionCookie && isAdminRoute) {
+  // 만약 세션 쿠키가 없고 보호된 경로라면, 바로 로그인으로 리다이렉트합니다.
+  if (!hasSessionCookie && isProtectedPath) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirectTo', pathname);
@@ -95,7 +99,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    if (!isAdminRoute) {
+    if (!isProtectedPath) {
       return res;
     }
 
@@ -106,12 +110,45 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    const role = await getUserRole(supabase, user);
+    const hasClubCookie = req.cookies.has('active_club_id');
+    if (user && !hasClubCookie && pathname !== '/select-club') {
+      const url = req.nextUrl.clone();
+      url.pathname = '/select-club';
+      if (pathname !== '/') {
+        url.searchParams.set('redirectTo', pathname);
+      }
+      return NextResponse.redirect(url);
+    }
 
-    if (!isAdminOrManagerRole(role)) {
+    const role = await getUserRole(supabase, user);
+    const isGlobalAdmin = role === 'admin';
+
+    // 1. 관리자 전용 라우트 접근 시
+    if (isAdminRoute && !isGlobalAdmin) {
       const url = req.nextUrl.clone();
       url.pathname = '/unauthorized';
       return NextResponse.redirect(url);
+    }
+
+    // 2. 매니저 전용 라우트 접근 시
+    if (isManagerRoute) {
+      // 시스템 관리자는 프리패스
+      if (isGlobalAdmin) return res;
+
+      const activeClubId = req.cookies.get('active_club_id')?.value;
+      if (!activeClubId) {
+        const url = req.nextUrl.clone();
+        url.pathname = '/select-club';
+        url.searchParams.set('redirectTo', pathname);
+        return NextResponse.redirect(url);
+      }
+
+      const clubRole = await getClubRole(supabase, user.id, activeClubId);
+      if (!clubRole || !['owner', 'admin', 'manager'].includes(clubRole)) {
+        const url = req.nextUrl.clone();
+        url.pathname = '/unauthorized';
+        return NextResponse.redirect(url);
+      }
     }
   } catch (error) {
     console.error('Middleware error:', error);

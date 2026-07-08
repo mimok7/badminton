@@ -54,15 +54,15 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
             if (result.error) {
                 alert(`설정을 불러오는 중 오류가 발생했습니다: ${result.error}`);
             } else {
-                const aliasMap = (result.aliases || []).reduce<Record<string, string>>(
-                    (acc, item) => ({ ...acc, [item.level_code]: item.alias }),
-                    {}
+                const aliasMap = (result.aliases || []).reduce(
+                    (acc: Record<string, string>, item: any) => ({ ...acc, [item.level_code]: item.alias }),
+                    {} as Record<string, string>
                 );
                 
                 // Fill missing with defaults
-                const fullAliases = SKILL_LEVEL_CODES.reduce<Record<string, string>>(
-                    (acc, code) => ({ ...acc, [code]: aliasMap[code] || code }),
-                    {}
+                const fullAliases = SKILL_LEVEL_CODES.reduce(
+                    (acc: Record<string, string>, code: string) => ({ ...acc, [code]: aliasMap[code] || code }),
+                    {} as Record<string, string>
                 );
                 
                 setAliases(fullAliases);

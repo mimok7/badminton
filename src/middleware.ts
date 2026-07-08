@@ -18,6 +18,9 @@ function shouldRequirePasswordChange(value: unknown) {
 }
 
 export async function middleware(req: NextRequest) {
+  const pathname = req.nextUrl.pathname;
+  req.headers.set('x-pathname', pathname);
+
   let res = NextResponse.next({
     request: {
       headers: req.headers,
@@ -47,7 +50,6 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  const pathname = req.nextUrl.pathname;
   const isAdminRoute = matchesRoutePrefix(pathname, ADMIN_ROUTE_PREFIXES);
   const isManagerRoute = matchesRoutePrefix(pathname, MANAGER_ROUTE_PREFIXES);
   const isProtectedPath = isAdminRoute || isManagerRoute;
@@ -110,6 +112,21 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    const role = await getUserRole(supabase, user);
+    const isGlobalAdmin = role === 'admin';
+
+    // 1. 관리자 전용 라우트 접근 시
+    if (isAdminRoute) {
+      if (!isGlobalAdmin) {
+        const url = req.nextUrl.clone();
+        url.pathname = '/unauthorized';
+        return NextResponse.redirect(url);
+      }
+      // 시스템 관리자이고 관리자 라우트면 클럽 쿠키가 없어도 접근 허용 (프리패스)
+      return res;
+    }
+
+    // 일반 및 매니저 라우트의 경우 클럽 쿠키가 있는지 확인
     const hasClubCookie = req.cookies.has('active_club_id');
     if (user && !hasClubCookie && pathname !== '/select-club') {
       const url = req.nextUrl.clone();
@@ -117,16 +134,6 @@ export async function middleware(req: NextRequest) {
       if (pathname !== '/') {
         url.searchParams.set('redirectTo', pathname);
       }
-      return NextResponse.redirect(url);
-    }
-
-    const role = await getUserRole(supabase, user);
-    const isGlobalAdmin = role === 'admin';
-
-    // 1. 관리자 전용 라우트 접근 시
-    if (isAdminRoute && !isGlobalAdmin) {
-      const url = req.nextUrl.clone();
-      url.pathname = '/unauthorized';
       return NextResponse.redirect(url);
     }
 

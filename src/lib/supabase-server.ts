@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import type { Database } from '@/types/supabase';
 
 type ServerSupabaseClient = ReturnType<typeof createServerClient<Database>>;
@@ -83,6 +83,21 @@ export async function getSupabaseServerClient(): Promise<ServerSupabaseClient> {
       },
     }
   );
+
+  let isApiOrAdmin = false;
+  try {
+    const headersList = await headers();
+    const pathname = headersList.get('x-pathname') || '';
+    if (pathname.startsWith('/admin') || pathname.startsWith('/admin-setup') || pathname.startsWith('/api/admin')) {
+      isApiOrAdmin = true;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  if (isApiOrAdmin) {
+    return client;
+  }
 
   return withClubFilter(client, activeClubId);
 }

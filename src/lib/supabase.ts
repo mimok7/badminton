@@ -52,7 +52,15 @@ export const getSupabaseClient = (): BrowserSupabaseClient => {
     'club_members'
   ];
 
-  if (activeClubId) {
+  let isApiOrAdmin = false;
+  if (typeof window !== 'undefined') {
+    const pathname = window.location.pathname;
+    if (pathname.startsWith('/admin') || pathname.startsWith('/admin-setup')) {
+      isApiOrAdmin = true;
+    }
+  }
+
+  if (activeClubId && !isApiOrAdmin) {
     const originalFrom = client.from.bind(client);
     (client as any).from = (table: string) => {
       const qb = originalFrom(table as any);

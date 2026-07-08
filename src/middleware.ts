@@ -97,7 +97,13 @@ export async function middleware(req: NextRequest) {
     if (user && isAuthRoute) {
       const role = getRoleFromUser(user);
       const url = req.nextUrl.clone();
-      url.pathname = isAdminOrManagerRole(role) ? DEFAULT_ADMIN_REDIRECT : DEFAULT_USER_REDIRECT;
+      if (role === 'admin') {
+        url.pathname = DEFAULT_ADMIN_REDIRECT;
+      } else if (role === 'manager') {
+        url.pathname = '/manager'; // DEFAULT_MANAGER_REDIRECT
+      } else {
+        url.pathname = DEFAULT_USER_REDIRECT;
+      }
       return NextResponse.redirect(url);
     }
 

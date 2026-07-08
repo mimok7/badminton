@@ -173,7 +173,15 @@ export default function LoginPage() {
         mustChangePassword = false;
       }
 
-      let nextPath = mustChangePassword ? '/change-password' : DEFAULT_USER_REDIRECT;
+      const role = signInData.user?.app_metadata?.role || signInData.user?.user_metadata?.role;
+      const isAdmin = role === 'admin' || role === 'administrator' || role === '관리자';
+      const isManager = role === 'manager' || role === '매니저' || role === '운영자';
+      
+      let defaultPath = DEFAULT_USER_REDIRECT;
+      if (isAdmin) defaultPath = '/admin';
+      else if (isManager) defaultPath = '/manager';
+
+      let nextPath = mustChangePassword ? '/change-password' : defaultPath;
 
       const redirectTo = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirectTo') : null;
       if (redirectTo && isSafeRedirectPath(redirectTo)) {

@@ -84,12 +84,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   };
 
   const visibleSections = useMemo(() => {
-    if (profile?.role === 'manager') {
-      return SECTIONS.filter(section => 
-        section.title.includes('경기 관리') || section.title.includes('대회 관리')
-      );
+    // If the user is a global admin, they only see system management (or maybe everything, but usually just system management)
+    if (profile?.role === 'admin' || profile?.role === 'administrator') {
+      return SECTIONS.filter(section => section.title.includes('시스템 관리'));
     }
-    return SECTIONS;
+    
+    // For managers (or any user who has access to AdminShell), they see manager menus
+    return SECTIONS.filter(section => !section.title.includes('시스템 관리'));
   }, [profile?.role]);
 
   const sidebarNav = (

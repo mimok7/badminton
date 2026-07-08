@@ -14,6 +14,9 @@ export async function getClubsWithMemberCount() {
                 name,
                 code,
                 description,
+                phone,
+                address,
+                manager_name,
                 created_at
             `)
             .order('created_at', { ascending: false });
@@ -43,11 +46,14 @@ export async function getClubsWithMemberCount() {
     }
 }
 
-export async function createClub(payload: { name: string; code: string; description?: string }) {
+export async function createClub(payload: { name: string; code: string; description?: string; phone?: string; address?: string; manager_name?: string }) {
     try {
         const name = payload.name.trim();
         const code = payload.code.trim().toUpperCase();
         const description = payload.description?.trim() || null;
+        const phone = payload.phone?.trim() || null;
+        const address = payload.address?.trim() || null;
+        const manager_name = payload.manager_name?.trim() || null;
 
         if (!name || !code) {
             return { error: '클럽 이름과 코드를 모두 입력해주세요.' };
@@ -59,6 +65,9 @@ export async function createClub(payload: { name: string; code: string; descript
                 name,
                 code,
                 description,
+                phone,
+                address,
+                manager_name,
             })
             .select()
             .single();
@@ -67,11 +76,36 @@ export async function createClub(payload: { name: string; code: string; descript
             if (error.code === '23505') {
                 return { error: '이미 사용 중인 클럽 코드입니다.' };
             }
+            // Ignore error for missing columns if SQL is not run yet
+            if (error.code === '42703') {
+                 const fallback = await (supabaseAdmin as any)
+                    .from('clubs')
+                    .insert({ name, code, description })
+                    .select().single();
+                 if (fallback.error) throw fallback.error;
+                 revalidatePath('/admin');
+                 return { success: true, club: fallback.data, warning: 'SQL 마이그레이션이 적용되지 않아 추가 필드가 저장되지 않았습니다.' };
+            }
             throw error;
         }
 
         revalidatePath('/admin');
         return { success: true, club: data };
+    } catch (error) {
+        return { error: String(error) };
+    }
+}
+
+export async function deleteClub(clubId: string) {
+    try {
+        const { error } = await (supabaseAdmin as any)
+            .from('clubs')
+            .delete()
+            .eq('id', clubId);
+
+        if (error) throw error;
+        revalidatePath('/admin');
+        return { success: true };
     } catch (error) {
         return { error: String(error) };
     }

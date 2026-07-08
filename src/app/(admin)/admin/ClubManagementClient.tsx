@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { Plus, Settings, Users, Calendar, X, Save, ArrowRight } from 'lucide-react';
-import { createClub, getClubLevelAliases, updateClubLevelAliases } from './actions';
+import { createClub, getClubLevelAliases, updateClubLevelAliases, deleteClub } from './actions';
 import { setActiveClubAction } from '@/app/actions/club';
 import { SKILL_LEVEL_CODES } from '@/lib/skill-levels';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,9 @@ interface Club {
     name: string;
     code: string;
     description: string | null;
+    phone?: string | null;
+    address?: string | null;
+    manager_name?: string | null;
     created_at: string;
     member_count: number;
 }
@@ -25,7 +28,7 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
     const [aliases, setAliases] = useState<Record<string, string>>({});
     
     // Create Club state
-    const [newClub, setNewClub] = useState({ name: '', code: '', description: '' });
+    const [newClub, setNewClub] = useState({ name: '', code: '', description: '', phone: '', address: '', manager_name: '' });
     
     const [isPending, startTransition] = useTransition();
 
@@ -40,9 +43,24 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
             if (result.error) {
                 alert(`클럽 생성 실패: ${result.error}`);
             } else {
-                alert('클럽이 성공적으로 생성되었습니다.');
+                if (result.warning) alert(result.warning);
+                else alert('클럽이 성공적으로 생성되었습니다.');
                 setIsCreateModalOpen(false);
-                setNewClub({ name: '', code: '', description: '' });
+                setNewClub({ name: '', code: '', description: '', phone: '', address: '', manager_name: '' });
+                router.refresh();
+            }
+        });
+    };
+
+    const handleDeleteClub = (club: Club) => {
+        if (!confirm(`정말로 '${club.name}' 클럽을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+
+        startTransition(async () => {
+            const result = await deleteClub(club.id);
+            if (result.error) {
+                alert(`클럽 삭제 실패: ${result.error}`);
+            } else {
+                alert('클럽이 삭제되었습니다.');
                 router.refresh();
             }
         });
@@ -97,7 +115,7 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
                 </div>
                 <button
                     onClick={() => {
-                        setNewClub({ name: '', code: Math.random().toString(36).substring(2, 8).toUpperCase(), description: '' });
+                        setNewClub({ name: '', code: Math.random().toString(36).substring(2, 8).toUpperCase(), description: '', phone: '', address: '', manager_name: '' });
                         setIsCreateModalOpen(true);
                     }}
                     className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition"
@@ -113,7 +131,7 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
                     <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
                             <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">클럽 이름</th>
-                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">클럽 코드</th>
+                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">담당자/연락처</th>
                             <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">설명</th>
                             <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">회원 수</th>
                             <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">생성일</th>
@@ -124,12 +142,16 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
                         {clubs.map((club) => (
                             <tr key={club.id} className="hover:bg-slate-50/80 transition-colors">
                                 <td className="px-6 py-4">
-                                    <span className="font-semibold text-slate-900">{club.name}</span>
+                                    <div className="flex flex-col">
+                                        <span className="font-semibold text-slate-900">{club.name}</span>
+                                        <span className="text-xs text-slate-500 mt-0.5">코드: {club.code}</span>
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
-                                        {club.code}
-                                    </span>
+                                    <div className="flex flex-col text-sm text-slate-600">
+                                        <span>{club.manager_name || '미지정'}</span>
+                                        {club.phone && <span className="text-xs text-slate-400 mt-0.5">{club.phone}</span>}
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4 text-slate-600 text-sm max-w-xs truncate">
                                     {club.description || '-'}
@@ -165,6 +187,13 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
                                             <Settings className="size-3.5 text-slate-400" />
                                             등급 설정
                                         </button>
+                                        <button
+                                            onClick={() => handleDeleteClub(club)}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm hover:bg-red-100 transition"
+                                        >
+                                            <X className="size-3.5 text-red-500" />
+                                            삭제
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -186,7 +215,7 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
                                 <X className="size-5" />
                             </button>
                         </div>
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                             <div>
                                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">클럽 이름</label>
                                 <input
@@ -205,6 +234,38 @@ export default function ClubManagementClient({ initialClubs }: { initialClubs: C
                                     onChange={(e) => setNewClub({ ...newClub, code: e.target.value.toUpperCase() })}
                                     className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                     placeholder="예: GANGNAM (영문 대문자)"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">담당자 명 (선택)</label>
+                                    <input
+                                        type="text"
+                                        value={newClub.manager_name}
+                                        onChange={(e) => setNewClub({ ...newClub, manager_name: e.target.value })}
+                                        className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        placeholder="홍길동"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">연락처 (선택)</label>
+                                    <input
+                                        type="text"
+                                        value={newClub.phone}
+                                        onChange={(e) => setNewClub({ ...newClub, phone: e.target.value })}
+                                        className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        placeholder="010-0000-0000"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">주소 (선택)</label>
+                                <input
+                                    type="text"
+                                    value={newClub.address}
+                                    onChange={(e) => setNewClub({ ...newClub, address: e.target.value })}
+                                    className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    placeholder="체육관 주소"
                                 />
                             </div>
                             <div>

@@ -104,6 +104,14 @@ export async function GET(request: Request) {
         .order('match_date', { ascending: true })
         .order('start_time', { ascending: true });
 
+      const cookieHeader = request.headers.get('cookie') || '';
+      const activeClubIdMatch = cookieHeader.match(/(?:^|;\s*)active_club_id=([^;]*)/);
+      const activeClubId = activeClubIdMatch ? decodeURIComponent(activeClubIdMatch[1]) : null;
+
+      if (activeClubId) {
+        query = query.eq('club_id', activeClubId);
+      }
+
       if (exactDate) {
         query = query.eq('match_date', exactDate);
       } else {
@@ -261,23 +269,35 @@ export async function PATCH(request: Request) {
       updated_by: user.id,
     };
 
-    let updateResult = await adminSupabase
-      .from('match_schedules')
-      .update({
-        ...basePayload,
-        schedule_source: normalizeScheduleSource(body?.schedule_source),
-      })
-      .eq('id', scheduleId)
-      .select('*')
-      .single();
+      const cookieHeader = request.headers.get('cookie') || '';
+      const activeClubIdMatch = cookieHeader.match(/(?:^|;\s*)active_club_id=([^;]*)/);
+      const activeClubId = activeClubIdMatch ? decodeURIComponent(activeClubIdMatch[1]) : null;
+
+      let updateQuery = adminSupabase
+        .from('match_schedules')
+        .update({
+          ...basePayload,
+          schedule_source: normalizeScheduleSource(body?.schedule_source),
+        })
+        .eq('id', scheduleId);
+        
+      if (activeClubId) {
+        updateQuery = updateQuery.eq('club_id', activeClubId);
+      }
+      
+      let updateResult = await updateQuery.select('*').single();
 
     if ((updateResult.error as { code?: string } | null)?.code === '42703') {
-      updateResult = await adminSupabase
+      let fallbackQuery = adminSupabase
         .from('match_schedules')
         .update(basePayload)
-        .eq('id', scheduleId)
-        .select('*')
-        .single();
+        .eq('id', scheduleId);
+        
+      if (activeClubId) {
+        fallbackQuery = fallbackQuery.eq('club_id', activeClubId);
+      }
+      
+      updateResult = await fallbackQuery.select('*').single();
     }
 
     const { data, error } = updateResult;
@@ -358,7 +378,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Duplicate slot already exists' }, { status: 409 });
       }
 
+      const cookieHeader = request.headers.get('cookie') || '';
+      const activeClubIdMatch = cookieHeader.match(/(?:^|;\s*)active_club_id=([^;]*)/);
+      const activeClubId = activeClubIdMatch ? decodeURIComponent(activeClubIdMatch[1]) : null;
+
       const basePayload = {
+        club_id: activeClubId || undefined,
         match_date: matchDate,
         start_time: startTime,
         end_time: endTime,

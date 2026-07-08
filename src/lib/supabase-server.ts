@@ -88,7 +88,7 @@ export async function getSupabaseServerClient(): Promise<ServerSupabaseClient> {
   try {
     const headersList = await headers();
     const pathname = headersList.get('x-pathname') || '';
-    if (pathname.startsWith('/admin') || pathname.startsWith('/admin-setup') || pathname.startsWith('/api/admin')) {
+    if (pathname.startsWith('/admin') || pathname.startsWith('/admin-setup')) {
       isApiOrAdmin = true;
     }
   } catch (e) {

@@ -235,10 +235,6 @@ export default function UserManagementClient({
                 } else {
                     setMemberList((prev) => prev.filter((item) => item.id !== user.id));
                     router.refresh();
-                    if (result?.warning) {
-                        alert(`사용자가 삭제되었습니다. ${result.warning}`);
-                        return;
-                    }
                     alert('사용자가 성공적으로 삭제되었습니다.');
                 }
             });
@@ -355,10 +351,13 @@ export default function UserManagementClient({
                 return;
             }
 
-            if (result.failCount > 0) {
-                alert(`일부 회원 추가 실패 (${result.failCount}명). 성공: ${result.successCount}명.`);
+            const failCount = result.failCount ?? 0;
+            const successCount = result.successCount ?? 0;
+
+            if (failCount > 0) {
+                alert(`일부 회원 추가 실패 (${failCount}명). 성공: ${successCount}명.`);
             } else {
-                alert(`성공적으로 추가되었습니다 (${result.successCount}명).`);
+                alert(`성공적으로 추가되었습니다 (${successCount}명).`);
             }
 
             setNewMember({

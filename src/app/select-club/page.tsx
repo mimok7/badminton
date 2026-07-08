@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getUserClubs, setActiveClubAction } from '@/lib/club';
+import { getUserClubs } from '@/lib/club';
 import ClubSelectorClient from './ClubSelectorClient';
 
 // Note: setActiveClubAction is in @/app/actions/club.ts
@@ -11,7 +11,7 @@ export default async function SelectClubPage({
 }: {
   searchParams: { redirectTo?: string };
 }) {
-  const clubs = await getUserClubs();
+  const clubs = await getUserClubs() as any[];
   const redirectTo = searchParams?.redirectTo || '/';
 
   // 가입된 클럽이 1개뿐이라면 자동으로 선택하고 리다이렉트

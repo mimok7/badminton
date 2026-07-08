@@ -6,10 +6,10 @@ const LEGACY_LEVEL_TO_CODE: Record<string, SkillLevelCode> = {
   C: 'C2',
   D: 'D2',
   E: 'E2',
-  N: 'N1',
+  N: 'E2',
 };
 
-export function getNormalizedSkillCode(skillLevel?: string | null, fallback: SkillLevelCode = 'N1'): SkillLevelCode {
+export function getNormalizedSkillCode(skillLevel?: string | null, fallback: SkillLevelCode = 'E2'): SkillLevelCode {
   const normalized = String(skillLevel || '').trim().toUpperCase();
 
   if (normalized in LEGACY_LEVEL_TO_CODE) {
@@ -23,11 +23,11 @@ export function getNormalizedSkillCode(skillLevel?: string | null, fallback: Ski
   return fallback;
 }
 
-export function getUserLevelDisplay(skillLevel?: string | null, fallback = '닭갈비') {
+export function getUserLevelDisplay(skillLevel?: string | null, fallback = 'E2') {
   const code = getNormalizedSkillCode(skillLevel);
   return SKILL_LEVEL_DISPLAY_NAMES[code] || fallback;
 }
 
-export function getAdminLevelDisplay(skillLevel?: string | null, fallback = 'N1') {
+export function getAdminLevelDisplay(skillLevel?: string | null, fallback = 'E2') {
   return getNormalizedSkillCode(skillLevel, fallback as SkillLevelCode);
 }

@@ -11,7 +11,7 @@ export async function GET() {
     
     // We cannot execute raw SQL from Supabase JS easily if the exec_sql RPC is not installed.
     // Let's use inline plpgsql via an RPC if it exists, otherwise we'll have to tell the user to run it.
-    const { error } = await supabase.rpc('inline_code_block', { sql_query: sql });
+    const { error } = await (supabase as any).rpc('inline_code_block', { sql_query: sql });
     if (error) throw error;
     
     return NextResponse.json({ success: true });

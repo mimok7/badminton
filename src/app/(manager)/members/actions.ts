@@ -16,8 +16,8 @@ async function getManagerContext() {
     const activeClubId = cookieStore.get('active_club_id')?.value;
     if (!activeClubId) return null;
 
-    const { role } = await getClubRole(user.id, activeClubId);
-    if (!['owner', 'admin', 'manager'].includes(role)) {
+    const role = await getClubRole(supabase, user.id, activeClubId);
+    if (!role || !['owner', 'admin', 'manager'].includes(role)) {
         return null;
     }
 
@@ -27,7 +27,7 @@ async function getManagerContext() {
 export type UpdateUserPayload = {
     username?: string | null;
     full_name?: string | null;
-    role?: 'manager' | 'member' | 'user' | null;
+    role?: 'owner' | 'admin' | 'manager' | 'member' | 'user' | null;
     skill_level?: string | null;
     gender?: 'M' | 'F' | 'O' | string | null;
 }
@@ -40,7 +40,7 @@ export async function deleteUser(userId: string) {
         const ctx = await getManagerContext();
         if (!ctx) return { error: '삭제 권한이 없습니다.' };
 
-        const { error } = await supabaseAdmin
+        const { error } = await (supabaseAdmin as any)
             .from('club_members')
             .delete()
             .eq('club_id', ctx.clubId)
@@ -77,9 +77,9 @@ export async function updateUser(userId: string, updates: UpdateUserPayload) {
     }
 
     // Update club member role
-    if (updates.role !== undefined) {
+    if (updates.role !== undefined && ['manager', 'member'].includes(updates.role as string)) {
         const clubRole = updates.role === 'manager' ? 'manager' : 'member';
-        const { error } = await supabaseAdmin
+        const { error } = await (supabaseAdmin as any)
             .from('club_members')
             .update({ role: clubRole })
             .eq('club_id', ctx.clubId)
@@ -167,7 +167,7 @@ export async function createMember(payload: CreateMemberPayload) {
 
     // 3. 클럽 멤버십 연결
     const clubRole = payload.role === 'manager' ? 'manager' : 'member';
-    await supabaseAdmin.from('club_members').upsert({
+    await (supabaseAdmin as any).from('club_members').upsert({
         club_id: ctx.clubId,
         user_id: userId,
         role: clubRole,
@@ -247,13 +247,65 @@ export async function resetMemberData(userId: string) {
         .or(`user_id.eq.${userId},id.eq.${userId}`)
         .maybeSingle();
 
-    if (!profile) return { error: '계정을 찾을 수 없습니다.' };
+    if (!profile || !profile.user_id) return { error: '계정을 찾을 수 없습니다.' };
 
-    await supabaseAdmin.from('club_members').update({
+    await (supabaseAdmin as any).from('club_members').update({
         coin_wins: 0,
         coin_losses: 0,
         coin_balance: 30
     }).eq('club_id', ctx.clubId).eq('user_id', profile.user_id);
+
+    revalidatePath('/manager/members');
+    return { success: true };
+}
+
+export async function updateRatingSettings(startDate: string | null, endDate: string | null) {
+    const ctx = await getManagerContext();
+    if (!ctx) return { error: '설정 권한이 없습니다.' };
+
+    const { error } = await (supabaseAdmin as any)
+        .from('member_rating_settings')
+        .upsert({
+            id: 1,
+            start_date: startDate ? new Date(startDate).toISOString() : null,
+            end_date: endDate ? new Date(endDate).toISOString() : null,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+
+    if (error) return { error: error.message };
+
+    revalidatePath('/manager/members');
+    return { success: true };
+}
+
+export async function resetAttendanceAll() {
+    const ctx = await getManagerContext();
+    if (!ctx) return { error: '권한이 없습니다.' };
+
+    const { error } = await (supabaseAdmin as any)
+        .from('attendances')
+        .delete()
+        .eq('club_id', ctx.clubId);
+
+    if (error) return { error: error.message };
+
+    revalidatePath('/manager/members');
+    return { success: true };
+}
+
+export async function resetWinRateAll() {
+    const ctx = await getManagerContext();
+    if (!ctx) return { error: '권한이 없습니다.' };
+
+    const { error } = await (supabaseAdmin as any)
+        .from('club_members')
+        .update({
+            coin_wins: 0,
+            coin_losses: 0,
+        })
+        .eq('club_id', ctx.clubId);
+
+    if (error) return { error: error.message };
 
     revalidatePath('/manager/members');
     return { success: true };

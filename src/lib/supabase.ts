@@ -55,7 +55,7 @@ export const getSupabaseClient = (): BrowserSupabaseClient => {
   if (activeClubId) {
     const originalFrom = client.from.bind(client);
     (client as any).from = (table: string) => {
-      const qb = originalFrom(table);
+      const qb = originalFrom(table as any);
 
       if (TABLES_WITH_CLUB_ID.includes(table)) {
         // select, update, delete 체이닝 인터셉트

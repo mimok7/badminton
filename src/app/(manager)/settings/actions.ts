@@ -16,8 +16,8 @@ async function getManagerContext() {
     const activeClubId = cookieStore.get('active_club_id')?.value;
     if (!activeClubId) return null;
 
-    const { role } = await getClubRole(user.id, activeClubId);
-    if (!['owner', 'admin', 'manager'].includes(role)) {
+    const role = await getClubRole(supabase, user.id, activeClubId);
+    if (!role || !['owner', 'admin', 'manager'].includes(role)) {
         return null;
     }
 
@@ -36,7 +36,7 @@ export async function updateLevelAliases(clubId: string, aliases: Record<string,
         alias: alias.trim() || code, // fallback to code if empty
     }));
 
-    const { error } = await supabaseAdmin
+    const { error } = await (supabaseAdmin as any)
         .from('club_level_aliases')
         .upsert(rows, { onConflict: 'club_id,level_code' });
 

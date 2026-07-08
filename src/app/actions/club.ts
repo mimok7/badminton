@@ -1,7 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { CLUB_COOKIE_NAME } from './club';
+import { CLUB_COOKIE_NAME } from '@/lib/club';
 
 export async function setActiveClubAction(clubId: string) {
   const cookieStore = await cookies();

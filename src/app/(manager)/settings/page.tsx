@@ -17,21 +17,20 @@ export default async function ClubSettingsPage() {
   const activeClubId = cookieStore.get('active_club_id')?.value;
   if (!activeClubId) redirect('/')
 
-  const { role: clubRole } = await getClubRole(user.id, activeClubId)
-  if (!['owner', 'admin', 'manager'].includes(clubRole)) {
+  const clubRole = await getClubRole(supabase, user.id, activeClubId)
+  if (!clubRole || !['owner', 'admin', 'manager'].includes(clubRole)) {
       redirect('/unauthorized')
   }
 
   // Fetch aliases
-  const { data: aliasesRows } = await supabase
+  const { data: aliasesRows } = await (supabase as any)
     .from('club_level_aliases')
     .select('level_code, alias')
     .eq('club_id', activeClubId)
-
-  const aliasMap = new Map((aliasesRows || []).map(r => [r.level_code, r.alias]));
+  const aliasMap = new Map<string, string>((aliasesRows || []).map((r: any) => [r.level_code, r.alias]));
 
   const levelOptions = SKILL_LEVEL_CODES.map((code) => ({
-      code,
+      code: code as string,
       alias: aliasMap.get(code) || code,
   }));
 

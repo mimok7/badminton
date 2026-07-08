@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     const supabase = getSupabaseAdminClient();
 
     // archive_expired_brackets RPC 호출
-    const { error } = await supabase.rpc('archive_expired_brackets');
+    const { error } = await (supabase as any).rpc('archive_expired_brackets');
 
     if (error) {
       throw error;

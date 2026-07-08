@@ -33,8 +33,8 @@ export default async function ManagerMembersPage({
   const activeClubId = cookieStore.get('active_club_id')?.value;
   if (!activeClubId) redirect('/manager/match-assignment') // or somewhere
 
-  const { role: clubRole } = await getClubRole(user.id, activeClubId)
-  if (!['owner', 'admin', 'manager'].includes(clubRole)) {
+  const clubRole = await getClubRole(supabase, user.id, activeClubId)
+  if (!clubRole || !['owner', 'admin', 'manager'].includes(clubRole)) {
       redirect('/unauthorized')
   }
 
@@ -57,8 +57,8 @@ export default async function ManagerMembersPage({
         )
       `)
       .eq('club_id', activeClubId),
-    supabase.from('club_level_aliases').select('level_code, alias').eq('club_id', activeClubId),
-    supabase.from('attendances').select('user_id, attended_at, status').eq('club_id', activeClubId).eq('status', 'present').order('attended_at', { ascending: false })
+    (supabase as any).from('club_level_aliases').select('level_code, alias').eq('club_id', activeClubId),
+    (supabase as any).from('attendances').select('user_id, attended_at, status').eq('club_id', activeClubId).eq('status', 'present').order('attended_at', { ascending: false })
   ])
 
   if (error) {
@@ -102,7 +102,7 @@ export default async function ManagerMembersPage({
   }
 
   // Level Options (A3 ~ E1)
-  const aliasMap = new Map((aliasesRows || []).map(r => [r.level_code, r.alias]));
+  const aliasMap = new Map<string, string>((aliasesRows || []).map((r: any) => [r.level_code, r.alias]));
   
   const levelOptions = SKILL_LEVEL_CODES.map((code, index) => ({
       code,
@@ -110,7 +110,7 @@ export default async function ManagerMembersPage({
       score: SKILL_LEVEL_CODES.length - index,
   }));
 
-  const levelOptionByCode = new Map(levelOptions.map((option) => [option.code, option]))
+  const levelOptionByCode = new Map<string, any>(levelOptions.map((option) => [option.code, option]))
   users = users.map((user) => ({
     ...user,
     skill_level: String(user.skill_level ?? '').trim().toUpperCase() || 'E2',
@@ -123,7 +123,7 @@ export default async function ManagerMembersPage({
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const cutoffTime = thirtyDaysAgo.getTime();
 
-  for (const row of recentAttendanceRows || []) {
+  for (const row of (recentAttendanceRows || []) as any[]) {
     const userId = row.user_id;
     if (!userId) continue;
 

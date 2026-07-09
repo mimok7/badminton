@@ -145,7 +145,7 @@ export default async function AdminMembersPage({
     (profileLinkRows || []).map((row) => [row.id, row.user_id || row.id])
   )
 
-  if (attendanceSummaryRows && attendanceSummaryRows.length > 0) {
+  if (attendanceSummaryRows && Array.isArray(attendanceSummaryRows) && attendanceSummaryRows.length > 0) {
     // RPC 함수가 정상 동작하는 경우 (Supabase SQL 적용 후)
     for (const row of attendanceSummaryRows as any[]) {
       const rawUserId = typeof row.user_id === 'string' ? row.user_id : null

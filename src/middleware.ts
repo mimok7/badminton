@@ -8,7 +8,7 @@ import {
   DEFAULT_USER_REDIRECT,
   matchesRoutePrefix,
 } from '@/lib/route-access';
-import { getUserRole, isAdminOrManagerRole, getRoleFromUser } from '@/lib/auth';
+import { getUserRole, getRoleFromUser } from '@/lib/auth';
 import { getClubRole } from '@/lib/club-auth';
 
 import type { NextRequest } from 'next/server';
@@ -16,6 +16,16 @@ import type { NextRequest } from 'next/server';
 function shouldRequirePasswordChange(value: unknown) {
   return value === true || value === 'true';
 }
+
+// Paths that must never be redirected (utility / escape-hatch routes)
+const REDIRECT_SAFE_PATHS = new Set([
+  '/select-club',
+  '/unauthorized',
+  '/change-password',
+  '/login',
+  '/signup',
+  '/maintenance',
+]);
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
@@ -38,8 +48,7 @@ export async function middleware(req: NextRequest) {
   const isApiOrStatic = pathname.startsWith('/api') || 
                         pathname.startsWith('/_next') || 
                         pathname.startsWith('/favicon.ico') || 
-                        pathname.includes('.') ||
-                        pathname.startsWith('/maintenance_badminton.png');
+                        pathname.includes('.');
 
   // 점검 모드가 비활성화되어 있는데 /maintenance로 접근하는 경우 홈(/)으로 리다이렉트
   if (!isMaintenanceMode && isMaintenancePath) {
@@ -91,7 +100,7 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  // 세션 쿠키가 없고 관리자 경로가 아닌 경우, 인증 조회(getUser)를 스킵하고 바로 통과시킵니다.
+  // 세션 쿠키가 없고 보호된 경로가 아닌 경우, 인증 조회(getUser)를 스킵하고 바로 통과시킵니다.
   if (!hasSessionCookie && !isProtectedPath) {
     return res;
   }
@@ -144,17 +153,19 @@ export async function middleware(req: NextRequest) {
       if (role === 'admin') {
         url.pathname = DEFAULT_ADMIN_REDIRECT;
       } else if (role === 'manager') {
-        url.pathname = '/manager'; // DEFAULT_MANAGER_REDIRECT
+        url.pathname = '/manager';
       } else {
         url.pathname = DEFAULT_USER_REDIRECT;
       }
       return NextResponse.redirect(url);
     }
 
+    // 보호된 경로가 아니면 통과
     if (!isProtectedPath) {
       return res;
     }
 
+    // 보호된 경로인데 인증 실패
     if (userError || !user) {
       const url = req.nextUrl.clone();
       url.pathname = '/login';
@@ -167,54 +178,68 @@ export async function middleware(req: NextRequest) {
     const isSystemManager = role === 'manager';
     const isSuperUser = isGlobalAdmin || isSystemManager;
 
-    // 1. 관리자 전용 라우트 접근 처리
+    // ──────────────────────────────────────────────
+    // 1. 관리자 전용 라우트 (/admin, /admin-setup)
+    // ──────────────────────────────────────────────
     if (isAdminRoute) {
       if (!isGlobalAdmin) {
         const url = req.nextUrl.clone();
         url.pathname = '/unauthorized';
         return NextResponse.redirect(url);
       }
-      // 시스템 관리자이고 관리자 라우트이면 클럽 쿠키가 없어도 접근 허용 (프리패스)
+      // 시스템 관리자 → 프리패스 (클럽 쿠키 불필요)
       return res;
     }
 
-    // 시스템 매니저/어드민의 경우 클럽 쿠키가 없어도 /manager/admin (전체 클럽 관리) 등에 접근 가능해야 함
-    const hasClubCookie = req.cookies.has('active_club_id');
-    const isGlobalAdminPath = pathname.startsWith('/manager/admin') || pathname === '/manager';
-
-    if (user && !hasClubCookie && pathname !== '/select-club') {
-      // 슈퍼 유저가 전체 관리 페이지에 접근하는 경우는 허용
-      if (isSuperUser && isGlobalAdminPath) {
-        // 프리패스
-      } else {
-        const url = req.nextUrl.clone();
-        url.pathname = '/select-club';
-        if (pathname !== '/') {
-          url.searchParams.set('redirectTo', pathname);
-        }
-        return NextResponse.redirect(url);
-      }
-    }
-
-    // 2. 매니저 전용 라우트 접근 처리
+    // ──────────────────────────────────────────────
+    // 2. 매니저 라우트 (/manager, /match-schedule, /players, etc.)
+    // ──────────────────────────────────────────────
     if (isManagerRoute) {
-      // 시스템 관리자와 시스템 매니저는 프리패스
-      if (isSuperUser) return res;
+      // 시스템 관리자 → 모든 매니저 페이지 접근 가능 (프리패스)
+      if (isGlobalAdmin) return res;
 
+      // 시스템 매니저 → 클럽 선택 없이도 /manager, /manager/admin 등에 접근 가능
+      const hasClubCookie = req.cookies.has('active_club_id');
+      const isGlobalAdminPath = pathname.startsWith('/manager/admin') || pathname === '/manager';
+
+      if (isSystemManager) {
+        if (hasClubCookie || isGlobalAdminPath) {
+          return res;
+        }
+        // 시스템 매니저이지만 클럽별 관리 페이지에 클럽 쿠키 없이 접근
+        if (!REDIRECT_SAFE_PATHS.has(pathname)) {
+          const url = req.nextUrl.clone();
+          url.pathname = '/select-club';
+          url.searchParams.set('redirectTo', pathname);
+          return NextResponse.redirect(url);
+        }
+        return res;
+      }
+
+      // 일반 사용자 (클럽 레벨 매니저 후보)
+      // 클럽 쿠키가 없으면 클럽 선택 페이지로 보냄
+      if (!hasClubCookie) {
+        if (!REDIRECT_SAFE_PATHS.has(pathname)) {
+          const url = req.nextUrl.clone();
+          url.pathname = '/select-club';
+          url.searchParams.set('redirectTo', pathname);
+          return NextResponse.redirect(url);
+        }
+        return res;
+      }
+
+      // 클럽 쿠키가 있으면 해당 클럽에서의 역할을 확인
       const activeClubId = req.cookies.get('active_club_id')?.value;
-      if (!activeClubId) {
-        const url = req.nextUrl.clone();
-        url.pathname = '/select-club';
-        url.searchParams.set('redirectTo', pathname);
-        return NextResponse.redirect(url);
+      if (activeClubId) {
+        const clubRole = await getClubRole(supabase, user.id, activeClubId);
+        if (!clubRole || !['owner', 'admin', 'manager'].includes(clubRole)) {
+          const url = req.nextUrl.clone();
+          url.pathname = '/unauthorized';
+          return NextResponse.redirect(url);
+        }
       }
 
-      const clubRole = await getClubRole(supabase, user.id, activeClubId);
-      if (!clubRole || !['owner', 'admin', 'manager'].includes(clubRole)) {
-        const url = req.nextUrl.clone();
-        url.pathname = '/unauthorized';
-        return NextResponse.redirect(url);
-      }
+      return res;
     }
   } catch (error) {
     console.error('Middleware error:', error);

@@ -9,7 +9,7 @@ export async function setActiveClubAction(clubId: string) {
   // 쿠키를 30일간 유지하도록 설정
   cookieStore.set(CLUB_COOKIE_NAME, clubId, {
     maxAge: 60 * 60 * 24 * 30, // 30 days
-    httpOnly: true,
+    httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/'

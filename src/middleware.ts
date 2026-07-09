@@ -32,6 +32,27 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
+  // 점검 모드 설정 확인
+  const isMaintenanceMode = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true';
+  const isMaintenancePath = pathname === '/maintenance';
+  const isApiOrStatic = pathname.startsWith('/api') || 
+                        pathname.startsWith('/_next') || 
+                        pathname.startsWith('/favicon.ico') || 
+                        pathname.includes('.') ||
+                        pathname.startsWith('/maintenance_badminton.png');
+
+  // 점검 모드가 비활성화되어 있는데 /maintenance로 접근하는 경우 홈(/)으로 리다이렉트
+  if (!isMaintenanceMode && isMaintenancePath) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/';
+    return NextResponse.redirect(url);
+  }
+
+  // API나 정적 리소스는 점검 모드 제외
+  if (isApiOrStatic) {
+    return res;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -60,6 +81,16 @@ export async function middleware(req: NextRequest) {
     (cookie) => cookie.name.startsWith('sb-') && cookie.name.includes('auth-token')
   );
 
+  // 점검 모드이고 세션 쿠키가 없는 경우, /login을 제외하고 모두 /maintenance로 리다이렉션
+  if (isMaintenanceMode && !hasSessionCookie) {
+    if (pathname !== '/login' && !isMaintenancePath) {
+      const url = req.nextUrl.clone();
+      url.pathname = '/maintenance';
+      return NextResponse.redirect(url);
+    }
+    return res;
+  }
+
   // 세션 쿠키가 없고 관리자 경로가 아닌 경우, 인증 조회(getUser)를 스킵하고 바로 통과시킵니다.
   if (!hasSessionCookie && !isProtectedPath) {
     return res;
@@ -78,6 +109,19 @@ export async function middleware(req: NextRequest) {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
+
+    // 점검 모드이고 유저가 로그인 상태인 경우
+    if (isMaintenanceMode && user) {
+      const role = await getUserRole(supabase, user);
+      const isSuperUser = role === 'admin' || role === 'manager';
+
+      // 어드민이나 매니저가 아니면서 /maintenance가 아닌 경로에 있으면 점검 화면으로 강제 이동
+      if (!isSuperUser && !isMaintenancePath) {
+        const url = req.nextUrl.clone();
+        url.pathname = '/maintenance';
+        return NextResponse.redirect(url);
+      }
+    }
     
     // change-password 페이지는 언제나 접근 가능
     if (pathname === '/change-password') {

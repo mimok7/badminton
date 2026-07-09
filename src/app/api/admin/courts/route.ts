@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+import { getSupabaseAdminClient, getFilteredAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { getUserRole } from '@/lib/auth';
 import type { Database } from '@/types/supabase';
 
@@ -8,7 +8,7 @@ type CourtUpdate = Database['public']['Tables']['courts']['Update'];
 
 async function requireAdmin() {
   const serverSupabase = await getSupabaseServerClient();
-  const adminSupabase = getSupabaseAdminClient();
+  const adminSupabase = await getFilteredAdminClient();
 
   const {
     data: { user },

@@ -40,9 +40,27 @@ function getGroupColors(color: string) {
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { profile } = useUser();
+  const homeHref = profile?.role === 'manager' ? '/manager/admin' : '/admin';
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarVisible, setIsDesktopSidebarVisible] = useState(true);
   const [isMobileView, setIsMobileView] = useState(false);
+  const [activeClubName, setActiveClubName] = useState<string>('');
+
+  useEffect(() => {
+    async function fetchActiveClub() {
+      try {
+        const res = await fetch('/api/user/active-club');
+        const data = await res.json();
+        if (data.club?.name) {
+          setActiveClubName(data.club.name);
+          document.title = `${data.club.name} - 매니저 대시보드`;
+        }
+      } catch (err) {
+        console.error('Failed to fetch active club name:', err);
+      }
+    }
+    fetchActiveClub();
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -84,13 +102,24 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   };
 
   const visibleSections = useMemo(() => {
-    // If the user is a global admin, they only see system management (or maybe everything, but usually just system management)
-    if (profile?.role === 'admin' || profile?.role === 'administrator') {
-      return SECTIONS.filter(section => section.title.includes('시스템 관리'));
+    const sectionsCopy = JSON.parse(JSON.stringify(SECTIONS)) as typeof SECTIONS;
+    
+    if (profile?.role === 'manager') {
+      return sectionsCopy.map(section => {
+        section.items = section.items.map(item => {
+          if (item.href === '/admin') {
+            return { ...item, href: '/manager/admin' };
+          }
+          if (item.href === '/admin/members') {
+            return { ...item, href: '/manager/admin/members' };
+          }
+          return item;
+        });
+        return section;
+      });
     }
     
-    // For managers (or any user who has access to AdminShell), they see manager menus
-    return SECTIONS.filter(section => !section.title.includes('시스템 관리'));
+    return sectionsCopy;
   }, [profile?.role]);
 
   const sidebarNav = (
@@ -133,8 +162,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         {!isMobileView && isDesktopSidebarVisible && (
           <aside className="sticky top-0 z-30 h-screen w-52 shrink-0 overflow-y-auto border-r border-gray-200 bg-white">
             <div className="border-b border-gray-100 p-4">
-              <Link href="/admin" className="block text-base font-bold text-gray-900 tracking-tight">⚙️ 관리자</Link>
-              <div className="mt-1 text-xs text-gray-500">{profile?.full_name || profile?.username || '관리자'}님</div>
+              <Link href={homeHref} className="block text-base font-bold text-gray-900 tracking-tight">
+                {activeClubName ? `🏸 ${activeClubName}` : '⚙️ 관리자'}
+              </Link>
+              <div className="mt-1 text-xs text-gray-500">
+                {activeClubName && <span className="block font-semibold text-indigo-600 mb-0.5">매니저 모드</span>}
+                {profile?.full_name || profile?.username || '관리자'}님
+              </div>
             </div>
             {sidebarNav}
           </aside>
@@ -148,10 +182,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             >
               <div className="flex items-center justify-between border-b border-gray-100 p-4">
                 <div>
-                  <Link href="/admin" onClick={handleNavClick} className="block text-base font-bold text-gray-900 tracking-tight">
-                    ⚙️ 관리자
+                  <Link href={homeHref} onClick={handleNavClick} className="block text-base font-bold text-gray-900 tracking-tight">
+                    {activeClubName ? `🏸 ${activeClubName}` : '⚙️ 관리자'}
                   </Link>
-                  <div className="mt-1 text-xs text-gray-500">{profile?.full_name || profile?.username || '관리자'}님</div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {activeClubName && <span className="block font-semibold text-indigo-600 mb-0.5">매니저 모드</span>}
+                    {profile?.full_name || profile?.username || '관리자'}님
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -170,7 +207,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <header className="sticky top-0 z-10 border-b border-gray-200 bg-white px-3 py-3 sm:px-6 sm:py-4">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs font-semibold tracking-[0.12em] text-gray-400 sm:text-sm">ADMIN</div>
+                <div className="text-xs font-semibold tracking-[0.12em] text-gray-400 sm:text-sm">
+                  {activeClubName ? `ADMIN | ${activeClubName}` : 'ADMIN'}
+                </div>
                 <div className="truncate text-sm font-semibold text-gray-900 sm:hidden">
                   {profile?.full_name || profile?.username || '관리자'}
                 </div>
@@ -179,7 +218,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               <div className="flex gap-1.5 sm:gap-2">
                 {isMobileView && (
                   <Link
-                    href="/admin"
+                    href={homeHref}
                     className="inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
                   >
                     ⚙️ 홈

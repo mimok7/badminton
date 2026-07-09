@@ -120,33 +120,42 @@ export async function middleware(req: NextRequest) {
 
     const role = await getUserRole(supabase, user);
     const isGlobalAdmin = role === 'admin';
+    const isSystemManager = role === 'manager';
+    const isSuperUser = isGlobalAdmin || isSystemManager;
 
-    // 1. 관리자 전용 라우트 접근 시
+    // 1. 관리자 전용 라우트 접근 처리
     if (isAdminRoute) {
       if (!isGlobalAdmin) {
         const url = req.nextUrl.clone();
         url.pathname = '/unauthorized';
         return NextResponse.redirect(url);
       }
-      // 시스템 관리자이고 관리자 라우트면 클럽 쿠키가 없어도 접근 허용 (프리패스)
+      // 시스템 관리자이고 관리자 라우트이면 클럽 쿠키가 없어도 접근 허용 (프리패스)
       return res;
     }
 
-    // 일반 및 매니저 라우트의 경우 클럽 쿠키가 있는지 확인
+    // 시스템 매니저/어드민의 경우 클럽 쿠키가 없어도 /manager/admin (전체 클럽 관리) 등에 접근 가능해야 함
     const hasClubCookie = req.cookies.has('active_club_id');
+    const isGlobalAdminPath = pathname.startsWith('/manager/admin') || pathname === '/manager';
+
     if (user && !hasClubCookie && pathname !== '/select-club') {
-      const url = req.nextUrl.clone();
-      url.pathname = '/select-club';
-      if (pathname !== '/') {
-        url.searchParams.set('redirectTo', pathname);
+      // 슈퍼 유저가 전체 관리 페이지에 접근하는 경우는 허용
+      if (isSuperUser && isGlobalAdminPath) {
+        // 프리패스
+      } else {
+        const url = req.nextUrl.clone();
+        url.pathname = '/select-club';
+        if (pathname !== '/') {
+          url.searchParams.set('redirectTo', pathname);
+        }
+        return NextResponse.redirect(url);
       }
-      return NextResponse.redirect(url);
     }
 
-    // 2. 매니저 전용 라우트 접근 시
+    // 2. 매니저 전용 라우트 접근 처리
     if (isManagerRoute) {
-      // 시스템 관리자는 프리패스
-      if (isGlobalAdmin) return res;
+      // 시스템 관리자와 시스템 매니저는 프리패스
+      if (isSuperUser) return res;
 
       const activeClubId = req.cookies.get('active_club_id')?.value;
       if (!activeClubId) {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+import { getSupabaseAdminClient, getFilteredAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { isUserAdmin } from '@/lib/auth';
 import { getKoreaDate } from '@/lib/date';
 import {
@@ -19,7 +19,7 @@ type ParticipantProfile = {
 
 async function requireAdmin() {
   const supabase = await getSupabaseServerClient();
-  const adminSupabase = getSupabaseAdminClient();
+  const adminSupabase = await getFilteredAdminClient();
 
   const {
     data: { user },

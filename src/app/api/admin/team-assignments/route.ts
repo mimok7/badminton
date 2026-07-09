@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+import { getSupabaseAdminClient, getFilteredAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { getUserRole } from '@/lib/auth';
 
 async function requireAdmin() {
   const supabase = await getSupabaseServerClient();
-  const adminSupabase = getSupabaseAdminClient();
+  const adminSupabase = await getFilteredAdminClient();
 
   const {
     data: { user },

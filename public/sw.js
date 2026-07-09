@@ -44,6 +44,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // 개발 환경(localhost)에서는 캐싱 및 네트워크 인터셉트를 하지 않고 바이패스합니다.
+  if (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1') {
+    return;
+  }
+
   if (event.request.method !== 'GET') {
     return;
   }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+import { getSupabaseAdminClient, getFilteredAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { isUserAdmin } from '@/lib/auth';
 
 type CreateRecurringTemplatePayload = {
@@ -31,7 +31,7 @@ const VALID_DAYS = new Set([0, 1, 2, 3, 4, 5, 6]);
 export async function POST(req: Request) {
   try {
     const supabase = await getSupabaseServerClient();
-    const adminSupabase = getSupabaseAdminClient();
+    const adminSupabase = await getFilteredAdminClient();
 
     const {
       data: { user },
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const supabase = await getSupabaseServerClient();
-    const adminSupabase = getSupabaseAdminClient();
+    const adminSupabase = await getFilteredAdminClient();
 
     const {
       data: { user },
@@ -149,7 +149,7 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const supabase = await getSupabaseServerClient();
-    const adminSupabase = getSupabaseAdminClient();
+    const adminSupabase = await getFilteredAdminClient();
 
     const {
       data: { user },

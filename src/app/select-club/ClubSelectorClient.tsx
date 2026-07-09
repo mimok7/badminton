@@ -16,7 +16,13 @@ type Club = {
   } | null;
 };
 
-export default function ClubSelectorClient({ clubs }: { clubs: Club[] }) {
+export default function ClubSelectorClient({ 
+  clubs, 
+  isGlobalAdmin = false 
+}: { 
+  clubs: Club[];
+  isGlobalAdmin?: boolean;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirectTo') || '/';
@@ -34,6 +40,21 @@ export default function ClubSelectorClient({ clubs }: { clubs: Club[] }) {
   };
 
   if (clubs.length === 0) {
+    if (isGlobalAdmin) {
+      return (
+        <div className="text-center p-8 bg-slate-800 rounded-xl border border-slate-700">
+          <h2 className="text-xl font-bold mb-4 text-white">등록된 클럽이 없습니다</h2>
+          <p className="text-slate-400 mb-6">시스템에 등록된 클럽이 없습니다. 전체 관리자 대시보드로 이동하여 클럽을 생성하세요.</p>
+          <Button variant="default" className="w-full mb-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => router.push('/manager/admin')}>
+            전체 관리자 대시보드로 이동
+          </Button>
+          <Button variant="outline" className="w-full" onClick={() => router.push('/login')}>
+            로그인 페이지로 돌아가기
+          </Button>
+        </div>
+      );
+    }
+
     return (
       <div className="text-center p-8 bg-slate-800 rounded-xl border border-slate-700">
         <h2 className="text-xl font-bold mb-4 text-white">가입된 클럽이 없습니다</h2>
@@ -48,6 +69,15 @@ export default function ClubSelectorClient({ clubs }: { clubs: Club[] }) {
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-bold text-center text-white mb-6">입장할 클럽을 선택하세요</h2>
+      {isGlobalAdmin && (
+        <Button 
+          variant="outline" 
+          className="w-full py-6 text-lg border-emerald-500/30 hover:border-emerald-500/60 hover:bg-emerald-500/10 text-emerald-400"
+          onClick={() => router.push('/manager/admin')}
+        >
+          클럽 선택 없이 전체 관리자 대시보드 입장
+        </Button>
+      )}
       <div className="grid gap-4">
         {clubs.map((c) => {
           const club = Array.isArray(c.clubs) ? c.clubs[0] : c.clubs;

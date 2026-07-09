@@ -24,13 +24,21 @@ export async function GET() {
       .single();
 
     if (error || !data) {
-      return NextResponse.json({ club: null });
+      return NextResponse.json({ club: null, clubRole: null });
     }
 
-    return NextResponse.json({ club: data });
+    // 클럽 내 사용자의 역할을 가져옴
+    const { data: memberData } = await supabase
+      .from('club_members')
+      .select('role')
+      .eq('club_id', clubId)
+      .eq('user_id', user.id)
+      .single();
+
+    return NextResponse.json({ club: data, clubRole: (memberData as any)?.role || null });
 
   } catch (error) {
     console.error('Error fetching active club:', error);
-    return NextResponse.json({ club: null }, { status: 500 });
+    return NextResponse.json({ club: null, clubRole: null }, { status: 500 });
   }
 }

@@ -6,6 +6,7 @@ export const ADMIN_ROUTE_PREFIXES = [
 ] as const;
 
 export const MANAGER_ROUTE_PREFIXES = [
+  '/manager',
   '/match-assignment',
   '/match-results',
   '/match-schedule',

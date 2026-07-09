@@ -49,18 +49,29 @@ export const getSupabaseClient = (): BrowserSupabaseClient => {
     'attendances', 
     'team_assignments', 
     'match_coin_bets',
-    'club_members'
+    'club_members',
+    'notifications',
+    'tournament_matches',
+    'profile_coin_transactions',
+    'club_level_aliases',
+    'match_sessions',
+    'match_participants',
+    'match_results',
+    'match_player_status',
+    'recurring_match_templates',
+    'tournaments',
+    'courts',
+    'products',
+    'product_purchases',
+    'surveys',
+    'survey_responses',
+    'challenge_requests',
+    'member_level_votes',
+    'member_rating_settings',
+    'match_wager_proposals'
   ];
 
-  let isApiOrAdmin = false;
-  if (typeof window !== 'undefined') {
-    const pathname = window.location.pathname;
-    if (pathname.startsWith('/admin') || pathname.startsWith('/admin-setup')) {
-      isApiOrAdmin = true;
-    }
-  }
-
-  if (activeClubId && !isApiOrAdmin) {
+  if (activeClubId) {
     const originalFrom = client.from.bind(client);
     (client as any).from = (table: string) => {
       const qb = originalFrom(table as any);

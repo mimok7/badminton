@@ -12,10 +12,29 @@ const TABLES_WITH_CLUB_ID = [
   'attendances', 
   'team_assignments', 
   'match_coin_bets',
-  'club_members' // club_members도 현재 클럽 내에서만 조회/수정되도록 제한
+  'club_members',
+  'notifications',
+  'tournament_matches',
+  'profile_coin_transactions',
+  'club_level_aliases',
+  'match_sessions',
+  'match_participants',
+  'match_results',
+  'match_player_status',
+  'recurring_match_templates',
+  'tournaments',
+  'courts',
+  'products',
+  'product_purchases',
+  'surveys',
+  'survey_responses',
+  'challenge_requests',
+  'member_level_votes',
+  'member_rating_settings',
+  'match_wager_proposals'
 ];
 
-function withClubFilter(client: any, activeClubId: string | undefined | null) {
+export function withClubFilter(client: any, activeClubId: string | undefined | null) {
   if (!activeClubId) return client;
 
   const originalFrom = client.from.bind(client);
@@ -84,21 +103,6 @@ export async function getSupabaseServerClient(): Promise<ServerSupabaseClient> {
     }
   );
 
-  let isApiOrAdmin = false;
-  try {
-    const headersList = await headers();
-    const pathname = headersList.get('x-pathname') || '';
-    if (pathname.startsWith('/admin') || pathname.startsWith('/admin-setup')) {
-      isApiOrAdmin = true;
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  if (isApiOrAdmin) {
-    return client;
-  }
-
   return withClubFilter(client, activeClubId);
 }
 
@@ -132,4 +136,11 @@ export function getSupabaseAdminClient(): AdminSupabaseClient {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+export async function getFilteredAdminClient(): Promise<AdminSupabaseClient> {
+  const cookieStore = await cookies();
+  const activeClubId = cookieStore.get('active_club_id')?.value;
+  const adminClient = getSupabaseAdminClient();
+  return withClubFilter(adminClient, activeClubId) as AdminSupabaseClient;
 }

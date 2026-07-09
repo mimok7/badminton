@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+import { getSupabaseAdminClient, getFilteredAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { getKoreaDate } from '@/lib/date';
 import { isAdminOrManagerRole } from '@/lib/auth';
 
@@ -19,7 +19,7 @@ function addMinutesToTimeString(time: string | null | undefined, minutesToAdd: n
 export async function POST(request: Request) {
   try {
     const supabase = await getSupabaseServerClient();
-    const adminSupabase = getSupabaseAdminClient();
+    const adminSupabase = await getFilteredAdminClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {

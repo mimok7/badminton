@@ -2,20 +2,35 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useUser } from '@/hooks/useUser';
 
 export default function ManagerDashboardPage() {
   const { profile, loading, isAdmin } = useUser();
   const router = useRouter();
 
+  const [isMobile, setIsMobile] = useState(true);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   useEffect(() => {
     if (!loading) {
-      if (!profile || !isAdmin) {
+      if (!profile) {
         router.replace('/unauthorized');
+        return;
+      }
+      if (!isMobile) {
+        router.replace('/match-schedule');
       }
     }
-  }, [profile, loading, isAdmin, router]);
+  }, [profile, loading, router, isMobile, isAdmin]);
 
   return (
     <div className="px-1 py-2 sm:px-2">
@@ -103,8 +118,24 @@ export default function ManagerDashboardPage() {
             href="/members"
             className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-purple-400 hover:bg-purple-50 sm:p-4 shadow-sm"
           >
-            <h3 className="text-sm font-medium text-gray-900 sm:text-base">👥 회원관리</h3>
-            <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">회원 정보와 클럽 내 권한을 관리하세요</p>
+            <h3 className="text-sm font-medium text-gray-900 sm:text-base">👥 클럽 회원관리</h3>
+            <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">클럽 회원 정보와 권한을 관리하세요</p>
+          </Link>
+
+          <Link
+            href="/manager/admin"
+            className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-rose-400 hover:bg-rose-50 sm:p-4 shadow-sm"
+          >
+            <h3 className="text-sm font-medium text-gray-900 sm:text-base">🏢 전체 클럽 관리</h3>
+            <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">시스템에 등록된 전체 클럽을 관리하세요</p>
+          </Link>
+
+          <Link
+            href="/manager/admin/members"
+            className="rounded-lg border border-blue-200 bg-white px-3 py-3 transition-colors hover:border-fuchsia-400 hover:bg-fuchsia-50 sm:p-4 shadow-sm"
+          >
+            <h3 className="text-sm font-medium text-gray-900 sm:text-base">👥 전체 사용자 관리</h3>
+            <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">시스템에 등록된 전체 사용자의 권한과 정보를 관리하세요</p>
           </Link>
 
           <Link

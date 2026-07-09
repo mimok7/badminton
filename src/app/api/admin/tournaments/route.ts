@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+import { getSupabaseAdminClient, getFilteredAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 import { getUserRole } from '@/lib/auth';
 import { createBalancedDoublesMatches, createMixedAndSameSexDoublesMatches, createRandomBalancedDoublesMatches } from '@/utils/match-utils';
 import type { Player } from '@/types';
@@ -330,7 +330,7 @@ async function fetchTeamAssignment(
 
 async function requireAdminOrManager() {
   const supabase = await getSupabaseServerClient();
-  const adminSupabase = getSupabaseAdminClient();
+  const adminSupabase = await getFilteredAdminClient();
 
   const {
     data: { user },

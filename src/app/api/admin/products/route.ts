@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getProfileByUserId, isAdminRole } from '@/lib/auth';
-import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
+import { getSupabaseAdminClient, getFilteredAdminClient, getSupabaseServerClient } from '@/lib/supabase-server';
 
 async function requireAdmin() {
   const serverSupabase = await getSupabaseServerClient();
-  const adminSupabase = getSupabaseAdminClient() as any;
+  const adminSupabase = await getFilteredAdminClient() as any;
   const {
     data: { user },
     error: authError,

@@ -10,6 +10,45 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      "app_modification_requests": {
+  Row: {
+    id: string;
+  requester_id: string;
+  category: string;
+  content: string;
+  status: string;
+  requested_at: string;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  menu_name: string | null;
+  };
+  Insert: {
+    id?: string;
+  requester_id: string;
+  category: string;
+  content: string;
+  status?: string;
+  requested_at?: string;
+  completed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  menu_name?: string | null;
+  };
+  Update: {
+    id?: string | null;
+  requester_id?: string | null;
+  category?: string | null;
+  content?: string | null;
+  status?: string | null;
+  requested_at?: string | null;
+  completed_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  menu_name?: string | null;
+  };
+  Relationships: [];
+};
       "assignments": {
   Row: {
     session_id: string;
@@ -66,9 +105,10 @@ export type Database = {
   status: string;
   match_schedule_id: string | null;
   notes: string | null;
-  partner_user_id: string | null;
   created_at: string;
   updated_at: string;
+  partner_user_id: string | null;
+  club_id: string;
   };
   Insert: {
     id?: string;
@@ -77,9 +117,10 @@ export type Database = {
   status?: string;
   match_schedule_id?: string | null;
   notes?: string | null;
-  partner_user_id?: string | null;
   created_at?: string;
   updated_at?: string;
+  partner_user_id?: string | null;
+  club_id: string;
   };
   Update: {
     id?: string | null;
@@ -88,36 +129,10 @@ export type Database = {
   status?: string | null;
   match_schedule_id?: string | null;
   notes?: string | null;
-  partner_user_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
-  };
-  Relationships: [];
-};
-      "courts": {
-  Row: {
-    id: string;
-  name: string;
-  is_active: boolean;
-  order_index: number | null;
-  location: string | null;
-  created_at: string;
-  };
-  Insert: {
-    id?: string;
-  name: string;
-  is_active?: boolean;
-  order_index?: number | null;
-  location?: string | null;
-  created_at?: string;
-  };
-  Update: {
-    id?: string | null;
-  name?: string | null;
-  is_active?: boolean | null;
-  order_index?: number | null;
-  location?: string | null;
-  created_at?: string | null;
+  partner_user_id?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -137,6 +152,7 @@ export type Database = {
   responded_at: string | null;
   created_at: string;
   updated_at: string;
+  club_id: string;
   };
   Insert: {
     id?: string;
@@ -153,6 +169,7 @@ export type Database = {
   responded_at?: string | null;
   created_at?: string;
   updated_at?: string;
+  club_id: string;
   };
   Update: {
     id?: string | null;
@@ -169,6 +186,103 @@ export type Database = {
   responded_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  club_id?: string | null;
+  };
+  Relationships: [];
+};
+      "club_members": {
+  Row: {
+    id: string;
+  club_id: string;
+  user_id: string;
+  role: string;
+  status: string;
+  coin_balance: number;
+  coin_wins: number;
+  coin_losses: number;
+  created_at: string | null;
+  updated_at: string | null;
+  };
+  Insert: {
+    id?: string;
+  club_id: string;
+  user_id: string;
+  role?: string;
+  status?: string;
+  coin_balance?: number;
+  coin_wins?: number;
+  coin_losses?: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+  };
+  Update: {
+    id?: string | null;
+  club_id?: string | null;
+  user_id?: string | null;
+  role?: string | null;
+  status?: string | null;
+  coin_balance?: number | null;
+  coin_wins?: number | null;
+  coin_losses?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  };
+  Relationships: [];
+};
+      "clubs": {
+  Row: {
+    id: string;
+  name: string;
+  code: string;
+  description: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  };
+  Insert: {
+    id?: string;
+  name: string;
+  code: string;
+  description?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  };
+  Update: {
+    id?: string | null;
+  name?: string | null;
+  code?: string | null;
+  description?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  };
+  Relationships: [];
+};
+      "courts": {
+  Row: {
+    id: string;
+  name: string;
+  is_active: boolean;
+  order_index: number | null;
+  location: string | null;
+  created_at: string;
+  club_id: string;
+  };
+  Insert: {
+    id?: string;
+  name: string;
+  is_active?: boolean;
+  order_index?: number | null;
+  location?: string | null;
+  created_at?: string;
+  club_id: string;
+  };
+  Update: {
+    id?: string | null;
+  name?: string | null;
+  is_active?: boolean | null;
+  order_index?: number | null;
+  location?: string | null;
+  created_at?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -241,6 +355,7 @@ export type Database = {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  club_id: string;
   };
   Insert: {
     id?: number;
@@ -256,6 +371,7 @@ export type Database = {
   completed_at?: string | null;
   created_at?: string;
   updated_at?: string;
+  club_id: string;
   };
   Update: {
     id?: number | null;
@@ -271,6 +387,7 @@ export type Database = {
   completed_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -279,25 +396,55 @@ export type Database = {
     id: number;
   code: string;
   name: string;
-  score: number | null;
   description: string | null;
   created_at: string;
+  score: number | null;
   };
   Insert: {
     id?: number;
   code: string;
   name: string;
-  score?: number | null;
   description?: string | null;
   created_at?: string;
+  score?: number | null;
   };
   Update: {
     id?: number | null;
   code?: string | null;
   name?: string | null;
-  score?: number | null;
   description?: string | null;
   created_at?: string | null;
+  score?: number | null;
+  };
+  Relationships: [];
+};
+      "match_coin_bets": {
+  Row: {
+    id: number;
+  match_id: number | null;
+  profile_id: string;
+  wager_amount: number;
+  created_at: string;
+  updated_at: string;
+  club_id: string;
+  };
+  Insert: {
+    id?: number;
+  match_id?: number | null;
+  profile_id: string;
+  wager_amount?: number;
+  created_at?: string;
+  updated_at?: string;
+  club_id: string;
+  };
+  Update: {
+    id?: number | null;
+  match_id?: number | null;
+  profile_id?: string | null;
+  wager_amount?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -310,6 +457,7 @@ export type Database = {
   status: string;
   notes: string | null;
   partner_user_id: string | null;
+  club_id: string;
   };
   Insert: {
     id?: string;
@@ -319,6 +467,7 @@ export type Database = {
   status?: string;
   notes?: string | null;
   partner_user_id?: string | null;
+  club_id: string;
   };
   Update: {
     id?: string | null;
@@ -328,6 +477,7 @@ export type Database = {
   status?: string | null;
   notes?: string | null;
   partner_user_id?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -339,6 +489,7 @@ export type Database = {
   status: string;
   updated_at: string;
   updated_by: string | null;
+  club_id: string;
   };
   Insert: {
     id?: number;
@@ -347,6 +498,7 @@ export type Database = {
   status?: string;
   updated_at?: string;
   updated_by?: string | null;
+  club_id: string;
   };
   Update: {
     id?: number | null;
@@ -355,6 +507,7 @@ export type Database = {
   status?: string | null;
   updated_at?: string | null;
   updated_by?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -366,6 +519,7 @@ export type Database = {
   team1_score: number;
   team2_score: number;
   created_at: string;
+  club_id: string;
   };
   Insert: {
     id?: number;
@@ -374,6 +528,7 @@ export type Database = {
   team1_score: number;
   team2_score: number;
   created_at?: string;
+  club_id: string;
   };
   Update: {
     id?: number | null;
@@ -382,6 +537,7 @@ export type Database = {
   team1_score?: number | null;
   team2_score?: number | null;
   created_at?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -389,7 +545,6 @@ export type Database = {
   Row: {
     id: string;
   generated_match_id: number | null;
-  schedule_source: string;
   match_date: string | null;
   scheduled_date: string | null;
   start_time: string | null;
@@ -406,12 +561,13 @@ export type Database = {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
+  schedule_source: string;
   referee_id: string | null;
+  club_id: string;
   };
   Insert: {
     id?: string;
   generated_match_id?: number | null;
-  schedule_source?: string;
   match_date?: string | null;
   scheduled_date?: string | null;
   start_time?: string | null;
@@ -428,12 +584,13 @@ export type Database = {
   updated_by?: string | null;
   created_at?: string;
   updated_at?: string;
+  schedule_source?: string;
   referee_id?: string | null;
+  club_id: string;
   };
   Update: {
     id?: string | null;
   generated_match_id?: number | null;
-  schedule_source?: string | null;
   match_date?: string | null;
   scheduled_date?: string | null;
   start_time?: string | null;
@@ -450,7 +607,9 @@ export type Database = {
   updated_by?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  schedule_source?: string | null;
   referee_id?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -464,6 +623,7 @@ export type Database = {
   assigned_matches: number;
   created_at: string;
   updated_at: string;
+  club_id: string;
   };
   Insert: {
     id?: string;
@@ -474,6 +634,7 @@ export type Database = {
   assigned_matches?: number;
   created_at?: string;
   updated_at?: string;
+  club_id: string;
   };
   Update: {
     id?: string | null;
@@ -484,6 +645,97 @@ export type Database = {
   assigned_matches?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
+  club_id?: string | null;
+  };
+  Relationships: [];
+};
+      "match_wager_proposals": {
+  Row: {
+    match_id: number;
+  proposed_by: string;
+  wager_amount: number;
+  status: string;
+  responses: Json | null;
+  created_at: string;
+  updated_at: string;
+  club_id: string;
+  };
+  Insert: {
+    match_id?: number;
+  proposed_by: string;
+  wager_amount?: number;
+  status?: string;
+  responses?: Json | null;
+  created_at?: string;
+  updated_at?: string;
+  club_id: string;
+  };
+  Update: {
+    match_id?: number | null;
+  proposed_by?: string | null;
+  wager_amount?: number | null;
+  status?: string | null;
+  responses?: Json | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  club_id?: string | null;
+  };
+  Relationships: [];
+};
+      "member_level_votes": {
+  Row: {
+    id: string;
+  voter_id: string;
+  subject_id: string;
+  skill_level: string;
+  created_at: string | null;
+  updated_at: string | null;
+  club_id: string;
+  };
+  Insert: {
+    id?: string;
+  voter_id: string;
+  subject_id: string;
+  skill_level: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  club_id: string;
+  };
+  Update: {
+    id?: string | null;
+  voter_id?: string | null;
+  subject_id?: string | null;
+  skill_level?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  club_id?: string | null;
+  };
+  Relationships: [];
+};
+      "member_rating_settings": {
+  Row: {
+    id: number;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  club_id: string;
+  };
+  Insert: {
+    id?: number;
+  start_date?: string | null;
+  end_date?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  club_id: string;
+  };
+  Update: {
+    id?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -498,6 +750,10 @@ export type Database = {
   is_read: boolean;
   created_at: string;
   read_at: string | null;
+  survey_id: string | null;
+  file_url: string | null;
+  file_name: string | null;
+  club_id: string;
   };
   Insert: {
     id?: string;
@@ -509,6 +765,10 @@ export type Database = {
   is_read?: boolean;
   created_at?: string;
   read_at?: string | null;
+  survey_id?: string | null;
+  file_url?: string | null;
+  file_name?: string | null;
+  club_id: string;
   };
   Update: {
     id?: string | null;
@@ -520,33 +780,73 @@ export type Database = {
   is_read?: boolean | null;
   created_at?: string | null;
   read_at?: string | null;
+  survey_id?: string | null;
+  file_url?: string | null;
+  file_name?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
-      "match_coin_bets": {
+      "product_purchases": {
   Row: {
-    id: number;
-  match_id: number;
+    id: string;
   profile_id: string;
-  wager_amount: number;
+  product_id: string;
+  coin_price: number;
   created_at: string;
-  updated_at: string;
+  club_id: string;
   };
   Insert: {
-    id?: number;
-  match_id: number;
+    id?: string;
   profile_id: string;
-  wager_amount?: number;
+  product_id: string;
+  coin_price: number;
   created_at?: string;
-  updated_at?: string;
+  club_id: string;
   };
   Update: {
-    id?: number | null;
-  match_id?: number | null;
+    id?: string | null;
   profile_id?: string | null;
-  wager_amount?: number | null;
+  product_id?: string | null;
+  coin_price?: number | null;
+  created_at?: string | null;
+  club_id?: string | null;
+  };
+  Relationships: [];
+};
+      "products": {
+  Row: {
+    id: string;
+  name: string;
+  coin_price: number;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  image_svg: string | null;
+  club_id: string;
+  };
+  Insert: {
+    id?: string;
+  name: string;
+  coin_price: number;
+  description?: string | null;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  image_svg?: string | null;
+  club_id: string;
+  };
+  Update: {
+    id?: string | null;
+  name?: string | null;
+  coin_price?: number | null;
+  description?: string | null;
+  is_active?: boolean | null;
   created_at?: string | null;
   updated_at?: string | null;
+  image_svg?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -554,7 +854,7 @@ export type Database = {
   Row: {
     id: number;
   profile_id: string;
-  match_id: number;
+  match_id: number | null;
   transaction_type: string;
   delta: number;
   wager_amount: number;
@@ -564,11 +864,12 @@ export type Database = {
   recorded_by: string | null;
   created_at: string;
   updated_at: string;
+  club_id: string;
   };
   Insert: {
     id?: number;
   profile_id: string;
-  match_id: number;
+  match_id?: number | null;
   transaction_type: string;
   delta: number;
   wager_amount?: number;
@@ -578,6 +879,7 @@ export type Database = {
   recorded_by?: string | null;
   created_at?: string;
   updated_at?: string;
+  club_id: string;
   };
   Update: {
     id?: number | null;
@@ -592,6 +894,7 @@ export type Database = {
   recorded_by?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -605,14 +908,14 @@ export type Database = {
   role: string;
   skill_level: string;
   gender: string | null;
-  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
   coin_balance: number;
   coin_wins: number;
   coin_losses: number;
   coin_updated_at: string;
-  is_guest: boolean;
-  created_at: string;
-  updated_at: string;
+  avatar_url: string | null;
+  is_guest: boolean | null;
   };
   Insert: {
     id?: string;
@@ -623,14 +926,14 @@ export type Database = {
   role?: string;
   skill_level?: string;
   gender?: string | null;
-  avatar_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
   coin_balance?: number;
   coin_wins?: number;
   coin_losses?: number;
   coin_updated_at?: string;
-  is_guest?: boolean;
-  created_at?: string;
-  updated_at?: string;
+  avatar_url?: string | null;
+  is_guest?: boolean | null;
   };
   Update: {
     id?: string | null;
@@ -641,14 +944,14 @@ export type Database = {
   role?: string | null;
   skill_level?: string | null;
   gender?: string | null;
-  avatar_url?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
   coin_balance?: number | null;
   coin_wins?: number | null;
   coin_losses?: number | null;
   coin_updated_at?: string | null;
+  avatar_url?: string | null;
   is_guest?: boolean | null;
-  created_at?: string | null;
-  updated_at?: string | null;
   };
   Relationships: [];
 };
@@ -667,6 +970,7 @@ export type Database = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  club_id: string;
   };
   Insert: {
     id?: string;
@@ -682,6 +986,7 @@ export type Database = {
   created_by?: string | null;
   created_at?: string;
   updated_at?: string;
+  club_id: string;
   };
   Update: {
     id?: string | null;
@@ -697,6 +1002,7 @@ export type Database = {
   created_by?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -772,6 +1078,69 @@ export type Database = {
   };
   Relationships: [];
 };
+      "survey_responses": {
+  Row: {
+    id: string;
+  survey_id: string;
+  user_id: string;
+  selected_option: string;
+  created_at: string | null;
+  club_id: string;
+  };
+  Insert: {
+    id?: string;
+  survey_id: string;
+  user_id: string;
+  selected_option: string;
+  created_at?: string | null;
+  club_id: string;
+  };
+  Update: {
+    id?: string | null;
+  survey_id?: string | null;
+  user_id?: string | null;
+  selected_option?: string | null;
+  created_at?: string | null;
+  club_id?: string | null;
+  };
+  Relationships: [];
+};
+      "surveys": {
+  Row: {
+    id: string;
+  question: string;
+  description: string | null;
+  options: Json;
+  is_active: boolean;
+  max_responses: number | null;
+  option_limits: Json | null;
+  created_at: string | null;
+  club_id: string;
+  };
+  Insert: {
+    id?: string;
+  question: string;
+  description?: string | null;
+  options: Json;
+  is_active?: boolean;
+  max_responses?: number | null;
+  option_limits?: Json | null;
+  created_at?: string | null;
+  club_id: string;
+  };
+  Update: {
+    id?: string | null;
+  question?: string | null;
+  description?: string | null;
+  options?: Json | null;
+  is_active?: boolean | null;
+  max_responses?: number | null;
+  option_limits?: Json | null;
+  created_at?: string | null;
+  club_id?: string | null;
+  };
+  Relationships: [];
+};
       "team_assignments": {
   Row: {
     id: string;
@@ -788,6 +1157,7 @@ export type Database = {
   pairs_data: Json | null;
   created_at: string;
   updated_at: string;
+  club_id: string;
   };
   Insert: {
     id?: string;
@@ -804,6 +1174,7 @@ export type Database = {
   pairs_data?: Json | null;
   created_at?: string;
   updated_at?: string;
+  club_id: string;
   };
   Update: {
     id?: string | null;
@@ -820,6 +1191,7 @@ export type Database = {
   pairs_data?: Json | null;
   created_at?: string | null;
   updated_at?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -839,6 +1211,9 @@ export type Database = {
   winner: string | null;
   created_at: string;
   updated_at: string;
+  referee_id: string | null;
+  referee_name: string | null;
+  club_id: string;
   };
   Insert: {
     id?: string;
@@ -855,6 +1230,9 @@ export type Database = {
   winner?: string | null;
   created_at?: string;
   updated_at?: string;
+  referee_id?: string | null;
+  referee_name?: string | null;
+  club_id: string;
   };
   Update: {
     id?: string | null;
@@ -871,6 +1249,9 @@ export type Database = {
   winner?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  referee_id?: string | null;
+  referee_name?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -887,6 +1268,7 @@ export type Database = {
   matches_per_player: number;
   created_at: string;
   updated_at: string;
+  club_id: string;
   };
   Insert: {
     id?: string;
@@ -900,6 +1282,7 @@ export type Database = {
   matches_per_player?: number;
   created_at?: string;
   updated_at?: string;
+  club_id: string;
   };
   Update: {
     id?: string | null;
@@ -913,6 +1296,7 @@ export type Database = {
   matches_per_player?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
+  club_id?: string | null;
   };
   Relationships: [];
 };
@@ -984,11 +1368,19 @@ export type Database = {
 };
     };
     Functions: {
+      "archive_expired_brackets": {
+  Args: Record<string, never>;
+  Returns: Json;
+};
       "check_profile_connection": {
   Args: Record<string, never>;
   Returns: Json;
 };
       "daily_match_generation": {
+  Args: Record<string, never>;
+  Returns: Json;
+};
+      "delete_expired_guests": {
   Args: Record<string, never>;
   Returns: Json;
 };
@@ -998,16 +1390,7 @@ export type Database = {
 };
       "get_attendance_summary": {
   Args: Record<string, never>;
-  Returns: {
-    user_id: string;
-    total_count: number;
-    last30_count: number;
-    last_attended_at: string | null;
-  }[];
-};
-      "delete_expired_guests": {
-  Args: Record<string, never>;
-  Returns: void;
+  Returns: Json;
 };
       "get_available_profiles": {
   Args: Record<string, never>;
@@ -1018,13 +1401,7 @@ export type Database = {
   Returns: string | null;
 };
       "record_match_result_with_coins": {
-  Args: {
-    p_match_id: number;
-    p_winner_team1: boolean;
-    p_team1_score: number;
-    p_team2_score: number;
-    p_recorded_by?: string | null;
-  };
+  Args: Record<string, never>;
   Returns: Json;
 };
     };

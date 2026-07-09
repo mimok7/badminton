@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import type { AdminUser } from '@/types'
-import { getSupabaseServerClient } from '@/lib/supabase-server'
+import { getSupabaseServerClient, getFilteredAdminClient } from '@/lib/supabase-server'
 import { getClubRole } from '@/lib/club-auth'
 import UserManagementClient from './UserManagementClient'
 import { SKILL_LEVEL_CODES } from '@/lib/skill-levels'
@@ -39,13 +39,14 @@ export default async function ManagerMembersPage({
   }
 
   // 3) 사용자 목록 및 부가 데이터 병렬 조회
-  // Note: supabase client is already club_id scoped via proxy
+  // Note: Use filtered admin client to bypass RLS issues for manager
+  const filteredAdmin = await getFilteredAdminClient()
   const [
     { data: clubMembersRows, error },
     { data: aliasesRows },
     { data: recentAttendanceRows }
   ] = await Promise.all([
-    supabase
+    filteredAdmin
       .from('club_members')
       .select(`
         role,
@@ -57,8 +58,8 @@ export default async function ManagerMembersPage({
         )
       `)
       .eq('club_id', activeClubId),
-    (supabase as any).from('club_level_aliases').select('level_code, alias').eq('club_id', activeClubId),
-    (supabase as any).from('attendances').select('user_id, attended_at, status').eq('club_id', activeClubId).eq('status', 'present').order('attended_at', { ascending: false })
+    (filteredAdmin as any).from('club_level_aliases').select('level_code, alias').eq('club_id', activeClubId),
+    (filteredAdmin as any).from('attendances').select('user_id, attended_at, status').eq('club_id', activeClubId).eq('status', 'present').order('attended_at', { ascending: false })
   ])
 
   if (error) {
